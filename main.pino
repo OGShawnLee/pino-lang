@@ -1,0 +1,6 @@
+val name = "Shawn Lee"
+val country = "China"
+var is_married = false
+var age = 14
+
+is_married = true
