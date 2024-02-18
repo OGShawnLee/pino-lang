@@ -2,7 +2,7 @@
 #define LEXER_H
 
 #include <vector>
-#include "lexer/common.h"
+#include "commons/lexer.h"
 #include "utils.h"
 #include "types.h"
 
@@ -20,6 +20,10 @@ struct Token {
     println("  line: " + std::to_string(line));
     println("  column: " + std::to_string(column));
     println("}");
+  }
+
+  bool is_given_marker(Marker marker) {
+    return kind == Kind::MARKER && name == get_marker_name(marker);
   }
 };
 

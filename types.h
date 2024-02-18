@@ -1,5 +1,23 @@
+#ifndef TYPES_H
+#define TYPES_H
+
+#include <memory>
+
 template <typename T>
 struct Peek {
   T node; 
   size_t index;
 };
+
+template <typename T>
+struct PeekPtr {
+  std::unique_ptr<T> node;
+  size_t index;
+
+  PeekPtr() {
+    node = std::make_unique<T>();
+    index = 0;
+  }
+};
+
+#endif

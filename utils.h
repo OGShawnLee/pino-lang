@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <functional>
+#include "types.h"
 
 std::string trim(std::string str);
 
@@ -13,6 +14,14 @@ void each_line(std::string filename, std::function<void(std::string)> callback) 
   while (std::getline(file, line)) {
     callback(line);
   }
+}
+
+std::string get_indentation(size_t indentation) {
+  std::string result = "";
+  for (size_t i = 0; i < indentation; i++) {
+    result += " ";
+  }
+  return result;
 }
 
 bool is_whitespace(char character) {
@@ -25,6 +34,28 @@ bool is_whitespace(std::string str) {
   }
 
   return true;
+}
+
+template <typename T>
+Peek<T> peek(
+  std::vector<T> stream,
+  size_t index,
+  std::function<bool(T&)> is_valid_node,
+  std::function<std::runtime_error(T&)> on_error,
+  std::function<std::runtime_error(T&)> on_end_of_stream
+) {
+  if (index + 1 > stream.size()) {
+    throw on_end_of_stream(stream[index + 1]);
+  }
+
+  if (is_valid_node(stream[index + 1])) {
+    Peek<T> result;
+    result.node = stream[index + 1];
+    result.index = index + 1;
+    return result;
+  }
+
+  throw on_error(stream[index]);
 }
 
 void println(std::string str) {

@@ -1,5 +1,5 @@
-#ifndef LEXER_COMMON_H
-#define LEXER_COMMON_H
+#ifndef COMMONS_LEXER_H
+#define COMMONS_LEXER_H
 
 #include <map>
 
@@ -38,6 +38,14 @@ std::map<Keyword, std::string> KEYWORD_NAME = {
 
 bool is_keyword(std::string str) {
   return KEYWORD_KEY.find(str) != KEYWORD_KEY.end();
+}
+
+Keyword get_keyword(std::string str) {
+  if (is_keyword(str)) {
+    return KEYWORD_KEY[str];
+  }
+
+  throw "Not a keyword";
 }
 
 std::string get_keyword_name(std::string str) {
@@ -105,6 +113,22 @@ Marker get_marker(char character) {
 
 std::string get_marker_name(Marker marker) {
   return MARKER_NAME.at(marker);
+}
+
+enum class Type {
+  BOOL,
+  STR,
+  INT,
+};
+
+std::map<std::string, std::string> LITERAL_NAME_TO_TYPE_NAME = {
+  {LITERAL_NAME[Literal::BOOLEAN], "Boolean"},
+  {LITERAL_NAME[Literal::INTEGER], "Integer"},
+  {LITERAL_NAME[Literal::STRING], "String"},
+};
+
+std::string get_literal_type_name(std::string name) {
+  return LITERAL_NAME_TO_TYPE_NAME.at(name);
 }
 
 #endif
