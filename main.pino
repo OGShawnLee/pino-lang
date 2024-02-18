@@ -4,3 +4,4 @@ var is_married = false
 var age = 14
 
 is_married = true
+age = 15

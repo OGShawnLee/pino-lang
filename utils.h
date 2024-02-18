@@ -58,6 +58,19 @@ Peek<T> peek(
   throw on_error(stream[index]);
 }
 
+template <typename T>
+bool is_next(
+  std::vector<T> stream,
+  size_t index,
+  std::function<bool(T&)> is_valid_node
+) {
+  if (index + 1 > stream.size()) {
+    return false;
+  }
+
+  return is_valid_node(stream[index + 1]);
+}
+
 void println(std::string str) {
   std::cout << str << std::endl;
 }
