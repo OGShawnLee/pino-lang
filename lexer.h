@@ -72,17 +72,66 @@ class Lexer {
     return token;
   }
 
-  static Peek<Token> lex_str_literal(std::string line, size_t index_start, size_t line_number) {
-    Peek<Token> result;
+  static Token handle_str_injection(std::string line, size_t index_start, size_t line_number) {
     std::string buffer = "";
 
     for (size_t i = index_start + 1; i < line.length(); i++) {
       char character = line[i];
 
-      if (character == '"') {
-        result.node = Token::as_literal(Literal::STRING, buffer, index_start, line_number);
-        result.index = i;
-        return result;
+      if (is_valid_identifier_char(character) == false) {
+        Token token;
+        token.kind = Kind::IDENTIFIER;
+        token.name = "Identifier";
+        token.value = buffer;
+        token.line = line_number;
+        token.column = index_start;
+        return token;
+      }
+
+      buffer += character;
+    }
+
+    throw "Invalid String Injection";
+  }
+
+  static bool is_next_char_alpha(std::string line, size_t index) {
+    return index + 1 < line.length() && isalpha(line[index + 1]);
+  }
+
+  static bool is_valid_identifier_char(char character) {
+    return isalnum(character) || character == '_' || character == '$';
+  }
+
+  static PeekStream<Token> lex_str_literal(std::string line, size_t index_start, size_t line_number) {
+    PeekStream<Token> result;
+    std::string buffer = "";
+
+    result.nodes.push_back(
+      Token::as_marker(Marker::DOUBLE_QUOTE, '"', index_start, line_number)
+    );
+
+    for (size_t i = index_start + 1; i < line.length(); i++) {
+      char character = line[i];
+
+      if (is_marker(character)) {
+        Marker marker = get_marker(character);
+
+        if (marker == Marker::DOUBLE_QUOTE) {
+          result.nodes.push_back(
+            Token::as_literal(Literal::STRING, buffer, index_start, line_number)
+          );
+          result.nodes.push_back(
+            Token::as_marker(Marker::DOUBLE_QUOTE, '"', i, line_number)
+          );
+          result.index = i;
+          return result;
+        }
+
+        if (marker == Marker::DOLLAR_SIGN && is_next_char_alpha(line, i)) {
+          result.nodes.push_back(
+            handle_str_injection(line, i, line_number)
+          );
+        }
       }
 
       buffer += character;
@@ -124,8 +173,8 @@ class Lexer {
 
           switch (marker) {
             case Marker::DOUBLE_QUOTE: {
-              Peek<Token> result = lex_str_literal(line, i, line_number);
-              stream.push_back(result.node);
+              PeekStream<Token> result = lex_str_literal(line, i, line_number);
+              stream.insert(stream.end(), result.nodes.begin(), result.nodes.end());
               i = result.index;
               break;
             }

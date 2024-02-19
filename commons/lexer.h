@@ -85,16 +85,19 @@ std::string get_literal_name(Literal literal) {
 }
 
 enum Marker {
+  DOLLAR_SIGN,
   DOUBLE_QUOTE,
   EQUAL_SIGN,
 };
 
 std::map<char, Marker> MARKER_KEY = {
+  {'$', Marker::DOLLAR_SIGN},
   {'"', Marker::DOUBLE_QUOTE},
   {'=', Marker::EQUAL_SIGN},
 };
 
 std::map<Marker, std::string> MARKER_NAME = {
+  {Marker::DOLLAR_SIGN, "String Injection Marker"},
   {Marker::EQUAL_SIGN, "Equal Sign"},
   {Marker::DOUBLE_QUOTE, "Double Quote"},
 };

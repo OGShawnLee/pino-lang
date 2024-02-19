@@ -32,6 +32,30 @@ class Statement {
     }
 };
 
+Peek<Token> parse_str_literal(std::vector<Token> stream, size_t index) {
+  Token current = stream[index];
+  if (current.is_given_marker(Marker::DOUBLE_QUOTE) == false) {
+    throw std::runtime_error("Expected double quote, but got " + current.value);
+  }
+
+  Peek<Token> result;
+
+  for (size_t i = index + 1; i < stream.size(); i++) {
+    Token token = stream[i];
+
+    if (token.kind == Kind::LITERAL) {
+      result.node = token;
+    }
+
+    if (token.is_given_marker(Marker::DOUBLE_QUOTE)) {
+      result.index = i;
+      return result;
+    }
+  }
+
+  throw std::runtime_error("Unterminated String Literal");
+}
+
 namespace Entity {
   Peek<std::string> get_name(std::vector<Token> stream, size_t index) {
     auto result = peek<Token>(
@@ -69,11 +93,11 @@ namespace Entity {
       }
     );
 
-    return peek<Token>(
+    auto next = peek<Token>(
       stream,
       marker.index,
       [](Token &token) {
-        return token.kind == Kind::LITERAL;
+        return token.kind == Kind::LITERAL || token.is_given_marker(Marker::DOUBLE_QUOTE);
       },
       [](Token &token) {
         return std::runtime_error("Expected identifier value, but got " + token.value);
@@ -82,6 +106,12 @@ namespace Entity {
         return std::runtime_error("Unexpected end of stream");
       }
     );
+
+    if (next.node.is_given_marker(Marker::DOUBLE_QUOTE)) {
+      return parse_str_literal(stream, next.index);
+    }
+
+    return next;
   }
 }
 

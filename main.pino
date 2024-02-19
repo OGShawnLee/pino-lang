@@ -2,6 +2,7 @@ val name = "Shawn Lee"
 val country = "China"
 var is_married = false
 var age = 14
+var message = "$name lives in $country"
 
 is_married = true
 age = 15

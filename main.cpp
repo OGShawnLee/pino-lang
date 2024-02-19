@@ -2,6 +2,7 @@
 
 int main() {
   std::vector<Token> stream = Lexer::tokenise("main.pino");
+  for (Token token : stream) token.print();
   Statement statement = Parser::parse(stream);
   statement.print();
   return 0;

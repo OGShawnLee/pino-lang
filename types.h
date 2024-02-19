@@ -20,4 +20,10 @@ struct PeekPtr {
   }
 };
 
+template <typename T>
+struct PeekStream {
+  std::vector<T> nodes;
+  size_t index;
+};
+
 #endif
