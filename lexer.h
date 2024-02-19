@@ -6,31 +6,54 @@
 #include "utils.h"
 #include "types.h"
 
-struct Token {
-  Kind kind;
-  std::string name;
-  std::string value;
-  size_t line;
-  size_t column;
+class Token {
+  public:
+    Kind kind;
+    std::string name;
+    std::string value;
+    size_t line;
+    size_t column;
 
-  void print() {
-    println(get_kind_name(kind) + " {");
-    println("  name: " + name);
-    println("  value: " + value);
-    println("  line: " + std::to_string(line));
-    println("  column: " + std::to_string(column));
-    println("}");
-  }
+    static Token as_literal(Literal literal, std::string value, size_t column, size_t line) {
+      Token token;
+      token.kind = Kind::LITERAL;
+      token.name = get_literal_name(literal);
+      token.value = value;
+      token.line = line;
+      token.column = column;
+      return token;
+    }
 
-  bool is_given_marker(Marker marker) {
-    return kind == Kind::MARKER && name == get_marker_name(marker);
-  }
+    static Token as_marker(Marker marker, char character, size_t column, size_t line) {
+      Token token;
+      token.kind = Kind::MARKER;
+      token.name = get_marker_name(marker);
+      token.value = std::string(1, character);
+      token.line = line;
+      token.column = column;
+      return token;
+    }
+
+    void print() {
+      println(get_kind_name(kind) + " {");
+      println("  name: " + name);
+      println("  value: " + value);
+      println("  line: " + std::to_string(line));
+      println("  column: " + std::to_string(column));
+      println("}");
+    }
+
+    bool is_given_marker(Marker marker) {
+      return kind == Kind::MARKER && name == get_marker_name(marker);
+    }
 };
 
 class Lexer {
-  static Token handle_buffer(std::string buffer) {
+  static Token handle_buffer(std::string buffer, size_t column, size_t line) {
     Token token;
     token.value = buffer;
+    token.line = line;
+    token.column = column;
 
     if (is_keyword(buffer)) {
       token.kind = Kind::KEYWORD;
@@ -49,7 +72,7 @@ class Lexer {
     return token;
   }
 
-  static Peek<Token> lex_str_literal(std::string line, size_t index_start) {
+  static Peek<Token> lex_str_literal(std::string line, size_t index_start, size_t line_number) {
     Peek<Token> result;
     std::string buffer = "";
 
@@ -57,10 +80,7 @@ class Lexer {
       char character = line[i];
 
       if (character == '"') {
-        result.node.kind = Kind::LITERAL;
-        result.node.name = get_literal_name(Literal::STRING);
-        result.node.value = buffer;
-        result.node.column = index_start;
+        result.node = Token::as_literal(Literal::STRING, buffer, index_start, line_number);
         result.index = i;
         return result;
       }
@@ -86,9 +106,7 @@ class Lexer {
             continue;
           }
 
-          Token token = handle_buffer(buffer);
-          token.line = line_number;
-          token.column = i;
+          Token token = handle_buffer(buffer, i, line_number);
           stream.push_back(token);
           buffer = "";
 
@@ -97,9 +115,7 @@ class Lexer {
 
         if (is_marker(character)) {
           if (is_whitespace(buffer) == false) {
-            Token token = handle_buffer(buffer);
-            token.line = line_number;
-            token.column = i;
+            Token token = handle_buffer(buffer, i, line_number);
             stream.push_back(token);
             buffer = "";
           }
@@ -108,19 +124,13 @@ class Lexer {
 
           switch (marker) {
             case Marker::DOUBLE_QUOTE: {
-              Peek<Token> result = lex_str_literal(line, i);
-              result.node.line = line_number;
+              Peek<Token> result = lex_str_literal(line, i, line_number);
               stream.push_back(result.node);
               i = result.index;
               break;
             }
             default:
-              Token token;
-              token.kind = Kind::MARKER;
-              token.name = get_marker_name(marker);
-              token.value = std::string(1, character);
-              token.line = line_number;
-              token.column = i;
+              Token token = Token::as_marker(marker, character, i, line_number);
               stream.push_back(token);
           }
 
