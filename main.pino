@@ -6,3 +6,9 @@ var message = "$name lives in $country"
 
 is_married = true
 age = 15
+
+message = "This was written in Pino and transpiled to JavaScript!"
+val planet = "Earth is the planet where humans live"
+val person = "Gaius Julius Ceasar Augustus"
+
+is_married = false
