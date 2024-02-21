@@ -12,3 +12,7 @@ val planet = "Earth is the planet where humans live"
 val person = "Gaius Julius Ceasar Augustus"
 
 is_married = false
+
+println(message, planet, person)
+println(person, is_married)
+println("Literals can be passed as well!", 404, false, true)

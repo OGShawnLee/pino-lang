@@ -26,4 +26,10 @@ struct PeekStream {
   size_t index;
 };
 
+template <typename T>
+struct PeekStreamPtr {
+  std::vector<std::unique_ptr<T>> nodes;
+  size_t index;
+};
+
 #endif

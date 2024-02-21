@@ -88,18 +88,27 @@ enum Marker {
   DOLLAR_SIGN,
   DOUBLE_QUOTE,
   EQUAL_SIGN,
+  LEFT_PARENTHESIS,
+  RIGHT_PARENTHESIS,
+  COMMA
 };
 
 std::map<char, Marker> MARKER_KEY = {
   {'$', Marker::DOLLAR_SIGN},
   {'"', Marker::DOUBLE_QUOTE},
   {'=', Marker::EQUAL_SIGN},
+  {'(', Marker::LEFT_PARENTHESIS},
+  {')', Marker::RIGHT_PARENTHESIS},
+  {',', Marker::COMMA},
 };
 
 std::map<Marker, std::string> MARKER_NAME = {
   {Marker::DOLLAR_SIGN, "String Injection Marker"},
   {Marker::EQUAL_SIGN, "Equal Sign"},
   {Marker::DOUBLE_QUOTE, "Double Quote"},
+  {Marker::LEFT_PARENTHESIS, "Left Parenthesis"},
+  {Marker::RIGHT_PARENTHESIS, "Right Parenthesis"},
+  {Marker::COMMA, "Comma"},
 };
 
 bool is_marker(char character) {
