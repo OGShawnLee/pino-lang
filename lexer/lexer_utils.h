@@ -1,5 +1,5 @@
-#ifndef COMMONS_LEXER_H
-#define COMMONS_LEXER_H
+#ifndef LEXER_UTILS_H
+#define LEXER_UTILS_H
 
 #include <map>
 

@@ -1,7 +1,7 @@
 #ifndef TRANSPILER_H
 #define TRANSPILER_H
 
-#include "parser.h"
+#include "./parser/parser.h"
 
 enum class BuiltInFn {
   PRINT_LN

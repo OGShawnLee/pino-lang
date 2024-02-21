@@ -4,9 +4,9 @@
 #include <map>
 #include <memory>
 #include <vector>
-#include "commons/parser.h"
-#include "lexer.h"
-#include "utils.h"
+#include "parser_utils.h"
+#include "../lexer/lexer.h"
+#include "../utils.h"
 
 class Statement {
   public:

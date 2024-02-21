@@ -15,4 +15,4 @@ is_married = false
 
 println(message, planet, person)
 println(person, is_married)
-println("Literals can be passed as well!", 404, false, true)
+println("What is going on?", 404, false, true)

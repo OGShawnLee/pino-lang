@@ -11,4 +11,4 @@ const person = "Gaius Julius Ceasar Augustus";
 is_married = false;
 console.log(message, planet, person);
 console.log(person, is_married);
-console.log("Literals can be passed as well!", 404, false, true);
+console.log("What is going on?", 404, false, true);

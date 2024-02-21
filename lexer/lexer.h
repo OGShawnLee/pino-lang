@@ -2,9 +2,9 @@
 #define LEXER_H
 
 #include <vector>
-#include "commons/lexer.h"
-#include "utils.h"
-#include "types.h"
+#include "lexer_utils.h"
+#include "../utils.h"
+#include "../types.h"
 
 class Token {
   public:
