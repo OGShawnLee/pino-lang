@@ -31,9 +31,15 @@ if is_married {
       println("Yet Another Nested If Statement!")
     }
   }
+} else {
+  println("$name is not married!")
 }
 
 if has_children {
   val message = "$name has children"
   println(message)
+} else {
+  println("$name has no children!")
 }
+
+val amount = 12

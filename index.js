@@ -23,8 +23,13 @@ if (is_married) {
       console.log("Yet Another Nested If Statement!");
     }
   }
+} else {
+  console.log("$name is not married!");
 }
 if (has_children) {
   const message = "$name has children";
   console.log(message);
+} else {
+  console.log("$name has no children!");
 }
+const amount = 12;

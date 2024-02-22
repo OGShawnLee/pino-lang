@@ -42,6 +42,14 @@ class Transpiler {
         for (std::unique_ptr<Statement> &statement : if_statement->body) {
           output += transpile_statement(statement.get(), indent + 2);
         }
+
+        if (if_statement->else_statement != nullptr) {
+          output += indentation + "} else {\n";
+          for (std::unique_ptr<Statement> &statement : if_statement->else_statement->body) {
+            output += transpile_statement(statement.get(), indent + 2);
+          }
+        }
+
         output += indentation + "}\n";
         return output;
       }
