@@ -24,16 +24,22 @@ std::string get_kind_name(Kind kind) {
 enum class Keyword {
   VARIABLE,
   CONSTANT,
+  IF,
+  ELSE,
 };
 
 std::map<std::string, Keyword> KEYWORD_KEY = {
   {"var", Keyword::VARIABLE},
   {"val", Keyword::CONSTANT},
+  {"if", Keyword::IF},
+  {"else", Keyword::ELSE},
 };
 
 std::map<Keyword, std::string> KEYWORD_NAME = {
   {Keyword::VARIABLE, "Variable Keyword"},
   {Keyword::CONSTANT, "Constant Keyword"},
+  {Keyword::IF, "If Keyword"},
+  {Keyword::ELSE, "Else Keyword"},
 };
 
 bool is_keyword(std::string str) {
@@ -42,15 +48,20 @@ bool is_keyword(std::string str) {
 
 Keyword get_keyword(std::string str) {
   if (is_keyword(str)) {
-    return KEYWORD_KEY[str];
+    return KEYWORD_KEY.at(str);
   }
 
   throw "Not a keyword";
 }
 
+std::string get_keyword_name(Keyword keyword) {
+  return KEYWORD_NAME.at(keyword);
+}
+
 std::string get_keyword_name(std::string str) {
   if (is_keyword(str)) {
-    return KEYWORD_NAME[static_cast<Keyword>(KEYWORD_KEY[str])];
+    Keyword keyword = get_keyword(str);
+    return get_keyword_name(keyword);
   }
 
   throw "Not a keyword";
@@ -90,7 +101,9 @@ enum Marker {
   EQUAL_SIGN,
   LEFT_PARENTHESIS,
   RIGHT_PARENTHESIS,
-  COMMA
+  COMMA,
+  LEFT_BRACE,
+  RIGHT_BRACE,
 };
 
 std::map<char, Marker> MARKER_KEY = {
@@ -100,6 +113,8 @@ std::map<char, Marker> MARKER_KEY = {
   {'(', Marker::LEFT_PARENTHESIS},
   {')', Marker::RIGHT_PARENTHESIS},
   {',', Marker::COMMA},
+  {'{', Marker::LEFT_BRACE},
+  {'}', Marker::RIGHT_BRACE},
 };
 
 std::map<Marker, std::string> MARKER_NAME = {
@@ -109,6 +124,8 @@ std::map<Marker, std::string> MARKER_NAME = {
   {Marker::LEFT_PARENTHESIS, "Left Parenthesis"},
   {Marker::RIGHT_PARENTHESIS, "Right Parenthesis"},
   {Marker::COMMA, "Comma"},
+  {Marker::LEFT_BRACE, "Left Brace"},
+  {Marker::RIGHT_BRACE, "Right Brace"},
 };
 
 bool is_marker(char character) {

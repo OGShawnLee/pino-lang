@@ -9,7 +9,8 @@ enum class StatementType {
   VAL_DECLARATION,
   VAR_REASSIGNMENT,
   EXPRESSION,
-  FUNCTION_CALL
+  FUNCTION_CALL,
+  IF_STATEMENT,
 };
 
 std::map<StatementType, std::string> STATEMENT_TYPE_NAME = {
@@ -18,7 +19,8 @@ std::map<StatementType, std::string> STATEMENT_TYPE_NAME = {
   {StatementType::VAL_DECLARATION, "Constant Declaration"},
   {StatementType::VAR_REASSIGNMENT, "Variable Reassignment"},
   {StatementType::FUNCTION_CALL, "Function Call"},
-  {StatementType::EXPRESSION, "Expression"}
+  {StatementType::EXPRESSION, "Expression"},
+  {StatementType::IF_STATEMENT, "If Statement"},
 };
 
 std::string get_statement_type_name(StatementType type) {

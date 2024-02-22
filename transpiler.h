@@ -33,6 +33,69 @@ std::string get_built_in_fn_name(std::string str) {
 }
 
 class Transpiler {
+  static std::string transpile_statement(Statement *statement, size_t indent = 0) {
+    std::string indentation = get_indentation(indent);
+    switch (statement->kind) {
+      case StatementType::IF_STATEMENT: {
+        IfStatement *if_statement = static_cast<IfStatement *>(statement);
+        std::string output = indentation + "if (" + if_statement->condition + ") {\n";
+        for (std::unique_ptr<Statement> &statement : if_statement->body) {
+          output += transpile_statement(statement.get(), indent + 2);
+        }
+        output += indentation + "}\n";
+        return output;
+      }
+      case StatementType::FUNCTION_CALL: {
+        Function *fn_call = static_cast<Function *>(statement);
+
+        if (is_built_in_fn(fn_call->name) == false) {
+          throw "Not a built-in function";
+        }
+
+        std::string output = indentation + get_built_in_fn_name(fn_call->name) + "(";
+
+        if (fn_call->arguments.size() == 0) {
+          output += ");\n";
+          return output;
+        }
+
+        if (fn_call->arguments.size() == 1) {
+          output += fn_call->arguments[0]->name + ");\n";
+          return output;
+        }
+
+        output += fn_call->arguments[0]->name + ", ";
+        for (size_t i = 1; i < fn_call->arguments.size() - 1; i++) {
+          output += fn_call->arguments[i]->name + ", ";
+        }
+        output += fn_call->arguments[fn_call->arguments.size() - 1]->name + ");\n";
+        return output;
+      }
+      case StatementType::VAL_DECLARATION:
+      case StatementType::VAR_DECLARATION:
+      case StatementType::VAR_REASSIGNMENT: {
+        Variable *variable = static_cast<Variable *>(statement);
+        std::string output = indentation;
+
+        if (variable->kind == StatementType::VAL_DECLARATION) {
+          output += "const ";
+        } else if (variable->kind == StatementType::VAR_DECLARATION) {
+          output += "let ";
+        }
+
+        if (variable->type == "String") {
+          output += variable->name + " = \"" + variable->value + "\";\n";
+          return output;
+        }
+
+        output += variable->name + " = " + variable->value + ";\n";
+        return output;
+      }
+    }
+
+    throw "Invalid statement";
+  }
+
   public:
     static void transpile(std::string filename, std::string output_filename = "main.js") {
       std::vector<Token> stream = Lexer::tokenise(filename);
@@ -42,48 +105,12 @@ class Transpiler {
 
       for (std::unique_ptr<Statement> &statement : statement.body) {
         switch (statement->kind) {
-          case StatementType::FUNCTION_CALL: {
-            Function *fn_call = static_cast<Function *>(statement.get());
-
-            if (is_built_in_fn(fn_call->name) == false) {
-              throw "Not a built-in function";
-            }
-
-            output += get_built_in_fn_name(fn_call->name) + "(";
-
-            if (fn_call->arguments.size() == 0) {
-              output += ");\n";
-              break;
-            }
-
-            if (fn_call->arguments.size() == 1) {
-              output += fn_call->arguments[0]->name + ");\n";
-              break;
-            }
-
-            output += fn_call->arguments[0]->name + ", ";
-            for (size_t i = 1; i < fn_call->arguments.size() - 1; i++) {
-              output += fn_call->arguments[i]->name + ", ";
-            }
-            output += fn_call->arguments[fn_call->arguments.size() - 1]->name + ");\n";
-            break;
-          }
+          case StatementType::IF_STATEMENT:
+          case StatementType::FUNCTION_CALL:
           case StatementType::VAL_DECLARATION:
           case StatementType::VAR_DECLARATION:
           case StatementType::VAR_REASSIGNMENT:
-            Variable *variable = static_cast<Variable *>(statement.get());
-            if (variable->kind == StatementType::VAL_DECLARATION) {
-              output += "const ";
-            } else if (variable->kind == StatementType::VAR_DECLARATION) {
-              output += "let ";
-            }
-
-            if (variable->type == "String") {
-              output += variable->name + " = \"" + variable->value + "\";\n";
-              break;
-            }
-
-            output += variable->name + " = " + variable->value + ";\n";
+            output += transpile_statement(statement.get());
             break;
         }
       }

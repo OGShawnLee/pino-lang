@@ -16,3 +16,24 @@ is_married = false
 println(message, planet, person)
 println(person, is_married)
 println("What is going on?", 404, false, true)
+
+var has_children = false
+is_married = true
+
+if is_married {
+  val message = "$name is married"
+  println(message)
+
+  if true {
+    println("Nested If Statement!")
+  
+    if true {
+      println("Yet Another Nested If Statement!")
+    }
+  }
+}
+
+if has_children {
+  val message = "$name has children"
+  println(message)
+}

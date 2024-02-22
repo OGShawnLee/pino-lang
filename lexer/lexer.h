@@ -43,6 +43,14 @@ class Token {
       println("}");
     }
 
+    bool is_given_keyword(Keyword keyword) {
+      return kind == Kind::KEYWORD && name == get_keyword_name(keyword);
+    }
+
+    bool is_given_literal(Literal literal) {
+      return kind == Kind::LITERAL && name == get_literal_name(literal);
+    }
+
     bool is_given_marker(Marker marker) {
       return kind == Kind::MARKER && name == get_marker_name(marker);
     }
