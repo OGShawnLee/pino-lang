@@ -54,6 +54,10 @@ class Token {
     bool is_given_marker(Marker marker) {
       return kind == Kind::MARKER && name == get_marker_name(marker);
     }
+
+    bool is_given_marker(Marker marker_a, Marker marker_b) {
+      return kind == Kind::MARKER && (name == get_marker_name(marker_a) || name == get_marker_name(marker_b));
+    }
 };
 
 class Lexer {
@@ -66,6 +70,10 @@ class Lexer {
     if (is_keyword(buffer)) {
       token.kind = Kind::KEYWORD;
       token.name = get_keyword_name(buffer);
+    } else if (is_built_in_type(buffer)) {
+      token.kind = Kind::BUILT_IN_TYPE;
+      BuiltInType type = get_built_in_type(buffer);
+      token.name = get_built_in_type_name(type);
     } else if (is_bool_literal(buffer)) {
       token.kind = Kind::LITERAL;
       token.name = get_literal_name(Literal::BOOLEAN);

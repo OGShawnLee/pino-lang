@@ -8,6 +8,7 @@ enum class Kind {
   KEYWORD,
   LITERAL,
   MARKER,
+  BUILT_IN_TYPE,
 };
 
 std::map<Kind, std::string> KIND_NAME = {
@@ -15,10 +16,45 @@ std::map<Kind, std::string> KIND_NAME = {
   {Kind::KEYWORD, "Keyword"},
   {Kind::LITERAL, "Literal"},
   {Kind::MARKER, "Marker"},
+  {Kind::BUILT_IN_TYPE, "Built-in Type"},
 };
 
 std::string get_kind_name(Kind kind) {
   return KIND_NAME[kind];
+}
+
+enum class BuiltInType {
+  BOOL,
+  INT,
+  STR,
+};
+
+std::map<std::string, BuiltInType> BUILT_IN_TYPE_KEY = {
+  {"bool", BuiltInType::BOOL},
+  {"int", BuiltInType::INT},
+  {"str", BuiltInType::STR},
+};
+
+std::map<BuiltInType, std::string> BUILT_IN_TYPE_NAME = {
+  {BuiltInType::BOOL, "Boolean"},
+  {BuiltInType::INT, "Integer"},
+  {BuiltInType::STR, "String"},
+};
+
+bool is_built_in_type(std::string str) {
+  return BUILT_IN_TYPE_KEY.find(str) != BUILT_IN_TYPE_KEY.end();
+}
+
+BuiltInType get_built_in_type(std::string str) {
+  if (is_built_in_type(str)) {
+    return BUILT_IN_TYPE_KEY.at(str);
+  }
+
+  throw "Not a built-in type";
+}
+
+std::string get_built_in_type_name(BuiltInType type) {
+  return BUILT_IN_TYPE_NAME.at(type);
 }
 
 enum class Keyword {
@@ -26,6 +62,7 @@ enum class Keyword {
   CONSTANT,
   IF,
   ELSE,
+  FUNCTION
 };
 
 std::map<std::string, Keyword> KEYWORD_KEY = {
@@ -33,6 +70,7 @@ std::map<std::string, Keyword> KEYWORD_KEY = {
   {"val", Keyword::CONSTANT},
   {"if", Keyword::IF},
   {"else", Keyword::ELSE},
+  {"fn", Keyword::FUNCTION},
 };
 
 std::map<Keyword, std::string> KEYWORD_NAME = {
@@ -40,6 +78,7 @@ std::map<Keyword, std::string> KEYWORD_NAME = {
   {Keyword::CONSTANT, "Constant Keyword"},
   {Keyword::IF, "If Keyword"},
   {Keyword::ELSE, "Else Keyword"},
+  {Keyword::FUNCTION, "Function Keyword"},
 };
 
 bool is_keyword(std::string str) {

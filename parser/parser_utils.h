@@ -1,5 +1,4 @@
-#ifndef UTILS_PARSER_H
-#define UTILS_PARSER_H
+#pragma once
 
 #include <map>
 #include <vector>
@@ -16,6 +15,7 @@ enum class StatementType {
   FUNCTION_CALL,
   IF_STATEMENT,
   ELSE_STATEMENT,
+  FUNCTION_DEFINITION,
 };
 
 std::map<StatementType, std::string> STATEMENT_TYPE_NAME = {
@@ -27,10 +27,75 @@ std::map<StatementType, std::string> STATEMENT_TYPE_NAME = {
   {StatementType::EXPRESSION, "Expression"},
   {StatementType::IF_STATEMENT, "If Statement"},
   {StatementType::ELSE_STATEMENT, "Else Statement"},
+  {StatementType::FUNCTION_DEFINITION, "Function Definition"},
 };
 
 std::string get_statement_type_name(StatementType type) {
   return STATEMENT_TYPE_NAME.at(type);
+}
+
+Peek<Token> check_left_brace(std::vector<Token> stream, size_t index) {
+  return peek<Token>(
+    stream,
+    index,
+    [](Token &token) {
+      return token.is_given_marker(Marker::LEFT_BRACE);
+    },
+    [](Token &token) {
+      return std::runtime_error("Expected left brace, but got " + token.value);
+    },
+    [](Token &token) {
+      return std::runtime_error("Unexpected end of stream");
+    }
+  );
+}
+
+Peek<Token> check_right_brace(std::vector<Token> stream, size_t index) {
+  return peek<Token>(
+    stream,
+    index,
+    [](Token &token) {
+      return token.is_given_marker(Marker::RIGHT_BRACE);
+    },
+    [](Token &token) {
+      return std::runtime_error("Expected right brace, but got " + token.value);
+    },
+    [](Token &token) {
+      return std::runtime_error("Unexpected end of stream");
+    }
+  );
+}
+
+Peek<Token> check_left_parenthesis(std::vector<Token> stream, size_t index) {
+  return peek<Token>(
+    stream,
+    index,
+    [](Token &token) {
+      return token.is_given_marker(Marker::LEFT_PARENTHESIS);
+    },
+    [](Token &token) {
+      return std::runtime_error("Expected left parenthesis, but got " + token.value);
+    },
+    [](Token &token) {
+      return std::runtime_error("Unexpected end of stream");
+    }
+  );
+}
+
+Peek<Token> check_right_parenthesis(std::vector<Token> stream, size_t index) {
+  return peek<Token>(
+    stream,
+    index,
+    [](Token &token) {
+      return token.is_given_marker(Marker::RIGHT_PARENTHESIS);
+    },
+    [](Token &token) {
+      return std::runtime_error("Expected right parenthesis, but got " + token.value);
+    },
+    [](Token &token) {
+      return std::runtime_error("Unexpected end of stream");
+    }
+  );
 }
 
 Peek<Token> parse_str_literal(std::vector<Token> stream, size_t index) {
@@ -115,5 +180,3 @@ namespace Entity {
     return next;
   }
 };
-
-#endif

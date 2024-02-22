@@ -42,4 +42,45 @@ if has_children {
   println("$name has no children!")
 }
 
-val amount = 12
+fn greet(name str, is_married bool, has_newline bool) {
+  if is_married {
+    println("Hello!", name)
+    println("You are married, great!")
+  } else {
+    println("Hello!", name)
+    println("You will get married one day!")
+  }
+
+  if has_newline { 
+    println() 
+  }  
+}
+
+fn call_planets() {
+  println("First planet is Mercury")
+  println("Then we have Venus")
+  println("The third one is our planet, Earth")
+}
+
+greet(name, true, true)
+greet(name, false, true)
+greet("Richard", true)
+call_planets()
+
+message = 
+  "Gaius Julius Ceasar Augustus was the first and greatest Roman emperor"
+
+println()
+print_message(message, "Shawn Lee")
+
+fn print_message(message str, name str) {
+  println(message)
+  println("Thank you for leaving your message", name)
+}
+
+fn print_country(name str, population int) {
+  println(name, "has this many millions of people:", population)
+}
+
+println()
+print_country(country, 1630)

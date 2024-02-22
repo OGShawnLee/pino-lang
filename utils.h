@@ -1,5 +1,4 @@
-#ifndef UTILS_h
-#define UTILS_h
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -86,5 +85,3 @@ std::string trim(std::string str) {
   while (is_whitespace(str[end])) end--;
   return str.substr(start, end - start + 1);
 }
-
-#endif

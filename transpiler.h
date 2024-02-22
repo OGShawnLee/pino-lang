@@ -1,7 +1,12 @@
 #ifndef TRANSPILER_H
 #define TRANSPILER_H
 
-#include "./parser/parser.h"
+#include "./parser/ControlFlow.h"
+#include "./parser/Function.h"
+#include "./parser/Parser.cpp"
+#include "./parser/Variable.h"
+#include "./lexer/lexer.h"
+#include <map>
 
 enum class BuiltInFn {
   PRINT_LN
@@ -53,14 +58,48 @@ class Transpiler {
         output += indentation + "}\n";
         return output;
       }
-      case StatementType::FUNCTION_CALL: {
-        Function *fn_call = static_cast<Function *>(statement);
+      case StatementType::FUNCTION_DEFINITION: {
+        FunctionDefinition *fn_def = static_cast<FunctionDefinition *>(statement);
+        std::string output = indentation + "function " + fn_def->name + "(";
 
-        if (is_built_in_fn(fn_call->name) == false) {
-          throw "Not a built-in function";
+        if (fn_def->parameters.size() == 0) {
+          output += ") {\n";
+          for (std::unique_ptr<Statement> &statement : fn_def->body) {
+            output += transpile_statement(statement.get(), indent + 2);
+          }
+          output += indentation + "}\n";
+          return output;
         }
 
-        std::string output = indentation + get_built_in_fn_name(fn_call->name) + "(";
+        if (fn_def->parameters.size() == 1) {
+          output += fn_def->parameters[0].name + ") {\n";
+          for (std::unique_ptr<Statement> &statement : fn_def->body) {
+            output += transpile_statement(statement.get(), indent + 2);
+          }
+          output += indentation + "}\n";
+          return output;
+        }
+
+        output += fn_def->parameters[0].name + ", ";
+        for (size_t i = 1; i < fn_def->parameters.size() - 1; i++) {
+          output += fn_def->parameters[i].name + ", ";
+        }
+        output += fn_def->parameters[fn_def->parameters.size() - 1].name + ") {\n";
+        for (std::unique_ptr<Statement> &statement : fn_def->body) {
+          output += transpile_statement(statement.get(), indent + 2);
+        }
+        output += indentation + "}\n";
+        return output;
+      }
+      case StatementType::FUNCTION_CALL: {
+        FunctionCall *fn_call = static_cast<FunctionCall *>(statement);
+
+        std::string output;
+        if (is_built_in_fn(fn_call->name)) {
+          output = indentation + get_built_in_fn_name(fn_call->name) + "(";
+        } else {
+          output = indentation + fn_call->name + "(";
+        }
 
         if (fn_call->arguments.size() == 0) {
           output += ");\n";
@@ -115,11 +154,14 @@ class Transpiler {
         switch (statement->kind) {
           case StatementType::IF_STATEMENT:
           case StatementType::FUNCTION_CALL:
+          case StatementType::FUNCTION_DEFINITION:
           case StatementType::VAL_DECLARATION:
           case StatementType::VAR_DECLARATION:
           case StatementType::VAR_REASSIGNMENT:
             output += transpile_statement(statement.get());
             break;
+          default:
+            println("Invalid statement type");
         }
       }
 
