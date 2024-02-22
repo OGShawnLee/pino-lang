@@ -37,7 +37,7 @@ class Transpiler {
     std::string indentation = get_indentation(indent);
     switch (statement->kind) {
       case StatementType::IF_STATEMENT: {
-        IfStatement *if_statement = static_cast<IfStatement *>(statement);
+        IFStatement *if_statement = static_cast<IFStatement *>(statement);
         std::string output = indentation + "if (" + if_statement->condition + ") {\n";
         for (std::unique_ptr<Statement> &statement : if_statement->body) {
           output += transpile_statement(statement.get(), indent + 2);
