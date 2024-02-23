@@ -112,6 +112,12 @@ enum Literal {
   STRING,
 };
 
+std::map<std::string, Literal> LITERAL_KEY = {
+  {"Boolean Literal", Literal::BOOLEAN},
+  {"Integer Literal", Literal::BOOLEAN},
+  {"String Literal", Literal::INTEGER},
+};
+
 std::map<Literal, std::string> LITERAL_NAME = {
   {Literal::BOOLEAN, "Boolean Literal"},
   {Literal::INTEGER, "Integer Literal"},
@@ -128,6 +134,14 @@ bool is_int_literal(std::string str) {
   }
 
   return true;
+}
+
+Literal get_literal(std::string name) {
+  if (LITERAL_KEY.find(name) != LITERAL_KEY.end()) {
+    return LITERAL_KEY.at(name);
+  }
+
+  throw "Not a literal";
 }
 
 std::string get_literal_name(Literal literal) {

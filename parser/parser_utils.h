@@ -34,6 +34,11 @@ std::string get_statement_type_name(StatementType type) {
   return STATEMENT_TYPE_NAME.at(type);
 }
 
+enum class ExpressionType {
+  IDENTIFIER,
+  LITERAL,
+};
+
 Peek<Token> check_left_brace(std::vector<Token> stream, size_t index) {
   return peek<Token>(
     stream,

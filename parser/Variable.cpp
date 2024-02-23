@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Variable.h"
+#include "Expression.h"
 
 Variable::Variable() {
   kind = StatementType::VAR_DECLARATION;
@@ -37,11 +38,9 @@ PeekPtr<Variable> Variable::build(
     result.node->name = name.node;
   }
 
-  Peek<Token> value = Entity::get_value(stream, result.index);
-  result.index = value.index;
-  result.node->value = value.node.value;
-  result.node->type = get_literal_type_name(value.node.name);
-
+  PeekPtr<Value> val = Value::build(stream, result.index);
+  result.index = val.index;
+  result.node->value = std::move(val.node);
   return result;
 }
 
@@ -50,7 +49,7 @@ void Variable::print(size_t indentation) {
 
   println(indentation_str + get_statement_type_name(kind) + " {");
   println(indentation_str + "  name: " + name);
-  println(indentation_str + "  value: " + value);
+  println(indentation_str + "  value: " + value->value);
   println(indentation_str + "  type: " + type);
   println(indentation_str + "}");
 }

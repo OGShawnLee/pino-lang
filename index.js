@@ -2,7 +2,8 @@ const name = "Shawn Lee";
 const country = "China";
 let is_married = false;
 let age = 14;
-let message = "$name lives in $country";
+let message = `${name} lives in ${country}`;
+console.log(message);
 is_married = true;
 age = 15;
 message = "This was written in Pino and transpiled to JavaScript!";
@@ -15,7 +16,7 @@ console.log("What is going on?", 404, false, true);
 let has_children = false;
 is_married = true;
 if (is_married) {
-  const message = "$name is married";
+  const message = `${name} is married`;
   console.log(message);
   if (true) {
     console.log("Nested If Statement!");
@@ -24,20 +25,19 @@ if (is_married) {
     }
   }
 } else {
-  console.log("$name is not married!");
+  console.log(`${name} is not married!`);
 }
 if (has_children) {
-  const message = "$name has children";
+  const message = `${name} has children`;
   console.log(message);
 } else {
-  console.log("$name has no children!");
+  console.log(`${name} has no children!`);
 }
 function greet(name, is_married, has_newline) {
+  console.log(`Hello, ${name}!`);
   if (is_married) {
-    console.log("Hello!", name);
     console.log("You are married, great!");
   } else {
-    console.log("Hello!", name);
     console.log("You will get married one day!");
   }
   if (has_newline) {
@@ -58,10 +58,12 @@ console.log();
 print_message(message, "Shawn Lee");
 function print_message(message, name) {
   console.log(message);
-  console.log("Thank you for leaving your message", name);
+  console.log(`Thank you for leaving your message, ${name}`);
 }
 function print_country(name, population) {
-  console.log(name, "has this many millions of people:", population);
+  console.log(`${name} has this many millions of people: ${population}`);
 }
+let amount = 1630;
 console.log();
-print_country(country, 1630);
+print_country(country, amount);
+console.log(1630, "millions is a lot of people");

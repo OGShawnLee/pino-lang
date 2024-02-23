@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Statement.h"
+#include "Expression.h"
 #include "global.h"
 
 struct Parameter {
@@ -27,11 +29,11 @@ class FunctionDefinition : public Statement {
     void print(size_t indentation = 0);
 };
 
-class FunctionCall : public Statement {
-  static PeekStreamPtr<Statement> parse_arguments(std::vector<Token> stream, size_t index);
+class FunctionCall : public Expression {
+  static PeekStreamPtr<Expression> parse_arguments(std::vector<Token> stream, size_t index);
 
   public:
-    std::vector<std::unique_ptr<Statement>> arguments;
+    std::vector<std::unique_ptr<Expression>> arguments;
 
     FunctionCall();
 

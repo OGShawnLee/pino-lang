@@ -4,6 +4,8 @@ var is_married = false
 var age = 14
 var message = "$name lives in $country"
 
+println(message)
+
 is_married = true
 age = 15
 
@@ -43,11 +45,10 @@ if has_children {
 }
 
 fn greet(name str, is_married bool, has_newline bool) {
+  println("Hello, $name!")
   if is_married {
-    println("Hello!", name)
     println("You are married, great!")
   } else {
-    println("Hello!", name)
     println("You will get married one day!")
   }
 
@@ -75,12 +76,15 @@ print_message(message, "Shawn Lee")
 
 fn print_message(message str, name str) {
   println(message)
-  println("Thank you for leaving your message", name)
+  println("Thank you for leaving your message, $name")
 }
 
 fn print_country(name str, population int) {
-  println(name, "has this many millions of people:", population)
+  println("$name has this many millions of people: $population")
 }
 
+var amount = 1630
+
 println()
-print_country(country, 1630)
+print_country(country, amount)
+println(1630, "millions is a lot of people")

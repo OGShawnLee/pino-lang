@@ -37,7 +37,69 @@ std::string get_built_in_fn_name(std::string str) {
   return BUILT_IN_FN_JS_NAME.at(fn);
 }
 
+std::string replace(std::string str, std::string from, std::string to) {
+  size_t start_pos = 0;
+  while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+    str.replace(start_pos, from.length(), to);
+    start_pos += to.length();
+  }
+  return str;
+}
+
 class Transpiler {
+  static std::string transpile_argument(std::unique_ptr<Expression> &argument) {
+    switch (argument->type) {
+      case ExpressionType::IDENTIFIER: {
+        Identifier *identifier = static_cast<Identifier *>(argument.get());
+        return identifier->name;
+      }
+      case ExpressionType::LITERAL: {
+        Value *value = static_cast<Value *>(argument.get());
+        
+        if (value->literal == Literal::STRING) {
+          String *string = static_cast<String *>(argument.get());
+          return transpile_str(string);
+        }
+
+        return value->value;
+      }
+    }
+
+    throw "Invalid Argument Type";
+  }
+
+  static std::string transpile_arguments(std::vector<std::unique_ptr<Expression>> &arguments) {
+    std::string output = "";
+
+    if (arguments.size() == 0) {
+      return output + ");\n";
+    }
+
+    if (arguments.size() == 1) {
+      return output + transpile_argument(arguments[0]) +  ");\n";
+    }
+
+    output += transpile_argument(arguments[0]) + ", ";
+    for (size_t i = 1; i < arguments.size() - 1; i++) {
+      output += transpile_argument(arguments[i]) + ", ";
+    }
+    output += transpile_argument(arguments[arguments.size() - 1]) + ");\n";
+    return output;
+  }
+
+  static std::string transpile_str(String *string) {
+    if (string->body.size() > 0) {
+      for (std::unique_ptr<Identifier> &identifier : string->body) {
+        std::string replace_value = "${" + identifier->name + "}"; 
+        string->value = replace(string->value, "$" + identifier->name, replace_value);
+      }
+
+      return "`" + string->value + "`" ;
+    }
+
+    return "\"" + string->value + "\"";
+  }
+
   static std::string transpile_statement(Statement *statement, size_t indent = 0) {
     std::string indentation = get_indentation(indent);
     switch (statement->kind) {
@@ -101,21 +163,7 @@ class Transpiler {
           output = indentation + fn_call->name + "(";
         }
 
-        if (fn_call->arguments.size() == 0) {
-          output += ");\n";
-          return output;
-        }
-
-        if (fn_call->arguments.size() == 1) {
-          output += fn_call->arguments[0]->name + ");\n";
-          return output;
-        }
-
-        output += fn_call->arguments[0]->name + ", ";
-        for (size_t i = 1; i < fn_call->arguments.size() - 1; i++) {
-          output += fn_call->arguments[i]->name + ", ";
-        }
-        output += fn_call->arguments[fn_call->arguments.size() - 1]->name + ");\n";
+        output += transpile_arguments(fn_call->arguments);
         return output;
       }
       case StatementType::VAL_DECLARATION:
@@ -130,12 +178,13 @@ class Transpiler {
           output += "let ";
         }
 
-        if (variable->type == "String") {
-          output += variable->name + " = \"" + variable->value + "\";\n";
+        if (variable->value->literal == Literal::STRING) {
+          String *string = static_cast<String *>(variable->value.get());
+          output += variable->name + " = " + transpile_str(string) + ";\n";
           return output;
         }
 
-        output += variable->name + " = " + variable->value + ";\n";
+        output += variable->name + " = " + variable->value->value + ";\n";
         return output;
       }
     }

@@ -1,9 +1,11 @@
 #pragma once
 
 #include "Statement.h"
+#include "Expression.h"
 
 class Variable : public Statement {
   public:
+    std::unique_ptr<Value> value;
     std::string type;
 
     Variable();

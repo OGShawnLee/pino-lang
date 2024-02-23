@@ -133,8 +133,8 @@ void FunctionDefinition::print(size_t indentation) {
   println(indentation_str + "}");
 }
 
-PeekStreamPtr<Statement> FunctionCall::parse_arguments(std::vector<Token> stream, size_t index) {
-  PeekStreamPtr<Statement> result;
+PeekStreamPtr<Expression> FunctionCall::parse_arguments(std::vector<Token> stream, size_t index) {
+  PeekStreamPtr<Expression> result;
 
   // + 1 to skip the left parenthesis
   for (size_t i = index + 1; i < stream.size(); i++) {
@@ -142,10 +142,8 @@ PeekStreamPtr<Statement> FunctionCall::parse_arguments(std::vector<Token> stream
 
     switch (token.kind) {
       case Kind::LITERAL: {
-        Statement *literal = new Statement();
-        literal->name = token.value;
-        literal->kind = StatementType::EXPRESSION;
-        result.nodes.push_back(std::unique_ptr<Statement>(literal));
+        std::unique_ptr<Value> literal = Value::from_literal(token);
+        result.nodes.push_back(std::move(literal));
         break;
       }
       case Kind::IDENTIFIER: {
@@ -157,16 +155,15 @@ PeekStreamPtr<Statement> FunctionCall::parse_arguments(std::vector<Token> stream
         }
 
         if (Variable::is_reassignment(stream, i)) {
-          PeekPtr<Variable> variable = Variable::build(stream, i, true);
-          result.nodes.push_back(std::move(variable.node));
-          i = variable.index;
-          break;
+          // TODO: ADD REASSIGNMENT
+          // PeekPtr<Variable> variable = Variable::build(stream, i, true);
+          // result.nodes.push_back(std::move(variable.node));
+          // i = variable.index;
+          // break;
         }
 
-        Statement *identifier = new Statement();
-        identifier->name = token.value;
-        identifier->kind = StatementType::EXPRESSION;
-        result.nodes.push_back(std::unique_ptr<Statement>(identifier));
+        std::unique_ptr<Identifier> identifier = Identifier::from_identifier(token);
+        result.nodes.push_back(std::move(identifier));
         break;
       }
       case Kind::MARKER:
@@ -180,11 +177,8 @@ PeekStreamPtr<Statement> FunctionCall::parse_arguments(std::vector<Token> stream
         }
 
         if (token.is_given_marker(Marker::DOUBLE_QUOTE)) {
-          Peek<Token> str_literal = parse_str_literal(stream, i);
-          Statement *literal = new Statement();
-          literal->name = '"' + str_literal.node.value + '"';
-          literal->kind = StatementType::EXPRESSION;
-          result.nodes.push_back(std::unique_ptr<Statement>(literal));
+          PeekPtr<String> str_literal = String::build(stream, i);
+          result.nodes.push_back(std::move(str_literal.node));
           i = str_literal.index;
           continue;
         }
@@ -210,7 +204,7 @@ PeekPtr<FunctionCall> FunctionCall::build(std::vector<Token> stream, size_t inde
   result.node->name = current.value;
   result.node->kind = StatementType::FUNCTION_CALL;
 
-  PeekStreamPtr<Statement> arguments = parse_arguments(stream, index + 1);
+  PeekStreamPtr<Expression> arguments = parse_arguments(stream, index + 1);
   result.index = arguments.index;
   result.node->arguments = std::move(arguments.nodes);
 
@@ -223,7 +217,7 @@ void FunctionCall::print(size_t indentation) {
   println(indentation_str + get_statement_type_name(kind) + " {");
   println(indentation_str + "  name: " + name);
   println(indentation_str + "  arguments: [");
-  for (std::unique_ptr<Statement> &argument : arguments) {
+  for (std::unique_ptr<Expression> &argument : arguments) {
     argument->print(indentation + 4);
   }
   println(indentation_str + "  ]");
