@@ -1,6 +1,7 @@
 #include "Parser.h"
 #include "ControlFlow.cpp"
 #include "Function.cpp"
+#include "Loop.h"
 #include "Statement.cpp"
 #include "Variable.cpp"
 #include "parser_utils.h"
@@ -24,6 +25,12 @@ PeekStreamPtr<Statement> Parser::parse_block(std::vector<Token> stream, size_t i
         }
         case Keyword::ELSE: {
           throw std::runtime_error("Unexpected else keyword");
+        }
+        case Keyword::LOOP: {
+          PeekPtr<Loop> loop = Loop::build(stream, i);
+          result.nodes.push_back(std::move(loop.node));
+          i = loop.index;
+          break;
         }
         case Keyword::VARIABLE:
         case Keyword::CONSTANT: {
@@ -76,6 +83,12 @@ Statement Parser::parse(std::vector<Token> stream) {
           PeekPtr<IFStatement> if_statement = IFStatement::build(stream, i);
           statement.body.push_back(std::move(if_statement.node));
           i = if_statement.index;
+          break;
+        }
+        case Keyword::LOOP: {
+          PeekPtr<Loop> loop = Loop::build(stream, i);
+          statement.body.push_back(std::move(loop.node));
+          i = loop.index;
           break;
         }
         case Keyword::VARIABLE:

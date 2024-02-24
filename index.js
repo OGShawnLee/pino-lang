@@ -67,3 +67,16 @@ let amount = 1630;
 console.log();
 print_country(country, amount);
 console.log(1630, "millions is a lot of people");
+amount = 3;
+for (let i = 0; i < amount; i++) {
+  console.log("Outer loop has run for 3 times");
+  for (let i = 0; i < 3; i++) {
+    console.log("Inner loop has run 3 times");
+  }
+}
+function spam(message, times) {
+  for (let i = 0; i < times; i++) {
+    console.log(`${message} has been spammed for ${times} times`);
+  }
+}
+spam("No one expects the Spanish Inquisition!", 3);

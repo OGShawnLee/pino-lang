@@ -16,6 +16,7 @@ enum class StatementType {
   IF_STATEMENT,
   ELSE_STATEMENT,
   FUNCTION_DEFINITION,
+  LOOP_STATEMENT,
 };
 
 std::map<StatementType, std::string> STATEMENT_TYPE_NAME = {
@@ -28,6 +29,7 @@ std::map<StatementType, std::string> STATEMENT_TYPE_NAME = {
   {StatementType::IF_STATEMENT, "If Statement"},
   {StatementType::ELSE_STATEMENT, "Else Statement"},
   {StatementType::FUNCTION_DEFINITION, "Function Definition"},
+  {StatementType::LOOP_STATEMENT, "Loop Statement"},
 };
 
 std::string get_statement_type_name(StatementType type) {

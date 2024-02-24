@@ -166,6 +166,25 @@ class Transpiler {
         output += transpile_arguments(fn_call->arguments);
         return output;
       }
+      case StatementType::LOOP_STATEMENT: {
+        Loop *loop = static_cast<Loop *>(statement);
+        std::string output = "";
+
+        if (loop->times->type == ExpressionType::IDENTIFIER) {
+          Identifier *identifier = static_cast<Identifier *>(loop->times.get());
+          output = indentation + "for (let i = 0; i < " + identifier->name + "; i++) {\n";
+        } else if (loop->times->type == ExpressionType::LITERAL) {
+          Value *value = static_cast<Value *>(loop->times.get());
+          output = indentation + "for (let i = 0; i < " + value->value + "; i++) {\n";
+        }
+
+        for (std::unique_ptr<Statement> &statement : loop->body) {
+          output += transpile_statement(statement.get(), indent + 2);
+        }
+        
+        output += indentation + "}\n";
+        return output;
+      }
       case StatementType::VAL_DECLARATION:
       case StatementType::VAR_DECLARATION:
       case StatementType::VAR_REASSIGNMENT: {
@@ -204,6 +223,7 @@ class Transpiler {
           case StatementType::IF_STATEMENT:
           case StatementType::FUNCTION_CALL:
           case StatementType::FUNCTION_DEFINITION:
+          case StatementType::LOOP_STATEMENT:
           case StatementType::VAL_DECLARATION:
           case StatementType::VAR_DECLARATION:
           case StatementType::VAR_REASSIGNMENT:

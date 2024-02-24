@@ -62,7 +62,8 @@ enum class Keyword {
   CONSTANT,
   IF,
   ELSE,
-  FUNCTION
+  FUNCTION,
+  LOOP
 };
 
 std::map<std::string, Keyword> KEYWORD_KEY = {
@@ -71,6 +72,7 @@ std::map<std::string, Keyword> KEYWORD_KEY = {
   {"if", Keyword::IF},
   {"else", Keyword::ELSE},
   {"fn", Keyword::FUNCTION},
+  {"for", Keyword::LOOP},
 };
 
 std::map<Keyword, std::string> KEYWORD_NAME = {
@@ -79,6 +81,7 @@ std::map<Keyword, std::string> KEYWORD_NAME = {
   {Keyword::IF, "If Keyword"},
   {Keyword::ELSE, "Else Keyword"},
   {Keyword::FUNCTION, "Function Keyword"},
+  {Keyword::LOOP, "Loop Keyword"},
 };
 
 bool is_keyword(std::string str) {
