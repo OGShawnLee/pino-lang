@@ -78,5 +78,12 @@ function spam(message, times) {
   for (let i = 0; i < times; i++) {
     console.log(`${message} has been spammed for ${times} times`);
   }
+  console.log("Another round of spam!");
+  for (let time = 0; time < times; time++) {
+    console.log(`${message} has been spammed yet again for the ${time} time`);
+  }
 }
 spam("No one expects the Spanish Inquisition!", 3);
+for (let time = 0; time < 4; time++) {
+  console.log(time);
+}

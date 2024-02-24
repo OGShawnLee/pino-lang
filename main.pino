@@ -102,6 +102,16 @@ fn spam(message str, times int) {
   for times {
     println("$message has been spammed for $times times")
   }
+
+  println("Another round of spam!")
+  
+  for time in times {
+    println("$message has been spammed yet again for the $time time")
+  }
 }
 
 spam("No one expects the Spanish Inquisition!", 3)
+
+for time in 4 {
+  println(time)
+}

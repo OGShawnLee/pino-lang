@@ -169,20 +169,35 @@ class Transpiler {
       case StatementType::LOOP_STATEMENT: {
         Loop *loop = static_cast<Loop *>(statement);
         std::string output = "";
+        std::string index_var_name = "i";
+        std::string length_var_name;
 
-        if (loop->times->type == ExpressionType::IDENTIFIER) {
-          Identifier *identifier = static_cast<Identifier *>(loop->times.get());
-          output = indentation + "for (let i = 0; i < " + identifier->name + "; i++) {\n";
-        } else if (loop->times->type == ExpressionType::LITERAL) {
-          Value *value = static_cast<Value *>(loop->times.get());
-          output = indentation + "for (let i = 0; i < " + value->value + "; i++) {\n";
+        if (loop->loop_type == LoopType::IN_LOOP) {
+          if (loop->index->type == ExpressionType::IDENTIFIER) {
+            Identifier *identifier = static_cast<Identifier *>(loop->index.get());
+            index_var_name = identifier->name;
+          } else if (loop->index->type == ExpressionType::LITERAL) {
+            Value *value = static_cast<Value *>(loop->index.get());
+            index_var_name = value->value;
+          }
+        }         
+
+        if (loop->length->type == ExpressionType::IDENTIFIER) {
+          Identifier *identifier = static_cast<Identifier *>(loop->length.get());
+          length_var_name = identifier->name;
+        } else if (loop->length->type == ExpressionType::LITERAL) {
+          Value *value = static_cast<Value *>(loop->length.get());
+          length_var_name = value->value;
         }
+
+        output += indentation + "for (let " + index_var_name + " = 0; " + index_var_name + " < " + length_var_name + "; " + index_var_name + "++) {\n";
 
         for (std::unique_ptr<Statement> &statement : loop->body) {
           output += transpile_statement(statement.get(), indent + 2);
         }
-        
+
         output += indentation + "}\n";
+
         return output;
       }
       case StatementType::VAL_DECLARATION:

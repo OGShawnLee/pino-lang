@@ -51,6 +51,10 @@ class Token {
       return kind == Kind::LITERAL && name == get_literal_name(literal);
     }
 
+    bool is_given_literal(Literal literal_a, Literal literal_b) {
+      return kind == Kind::LITERAL && (name == get_literal_name(literal_a) || name == get_literal_name(literal_b));
+    }
+
     bool is_given_marker(Marker marker) {
       return kind == Kind::MARKER && name == get_marker_name(marker);
     }

@@ -36,6 +36,11 @@ std::string get_statement_type_name(StatementType type) {
   return STATEMENT_TYPE_NAME.at(type);
 }
 
+enum class LoopType {
+  TIMES_LOOP,
+  IN_LOOP,
+};
+
 enum class ExpressionType {
   IDENTIFIER,
   LITERAL,
