@@ -1,123 +1,129 @@
 #pragma once
 
 #include "Statement.h"
-#include "Parser.h"
-#include "Expression.h"
 #include "global.h"
 
 class Loop : public Statement {
-  static Peek<LoopType> check_loop_type(std::vector<Token> stream, size_t index) {
-    auto next = peek<Token>(
-      stream,
-      index,
+  static LoopType check_loop(std::vector<Token> stream, size_t index) {
+    if (stream[index].is_given_keyword(Keyword::LOOP) == false) {
+      throw std::runtime_error("DEV: EXPECTED LOOP KEYWORD");
+    }
+
+    // for 5 | for times
+    auto id_or_literal = peek<Token>(
+      stream, 
+      index, 
+      [](Token &token) {
+        return token.kind == Kind::IDENTIFIER || token.is_given_literal(Literal::INTEGER);
+      },
+      [](Token &token) {
+        return std::runtime_error("Expected Identifier or Integer Literal. Got " + token.value);
+      },
+      [](Token &token) {
+        return std::runtime_error("Incomplete Loop Statement.");
+      }
+    );
+
+    // for ... { | for ... in   
+    auto brace_or_in_keyword = peek<Token>(
+      stream, 
+      id_or_literal.index, 
       [](Token &token) {
         return token.is_given_marker(Marker::LEFT_BRACE) || token.is_given_keyword(Keyword::IN);
       },
       [](Token &token) {
-        return std::runtime_error("Expected left brace or index keyword, but got " + token.value);
+        return std::runtime_error("Expected 'in' keyword or '{'. Got " + token.value);
       },
       [](Token &token) {
-        return std::runtime_error("Unexpected end of stream");
+        return std::runtime_error("Incomplete Loop Statement.");
       }
     );
 
-    Peek<LoopType> result;
-    result.node = next.node.kind == Kind::KEYWORD ? LoopType::IN_LOOP : LoopType::TIMES_LOOP;
-    result.index = next.index;
+    // for ... {
+    if (brace_or_in_keyword.node.is_given_marker(Marker::LEFT_BRACE)) {
+      return LoopType::TIMES_LOOP;
+    }
+
+    // for ... in times | for ... in 5
+    id_or_literal = peek<Token>(
+      stream, 
+      brace_or_in_keyword.index, 
+      [](Token &token) {
+        return token.kind == Kind::IDENTIFIER || token.is_given_literal(Literal::INTEGER);
+      },
+      [](Token &token) {
+        return std::runtime_error("Expected Identifier or Integer Literal. Got " + token.value);
+      },
+      [](Token &token) {
+        return std::runtime_error("Incomplete Loop Statement.");
+      }
+    );
+    
+    check_left_brace(stream, id_or_literal.index);
+    
+    // for ... in ... {
+    return LoopType::IN_LOOP;
+  }
+
+  static PeekPtr<Loop> handle_times_loop(std::vector<Token> stream, size_t index) {
+    PeekPtr<Loop> result;
+    Peek<Token> id_or_literal = get_next_token(stream, index);
+    result.node->loop_type = LoopType::TIMES_LOOP;
+
+    if (id_or_literal.node.kind == Kind::IDENTIFIER) {
+      result.node->limit = Identifier::from_identifier(id_or_literal.node);
+    } else {
+      result.node->limit = Value::from_literal(id_or_literal.node);
+    }
+    
+    Peek<Token> brace = check_left_brace(stream, id_or_literal.index);
+    PeekStreamPtr<Statement> body = Parser::parse_block(stream, brace.index);
+    result.node->body = std::move(body.nodes);
+    
+    result.index = body.index;
     return result;
   }
 
+  static PeekPtr<Loop> handle_in_loop(std::vector<Token> stream, size_t index) {
+    PeekPtr<Loop> result;
+    result.node->loop_type = LoopType::IN_LOOP;
+    
+    Peek<Token> id_or_literal = get_next_token(stream, index);
+    if (id_or_literal.node.kind == Kind::IDENTIFIER) {
+      result.node->index = Identifier::from_identifier(id_or_literal.node);
+    } else {
+      result.node->index = Value::from_literal(id_or_literal.node);
+    }
+    
+    Peek<Token> in_keyword = get_next_token(stream, id_or_literal.index);
+    
+    id_or_literal = get_next_token(stream, in_keyword.index);
+    if (id_or_literal.node.kind == Kind::IDENTIFIER) {
+      result.node->limit = Identifier::from_identifier(id_or_literal.node);
+    } else {
+      result.node->limit = Value::from_literal(id_or_literal.node);
+    }
+    
+    Peek<Token> brace = check_left_brace(stream, id_or_literal.index);
+    
+    PeekStreamPtr<Statement> body = Parser::parse_block(stream, brace.index);
+    result.node->body = std::move(body.nodes);
+    
+    result.index = body.index;
+    return result;
+  }
+  
   public:
     LoopType loop_type;
-    std::unique_ptr<Expression> length;
     std::unique_ptr<Expression> index;
+    std::unique_ptr<Expression> limit;
 
     Loop() {
-      this->kind = StatementType::LOOP_STATEMENT;
+      kind = StatementType::LOOP_STATEMENT;
     }
 
     static PeekPtr<Loop> build(std::vector<Token> stream, size_t index) {
-      if (stream[index].is_given_keyword(Keyword::LOOP) == false) {
-        throw std::runtime_error("Expected for keyword, but got " + stream[index].value);
-      }
-
-      auto id_or_literal = peek<Token>(
-        stream,
-        index,
-        [](Token &token) {
-          return token.kind == Kind::IDENTIFIER || token.is_given_literal(Literal::INTEGER);
-        },
-        [](Token &token) {
-          return std::runtime_error("Expected identifier or literal, but got " + token.value);
-        },
-        [](Token &token) {
-          return std::runtime_error("Unexpected end of stream");
-        }
-      );
-
-      Peek<LoopType> loop_type = check_loop_type(stream, id_or_literal.index);
-      PeekPtr<Loop> result;
-      result.node->loop_type = loop_type.node;
-
-      if (id_or_literal.node.kind == Kind::IDENTIFIER) {
-        result.node->index = Identifier::from_identifier(id_or_literal.node);
-      } else {
-        result.node->index = Value::from_literal(id_or_literal.node);
-      }
-
-      if (loop_type.node == LoopType::TIMES_LOOP) {
-        PeekStreamPtr<Statement> body = Parser::parse_block(stream, loop_type.index);
-        
-        if (id_or_literal.node.kind == Kind::IDENTIFIER) {
-          result.node->length = Identifier::from_identifier(id_or_literal.node);
-        } else {
-          result.node->length = Value::from_literal(id_or_literal.node);
-        }
-
-        result.node->body = std::move(body.nodes);
-        result.index = body.index;
-        return result;
-      }
-
-      id_or_literal = peek<Token>(
-        stream,
-        loop_type.index,
-        [](Token &token) {
-          return token.kind == Kind::IDENTIFIER || token.is_given_literal(Literal::INTEGER, Literal::STRING);
-        },
-        [](Token &token) {
-          return std::runtime_error("Expected identifier, but got " + token.value);
-        },
-        [](Token &token) {
-          return std::runtime_error("Unexpected end of stream");
-        }
-      );
-
-      auto left_brace = check_left_brace(stream, id_or_literal.index);
-      PeekStreamPtr<Statement> body = Parser::parse_block(stream, left_brace.index);
-
-      if (id_or_literal.node.kind == Kind::IDENTIFIER) {
-        result.node->length = Identifier::from_identifier(id_or_literal.node);
-      } else {
-        result.node->length = Value::from_literal(id_or_literal.node);
-      }
-
-      result.node->body = std::move(body.nodes);
-      result.index = body.index;
-      return result;
-    }
-
-    void print(size_t indentation) {
-      std::string indentation_str = get_indentation(indentation);
-
-      println(indentation_str + "Loop {");
-      println(indentation_str + "  length: ");
-      length->print(indentation + 2);
-      println(indentation_str + "  body: [");
-      for (auto &node : body) {
-        node->print(indentation + 4);
-      }
-      println(indentation_str + "  ]");
-      println(indentation_str + "}");
+      LoopType type = check_loop(stream, index);
+      return type == LoopType::IN_LOOP ? handle_in_loop(stream, index) : handle_times_loop(stream, index);
     }
 };

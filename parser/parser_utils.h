@@ -46,6 +46,10 @@ enum class ExpressionType {
   LITERAL,
 };
 
+Peek<Token> get_next_token(std::vector<Token> stream, size_t index) {
+  return Peek<Token> {stream[index + 1], index + 1};
+}
+
 Peek<Token> check_left_brace(std::vector<Token> stream, size_t index) {
   return peek<Token>(
     stream,

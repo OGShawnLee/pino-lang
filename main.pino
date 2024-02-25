@@ -98,19 +98,20 @@ for amount {
   }
 }
 
-fn spam(message str, times int) {
-  for times {
-    println("$message has been spammed for $times times")
-  }
-
-  println("Another round of spam!")
-  
-  for time in times {
-    println("$message has been spammed yet again for the $time time")
+fn handle_spam(message str, times int, with_index bool) {
+  if with_index {
+    for time in times {
+      println(time, message)
+    }
+  } else {
+    for times {
+      println("$message has been spammed for $times times")
+    } 
   }
 }
 
-spam("No one expects the Spanish Inquisition!", 3)
+handle_spam("No one expects the Spanish Inquisition!", 3, false)
+handle_spam("No one expects the Spanish Inquisition!", 3, true)
 
 for time in 4 {
   println(time)

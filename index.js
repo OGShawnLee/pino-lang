@@ -74,16 +74,19 @@ for (let i = 0; i < amount; i++) {
     console.log("Inner loop has run 3 times");
   }
 }
-function spam(message, times) {
-  for (let i = 0; i < times; i++) {
-    console.log(`${message} has been spammed for ${times} times`);
-  }
-  console.log("Another round of spam!");
-  for (let time = 0; time < times; time++) {
-    console.log(`${message} has been spammed yet again for the ${time} time`);
+function handle_spam(message, times, with_index) {
+  if (with_index) {
+    for (let time = 0; time < times; time++) {
+      console.log(time, message);
+    }
+  } else {
+    for (let i = 0; i < times; i++) {
+      console.log(`${message} has been spammed for ${times} times`);
+    }
   }
 }
-spam("No one expects the Spanish Inquisition!", 3);
+handle_spam("No one expects the Spanish Inquisition!", 3, false);
+handle_spam("No one expects the Spanish Inquisition!", 3, true);
 for (let time = 0; time < 4; time++) {
   console.log(time);
 }
