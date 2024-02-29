@@ -1,12 +1,7 @@
-// #include "./lexer/lexer.h"
-// #include "./parser/Parser.cpp"
-#include "transpiler.h"
+#include "Lexer.h"
 
 int main() {
-  // auto stream = Lexer::tokenise("main.pino");
-  // for (auto token : stream) token.print();
-  // auto ast = Parser::parse(stream);
-  // ast.print();
-  Transpiler::transpile("main.pino", "index.js");
+  std::vector<Token> collection = Lexer::lex_file("main.pino");
+  for (Token token : collection) token.print();
   return 0;
 }
