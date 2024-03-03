@@ -127,6 +127,22 @@ class Token {
 
 		Token() {}
 
+		bool is_given_keyword(Keyword keyword) const {
+			return kind == Kind::KEYWORD && this->keyword == keyword;
+		}
+
+		bool is_given_marker(Marker marker) const {
+			return kind == Kind::MARKER && this->marker == marker;
+		}
+
+		bool is_given_marker(Marker marker_a, Marker marker_b) const {
+			return is_given_marker(marker_a) || is_given_marker(marker_b);
+		}
+
+		bool is_given_literal(Literal literal) const {
+			return kind == Kind::LITERAL && this->literal == literal;
+		}
+
 		void print() const {
 			println(get_kind_name(kind) + " {");
 			println("  value: " + value);

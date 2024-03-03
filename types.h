@@ -4,6 +4,9 @@
 #include <memory>
 
 template <typename T>
+using StreamPtr = std::vector<std::unique_ptr<T>>;
+
+template <typename T>
 struct Peek {
   T node; 
   size_t index;

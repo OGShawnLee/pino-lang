@@ -36,15 +36,25 @@ bool is_whitespace(std::string str) {
 }
 
 template <typename T>
+Peek<T> get_next(std::vector<T> stream, size_t index) {
+  if (index + 1 > stream.size()) {
+    throw std::runtime_error("USER: Unexpected End of Input");
+  }
+
+  Peek<T> result;
+  result.node = stream[index + 1];
+  result.index = index + 1;
+  return result;
+}
+
+template <typename T>
 Peek<T> peek(
   std::vector<T> stream,
   size_t index,
-  std::function<bool(T&)> is_valid_node,
-  std::function<std::runtime_error(T&)> on_error,
-  std::function<std::runtime_error(T&)> on_end_of_stream
+  std::function<bool(T&)> is_valid_node
 ) {
   if (index + 1 > stream.size()) {
-    throw on_end_of_stream(stream[index + 1]);
+    throw std::runtime_error("Unexpected EOF");
   }
 
   if (is_valid_node(stream[index + 1])) {
@@ -54,7 +64,7 @@ Peek<T> peek(
     return result;
   }
 
-  throw on_error(stream[index]);
+  throw std::runtime_error("Unexpected Token");
 }
 
 template <typename T>

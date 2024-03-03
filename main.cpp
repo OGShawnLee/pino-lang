@@ -1,7 +1,11 @@
-#include "Lexer.h"
+// #include "Parser.h"
+#include "Transpiler.h"
 
 int main() {
-  std::vector<Token> collection = Lexer::lex_file("main.pino");
-  for (Token token : collection) token.print();
+  // Statement program = Parser::parse_file("main.pino");
+  // program.print();
+
+  JSTranspiler::transpile("main.pino", "index.js");
+  
   return 0;
 }
