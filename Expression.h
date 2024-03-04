@@ -7,6 +7,7 @@ enum class ExpressionKind {
   LITERAL,
   FN_CALL,
   VAR_REASSIGNMENT,
+  BINARY_EXPRESSION,
 };
 
 std::map<ExpressionKind, std::string> EXPRESSION_KIND = {
@@ -14,6 +15,7 @@ std::map<ExpressionKind, std::string> EXPRESSION_KIND = {
   {ExpressionKind::LITERAL, "Literal"},
   {ExpressionKind::FN_CALL, "Function Call"},
   {ExpressionKind::VAR_REASSIGNMENT, "Variable Reassignment"},
+  {ExpressionKind::BINARY_EXPRESSION, "Binary Expression"},
 };
 
 std::string get_expression_name(ExpressionKind kind) {
@@ -29,6 +31,22 @@ class Expression : public Statement {
     static bool is_expression(std::vector<Token> collection, size_t index);
 
     static PeekPtr<Expression> build(std::vector<Token> collection, size_t index);
+
+    void print(size_t indentation = 0) const;
+};
+
+class BinaryExpression : public Expression {
+  public:
+    std::unique_ptr<Expression> left;
+    std::unique_ptr<Expression> right;
+    BinaryOperator operation;
+    std::string operator_str;
+
+    BinaryExpression();
+
+    static bool is_binary_expression(std::vector<Token> collection, size_t index);
+    
+    static PeekPtr<BinaryExpression> build(std::vector<Token> collection, size_t index);
 
     void print(size_t indentation = 0) const;
 };

@@ -16,6 +16,7 @@ class JSTranspiler {
 
   static std::map<std::string, BuiltInFN> BUILT_IN_FN_KEY;
   static std::map<BuiltInFN, std::string> BUILT_IN_FN_NAME;
+  static std::map<BinaryOperator, std::string> BOOL_OPERATOR_NAME;
 
   static bool is_built_in_fn(std::string fn_name) {
     return BUILT_IN_FN_KEY.count(fn_name) > 0;
@@ -27,6 +28,18 @@ class JSTranspiler {
     }
 
     return BUILT_IN_FN_NAME.at(BUILT_IN_FN_KEY.at(fn_name));
+  }
+
+  static bool is_bool_operator(BinaryOperator op) {
+    return BOOL_OPERATOR_NAME.count(op) > 0;
+  }
+
+  static std::string get_bool_operator(BinaryOperator op) {
+    if (BOOL_OPERATOR_NAME.count(op) == 0) {
+      throw std::runtime_error("DEV: Not a Boolean Operator");
+    }
+
+    return BOOL_OPERATOR_NAME.at(op);
   }
 
   static std::string get_block(StreamPtr<Statement> &statements, bool endl = true) {
@@ -62,6 +75,16 @@ class JSTranspiler {
 
   static std::string get_value(std::unique_ptr<Expression> &expression) {
     switch (expression->expression) {
+      case ExpressionKind::BINARY_EXPRESSION: {
+        BinaryExpression *binary_expression = static_cast<BinaryExpression *>(expression.get());
+        std::string operator_str = binary_expression->operator_str;
+
+        if (is_bool_operator(binary_expression->operation)) {
+          operator_str = get_bool_operator(binary_expression->operation);
+        }
+
+        return get_value(binary_expression->left) + " " + operator_str + " " + get_value(binary_expression->right);
+      }
       case ExpressionKind::IDENTIFIER: {
         Identifier *identifier = static_cast<Identifier *>(expression.get());
         return identifier->name;
@@ -153,7 +176,7 @@ class JSTranspiler {
 
     IFStatement *if_statement = static_cast<IFStatement *>(statement.get());
     bool has_else = if_statement->else_block != nullptr;
-    std::string line = "if (" + if_statement->condition + ") " + get_block(if_statement->children, has_else == false);
+    std::string line = "if (" + get_value(if_statement->condition) + ") " + get_block(if_statement->children, has_else == false);
 
     if (if_statement->else_block != nullptr) {
       line += " else " + get_block(if_statement->else_block->children);
@@ -277,6 +300,14 @@ class JSTranspiler {
       file << output;
       file.close();
     }
+};
+
+std::map<BinaryOperator, std::string> JSTranspiler::BOOL_OPERATOR_NAME = {
+  {BinaryOperator::AND, "&&"},
+  {BinaryOperator::OR, "||"},
+  {BinaryOperator::NOT_EQUAL, "!=="},
+  {BinaryOperator::LESS_THAN, "<"},
+  {BinaryOperator::GREATER_THAN, ">"},
 };
 
 std::map<std::string, JSTranspiler::BuiltInFN> JSTranspiler::BUILT_IN_FN_KEY = {

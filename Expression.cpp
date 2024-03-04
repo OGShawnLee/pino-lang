@@ -10,7 +10,11 @@ Expression::Expression() {
 PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t index) {
   PeekPtr<Expression> result;
 
-  if (FunctionCall::is_fn_call(collection, index)) {    
+  if (BinaryExpression::is_binary_expression(collection, index)) {
+    PeekPtr<BinaryExpression> binary = BinaryExpression::build(collection, index);
+    result.node = std::move(binary.node);
+    result.index = binary.index;
+  } else if (FunctionCall::is_fn_call(collection, index)) {    
     PeekPtr<FunctionCall> fn_call = FunctionCall::build(collection, index);
     result.node = std::move(fn_call.node);
     result.index = fn_call.index;
@@ -29,6 +33,73 @@ PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t inde
   }
 
   return result;
+}
+
+BinaryExpression::BinaryExpression() {
+  expression = ExpressionKind::BINARY_EXPRESSION;
+}
+
+PeekPtr<BinaryExpression> BinaryExpression::build(std::vector<Token> collection, size_t index) {
+  if (is_binary_expression(collection, index) == false) {
+    throw std::runtime_error("DEV: Not a Binary Expression");
+  }
+
+  PeekPtr<BinaryExpression> result;
+
+  if (FunctionCall::is_fn_call(collection, index)) {
+    PeekPtr<FunctionCall> fn_call = FunctionCall::build(collection, index);
+    result.node->left = std::move(fn_call.node);
+    result.index = fn_call.index;
+  } else if (Reassignment::is_reassigment(collection, index)) {
+    PeekPtr<Reassignment> reassignment = Reassignment::build(collection, index);
+    result.node->left = std::move(reassignment.node);
+    result.index = reassignment.index;
+  } else if (collection[index].kind == Kind::IDENTIFIER) {
+    result.node->left = Identifier::from_identifier(collection[index]);
+    result.index = index;
+  } else if (collection[index].kind == Kind::LITERAL) {
+    result.node->left = Value::from_literal(collection[index]);
+    result.index = index;
+  } else {
+    throw std::runtime_error("USER: Not an Expression");
+  }
+
+  auto operation = peek<Token>(collection, result.index, [](Token &token) {
+    return token.kind == Kind::BINARY_OPERATOR;
+  });
+
+  result.node->operation = operation.node.binary_operator;
+  result.node->operator_str = operation.node.value;
+  result.index = operation.index + 1;
+
+  PeekPtr<Expression> right = Expression::build(collection, result.index);
+  result.node->right = std::move(right.node);
+  result.index = right.index;
+
+  return result;
+}
+
+bool BinaryExpression::is_binary_expression(std::vector<Token> collection, size_t index) {
+  if (FunctionCall::is_fn_call(collection, index) || Reassignment::is_reassigment(collection, index)) {
+    return is_next<Token>(collection, index + 1, [](Token &token) {
+      return token.kind == Kind::BINARY_OPERATOR;
+    });
+  }
+
+  return 
+    collection[index].is_given_kind(Kind::IDENTIFIER, Kind::LITERAL) && 
+    is_next<Token>(collection, index, [](Token &token) {
+      return token.kind == Kind::BINARY_OPERATOR;
+    });
+}
+
+void BinaryExpression::print(size_t indentation) const {
+  std::string indent = get_indentation(indentation);
+  println(indent + get_expression_name(expression)  + " {");
+  left->print(indentation + 2);
+  println(indent + "  operation: " + Token::get_binary_operator_name(operation));
+  right->print(indentation + 2);
+  println(indent + "}");
 }
 
 bool Expression::is_expression(std::vector<Token> collection, size_t index) {

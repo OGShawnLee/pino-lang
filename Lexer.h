@@ -12,6 +12,7 @@ enum class Kind {
 	LITERAL,
 	MARKER,
 	BUILT_IN_TYPE,
+	BINARY_OPERATOR,
 };
 
 std::map<Kind, std::string> KIND_NAME = {
@@ -20,6 +21,7 @@ std::map<Kind, std::string> KIND_NAME = {
 	{Kind::LITERAL, "Literal"},
 	{Kind::MARKER, "Marker"},
 	{Kind::BUILT_IN_TYPE, "Type"},
+	{Kind::BINARY_OPERATOR, "Binary Operator"},
 };
 
 enum class BuiltInType {
@@ -34,6 +36,43 @@ std::map<std::string, BuiltInType> BUILT_IN_TYPE_KEY = {
 	{"int", BuiltInType::INT},
 	{"str", BuiltInType::STR},
 	{"void", BuiltInType::VOID},
+};
+
+enum class BinaryOperator {
+	PLUS,
+	MINUS,
+	MULTIPLY,
+	DIVIDE,
+	MODULUS,
+	LESS_THAN,
+	GREATER_THAN,
+	NOT_EQUAL,
+	AND,
+	OR,
+};
+
+std::map<std::string, BinaryOperator> BINARY_OPERATOR_KEY = {
+	{"+", BinaryOperator::PLUS},
+	{"-", BinaryOperator::MINUS},
+	{"*", BinaryOperator::MULTIPLY},
+	{"/", BinaryOperator::DIVIDE},
+	{"%", BinaryOperator::MODULUS},
+	{"<", BinaryOperator::LESS_THAN},
+	{">", BinaryOperator::GREATER_THAN},
+	{"and", BinaryOperator::AND},
+	{"or", BinaryOperator::OR},
+};
+
+std::map<BinaryOperator, std::string> BINARY_OPERATOR_NAME = {
+	{BinaryOperator::PLUS, "addition"},
+	{BinaryOperator::MINUS, "subtraction"},
+	{BinaryOperator::MULTIPLY, "multiplication"},
+	{BinaryOperator::DIVIDE, "division"},
+	{BinaryOperator::MODULUS, "modulus"},
+	{BinaryOperator::LESS_THAN, "less than"},
+	{BinaryOperator::GREATER_THAN, "greater than"},
+	{BinaryOperator::AND, "and"},
+	{BinaryOperator::OR, "or"},
 };
 
 enum class Keyword {
@@ -94,9 +133,16 @@ class Token {
 		Keyword keyword;
 		Literal literal;
 		Marker marker;
-		BuiltInType type;	
+		BinaryOperator binary_operator;	
+		BuiltInType type;
 		std::string value;
 		std::vector<std::string> injections;
+
+		Token(BinaryOperator binary_operator, std::string buffer) {
+			this->kind = Kind::BINARY_OPERATOR;
+			this->binary_operator = binary_operator;
+			this->value = buffer;
+		}
 
 		Token(BuiltInType type, std::string buffer) {
 			this->kind = Kind::BUILT_IN_TYPE;
@@ -133,6 +179,10 @@ class Token {
 			return kind == Kind::KEYWORD && this->keyword == keyword;
 		}
 
+		bool is_given_kind(Kind kind_a, Kind kind_b) const {
+			return kind == kind_a || kind == kind_b;
+		}
+
 		bool is_given_marker(Marker marker) const {
 			return kind == Kind::MARKER && this->marker == marker;
 		}
@@ -160,6 +210,10 @@ class Token {
 			println("}");
 		}
 
+		static bool is_binary_operator(std::string buffer) {
+			return BINARY_OPERATOR_KEY.count(buffer) > 0;
+		}
+
 		static bool is_built_in_type(std::string buffer) {
 			return BUILT_IN_TYPE_KEY.count(buffer) > 0;
 		}
@@ -182,6 +236,14 @@ class Token {
 		
 		static bool is_marker(char character) {
 			return MARKER_KEY.count(character) > 0;
+		}
+
+		static BinaryOperator get_binary_operator(std::string buffer) {
+			return BINARY_OPERATOR_KEY.at(buffer);
+		}
+
+		static std::string get_binary_operator_name(BinaryOperator binary_operator) {
+			return BINARY_OPERATOR_NAME.at(binary_operator);
 		}
 
 		static BuiltInType get_built_in_type(std::string buffer) {
@@ -272,6 +334,10 @@ class Lexer {
 		if (Token::is_int_literal(buffer)) {
 			return Token(Literal::INTEGER, buffer);
 		} 
+
+		if (Token::is_binary_operator(buffer)) {
+			return Token(Token::get_binary_operator(buffer), buffer);
+		}
 
 		if (Token::is_built_in_type(buffer)) {
 			return Token(Token::get_built_in_type(buffer), buffer);

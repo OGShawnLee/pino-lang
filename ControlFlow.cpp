@@ -3,6 +3,7 @@
 #include <memory>
 #include "Block.cpp"
 #include "ControlFlow.h"
+#include "Expression.cpp"
 #include "Statement.h"
 
 ELSEStatement::ELSEStatement() {
@@ -49,12 +50,16 @@ PeekPtr<IFStatement> IFStatement::build(std::vector<Token> collection, size_t in
 	PeekPtr<IFStatement> result;
 	result.index = index;
 
-	auto condition = peek<Token>(collection, result.index, [](Token &token) {
-		return token.kind == Kind::IDENTIFIER || token.is_given_literal(Literal::BOOLEAN);
-	});
+  PeekPtr<Expression> condition = Expression::build(collection, result.index + 1);
+  result.node->condition = std::move(condition.node);
+  result.index = condition.index;
 
-	result.node->condition = condition.node.value;
-	result.index = condition.index;
+	// auto condition = peek<Token>(collection, result.index, [](Token &token) {
+	// 	return token.kind == Kind::IDENTIFIER || token.is_given_literal(Literal::BOOLEAN);
+	// });
+
+	// result.node->condition = condition.node.value;
+	// result.index = condition.index;
 
 	PeekStreamPtr<Statement> block = Block::build(collection, result.index);
 	result.node->children = std::move(block.nodes);
@@ -76,7 +81,8 @@ PeekPtr<IFStatement> IFStatement::build(std::vector<Token> collection, size_t in
 void IFStatement::print(size_t indentation) const {
 	std::string indent = get_indentation(indentation);
 	println(indent + "If Statement {");
-	println(indent + "  condition: " + condition);
+	condition->print(indentation + 2);
+
 	if (children.size() > 0) {
 		for (const std::unique_ptr<Statement> &child : children) {
 			child->print(indentation + 2);

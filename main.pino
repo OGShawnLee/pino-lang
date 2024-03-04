@@ -143,3 +143,24 @@ fn with_no_expression() {
 }
 
 with_no_expression()
+
+fn dollar_to_yen(dollar int) {
+  return dollar * 150
+}
+
+fn dollar_to_ruble(dollar int) {
+  return dollar * 91
+}
+
+var dollar = 120
+var yen = dollar_to_yen(dollar)
+var ruble = dollar_to_ruble(dollar)
+
+println("$dollar dollars are", yen, "yen")
+println("$dollar dollars are", ruble, "ruble")
+
+ruble = dollar_to_ruble(900)
+
+if ruble > 30000 {
+  println("That is a lot of rubles!")
+}

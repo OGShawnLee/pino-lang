@@ -104,6 +104,21 @@ let nick_name = full_name = "Shawn Lee";
 console.log(`full_name: ${full_name}, nick_name: ${nick_name}`);
 function with_no_expression() {
 console.log("This fn has a return statement with no expression");
-return println("This never runs");
+return;
 }
 with_no_expression();
+function dollar_to_yen(dollar) {
+return dollar * 150;
+}
+function dollar_to_ruble(dollar) {
+return dollar * 91;
+}
+let dollar = 120;
+let yen = dollar_to_yen(dollar);
+let ruble = dollar_to_ruble(dollar);
+console.log(`${dollar} dollars are`, yen, "yen");
+console.log(`${dollar} dollars are`, ruble, "ruble");
+ruble = dollar_to_ruble(900);
+if (ruble > 30000) {
+console.log("That is a lot of rubles!");
+}

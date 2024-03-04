@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include "Expression.h"
 #include "Statement.h"
 
 class ELSEStatement : public Statement {
@@ -14,7 +15,7 @@ class ELSEStatement : public Statement {
 
 class IFStatement : public Statement {
 	public:
-		std::string condition;
+		std::unique_ptr<Expression> condition;
 		std::unique_ptr<ELSEStatement> else_block;
 
 		IFStatement();
