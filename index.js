@@ -90,3 +90,7 @@ handle_spam("No one expects the Spanish Inquisition!", 3, true);
 for (let time = 0; time < 4; time++) {
 console.log(time);
 }
+function get_name(name, last_name) {
+}
+let full_name = get_name(name, last_name);
+let nick_name = full_name = "Shawn Lee";

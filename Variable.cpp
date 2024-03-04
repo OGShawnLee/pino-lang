@@ -61,23 +61,17 @@ PeekPtr<Variable> Variable::build(std::vector<Token> collection, size_t index) {
 
 	result.index = marker.index;
 
-	auto value = peek<Token>(collection, result.index, [](Token &token) {
-		return token.kind == Kind::LITERAL || token.kind == Kind::IDENTIFIER;
-	});
+	PeekPtr<Expression> expression = Expression::build(collection, result.index + 1);
 
-	if (value.node.kind == Kind::LITERAL) {
-		result.node->type = infer_literal_type(value.node.literal);
-		result.node->value = std::move(
-			Value::from_literal(value.node)
-		);
+	if (expression.node->expression == ExpressionKind::LITERAL) {
+		Value *literal = static_cast<Value*>(expression.node.get());
+		result.node->type = infer_literal_type(literal->literal);
 	} else {
 		result.node->type = BuiltInType::VOID;
-		result.node->value = std::move(
-			Identifier::from_identifier(value.node)
-		);
 	}
 
-	result.index = value.index;
+	result.node->value = std::move(expression.node);
+	result.index = expression.index;
 
 	return result;
 }
@@ -108,13 +102,7 @@ void Variable::print(size_t indentation) const {
 	println(indent + "  name: " + name);
 	println(indent + "  type: " + get_type_name(type));
 	if (value.get() != nullptr) {
-		if (value->expression == ExpressionKind::IDENTIFIER) {
-			Identifier *identifier = static_cast<Identifier*>(value.get());
-			identifier->print(indentation + 2);
-		} else if (value->expression == ExpressionKind::LITERAL) {
-			Value *literal = static_cast<Value*>(value.get());
-			literal->print(indentation + 2);
-		}
+		value->print(indentation + 2);
 	}
 	println(indent + "}");
 }

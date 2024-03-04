@@ -26,6 +26,8 @@ class Expression : public Statement {
 
     Expression();
 
+    static PeekPtr<Expression> build(std::vector<Token> collection, size_t index);
+
     void print(size_t indentation = 0) const;
 };
 

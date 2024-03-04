@@ -7,6 +7,30 @@ Expression::Expression() {
   kind = StatementKind::EXPRESSION;
 }
 
+PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t index) {
+  PeekPtr<Expression> result;
+
+  if (FunctionCall::is_fn_call(collection, index)) {    
+    PeekPtr<FunctionCall> fn_call = FunctionCall::build(collection, index);
+    result.node = std::move(fn_call.node);
+    result.index = fn_call.index;
+  } else if (Reassignment::is_reassigment(collection, index)) {
+    PeekPtr<Reassignment> reassignment = Reassignment::build(collection, index);
+    result.node = std::move(reassignment.node);
+    result.index = reassignment.index;
+  } else if (collection[index].kind == Kind::IDENTIFIER) {
+    result.node = Identifier::from_identifier(collection[index]);
+    result.index = index;
+  } else if (collection[index].kind == Kind::LITERAL) {
+    result.node = Value::from_literal(collection[index]);
+    result.index = index;
+  } else {
+    throw std::runtime_error("USER: Not an Expression");
+  }
+
+  return result;
+}
+
 void Expression::print(size_t indentation) const {
   std::string indent = get_indentation(indentation);
   println(indent + get_expression_name(expression) + " {");
@@ -98,11 +122,13 @@ void FunctionCall::print(size_t indentation) const {
   std::string indent = get_indentation(indentation);
   println(indent + "FunctionCall {");
   println(indent + "  name: " + name);
-  println(indent + "  arguments: [");
-  for (const std::unique_ptr<Expression> &argument : arguments) {
-    argument->print(indentation + 4);
+  if (arguments.size() > 0) {
+    println(indent + "  arguments: [");
+    for (const std::unique_ptr<Expression> &argument : arguments) {
+      argument->print(indentation + 4);
+    }
+    println(indent + "  ]");
   }
-  println(indent + "  ]");
   println(indent + "}");
 }
 

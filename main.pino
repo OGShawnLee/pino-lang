@@ -116,3 +116,10 @@ handle_spam("No one expects the Spanish Inquisition!", 3, true)
 for time in 4 {
   println(time)
 }
+
+fn get_name(name str, last_name str) {
+  "$name $last_name"
+}
+
+var full_name = get_name(name, last_name)
+var nick_name = full_name = "Shawn Lee"

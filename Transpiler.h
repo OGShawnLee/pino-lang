@@ -76,6 +76,14 @@ class JSTranspiler {
 
         return value->value;
       }
+      case ExpressionKind::FN_CALL: {
+        FunctionCall *fn_call = static_cast<FunctionCall *>(expression.get());
+        return fn_call->name + get_fn_call_arguments(fn_call->arguments);
+      }
+      case ExpressionKind::VAR_REASSIGNMENT: {
+        Reassignment *reassignment = static_cast<Reassignment *>(expression.get());
+        return reassignment->identifier + " = " + get_value(reassignment->value);
+      }
       default:
         throw std::runtime_error("Unsupported Value");
     }
@@ -181,22 +189,9 @@ class JSTranspiler {
     }
     
     Variable *variable = static_cast<Variable *>(statement.get());
-    std::string line;
+    std::string keyword = statement->kind == StatementKind::VAL_DECLARATION ? "const" : "let";
 
-    if (
-      statement->kind == StatementKind::VAL_DECLARATION || 
-      statement->kind == StatementKind::VAR_DECLARATION
-    ) {
-      std::string keyword = statement->kind == StatementKind::VAL_DECLARATION ? "const" : "let";
-      line = keyword + " " + variable->name + " = " + get_value(variable->value) + ";";      
-    } else {
-      Variable *variable = static_cast<Variable *>(statement.get());
-      line = variable->name + " = " + get_value(variable->value) + ";";
-    }
-
-    line += "\n";
-
-    return line;
+    return keyword + " " + variable->name + " = " + get_value(variable->value) + ";\n";      
   }
 
   static std::string transpile_expression(std::unique_ptr<Statement> &statement) {
