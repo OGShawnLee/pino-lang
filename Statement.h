@@ -13,6 +13,7 @@ enum class StatementKind {
 	ELSE_STATEMENT,
 	EXPRESSION,
 	LOOP_STATEMENT,
+	RETURN_STATEMENT,
 };
 
 std::map<StatementKind, std::string> STATEMENT_NAME = {
@@ -23,6 +24,8 @@ std::map<StatementKind, std::string> STATEMENT_NAME = {
 	{StatementKind::IF_STATEMENT, "If Statement"},
 	{StatementKind::ELSE_STATEMENT, "Else Statement"},
 	{StatementKind::EXPRESSION, "Expression"},
+	{StatementKind::LOOP_STATEMENT, "Loop Statement"},
+	{StatementKind::RETURN_STATEMENT, "Return Statement"},
 };
 
 class Statement {

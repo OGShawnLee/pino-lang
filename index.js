@@ -90,7 +90,20 @@ handle_spam("No one expects the Spanish Inquisition!", 3, true);
 for (let time = 0; time < 4; time++) {
 console.log(time);
 }
-function get_name(name, last_name) {
+function get_name(name, last_name, is_great) {
+if (is_great) {
+return `${name} ${last_name} the great`;
 }
-let full_name = get_name(name, last_name);
+return `${name} ${last_name}`;
+}
+let full_name = get_name("John", "China", true);
+console.log(full_name);
+full_name = get_name(name, country, false);
+console.log(full_name);
 let nick_name = full_name = "Shawn Lee";
+console.log(`full_name: ${full_name}, nick_name: ${nick_name}`);
+function with_no_expression() {
+console.log("This fn has a return statement with no expression");
+return println("This never runs");
+}
+with_no_expression();

@@ -117,9 +117,29 @@ for time in 4 {
   println(time)
 }
 
-fn get_name(name str, last_name str) {
-  "$name $last_name"
+fn get_name(name str, last_name str, is_great bool) {
+  if is_great {
+    return "$name $last_name the great"
+  } 
+
+  return "$name $last_name"
 }
 
-var full_name = get_name(name, last_name)
+var full_name = get_name("John", "China", true)
+
+println(full_name)
+
+full_name = get_name(name, country, false)
+
+println(full_name)
+
 var nick_name = full_name = "Shawn Lee"
+
+println("full_name: $full_name, nick_name: $nick_name")
+
+fn with_no_expression() {
+  println("This fn has a return statement with no expression")
+  return
+}
+
+with_no_expression()

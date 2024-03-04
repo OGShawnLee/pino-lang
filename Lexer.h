@@ -44,6 +44,7 @@ enum class Keyword {
 	ELSE_KEYWORD,
 	LOOP_KEYWORD,
 	IN_KEYWORD,
+	RETURN_KEYWORD,
 };
 
 std::map<std::string, Keyword> KEYWORD_KEY = {
@@ -54,6 +55,7 @@ std::map<std::string, Keyword> KEYWORD_KEY = {
 	{"else", Keyword::ELSE_KEYWORD},
 	{"for", Keyword::LOOP_KEYWORD},
 	{"in", Keyword::IN_KEYWORD},
+	{"return", Keyword::RETURN_KEYWORD},
 };
 
 enum class Literal {

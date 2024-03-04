@@ -14,7 +14,7 @@ class Parser {
 			Statement program;
 			program.kind = StatementKind::PROGRAM;
 
-			std::vector<std::unique_ptr<Statement>> children = Block::build(collection);
+			std::vector<std::unique_ptr<Statement>> children = Block::build_program(collection);
 			program.children = std::move(children);
 
 			return program;

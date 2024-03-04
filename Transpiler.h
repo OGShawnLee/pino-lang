@@ -194,6 +194,20 @@ class JSTranspiler {
     return keyword + " " + variable->name + " = " + get_value(variable->value) + ";\n";      
   }
 
+  static std::string get_return_statement(std::unique_ptr<Statement> &statement) {
+    if (statement->kind != StatementKind::RETURN_STATEMENT) {
+      throw std::runtime_error("DEV: Not a Return Statement");
+    }
+
+    ReturnStatement *return_statement = static_cast<ReturnStatement *>(statement.get());
+
+    if (return_statement->value == nullptr) {
+      return "return;\n";
+    }
+
+    return "return " + get_value(return_statement->value) + ";\n";
+  }
+
   static std::string transpile_expression(std::unique_ptr<Statement> &statement) {
     if (statement->kind != StatementKind::EXPRESSION) {
       throw std::runtime_error("DEV: Not an Expression Statement");
@@ -237,6 +251,8 @@ class JSTranspiler {
         return get_if_statement(statement);
       case StatementKind::LOOP_STATEMENT:
         return get_loop_statement(statement);
+      case StatementKind::RETURN_STATEMENT:
+        return get_return_statement(statement);
       case StatementKind::VAL_DECLARATION:
       case StatementKind::VAR_DECLARATION:
         return get_variable_statement(statement);

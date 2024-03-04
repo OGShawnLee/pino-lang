@@ -31,6 +31,14 @@ PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t inde
   return result;
 }
 
+bool Expression::is_expression(std::vector<Token> collection, size_t index) {
+  return 
+    FunctionCall::is_fn_call(collection, index) || 
+    Reassignment::is_reassigment(collection, index) ||
+    collection[index].kind == Kind::IDENTIFIER || 
+    collection[index].kind == Kind::LITERAL;
+}
+
 void Expression::print(size_t indentation) const {
   std::string indent = get_indentation(indentation);
   println(indent + get_expression_name(expression) + " {");
@@ -203,15 +211,9 @@ PeekPtr<Reassignment> Reassignment::build(std::vector<Token> collection, size_t 
   result.index = index;
 
   Peek<Token> equal = get_next<Token>(collection, index);
-  auto id_or_literal = peek<Token>(collection, equal.index, [](Token &token) {
-    return token.kind == Kind::IDENTIFIER || token.kind == Kind::LITERAL;
-  });
-
-  if (id_or_literal.node.kind == Kind::IDENTIFIER) {
-    result.node->value = Identifier::from_identifier(id_or_literal.node);
-  } else {
-    result.node->value = Value::from_literal(id_or_literal.node);
-  }
+  PeekPtr<Expression> value = Expression::build(collection, equal.index + 1);
+  result.node->value = std::move(value.node);
+  result.index = value.index;
 
   return result;
 }

@@ -11,7 +11,7 @@
 #include "Variable.cpp"
 #include "utils.h"
 
-std::vector<std::unique_ptr<Statement>> Block::build(std::vector<Token> collection) {
+std::vector<std::unique_ptr<Statement>> Block::build_program(std::vector<Token> collection) {
   std::vector<std::unique_ptr<Statement>> program;
 
   for (size_t i = 0; i < collection.size(); i++) {
@@ -57,6 +57,10 @@ std::vector<std::unique_ptr<Statement>> Block::build(std::vector<Token> collecti
           program.push_back(std::move(loop_peek.node));
           i = loop_peek.index;
         }
+
+        if (token.keyword == Keyword::RETURN_KEYWORD) {
+          throw std::runtime_error("Return Statement outside of function body");
+        }
       } break;
       default:
         break;
@@ -66,24 +70,9 @@ std::vector<std::unique_ptr<Statement>> Block::build(std::vector<Token> collecti
   return program;
 }
 
-PeekStreamPtr<Statement> Block::build(std::vector<Token> collection, size_t index) {
-  PeekStreamPtr<Statement> result;
-
-  result.index = index;
-
-  return Block::build_with_break(
-    collection, 
-    result.index, 
-    [](Token &token) {
-      return token.marker == Marker::RIGHT_BRACE;
-    }
-  );
-}
-
-PeekStreamPtr<Statement> Block::build_with_break(
+PeekStreamPtr<Statement> Block::build(
   std::vector<Token> collection, 
-  size_t index,
-  std::function<bool(Token &)> is_end_of_block
+  size_t index
 ) {
   PeekStreamPtr<Statement> result;
 
@@ -96,7 +85,7 @@ PeekStreamPtr<Statement> Block::build_with_break(
   for (size_t i = result.index + 1; i < collection.size(); i++) {
     Token token = collection[i];
 
-    if (is_end_of_block(token)) {
+    if (token.is_given_marker(Marker::RIGHT_BRACE)) {
       result.index = i;
       return result;
     }
@@ -140,6 +129,12 @@ PeekStreamPtr<Statement> Block::build_with_break(
           PeekPtr<Loop> loop_peek = Loop::build(collection, i);
           result.nodes.push_back(std::move(loop_peek.node));
           i = loop_peek.index;
+        }
+
+        if (token.keyword == Keyword::RETURN_KEYWORD) {
+          PeekPtr<ReturnStatement> return_peek = ReturnStatement::build(collection, i);
+          result.nodes.push_back(std::move(return_peek.node));
+          i = return_peek.index;
         }
       } break;
       default:

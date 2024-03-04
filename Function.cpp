@@ -10,6 +10,40 @@
 
 class Variable;
 
+ReturnStatement::ReturnStatement() {
+	kind = StatementKind::RETURN_STATEMENT;
+}
+
+PeekPtr<ReturnStatement> ReturnStatement::build(std::vector<Token> collection, size_t index) {
+	Keyword keyword = collection[index].keyword;
+	if (keyword != Keyword::RETURN_KEYWORD) {
+		throw std::runtime_error("DEV: Not a Return Statement");
+	}
+
+	PeekPtr<ReturnStatement> result;
+	result.index = index;
+
+	if (Expression::is_expression(collection, index + 1)) {
+		PeekPtr<Expression> expression = Expression::build(collection, index + 1);
+		result.node->value = std::move(expression.node);
+		result.index = expression.index;
+	}
+
+	return result;
+}
+
+void ReturnStatement::print(size_t indentation) const {
+	std::string indent = get_indentation(indentation);
+	println(indent + "ReturnStatement {");
+
+	if (value != nullptr) {
+		println(indent + "  value: ");
+		value->print(indentation + 4);
+	}
+
+	println(indent + "}");
+}
+
 Function::Function() {
   kind = StatementKind::FN_DECLARATION;
 }
