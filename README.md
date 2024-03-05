@@ -96,12 +96,14 @@ for i in times {
 - [ ] Arrays
 - [x] Binary Expressions
   - [ ] Dual Character Bool Operators (==, !=, >=, <=)
-  - [ ] Order of Precedence
+  - [ ] Order of Precedence (JavaScript handles it once it is transpiled but it is not built in Pino)
+  - [ ] Parenthesis
 - [ ] Checker (Parser output is transpiled without validation)
 - [ ] Descriptive Parser and Lexer Errors
 - [ ] Floats
 - [ ] Function Return Typing
 - [ ] Else If Statement
 - [ ] Match Statement
+- [ ] Modules and Import Statements
 - [ ] Structs
 - [ ] Yield Statement
