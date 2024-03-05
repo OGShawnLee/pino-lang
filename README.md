@@ -73,7 +73,7 @@ var has_girlfriend = false
 if has_girlfriend {
   println("Shawn Lee has a girlfriend!")
 } else {
-  println("Shawn Lee is still single after all this years!")
+  println("Shawn Lee is still single after all these years!")
 }
 ```
 
