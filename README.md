@@ -88,7 +88,7 @@ for 10 {
 # In Loop
 var times = 10
 for i in times {
-  println("This has run for the $i time a total of $times"
+  println("This has run for the $i time a total of $times")
 }
 ```
 
