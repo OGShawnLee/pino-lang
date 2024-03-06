@@ -122,3 +122,13 @@ ruble = dollar_to_ruble(900);
 if (ruble > 30000) {
 console.log("That is a lot of rubles!");
 }
+function get_str(it) {
+return `${it}: What is going on fella?`;
+}
+let arr_int = [];
+const arr_str = [];
+for (let it = 0; it < 9; it++) arr_str[it] = get_str(it);
+console.log(arr_int, arr_str);
+let arr = [];
+for (let it = 0; it < 6; it++) arr[it] = it + 10 * 5;
+console.log(arr);

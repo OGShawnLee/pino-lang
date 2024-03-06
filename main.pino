@@ -164,3 +164,19 @@ ruble = dollar_to_ruble(900)
 if ruble > 30000 {
   println("That is a lot of rubles!")
 }
+
+fn get_str(it int) {
+  return "$it: What is going on fella?"
+}
+
+var arr_int = []int { len: 6 }
+val arr_str = []str { len: 9, init: get_str(it) }
+
+println(arr_int, arr_str)
+
+var arr = []int { 
+  len: 6, 
+  init: it + 10 * 5 
+}
+
+println(arr)

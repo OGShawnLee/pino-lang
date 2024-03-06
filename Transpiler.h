@@ -97,6 +97,10 @@ class JSTranspiler {
           return get_str_value(str->value, str->injections);
         }
 
+        if (value->literal == Literal::VECTOR) {
+          return value->value;
+        }
+
         return value->value;
       }
       case ExpressionKind::FN_CALL: {
@@ -213,8 +217,21 @@ class JSTranspiler {
     
     Variable *variable = static_cast<Variable *>(statement.get());
     std::string keyword = statement->kind == StatementKind::VAL_DECLARATION ? "const" : "let";
+    std::string line = keyword + " " + variable->name + " = " + get_value(variable->value) + ";\n";
 
-    return keyword + " " + variable->name + " = " + get_value(variable->value) + ";\n";      
+    if (variable->value->expression == ExpressionKind::LITERAL) {
+      Value *value = static_cast<Value *>(variable->value.get());
+
+      if (value->literal != Literal::VECTOR) return line;
+
+      Vector *vector = static_cast<Vector *>(value);
+
+      if (vector->len != nullptr && vector->init != nullptr) {
+        line += "for (let it = 0; it < " + get_value(vector->len) + "; it++) " + variable->name + "[it] = " + get_value(vector->init) + ";\n";
+      }
+    }
+
+    return line;      
   }
 
   static std::string get_return_statement(std::unique_ptr<Statement> &statement) {

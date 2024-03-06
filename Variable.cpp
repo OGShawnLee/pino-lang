@@ -13,6 +13,7 @@ std::map<Literal, BuiltInType> LITERAL_TYPE = {
 	{Literal::BOOLEAN, BuiltInType::BOOL},
 	{Literal::INTEGER, BuiltInType::INT},
 	{Literal::STRING, BuiltInType::STR},
+	{Literal::VECTOR, BuiltInType::VOID},
 };
 
 std::map<BuiltInType, std::string> TYPE_NAME = {

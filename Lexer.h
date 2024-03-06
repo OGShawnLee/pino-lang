@@ -101,9 +101,11 @@ enum class Literal {
 	BOOLEAN,
 	INTEGER,
 	STRING,
+	VECTOR,
 };
 
 enum class Marker {
+	COLON,
 	COMMA,
 	DOUBLE_QUOTE,
 	EQUAL_SIGN,
@@ -116,6 +118,7 @@ enum class Marker {
 };
 
 std::map<char, Marker> MARKER_KEY = {
+	{':', Marker::COLON},
 	{',', Marker::COMMA},
 	{'"', Marker::DOUBLE_QUOTE},
 	{'=', Marker::EQUAL_SIGN},
@@ -292,6 +295,24 @@ class Lexer {
 		throw std::runtime_error("DEV: Not a String Injection");
 	}
 
+	static Peek<Token> get_arr_literal(std::string line, size_t index) {
+		if (line[index] != '[') {
+			throw std::runtime_error("DEV: Not an Array Literal");
+		}
+
+		auto marker = peek(line, index, [](char character) {
+			return character == ']';
+		});
+
+		Peek<Token> next;
+		next.node.value = "[]";
+		next.node.kind = Kind::LITERAL;
+		next.node.literal = Literal::VECTOR;
+		next.index = marker.index;
+
+		return next;
+	}
+
 	static Peek<Token> get_str_literal(std::string line, size_t index) {
 		if (line[index] != '"') {
 			throw std::runtime_error("DEV: Not a String Literal");
@@ -390,6 +411,11 @@ class Lexer {
 					}
 					
 					switch (marker) {
+						case Marker::LEFT_BRACKET: {
+							Peek<Token> arr = get_arr_literal(line, i);
+							stream.push_back(arr.node);
+							i = arr.index;
+						} break;
 						case Marker::DOUBLE_QUOTE: {	
 							Peek<Token> str = get_str_literal(line, i);
 							stream.push_back(str.node);
