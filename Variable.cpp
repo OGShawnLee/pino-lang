@@ -9,27 +9,6 @@
 
 class Function;
 
-std::map<Literal, BuiltInType> LITERAL_TYPE = {
-	{Literal::BOOLEAN, BuiltInType::BOOL},
-	{Literal::INTEGER, BuiltInType::INT},
-	{Literal::STRING, BuiltInType::STR},
-};
-
-std::map<BuiltInType, std::string> TYPE_NAME = {
-	{BuiltInType::BOOL, "bool"},
-	{BuiltInType::INT, "int"},
-	{BuiltInType::STR, "str"},
-	{BuiltInType::VOID, "void"},
-};
-
-std::string get_type_name(BuiltInType type) {
-	return TYPE_NAME.at(type);
-}
-
-BuiltInType infer_literal_type(Literal kind) {
-	return LITERAL_TYPE.at(kind);
-}
-
 Variable::Variable() {
   kind = StatementKind::VAR_DECLARATION;
 }

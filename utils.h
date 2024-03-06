@@ -47,6 +47,25 @@ Peek<T> get_next(std::vector<T> stream, size_t index) {
   return result;
 }
 
+Peek<char> peek(
+  std::string line,
+  size_t index,
+  std::function<bool(char&)> is_valid_node
+) {
+  if (index + 1 > line.length()) {
+    throw std::runtime_error("Unexpected EOF");
+  }
+
+  if (is_valid_node(line[index + 1])) {
+    Peek<char> result;
+    result.node = line[index + 1];
+    result.index = index + 1;
+    return result;
+  }
+
+  throw std::runtime_error("Unexpected Character");
+}
+
 template <typename T>
 Peek<T> peek(
   std::vector<T> stream,

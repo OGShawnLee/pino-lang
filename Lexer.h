@@ -64,15 +64,15 @@ std::map<std::string, BinaryOperator> BINARY_OPERATOR_KEY = {
 };
 
 std::map<BinaryOperator, std::string> BINARY_OPERATOR_NAME = {
-	{BinaryOperator::PLUS, "addition"},
-	{BinaryOperator::MINUS, "subtraction"},
-	{BinaryOperator::MULTIPLY, "multiplication"},
-	{BinaryOperator::DIVIDE, "division"},
-	{BinaryOperator::MODULUS, "modulus"},
-	{BinaryOperator::LESS_THAN, "less than"},
-	{BinaryOperator::GREATER_THAN, "greater than"},
-	{BinaryOperator::AND, "and"},
-	{BinaryOperator::OR, "or"},
+	{BinaryOperator::PLUS, "Addition"},
+	{BinaryOperator::MINUS, "Subtraction"},
+	{BinaryOperator::MULTIPLY, "Multiplication"},
+	{BinaryOperator::DIVIDE, "Division"},
+	{BinaryOperator::MODULUS, "Modulus"},
+	{BinaryOperator::LESS_THAN, "Less than"},
+	{BinaryOperator::GREATER_THAN, "Greater than"},
+	{BinaryOperator::AND, "Conjunction"},
+	{BinaryOperator::OR, "Disjunction"},
 };
 
 enum class Keyword {
@@ -101,9 +101,11 @@ enum class Literal {
 	BOOLEAN,
 	INTEGER,
 	STRING,
+	VECTOR,
 };
 
 enum class Marker {
+	COLON,
 	COMMA,
 	DOUBLE_QUOTE,
 	EQUAL_SIGN,
@@ -116,6 +118,7 @@ enum class Marker {
 };
 
 std::map<char, Marker> MARKER_KEY = {
+	{':', Marker::COLON},
 	{',', Marker::COMMA},
 	{'"', Marker::DOUBLE_QUOTE},
 	{'=', Marker::EQUAL_SIGN},
@@ -126,6 +129,28 @@ std::map<char, Marker> MARKER_KEY = {
 	{']', Marker::RIGHT_BRACKET},
 	{')', Marker::RIGHT_PARENTHESIS},
 };
+
+std::map<Literal, BuiltInType> LITERAL_TYPE = {
+	{Literal::BOOLEAN, BuiltInType::BOOL},
+	{Literal::INTEGER, BuiltInType::INT},
+	{Literal::STRING, BuiltInType::STR},
+	{Literal::VECTOR, BuiltInType::VOID},
+};
+
+std::map<BuiltInType, std::string> TYPE_NAME = {
+	{BuiltInType::BOOL, "bool"},
+	{BuiltInType::INT, "int"},
+	{BuiltInType::STR, "str"},
+	{BuiltInType::VOID, "void"},
+};
+
+std::string get_type_name(BuiltInType type) {
+	return TYPE_NAME.at(type);
+}
+
+BuiltInType infer_literal_type(Literal kind) {
+	return LITERAL_TYPE.at(kind);
+}
 
 class Token {
 	public:
@@ -272,6 +297,24 @@ class Token {
 };
 
 class Lexer {
+	static Peek<Token> get_arr_literal(std::string line, size_t index) {
+		if (line[index] != '[') {
+			throw std::runtime_error("DEV: Not an Array Literal");
+		}
+
+		Peek<char> marker = peek(line, index, [](char character) {
+			return character == ']';
+		});
+
+		Peek<Token> next;
+		next.node.value = "[]";
+		next.node.kind = Kind::LITERAL;
+		next.node.literal = Literal::VECTOR;
+		next.index = marker.index;
+
+		return next;
+	}
+
 	static std::string get_str_injection(std::string line, size_t index) {
 		if (is_str_injection(line, index) == false) {
 			throw std::runtime_error("DEV: Not a String Injection");
@@ -395,6 +438,12 @@ class Lexer {
 							stream.push_back(str.node);
 							i = str.index;
 						} break;
+						case Marker::LEFT_BRACKET: {
+							Peek<Token> arr = get_arr_literal(line, i);
+							stream.push_back(arr.node);
+							i = arr.index;
+							break;
+						}
 						default:
 							stream.push_back(Token(marker, character));
 							break;

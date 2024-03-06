@@ -26,6 +26,13 @@ PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t inde
     result.node = Identifier::from_identifier(collection[index]);
     result.index = index;
   } else if (collection[index].kind == Kind::LITERAL) {
+    if (collection[index].literal == Literal::VECTOR) {
+      PeekPtr<Vector> vector = Vector::build(collection, index);
+      result.node = std::move(vector.node);
+      result.index = vector.index;
+      return result;
+    }
+
     result.node = Value::from_literal(collection[index]);
     result.index = index;
   } else {
@@ -339,4 +346,96 @@ void Value::print(size_t indentation) const {
   println(indentation_str + "Literal {");
   println(indentation_str + "  value: " + value);
   println(indentation_str + "}");
+}
+
+Vector::Vector() {
+  expression = ExpressionKind::LITERAL;
+}
+
+size_t Vector::handle_init_block(std::vector<Token> collection, size_t index) {
+  auto brace = peek<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::LEFT_BRACE);
+  });
+
+  index = brace.index;
+
+  auto len_keyword = peek<Token>(collection, index, [](Token &token) {
+    return token.kind == Kind::IDENTIFIER && token.value == "len";
+  });
+
+  index = len_keyword.index;
+
+  auto colon = peek<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::COLON);
+  });
+
+  index = colon.index;
+
+  auto length = Expression::build(collection, index + 1);
+  
+  index = length.index;
+  len = std::move(length.node);
+
+  bool has_init = is_next<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::COMMA);
+  });
+
+  index += 1;
+
+  if (has_init == false) {
+    return index;
+  }
+
+  auto init_keyword = peek<Token>(collection, index, [](Token &token) {
+    return token.kind == Kind::IDENTIFIER && token.value == "init";
+  });
+
+  index = init_keyword.index;
+
+  auto next = peek<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::COLON);
+  });
+
+  index = next.index;
+
+  PeekPtr<Expression> init_value = Expression::build(collection, index + 1);
+  init = std::move(init_value.node);
+  index = init_value.index;
+
+  auto right_brace = peek<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::RIGHT_BRACE);
+  });
+
+  return right_brace.index;
+}
+
+PeekPtr<Vector> Vector::build(std::vector<Token> collection, size_t index) {
+  if (collection[index].is_given_literal(Literal::VECTOR) == false) {
+    throw std::runtime_error("DEV: Not a Vector");
+  }
+
+  PeekPtr<Vector> result;
+  result.node->value = collection[index].value;
+
+  auto typing = peek<Token>(collection, index, [](Token &token) {
+    return token.kind == Kind::BUILT_IN_TYPE;
+  });
+
+  result.node->typing = typing.node.type;
+  result.index = typing.index;
+  result.index = result.node->handle_init_block(collection, result.index);
+
+  return result;
+}
+
+void Vector::print(size_t indentation) const {
+  std::string indent = get_indentation(indentation);
+  println(indent + "Vector {");
+  println(indent + "  value: " + value);
+  len->print(indentation + 2);
+  println(indent + "  typing: " + get_type_name(typing));
+  if (init != nullptr) {
+    init->print(indentation + 2);
+  }
+  println(indent + "}");
 }

@@ -117,3 +117,18 @@ class String : public Value {
 
     void print(size_t indentation = 0) const;
 };
+
+class Vector : public Value {
+  size_t handle_init_block(std::vector<Token> collection, size_t index);
+
+  public:
+    std::unique_ptr<Expression> init;
+    std::unique_ptr<Expression> len;
+    BuiltInType typing;
+
+    Vector();
+
+    static PeekPtr<Vector> build(std::vector<Token> collection, size_t index);
+
+    void print(size_t indentation = 0) const;
+};
