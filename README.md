@@ -39,6 +39,19 @@ val budget = 0
 var message = "$name lives in $country and has a budget of $budget"
 ```
 
+## Vectors
+
+```
+fn get_str(it int) {
+  return "$it: What is going on fella!"
+}
+
+var arr_int = []int { len: 6, init: it * 2 }
+var arr_str = []str { len: 9, init: get_str(it) }
+
+println(arr_int, arr_str)
+```
+
 ## Functions
 
 ```
@@ -93,7 +106,6 @@ for i in times {
 ```
 
 ## Missing Features
-- [ ] Arrays
 - [x] Binary Expressions
   - [ ] Dual Character Bool Operators (==, !=, >=, <=)
   - [ ] Order of Precedence (JavaScript handles it once it is transpiled but it is not built in Pino)
@@ -106,4 +118,9 @@ for i in times {
 - [ ] Match Statement
 - [ ] Modules and Import Statements
 - [ ] Structs
+- [ ] Vectors
+  - [ ] Vector Accesing
+  - [x] Vector Initialisation
+  - [ ] Vector Operations (pop, prepend, push, shift)
+  - [ ] Vector Type for fn parameters
 - [ ] Yield Statement
