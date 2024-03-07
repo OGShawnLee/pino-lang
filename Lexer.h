@@ -88,6 +88,7 @@ enum class Literal {
 	INTEGER,
 	STRING,
 	VECTOR,
+	STRUCT,
 };
 
 enum class Marker {

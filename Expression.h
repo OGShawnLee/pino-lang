@@ -118,6 +118,37 @@ class String : public Value {
     void print(size_t indentation = 0) const;
 };
 
+class Field {
+  public:
+    std::string name;
+    std::string typing;
+    // Unique to a Struct Literal
+    // Might be used for default Struct Definition Values
+    std::unique_ptr<Expression> value;
+
+    // Unique to a Struct Definition
+    static PeekPtr<Field> build(std::vector<Token> collection, size_t index);
+    
+    // Unique to a Struct Literal
+    static PeekPtr<Field> build_as_property(std::vector<Token> collection, size_t index);
+
+    void print(size_t indentation) const;
+};
+
+class Struct : public Value {
+  public:
+    std::string name;
+    std::vector<std::unique_ptr<Field>> fields;
+
+    Struct();
+
+    static bool is_struct(std::vector<Token> collection, size_t index);
+
+    static PeekPtr<Struct> build(std::vector<Token> collection, size_t index);
+
+    void print(size_t indentation = 0) const;
+};
+
 class Vector : public Value {
   size_t handle_init_block(std::vector<Token> collection, size_t index);
 

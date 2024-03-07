@@ -73,6 +73,19 @@ class JSTranspiler {
     return str;
   }
 
+  static std::string get_struct_value(StreamPtr<Field> &fields) {
+    std::string line = "{\n";
+
+    for (size_t i = 0; i < fields.size(); i++) {
+      std::unique_ptr<Field> &field = fields[i];
+      line += "  " + field->name + ": " + get_value(field->value) + ",\n";
+    }
+
+    line += "}";
+
+    return line;
+  }
+
   static std::string get_value(std::unique_ptr<Expression> &expression) {
     switch (expression->expression) {
       case ExpressionKind::BINARY_EXPRESSION: {
@@ -95,6 +108,11 @@ class JSTranspiler {
         if (value->literal == Literal::STRING) {
           String *str = static_cast<String *>(value);
           return get_str_value(str->value, str->injections);
+        }
+
+        if (value->literal == Literal::STRUCT) {
+          Struct *dictionary = static_cast<Struct *>(value);
+          return get_struct_value(dictionary->fields);
         }
 
         if (value->literal == Literal::VECTOR) {

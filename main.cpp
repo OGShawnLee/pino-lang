@@ -1,10 +1,10 @@
 #include "Transpiler.h"
 
 int main() {
-  Statement program = Parser::parse_file("main.pino");
-  program.print();
+  // Statement program = Parser::parse_file("main.pino");
+  // program.print();
 
-  // JSTranspiler::transpile("main.pino", "index.js");
+  JSTranspiler::transpile("main.pino", "index.js");
   
   return 0;
 }

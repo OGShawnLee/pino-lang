@@ -1,40 +1,7 @@
 #pragma once
 
+#include "Expression.h"
 #include "Statement.h"
-
-class Field {
-  public:
-    std::string name;
-    std::string typing;
-
-    static PeekPtr<Field> build(std::vector<Token> collection, size_t index) {
-      PeekPtr<Field> result;
-      
-      auto name = peek<Token>(collection, index, [](Token &token) {
-        return token.kind == Kind::IDENTIFIER;
-      });
-
-      result.node->name = name.node.value;
-      result.index = name.index;
-
-      auto typing = peek<Token>(collection, result.index, [](Token &token) {
-        return token.kind == Kind::IDENTIFIER;
-      });
-
-      result.node->typing = typing.node.value;
-      result.index = typing.index;
-
-      return result;
-    }
-
-    void print(size_t indentation) const {
-      std::string indent = get_indentation(indentation);
-      println(indent + "Field {");
-      println(indent + "  name: " + name);
-      println(indent + "  typing: " + typing);
-      println(indent + "}");
-    }
-};
 
 class StructDefinition : public Statement {
   public:

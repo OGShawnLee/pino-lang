@@ -134,3 +134,35 @@ for (let it = 0; it < 6; it++) arr[it] = it + 10 * 5;
 let arr_ruble = [];
 for (let it = 0; it < 3; it++) arr_ruble[it] = dollar_to_ruble(it + 1);
 console.log(arr, arr_ruble);
+let arr_person = [];
+function print_person(person) {
+console.log(person);
+}
+let phone = {
+  name: "iPhone",
+  model: "15 Pro Max",
+  brand: {
+  name: "Apple",
+  country: {
+  name: "United States of America",
+  continent: "North America",
+},
+},
+};
+console.log(phone);
+function create_phone(name, model, brand) {
+return {
+  name: name,
+  model: model,
+  brand: brand,
+};
+}
+const korea = {
+  name: "South Korea",
+  continent: "Asia",
+};
+phone = create_phone("Samsung Galaxy", "S24 Ultra", {
+  name: "Samsung",
+  country: korea,
+});
+console.log(phone);
