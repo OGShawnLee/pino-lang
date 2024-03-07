@@ -9,26 +9,16 @@
 
 class Function;
 
-std::map<Literal, BuiltInType> LITERAL_TYPE = {
-	{Literal::BOOLEAN, BuiltInType::BOOL},
-	{Literal::INTEGER, BuiltInType::INT},
-	{Literal::STRING, BuiltInType::STR},
-	{Literal::VECTOR, BuiltInType::VOID},
-};
-
-std::map<BuiltInType, std::string> TYPE_NAME = {
-	{BuiltInType::BOOL, "bool"},
-	{BuiltInType::INT, "int"},
-	{BuiltInType::STR, "str"},
-	{BuiltInType::VOID, "void"},
-};
-
-std::string get_type_name(BuiltInType type) {
-	return TYPE_NAME.at(type);
-}
-
-BuiltInType infer_literal_type(Literal kind) {
-	return LITERAL_TYPE.at(kind);
+std::string infer_typing(Literal literal) {
+	if (literal == Literal::STRING) {
+		return "str";
+	} else if (literal == Literal::INTEGER) {
+		return "int";
+	} else if (literal == Literal::BOOLEAN) {
+		return "bool";
+	} else {
+		return "void";
+	}
 }
 
 Variable::Variable() {
@@ -66,9 +56,9 @@ PeekPtr<Variable> Variable::build(std::vector<Token> collection, size_t index) {
 
 	if (expression.node->expression == ExpressionKind::LITERAL) {
 		Value *literal = static_cast<Value*>(expression.node.get());
-		result.node->type = infer_literal_type(literal->literal);
+		result.node->typing = infer_typing(literal->literal);
 	} else {
-		result.node->type = BuiltInType::VOID;
+		result.node->typing = "void";
 	}
 
 	result.node->value = std::move(expression.node);
@@ -88,10 +78,10 @@ PeekPtr<Variable> Variable::build_as_parameter(std::vector<Token> collection, si
 	result.index = name.index;
 
 	auto type = peek<Token>(collection, result.index, [](Token &token) {
-		return token.kind == Kind::BUILT_IN_TYPE;
+		return token.kind == Kind::IDENTIFIER;
 	});
 
-	result.node->type = type.node.type;
+	result.node->typing = type.node.value;
 	result.index = type.index;
 
 	return result;
@@ -101,7 +91,7 @@ void Variable::print(size_t indentation) const {
 	std::string indent = get_indentation(indentation);
 	println(indent + "Variable {");
 	println(indent + "  name: " + name);
-	println(indent + "  type: " + get_type_name(type));
+	println(indent + "  typing: " + typing);
 	if (value.get() != nullptr) {
 		value->print(indentation + 2);
 	}

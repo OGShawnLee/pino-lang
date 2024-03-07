@@ -18,7 +18,7 @@ class Field {
       result.index = name.index;
 
       auto typing = peek<Token>(collection, result.index, [](Token &token) {
-        return token.is_given_kind(Kind::BUILT_IN_TYPE, Kind::IDENTIFIER);
+        return token.kind == Kind::IDENTIFIER;
       });
 
       result.node->typing = typing.node.value;

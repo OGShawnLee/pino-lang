@@ -11,7 +11,6 @@ enum class Kind {
 	KEYWORD,
 	LITERAL,
 	MARKER,
-	BUILT_IN_TYPE,
 	BINARY_OPERATOR,
 };
 
@@ -20,22 +19,7 @@ std::map<Kind, std::string> KIND_NAME = {
 	{Kind::KEYWORD, "Keyword"},
 	{Kind::LITERAL, "Literal"},
 	{Kind::MARKER, "Marker"},
-	{Kind::BUILT_IN_TYPE, "Type"},
 	{Kind::BINARY_OPERATOR, "Binary Operator"},
-};
-
-enum class BuiltInType {
-	BOOL,
-	INT,
-	STR,
-	VOID,
-};
-
-std::map<std::string, BuiltInType> BUILT_IN_TYPE_KEY = {
-	{"bool", BuiltInType::BOOL},
-	{"int", BuiltInType::INT},
-	{"str", BuiltInType::STR},
-	{"void", BuiltInType::VOID},
 };
 
 enum class BinaryOperator {
@@ -139,19 +123,12 @@ class Token {
 		Literal literal;
 		Marker marker;
 		BinaryOperator binary_operator;	
-		BuiltInType type;
 		std::string value;
 		std::vector<std::string> injections;
 
 		Token(BinaryOperator binary_operator, std::string buffer) {
 			this->kind = Kind::BINARY_OPERATOR;
 			this->binary_operator = binary_operator;
-			this->value = buffer;
-		}
-
-		Token(BuiltInType type, std::string buffer) {
-			this->kind = Kind::BUILT_IN_TYPE;
-			this->type = type;
 			this->value = buffer;
 		}
 		
@@ -219,10 +196,6 @@ class Token {
 			return BINARY_OPERATOR_KEY.count(buffer) > 0;
 		}
 
-		static bool is_built_in_type(std::string buffer) {
-			return BUILT_IN_TYPE_KEY.count(buffer) > 0;
-		}
-
 		static bool is_bool_literal(std::string buffer) {
 			return buffer == "true" || buffer == "false";
 		}
@@ -249,10 +222,6 @@ class Token {
 
 		static std::string get_binary_operator_name(BinaryOperator binary_operator) {
 			return BINARY_OPERATOR_NAME.at(binary_operator);
-		}
-
-		static BuiltInType get_built_in_type(std::string buffer) {
-			return BUILT_IN_TYPE_KEY.at(buffer);
 		}
 	
 		static Marker get_marker(char character) {
@@ -360,10 +329,6 @@ class Lexer {
 
 		if (Token::is_binary_operator(buffer)) {
 			return Token(Token::get_binary_operator(buffer), buffer);
-		}
-
-		if (Token::is_built_in_type(buffer)) {
-			return Token(Token::get_built_in_type(buffer), buffer);
 		}
 
 		return Token(buffer);

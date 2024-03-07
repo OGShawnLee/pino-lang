@@ -418,10 +418,10 @@ PeekPtr<Vector> Vector::build(std::vector<Token> collection, size_t index) {
   result.node->value = collection[index].value;
 
   auto typing = peek<Token>(collection, index, [](Token &token) {
-    return token.kind == Kind::BUILT_IN_TYPE;
+    return token.kind == Kind::IDENTIFIER;
   });
 
-  result.node->typing = typing.node.type;
+  result.node->typing = typing.node.value;
   result.index = result.node->handle_init_block(collection, typing.index);
 
   return result;
@@ -430,6 +430,7 @@ PeekPtr<Vector> Vector::build(std::vector<Token> collection, size_t index) {
 void Vector::print(size_t indentation) const {
   std::string indent = get_indentation(indentation);
   println(indent + "Vector {");
+  println(indent + "  typing: " + typing);
   if (len.get() != nullptr) {
     len->print(indentation + 2);
   }

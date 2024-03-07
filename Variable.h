@@ -9,7 +9,7 @@
 class Variable : public Statement {
 	public:
 		std::string name;
-		BuiltInType type;
+		std::string typing;
 		std::unique_ptr<Expression> value;
 
 		Variable();

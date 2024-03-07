@@ -124,7 +124,7 @@ class Vector : public Value {
   public:
     std::unique_ptr<Expression> len;
     std::unique_ptr<Expression> init;
-    BuiltInType typing;
+    std::string typing;
 
     Vector();
     
