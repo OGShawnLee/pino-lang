@@ -4,7 +4,7 @@ var is_married = false
 var age = 14
 var message = "$name lives in $country"
 
-println(message)
+println(message, message + " and is married? $is_married")
 
 is_married = true
 age = 15
@@ -179,4 +179,6 @@ var arr = []int {
   init: it + 10 * 5 
 }
 
-println(arr)
+var arr_ruble = []int { len: 3, init: dollar_to_ruble(it + 1) }
+
+println(arr, arr_ruble)

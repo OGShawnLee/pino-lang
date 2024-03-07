@@ -165,13 +165,9 @@ PeekStreamPtr<Expression> FunctionCall::handle_arguments(std::vector<Token> coll
       return result;
     }
 
-    if (next.node.kind == Kind::IDENTIFIER) {
-      std::unique_ptr<Identifier> id = Identifier::from_identifier(next.node);
-      result.nodes.push_back(std::move(id));
-    } else if (next.node.kind == Kind::LITERAL) {
-      std::unique_ptr<Value> literal = Value::from_literal(next.node);
-      result.nodes.push_back(std::move(literal));
-    }
+    PeekPtr<Expression> expression = Expression::build(collection, result.index);
+    result.nodes.push_back(std::move(expression.node));
+    result.index = expression.index;
 
     auto marker = peek<Token>(collection, result.index, [](Token &token) {
       return token.is_given_marker(Marker::COMMA, Marker::RIGHT_PARENTHESIS);
