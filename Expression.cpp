@@ -22,6 +22,10 @@ PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t inde
     PeekPtr<Reassignment> reassignment = Reassignment::build(collection, index);
     result.node = std::move(reassignment.node);
     result.index = reassignment.index;
+  } else if (Struct::is_struct(collection, index)) {
+    PeekPtr<Struct> struct_literal = Struct::build(collection, index);
+    result.node = std::move(struct_literal.node);
+    result.index = struct_literal.index;
   } else if (collection[index].kind == Kind::IDENTIFIER) {
     result.node = Identifier::from_identifier(collection[index]);
     result.index = index;
@@ -113,6 +117,7 @@ bool Expression::is_expression(std::vector<Token> collection, size_t index) {
   return 
     FunctionCall::is_fn_call(collection, index) || 
     Reassignment::is_reassigment(collection, index) ||
+    Struct::is_struct(collection, index) ||
     collection[index].kind == Kind::IDENTIFIER || 
     collection[index].kind == Kind::LITERAL;
 }
@@ -342,6 +347,63 @@ void Value::print(size_t indentation) const {
   println(indentation_str + "Literal {");
   println(indentation_str + "  value: " + value);
   println(indentation_str + "}");
+}
+
+Struct::Struct() {
+  literal = Literal::STRUCT;
+}
+
+bool Struct::is_struct(std::vector<Token> collection, size_t index) {
+  return collection[index].kind == Kind::IDENTIFIER && is_next<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::LEFT_BRACE);
+  });
+}
+
+PeekPtr<Struct> Struct::build(std::vector<Token> collection, size_t index) {
+  if (is_struct(collection, index) == false) {
+    throw std::runtime_error("DEV: Not a Struct Literal");
+  }
+
+  PeekPtr<Struct> result;
+  result.node->name = collection[index].value;
+  result.index = index;
+
+  auto left_brace = peek<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::LEFT_BRACE);
+  });
+
+  result.index = left_brace.index;
+
+  while (true) {
+    bool is_right_brace = is_next<Token>(collection, result.index, [](Token &token) {
+      return token.is_given_marker(Marker::RIGHT_BRACE);
+    });
+
+    if (is_right_brace) {
+      result.index += 1;
+      return result;
+    }
+
+    PeekPtr<Expression> field = Expression::build(collection, result.index);
+    result.node->fields.push_back(std::move(field.node));
+    result.index = field.index;
+  }
+
+  throw std::runtime_error("DEV: Unexpected End of Struct Literal");
+}
+
+void Struct::print(size_t indentation) const {
+  std::string indent = get_indentation(indentation);
+  println(indent + "Struct {");
+  println(indent + "  name: " + name);
+  if (fields.size() > 0) {
+    println(indent + "  fields: [");
+    for (const std::unique_ptr<Expression> &field : fields) {
+      field->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  println(indent + "}");
 }
 
 Vector::Vector() {

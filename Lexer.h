@@ -84,6 +84,7 @@ enum class Keyword {
 	LOOP_KEYWORD,
 	IN_KEYWORD,
 	RETURN_KEYWORD,
+	STRUCT_KEYWORD,
 };
 
 std::map<std::string, Keyword> KEYWORD_KEY = {
@@ -95,6 +96,7 @@ std::map<std::string, Keyword> KEYWORD_KEY = {
 	{"for", Keyword::LOOP_KEYWORD},
 	{"in", Keyword::IN_KEYWORD},
 	{"return", Keyword::RETURN_KEYWORD},
+	{"struct", Keyword::STRUCT_KEYWORD},
 };
 
 enum class Literal {
@@ -102,6 +104,7 @@ enum class Literal {
 	INTEGER,
 	STRING,
 	VECTOR,
+	STRUCT,
 };
 
 enum class Marker {

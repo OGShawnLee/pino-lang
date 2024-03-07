@@ -61,6 +61,12 @@ std::vector<std::unique_ptr<Statement>> Block::build_program(std::vector<Token> 
         if (token.keyword == Keyword::RETURN_KEYWORD) {
           throw std::runtime_error("Return Statement outside of function body");
         }
+
+        if (token.keyword == Keyword::STRUCT_KEYWORD) {
+          PeekPtr<StructDefinition> struct_peek = StructDefinition::build(collection, i);
+          program.push_back(std::move(struct_peek.node));
+          i = struct_peek.index;
+        }
       } break;
       default:
         break;
@@ -135,6 +141,12 @@ PeekStreamPtr<Statement> Block::build(
           PeekPtr<ReturnStatement> return_peek = ReturnStatement::build(collection, i);
           result.nodes.push_back(std::move(return_peek.node));
           i = return_peek.index;
+        }
+
+        if (token.keyword == Keyword::STRUCT_KEYWORD) {
+          PeekPtr<StructDefinition> struct_peek = StructDefinition::build(collection, i);
+          result.nodes.push_back(std::move(struct_peek.node));
+          i = struct_peek.index;
         }
       } break;
       default:
