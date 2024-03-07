@@ -1,3 +1,19 @@
+struct Person {
+  name str
+  last_name str
+  country str
+  children int
+  is_married bool
+}
+
+struct Phone {
+  brand str
+  name str
+  value float
+}
+
+struct Country { name str continent str }
+
 val name = "Shawn Lee"
 val country = "China"
 var is_married = false

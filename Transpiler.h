@@ -296,6 +296,9 @@ class JSTranspiler {
       case StatementKind::VAL_DECLARATION:
       case StatementKind::VAR_DECLARATION:
         return get_variable_statement(statement);
+      case StatementKind::STRUCT_DEFINITION:
+        // JavaScript does not support Structs
+        return "";
       default:
         println("Unsupported Statement");
         return "";
