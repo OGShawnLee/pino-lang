@@ -142,9 +142,9 @@ val person = Person {
 - [ ] Modules and Import Statements
 - [ ] Structs
   - [x] Struct Definition
-  - [ ] Struct Initialisation
+  - [x] Struct Initialisation
   - [ ] Struct Operations (delete, read, set)
-  - [ ] Struct Type for fn parameters
+  - [x] Struct Type for fn parameters
 - [ ] Vectors
   - [ ] Vector Accesing
   - [x] Vector Initialisation
