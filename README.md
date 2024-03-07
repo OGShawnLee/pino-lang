@@ -107,25 +107,31 @@ for i in times {
 
 ## Structs
 
-Structs definitions are supported, however instances are not but the intended syntax is defined.
-
 ```
-struct Person {
+struct Phone {
+  brand str
   name str
-  last_name str
-  country str
-  children int
-  is_married bool
 }
 
-# not supported yet
-val person = Person {
-  name: "Shawn Lee"
-  last_name: "Lee"
-  country: "China"
-  children: 0
-  is_married: false
+struct Person {
+  full_name str
+  is_married bool
+  budget int
+  phone Phone
 }
+
+fn create_phone(brand str, name str) {
+  return Phone { brand: brand name: name }
+}
+
+val person = Person {
+  full_name: "Shawn Lee"
+  is_married: 50 < 10
+  budget: 1000 - 950
+  phone: create_phone("Apple", "15 Pro Max")
+}
+
+println(person)
 ````
 
 ## Missing Features
