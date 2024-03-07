@@ -105,6 +105,29 @@ for i in times {
 }
 ```
 
+## Structs
+
+Structs definitions are supported, however instances are not but the intended syntax is defined.
+
+```
+struct Person {
+  name str
+  last_name str
+  country str
+  children int
+  is_married bool
+}
+
+# not supported yet
+val person = Person {
+  name: "Shawn Lee"
+  last_name: "Lee"
+  country: "China"
+  children: 0
+  is_married: false
+}
+````
+
 ## Missing Features
 - [x] Binary Expressions
   - [ ] Dual Character Bool Operators (==, !=, >=, <=)
@@ -118,6 +141,10 @@ for i in times {
 - [ ] Match Statement
 - [ ] Modules and Import Statements
 - [ ] Structs
+  - [x] Struct Definition
+  - [ ] Struct Initialisation
+  - [ ] Struct Operations (delete, read, set)
+  - [ ] Struct Type for fn parameters
 - [ ] Vectors
   - [ ] Vector Accesing
   - [x] Vector Initialisation
