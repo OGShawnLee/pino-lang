@@ -241,4 +241,10 @@ phone = create_phone(
   }
 )
 
+
 println(phone)
+
+val phone_name = phone:name
+val phone_brand_country_name = phone:brand:country:name
+
+println(phone_name, phone_brand_country_name)

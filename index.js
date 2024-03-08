@@ -166,3 +166,6 @@ phone = create_phone("Samsung Galaxy", "S24 Ultra", {
   country: korea,
 });
 console.log(phone);
+const phone_name = phone.name;
+const phone_brand_country_name = phone.brand.country.name;
+console.log(phone_name, phone_brand_country_name);

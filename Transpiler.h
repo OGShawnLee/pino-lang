@@ -100,7 +100,8 @@ class JSTranspiler {
       }
       case ExpressionKind::IDENTIFIER: {
         Identifier *identifier = static_cast<Identifier *>(expression.get());
-        return identifier->name;
+        std::string path_str = replace(identifier->path_str, ":", ".");
+        return path_str;
       }
       case ExpressionKind::LITERAL: {
         Value *value = static_cast<Value *>(expression.get());

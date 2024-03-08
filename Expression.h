@@ -67,12 +67,20 @@ class FunctionCall : public Expression {
     void print(size_t indentation = 0) const;
 };
 
-
 class Identifier : public Expression {
   public:
+    // struct:field:field
+    // field::field
+    // field
+    std::vector<std::unique_ptr<Identifier>> path;
+    // struct:field:field
+    std::string path_str;
+    // struct
     std::string name;
 
     Identifier();
+
+    static PeekPtr<Identifier> build(std::vector<Token> collection, size_t index);
 
     static std::unique_ptr<Identifier> from_identifier(Token token);
 

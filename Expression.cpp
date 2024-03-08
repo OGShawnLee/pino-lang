@@ -27,8 +27,9 @@ PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t inde
     result.node = std::move(struct_literal.node);
     result.index = struct_literal.index;
   } else if (collection[index].kind == Kind::IDENTIFIER) {
-    result.node = Identifier::from_identifier(collection[index]);
-    result.index = index;
+    PeekPtr<Identifier> identifier = Identifier::build(collection, index);
+    result.node = std::move(identifier.node);
+    result.index = identifier.index;
   } else if (collection[index].kind == Kind::LITERAL) {
     if (collection[index].literal == Literal::VECTOR) {
       PeekPtr<Vector> vector = Vector::build(collection, index);
@@ -66,8 +67,9 @@ PeekPtr<BinaryExpression> BinaryExpression::build(std::vector<Token> collection,
     result.node->left = std::move(reassignment.node);
     result.index = reassignment.index;
   } else if (collection[index].kind == Kind::IDENTIFIER) {
-    result.node->left = Identifier::from_identifier(collection[index]);
-    result.index = index;
+    PeekPtr<Identifier> identifier = Identifier::build(collection, index);
+    result.node->left = std::move(identifier.node);
+    result.index = identifier.index;
   } else if (collection[index].kind == Kind::LITERAL) {
     result.node->left = Value::from_literal(collection[index]);
     result.index = index;
@@ -223,9 +225,35 @@ Identifier::Identifier() {
   expression = ExpressionKind::IDENTIFIER;
 }
 
+PeekPtr<Identifier> Identifier::build(std::vector<Token> collection, size_t index) {
+  if (collection[index].kind != Kind::IDENTIFIER) {
+    throw std::runtime_error("DEV: Not an Identifier");
+  }
+
+  PeekPtr<Identifier> result;
+  result.node->name = collection[index].value;
+  result.node->path_str = collection[index].value;
+  result.index = index;
+
+  bool struct_notation = is_next<Token>(collection, index, [](Token &token) {
+    return token.is_given_marker(Marker::COLON);
+  });
+
+  if (struct_notation) {
+    result.index += 2;
+    PeekPtr<Identifier> path = build(collection, result.index);
+    result.node->path_str = result.node->path_str + ":" + path.node->path_str;
+    result.node->path.push_back(std::move(path.node));
+    result.index = path.index;
+  }
+
+  return result;
+}
+
 std::unique_ptr<Identifier> Identifier::from_identifier(Token token) {
   std::unique_ptr<Identifier> identifier = std::make_unique<Identifier>();
   identifier->name = token.value;
+  identifier->path_str = token.value;
   return identifier;
 }
 
@@ -233,6 +261,14 @@ void Identifier::print(size_t indentation) const {
   std::string indent = get_indentation(indentation);
   println(indent + "Identifier {");
   println(indent + "  name: " + name);
+  println(indent + "  path_str: " + path_str);
+  if (path.size() > 0) {
+    println(indent + "  path: [");
+    for (const std::unique_ptr<Identifier> &id : path) {
+      id->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
   println(indent + "}");
 }
 
