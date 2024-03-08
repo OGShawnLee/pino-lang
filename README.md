@@ -136,6 +136,7 @@ val phone_name = person:phone:name
 
 println(person)
 println("$name owns a $phone_name")
+println("$person:full_name has a budget of $person:budget $")
 ````
 
 ## Missing Features
@@ -150,8 +151,8 @@ println("$name owns a $phone_name")
 - [ ] Else If Statement
 - [ ] Match Statement
 - [ ] Modules and Import Statements
-- [ ] Strings
-  - [ ] Struct Property Access Injection Support
+- [X] Strings
+  - [x] Struct Property Access Injection Support
 - [ ] Structs
   - [x] Struct Definition
   - [x] Struct Initialisation
