@@ -131,7 +131,11 @@ val person = Person {
   phone: create_phone("Apple", "15 Pro Max")
 }
 
+val name = person:full_name
+val phone_name = person:phone:name
+
 println(person)
+println("$name owns a $phone_name")
 ````
 
 ## Missing Features
@@ -146,6 +150,8 @@ println(person)
 - [ ] Else If Statement
 - [ ] Match Statement
 - [ ] Modules and Import Statements
+- [ ] Strings
+  - [ ] Struct Property Access Injection Support
 - [ ] Structs
   - [x] Struct Definition
   - [x] Struct Initialisation
