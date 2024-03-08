@@ -258,8 +258,21 @@ class Lexer {
 			char character = line[i];
 
 			if (is_valid_identifier_char(character) == false) {
+				bool is_prop_access = character == ':';
+
+				if (is_prop_access == false) return buffer;
+
+				bool is_valid_char = is_next_char(line, i, [](char character) {
+					return is_valid_identifier_char(character);
+				});
+
+				if (is_valid_char) {
+					buffer += character;
+					continue;
+				}
+
 				return buffer;
-			}
+			} 
 
 			buffer += character;
 		}
@@ -343,12 +356,10 @@ class Lexer {
 		if (line[index] != '$') {
 			return false;
 		}
-		
-		if (index + 1 >= line.length() || isdigit(line[index + 1])) {
-			return false;
-		}
 
-		return true;
+		return is_next_char(line, index, [](char character) {
+			return isdigit(character) == false && isalpha(character);
+		});
 	} 
 
 	public:

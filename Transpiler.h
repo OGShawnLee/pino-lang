@@ -56,6 +56,10 @@ class JSTranspiler {
     return block;
   }
 
+  static std::string get_str_prop_access(std::string value) {
+    return replace(value, ":", ".");
+  }
+
   static std::string get_str_value(std::string value, StreamPtr<Identifier> &injections) {
     std::string str;
 
@@ -67,7 +71,7 @@ class JSTranspiler {
 
     for (size_t i = 0; i < injections.size(); i++) {
       std::unique_ptr<Identifier> &id = injections[i];
-      str = replace(str, "$" + id->name, "${" + id->name + "}");
+      str = replace(str, "$" + id->name, "${" + get_str_prop_access(id->name) + "}");
     }
 
     return str;
@@ -100,8 +104,7 @@ class JSTranspiler {
       }
       case ExpressionKind::IDENTIFIER: {
         Identifier *identifier = static_cast<Identifier *>(expression.get());
-        std::string path_str = replace(identifier->path_str, ":", ".");
-        return path_str;
+        return get_str_prop_access(identifier->path_str);
       }
       case ExpressionKind::LITERAL: {
         Value *value = static_cast<Value *>(expression.get());

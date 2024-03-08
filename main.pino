@@ -1,250 +1,95 @@
-val name = "Shawn Lee"
-val country = "China"
-var is_married = false
-var age = 14
-var message = "$name lives in $country"
+println("Pino!")
+println("This was written in Pino and transpiled to JavaScript!")
 
-println(message, message + " and is married? $is_married")
+var name = "Shawn Lee"
+var country = "China" 
 
-is_married = true
-age = 15
+println("$name has created this language!")
 
-message = "This was written in Pino and transpiled to JavaScript!"
-val planet = "Earth is the planet where humans live"
-val person = "Gaius Julius Ceasar Augustus"
-
-is_married = false
-
-println(message, planet, person)
-println(person, is_married)
-println("What is going on?", 404, false, true)
-
-var has_children = false
-is_married = true
-
-if is_married {
-  val message = "$name is married"
-  println(message)
-
-  if true {
-    println("Nested If Statement!")
-  
-    if true {
-      println("Yet Another Nested If Statement!")
-    }
-  }
-} else {
-  println("$name is not married!")
+fn print_budget(name str, budget int) {
+  println("$name has a budget of $budget $")
 }
 
-if has_children {
-  val message = "$name has children"
-  println(message)
-} else {
-  println("$name has no children!")
+print_budget(name, 0)
+
+struct Person {
+  name str
+  country str
+  is_married bool
 }
 
-fn greet(name str, is_married bool, has_newline bool) {
-  println("Hello, $name!")
-  if is_married {
-    println("You are married, great!")
+val person = Person {
+  name: "Shawn Lee"
+  country: "China"
+  is_married: false
+}
+
+fn print_person(person Person) {
+  val message = "$person:name lives in $person:country and"
+  if person:is_married {
+    println("$message is married!")
   } else {
-    println("You will get married one day!")
-  }
-
-  if has_newline { 
-    println() 
-  }  
-}
-
-fn call_planets() {
-  println("First planet is Mercury")
-  println("Then we have Venus")
-  println("The third one is our planet, Earth")
-}
-
-greet(name, true, true)
-greet(name, false, true)
-greet("Richard", true)
-call_planets()
-
-message = 
-  "Gaius Julius Ceasar Augustus was the first and greatest Roman emperor"
-
-println()
-print_message(message, "Shawn Lee")
-
-fn print_message(message str, name str) {
-  println(message)
-  println("Thank you for leaving your message, $name")
-}
-
-fn print_country(name str, population int) {
-  println("$name has this many millions of people: $population")
-}
-
-var amount = 1630
-
-println()
-print_country(country, amount)
-println(1630, "millions is a lot of people")
-
-amount = 3
-
-for amount {
-  println("Outer loop has run for 3 times")
-  for 3 {
-    println("Inner loop has run 3 times")
+    println("$person:name lives in $person:country and is married!")
   }
 }
 
-fn handle_spam(message str, times int, with_index bool) {
-  if with_index {
-    for time in times {
-      println(time, message)
-    }
-  } else {
-    for times {
-      println("$message has been spammed for $times times")
-    } 
-  }
-}
-
-handle_spam("No one expects the Spanish Inquisition!", 3, false)
-handle_spam("No one expects the Spanish Inquisition!", 3, true)
-
-for time in 4 {
-  println(time)
-}
-
-fn get_name(name str, last_name str, is_great bool) {
-  if is_great {
-    return "$name $last_name the great"
-  } 
-
-  return "$name $last_name"
-}
-
-var full_name = get_name("John", "China", true)
-
-println(full_name)
-
-full_name = get_name(name, country, false)
-
-println(full_name)
-
-var nick_name = full_name = "Shawn Lee"
-
-println("full_name: $full_name, nick_name: $nick_name")
-
-fn with_no_expression() {
-  println("This fn has a return statement with no expression")
-  return
-}
-
-with_no_expression()
-
-fn dollar_to_yen(dollar int) {
-  return dollar * 150
-}
+fn times(a int, b int) {
+  return a * b
+} 
 
 fn dollar_to_ruble(dollar int) {
-  return dollar * 91
+  return times(dollar, 91)
 }
 
-var dollar = 120
-var yen = dollar_to_yen(dollar)
-var ruble = dollar_to_ruble(dollar)
+fn dollar_to_yen(dollar int) {
+  return times(dollar, 151)
+}
 
-println("$dollar dollars are", yen, "yen")
-println("$dollar dollars are", ruble, "ruble")
+val dollars = 100
+Val rubles = dollar_to_ruble(100)
+Val yens = dollar_to_yen(100)
 
-ruble = dollar_to_ruble(900)
+println("$dollars are $rubles rubles and $yens yens")
 
-if ruble > 30000 {
-  println("That is a lot of rubles!")
+if yens > 10000 and true {
+  println("That is a lot of yens!")
+}
+
+for 3 {
+  println("This has run for 3 times!")
+}
+
+val amount = 3
+for time in amount {
+  println("This has run for the $time a total of $times times!")
 }
 
 fn get_str(it int) {
-  return "$it: What is going on fella?"
+  return "$it: What is going on fella!"
 }
 
-var arr_int = []int { len: 6 }
-val arr_str = []str { len: 9, init: get_str(it) }
+var arr_int = []int { len: 6, init: it * 2 }
+var arr_str = []str { len: 9, init: get_str(it) }
 
 println(arr_int, arr_str)
 
-var arr = []int { 
-  len: 6, 
-  init: it + 10 * 5 
-}
-
-var arr_ruble = []int { len: 3, init: dollar_to_ruble(it + 1) }
-
-println(arr, arr_ruble)
-
-var arr_person = []Person { len: 6 }
-
-fn print_person(person Person) {
-  println(person)
-}
-
-struct Country {
+struct Weapon {
   name str
-  continent str
+  durability int
 }
 
-struct Brand {
-  name str
-  country Country
+struct Character {
+  person Person
+  weapon Weapon
 }
 
-struct Phone {
-  name str
-  model str
-  brand Brand
-}
-
-var phone = Phone {
-  name: "iPhone"
-  model: "15 Pro Max"
-  brand: Brand {
-    name: "Apple"
-    country: Country {
-      name: "United States of America"
-      continent: "North America"
-    }
+val character = Character {
+  person: person
+  weapon: Weapon {
+    name: "Sword"
+    durability: 100
   }
 }
 
-println(phone)
-
-fn create_phone(name str, model str, brand Brand) {
-  return Phone {
-    name: name
-    model: model
-    brand: brand
-  }
-}
-
-val korea = Country {
-  name: "South Korea"
-  continent: "Asia"
-}
-
-phone = create_phone(
-  "Samsung Galaxy", 
-  "S24 Ultra", 
-  Brand {
-    name: "Samsung"
-    country: korea
-  }
-)
-
-
-println(phone)
-
-val phone_name = phone:name
-val phone_brand_country_name = phone:brand:country:name
-
-println(phone_name, phone_brand_country_name)
+println(character)
+println("$character:person:name wields a $character:weapon:name as a weapon!")

@@ -99,6 +99,18 @@ bool is_previous(
   return is_valid_node(stream[index - 1]);
 }
 
+bool is_next_char(
+  std::string stream,
+  size_t index,
+  std::function<bool(char)> is_valid_node
+) {
+  if (index + 1 > stream.size()) {
+    return false;
+  }
+
+  return is_valid_node(stream[index + 1]);
+}
+
 template <typename T>
 bool is_next(
   std::vector<T> stream,
