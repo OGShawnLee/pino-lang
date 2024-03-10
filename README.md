@@ -171,7 +171,7 @@ println("$person:full_name has a budget of $person:budget $")
 ````
 
 ## Missing Features
-- [x] Binary Expressions
+- [X] Binary Expressions
   - [ ] Dual Character Bool Operators (==, !=, >=, <=)
   - [ ] Order of Precedence (JavaScript handles it once it is transpiled but it is not built in Pino)
   - [ ] Parenthesis
@@ -186,16 +186,16 @@ println("$person:full_name has a budget of $person:budget $")
 - [ ] Match Statement
 - [ ] Modules and Import Statements
 - [X] Strings
-  - [x] Struct Property Access Injection Support
+  - [X] Struct Property Access Injection Support
 - [ ] Structs
-  - [x] Struct Definition
-  - [x] Struct Initialisation
+  - [X] Struct Definition
+  - [X] Struct Initialisation
   - [ ] Struct Operations (delete, read, set)
-  - [x] Struct Type for fn parameters
+  - [X] Struct Type for fn parameters
 - [ ] Vectors
   - [X] Vector Accesing
-  - [x] Vector Initialisation
-  - [x] Vector Literal (["Marcus", "Dominic", "Baird", "Cole"])
+  - [X] Vector Initialisation
+  - [X] Vector Literal (["Marcus", "Dominic", "Baird", "Cole"])
   - [ ] Vector Operations (pop, prepend, push, shift)
   - [ ] Vector Type for fn parameters
 - [ ] Yield Statement
