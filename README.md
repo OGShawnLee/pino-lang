@@ -178,7 +178,10 @@ println("$person:full_name has a budget of $person:budget $")
 - [ ] Checker (Parser output is transpiled without validation)
 - [ ] Descriptive Parser and Lexer Errors
 - [ ] Floats
-- [ ] Function Return Typing
+- [ ] Functions
+  - [ ] Default Parameter Value
+  - [ ] Function Return Typing
+  - [ ] Return Statement Vector Initialisation Support
 - [ ] Else If Statement
 - [ ] Match Statement
 - [ ] Modules and Import Statements
