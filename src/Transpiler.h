@@ -9,6 +9,255 @@ std::string replace(std::string str, std::string from, std::string to) {
   return str;
 }
 
+class PythonTranspiler {
+  enum class BuiltInFN {
+    PRINT_LN,
+    READ_LN,
+  };
+
+  static std::map<std::string, BuiltInFN> BUILT_IN_FN_KEY;
+  static std::map<BuiltInFN, std::string> BUILT_IN_FN_NAME;
+  static std::map<BinaryOperator, std::string> BOOL_OPERATOR_NAME;
+
+  static bool is_built_in_fn(std::string fn_name) {
+    return BUILT_IN_FN_KEY.count(fn_name) > 0;
+  }
+
+  static std::string get_built_in_fn(std::string fn_name) {
+    if (is_built_in_fn(fn_name) == false) {
+      throw std::runtime_error("DEV: Not a Built-In Function");
+    }
+
+    return BUILT_IN_FN_NAME.at(BUILT_IN_FN_KEY.at(fn_name));
+  }
+
+  static bool is_bool_operator(BinaryOperator op) {
+    return BOOL_OPERATOR_NAME.count(op) > 0;
+  }
+
+  static std::string get_bool_operator(BinaryOperator op) {
+    if (BOOL_OPERATOR_NAME.count(op) == 0) {
+      throw std::runtime_error("DEV: Not a Boolean Operator");
+    }
+
+    return BOOL_OPERATOR_NAME.at(op);
+  }
+
+  size_t indentation = 0;
+
+  std::string get_fn_call_arguments(StreamPtr<Expression> &arguments) {
+    std::string line;
+
+    if (arguments.empty()) {
+      return "()";
+    }
+
+    if (arguments.size() == 1) {
+      return "(" + get_value(arguments[0]) + ")";
+    }
+
+    line = "(" + get_value(arguments[0]);
+
+    for (size_t i = 1; i < arguments.size() - 1; i++) {
+      line += ", " + get_value(arguments[i]);
+    }
+
+    line += ", " + get_value(arguments[arguments.size() - 1]) + ")";
+
+    return line;
+  }
+
+  std::string get_str_value(std::string value, StreamPtr<Identifier> &injections) {
+    std::string str;
+
+    if (injections.empty()) {
+      return '"' + value + '"';
+    } else {
+      str = "f\"" + value + '"';
+    }
+
+    for (size_t i = 0; i < injections.size(); i++) {
+      std::unique_ptr<Identifier> &id = injections[i];
+      str = replace(str, "$" + id->name, "{" + id->name + "}");
+    }
+
+    return str;
+  }
+
+  std::string get_struct_value(StreamPtr<Field> &fields) {
+    std::string line = "{\n";
+
+    for (size_t i = 0; i < fields.size(); i++) {
+      std::unique_ptr<Field> &field = fields[i];
+      line += "  \"" + field->name + "\": " + get_value(field->value) + ",\n";
+    }
+
+    line += "}";
+
+    return line;
+  }
+
+  std::string get_value(std::unique_ptr<Expression> &expression) {
+    switch (expression->expression) {
+      case ExpressionKind::BINARY_EXPRESSION: {
+        BinaryExpression *binary_expression = static_cast<BinaryExpression *>(expression.get());
+        std::string operator_str = binary_expression->operator_str;
+        return get_value(binary_expression->left) + " " + operator_str + " " + get_value(binary_expression->right);
+      }
+      case ExpressionKind::IDENTIFIER: {
+        Identifier *identifier = static_cast<Identifier *>(expression.get());
+        return identifier->path_str;
+      }
+      case ExpressionKind::LITERAL: {
+        Value *value = static_cast<Value *>(expression.get());
+
+        if (value->literal == Literal::BOOLEAN) {
+          return value->value == "true" ? "True" : "False";
+        }
+
+        if (value->literal == Literal::STRING) {
+          String *str = static_cast<String *>(value);
+          return get_str_value(str->value, str->injections);
+        }
+
+        if (value->literal == Literal::STRUCT) {
+          Struct *dictionary = static_cast<Struct *>(value);
+          return get_struct_value(dictionary->fields);
+        }
+
+        if (value->literal == Literal::VECTOR) {
+          return value->value;
+        }
+
+        return value->value;
+      }
+      case ExpressionKind::FN_CALL: {
+        FunctionCall *fn_call = static_cast<FunctionCall *>(expression.get());
+
+        if (is_built_in_fn(fn_call->name)) {
+          return get_built_in_fn(fn_call->name) + get_fn_call_arguments(fn_call->arguments);
+        }
+
+        return fn_call->name + get_fn_call_arguments(fn_call->arguments);
+      }
+      case ExpressionKind::VAR_REASSIGNMENT: {
+        Reassignment *reassignment = static_cast<Reassignment *>(expression.get());
+        return reassignment->identifier + " = " + get_value(reassignment->value);
+      }
+      default:
+        throw std::runtime_error("Unsupported Value");
+    }
+  }
+
+  std::string get_variable_statement(std::unique_ptr<Statement> &statement) {
+    if (
+      statement->kind != StatementKind::VAL_DECLARATION && 
+      statement->kind != StatementKind::VAR_DECLARATION
+    ) {
+      throw std::runtime_error("DEV: Not a Variable Statement");
+    }
+    
+    Variable *variable = static_cast<Variable *>(statement.get());
+    std::string keyword = statement->kind == StatementKind::VAL_DECLARATION ? "const" : "let";
+    std::string line = variable->name + " = " + get_value(variable->value) + "\n";
+
+    if (variable->value->expression == ExpressionKind::LITERAL) {
+      Value *value = static_cast<Value *>(variable->value.get());
+
+      if (value->literal != Literal::VECTOR) return line;
+
+      Vector *vector = static_cast<Vector *>(value);
+
+      if (vector->len != nullptr && vector->init != nullptr) {
+        line += "for it in range(" + get_value(vector->len) + "): " + variable->name + ".append(" + get_value(vector->init) + ")\n";
+      }
+    }
+
+    return line;      
+  }
+
+  std::string transpile_expression(std::unique_ptr<Statement> &statement) {
+    if (statement->kind != StatementKind::EXPRESSION) {
+      throw std::runtime_error("DEV: Not an Expression Statement");
+    }
+
+    Expression *expression = static_cast<Expression *>(statement.get());
+    std::string line;
+
+    switch (expression->expression) {
+      case ExpressionKind::FN_CALL: {
+        FunctionCall *fn_call = static_cast<FunctionCall *>(expression);
+
+        if (is_built_in_fn(fn_call->name)) {
+          line = get_built_in_fn(fn_call->name) + get_fn_call_arguments(fn_call->arguments) + "\n";
+          break;
+        }
+
+        line = fn_call->name + get_fn_call_arguments(fn_call->arguments) + "\n";
+        break;
+      }
+      case ExpressionKind::VAR_REASSIGNMENT: {
+        Reassignment *reassignment = static_cast<Reassignment *>(expression);
+        line = reassignment->identifier + " = " + get_value(reassignment->value) + "\n";
+        break;
+      }
+      default:
+        println("Unsupported Expression");
+        return "";
+    }
+
+    return line;
+  }
+
+  std::string transpile_statement(std::unique_ptr<Statement> &statement) {
+    switch (statement->kind) {
+      case StatementKind::EXPRESSION:
+        return transpile_expression(statement);
+      case StatementKind::VAL_DECLARATION:
+      case StatementKind::VAR_DECLARATION:
+        return get_variable_statement(statement);
+      default:
+        println("Unsupported Statement");
+        return "";
+    }
+  }
+
+  public:
+    static void transpile(std::string file_name, std::string file_output) {
+      Statement program = Parser::parse_file(file_name);
+      PythonTranspiler transpiler;
+      std::string output;
+
+      for (size_t i = 0; i < program.children.size(); i++) {
+        std::unique_ptr<Statement> &statement = program.children[i];
+        output += transpiler.transpile_statement(statement);
+      }
+
+      std::ofstream file;
+      file.open(file_output);
+      file << output;
+      file.close();
+    }
+};
+
+std::map<BinaryOperator, std::string> PythonTranspiler::BOOL_OPERATOR_NAME = {
+  {BinaryOperator::AND, "and"},
+  {BinaryOperator::OR, "or"},
+  {BinaryOperator::NOT_EQUAL, "!="},
+  {BinaryOperator::LESS_THAN, "<"},
+  {BinaryOperator::GREATER_THAN, ">"},
+};
+
+std::map<std::string, PythonTranspiler::BuiltInFN> PythonTranspiler::BUILT_IN_FN_KEY = {
+  {"println", PythonTranspiler::BuiltInFN::PRINT_LN},
+  {"readln", PythonTranspiler::BuiltInFN::READ_LN},
+};
+
+std::map<PythonTranspiler::BuiltInFN, std::string> PythonTranspiler::BUILT_IN_FN_NAME = {
+  {PythonTranspiler::BuiltInFN::PRINT_LN, "print"},
+  {PythonTranspiler::BuiltInFN::READ_LN, "input"},
+};
+
 class JSTranspiler {
   enum class BuiltInFN {
     PRINT_LN,

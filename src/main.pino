@@ -1,109 +1,15 @@
-println("Pino!")
-println("This was written in Pino and transpiled to JavaScript!")
-
 var name = "Shawn Lee"
-var country = "China" 
+var country = "China"
+var is_married = false
 
-println("$name has created this language!")
+println("$name was born in $country", is_married)
+println("This was written in Pino and transpiled to both JavaScript and Python!")
 
-fn print_budget(name str, budget int) {
-  println("$name has a budget of $budget $")
-}
+name = readln("What is your name? ")
+country = readln("What country were you born in? ")
 
-print_budget(name, 0)
+println("$name was born in $country")
 
-struct Person {
-  name str
-  country str
-  is_married bool
-}
+val arr_int = []int { len: 6, init: it + 3 }
 
-val person = Person {
-  name: "Shawn Lee"
-  country: "China"
-  is_married: false
-}
-
-fn print_person(person Person) {
-  val message = "$person:name lives in $person:country and"
-  if person:is_married {
-    println("$message is married!")
-  } else {
-    println("$person:name lives in $person:country and is married!")
-  }
-}
-
-fn times(a int, b int) {
-  return a * b
-} 
-
-fn dollar_to_ruble(dollar int) {
-  return times(dollar, 91)
-}
-
-fn dollar_to_yen(dollar int) {
-  return times(dollar, 151)
-}
-
-val dollars = 100
-Val rubles = dollar_to_ruble(100)
-Val yens = dollar_to_yen(100)
-
-println("$dollars are $rubles rubles and $yens yens")
-
-if yens > 10000 and true {
-  println("That is a lot of yens!")
-}
-
-for 3 {
-  println("This has run for 3 times!")
-}
-
-val amount = 3
-for time in amount {
-  println("This has run for the $time a total of $times times!")
-}
-
-fn get_str(it int) {
-  return "$it: What is going on fella!"
-}
-
-var arr_int = []int { len: 6, init: it * 2 }
-var arr_str = []str { len: 9, init: get_str(it) }
-
-println(arr_int, arr_str)
-
-struct Weapon {
-  name str
-  durability int
-}
-
-struct Character {
-  person Person
-  weapon Weapon
-}
-
-val character = Character {
-  person: person
-  weapon: Weapon {
-    name: "Sword"
-    durability: 100
-  }
-}
-
-println(character)
-println("$character:person:name wields a $character:weapon:name as a weapon!")
-
-struct Game {
-  name str
-  planets arr
-}
-
-println(Game {
-  name: "Gears of War"
-  planets: ["Marcus", "Dominic", "Baird", "Cole"]
-})
-
-val languages = ["Vlang", "Swift"]
-
-println("Languages:", languages)
+println(arr_int)

@@ -8,6 +8,7 @@ int main() {
   // program.print();
 
   JSTranspiler::transpile("main.pino", "index.js");
-  
+  PythonTranspiler::transpile("main.pino", "index.py");
+
   return 0;
 }
