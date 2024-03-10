@@ -43,6 +43,12 @@ const amount = 3;
 for (let time = 0; time < amount; time++) {
 console.log(`This has run for the ${time} a total of ${time}s times!`);
 }
+for (let time = 0; time < 2 * 2; time++) {
+console.log(`This has run for the ${time} a total of 4 times!`);
+}
+for (let name of ["Augustus", "Tiberius", "Caligula"]){
+console.log(`${name} was a Roman Emperor!`);
+}
 function get_str(it) {
 return `${it}: What is going on fella!`;
 }
@@ -76,9 +82,8 @@ const game_b = {
   characters: ["Master Chief", "Cortana", "Captain Keyes", "Sergeant Johnson", "343 Guilty Spark"],
 };
 function print_game_characters(game) {
-const len = game.characters.length;
-console.log(`${game.name} Characters ${len}`);
-for (let i = 0; i < len; i++) {
+console.log(`${game.name} Characters ${game.characters.length}`);
+for (let i = 0; i < game.characters.length; i++) {
 const char = game.characters[i];
 console.log(`  Character ${i}: ${char}`);
 }

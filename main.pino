@@ -64,6 +64,14 @@ for time in amount {
   println("This has run for the $time a total of $times times!")
 }
 
+for time in 2 * 2 {
+  println("This has run for the $time a total of 4 times!")
+}
+
+for name in ["Augustus", "Tiberius", "Caligula"] {
+  println("$name was a Roman Emperor!")
+}
+
 fn get_str(it int) {
   return "$it: What is going on fella!"
 }
@@ -119,9 +127,8 @@ val game_b = Game {
 }
 
 fn print_game_characters(game Game) {
-  val len = game:characters:length
-  println("$game:name Characters $len")
-  for i in len {
+  println("$game:name Characters $game:characters:length")
+  for i in game:characters:length {
     val char = game:characters[i]
     println("  Character $i: $char")
   }

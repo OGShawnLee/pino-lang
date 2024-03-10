@@ -26,23 +26,19 @@ class Loop : public Statement {
       return token.is_given_marker(Marker::LEFT_BRACE) || token.is_given_keyword(Keyword::IN_KEYWORD);
     });
 
-
     // for ... {
     if (brace_or_in_keyword.node.is_given_marker(Marker::LEFT_BRACE)) {
       return LoopType::TIMES_LOOP;
     }
 
-    // for ... in times | for ... in 5
-    id_or_literal = peek<Token>(stream, brace_or_in_keyword.index, [](Token &token) {
-      return token.kind == Kind::IDENTIFIER || token.is_given_literal(Literal::INTEGER);
-    });
+    bool is_expression = Expression::is_expression(stream, id_or_literal.index);
     
-    auto marker = peek<Token>(stream, id_or_literal.index, [](Token &token) {
-      return token.is_given_marker(Marker::LEFT_BRACE);
-    });
+    // for ... in expression
+    if (is_expression) {
+      return LoopType::IN_LOOP;
+    }
 
-    // for ... in ... {
-    return LoopType::IN_LOOP;
+    throw std::runtime_error("DEV: Invalid in-loop Statement");
   }
 
   static PeekPtr<Loop> handle_times_loop(std::vector<Token> stream, size_t index) {
@@ -75,18 +71,13 @@ class Loop : public Statement {
     }
     
     Peek<Token> in_keyword = get_next<Token>(stream, id_or_literal.index);
+    PeekPtr<Expression> limit = Expression::build(stream, in_keyword.index + 1);
+    result.node->limit = std::move(limit.node);
     
-    id_or_literal = get_next<Token>(stream, in_keyword.index);
-    if (id_or_literal.node.kind == Kind::IDENTIFIER) {
-      result.node->limit = Identifier::from_identifier(id_or_literal.node);
-    } else {
-      result.node->limit = Value::from_literal(id_or_literal.node);
-    }
-    
-    PeekStreamPtr<Statement> children = Block::build(stream, id_or_literal.index);
+    PeekStreamPtr<Statement> children = Block::build(stream, limit.index);
     result.node->children = std::move(children.nodes);
-    
     result.index = children.index;
+    
     return result;
   }
   

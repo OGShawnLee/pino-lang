@@ -223,6 +223,17 @@ class JSTranspiler {
       line = "for (let i = 0; i < " + get_value(loop->limit) + "; i++) " + get_block(loop->children);
     } else {
       Identifier *index = static_cast<Identifier *>(loop->index.get());
+
+      if (loop->limit->expression == ExpressionKind::LITERAL) {
+        Value *value = static_cast<Value *>(loop->limit.get());
+
+        if (value->literal == Literal::VECTOR) {
+          Vector *vector = static_cast<Vector *>(value);
+          line = "for (let " + index->name +  " of " + vector->value + ")" + get_block(loop->children);
+          return line;
+        }
+      }
+
       line = "for (let " + index->name + " = 0; " + index->name + " < " + get_value(loop->limit) + "; " + index->name + "++) " + get_block(loop->children);
     }
 
