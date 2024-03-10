@@ -229,6 +229,22 @@ class JSTranspiler {
     return line;
   }
 
+  static std::string get_vector_init_block(std::unique_ptr<Expression> &node, std::string id) {
+    std::string line;
+
+    Value *value = static_cast<Value *>(node.get());
+
+    if (value->literal != Literal::VECTOR) return line;
+
+    Vector *vector = static_cast<Vector *>(value);
+
+    if (vector->len != nullptr && vector->init != nullptr) {
+      line += "for (let it = 0; it < " + get_value(vector->len) + "; it++) " + id + "[it] = " + get_value(vector->init) + ";\n";
+    }
+
+    return line;
+  }
+
   static std::string get_variable_statement(std::unique_ptr<Statement> &statement) {
     if (
       statement->kind != StatementKind::VAL_DECLARATION && 
@@ -242,15 +258,7 @@ class JSTranspiler {
     std::string line = keyword + " " + variable->name + " = " + get_value(variable->value) + ";\n";
 
     if (variable->value->expression == ExpressionKind::LITERAL) {
-      Value *value = static_cast<Value *>(variable->value.get());
-
-      if (value->literal != Literal::VECTOR) return line;
-
-      Vector *vector = static_cast<Vector *>(value);
-
-      if (vector->len != nullptr && vector->init != nullptr) {
-        line += "for (let it = 0; it < " + get_value(vector->len) + "; it++) " + variable->name + "[it] = " + get_value(vector->init) + ";\n";
-      }
+      line += get_vector_init_block(variable->value, variable->name);
     }
 
     return line;      
@@ -265,6 +273,18 @@ class JSTranspiler {
 
     if (return_statement->value == nullptr) {
       return "return;\n";
+    }
+
+    if (return_statement->value->expression == ExpressionKind::LITERAL) {
+      Value *value = static_cast<Value *>(return_statement->value.get());
+
+      if (value->literal == Literal::VECTOR) {
+        std::string line = "const temp_arr = [];\n";
+        line += get_vector_init_block(return_statement->value, "temp_arr");
+        return line + "return temp_arr;\n";
+      }
+
+      return "return " + get_value(return_statement->value) + ";\n";
     }
 
     return "return " + get_value(return_statement->value) + ";\n";

@@ -88,3 +88,16 @@ print_game_characters(game_b);
 const languages = ["Vlang", "Swift"];
 const vlang = languages[0];
 console.log("Languages:", languages, vlang);
+function create_characters_from_game(game, weapon) {
+const temp_arr = [];
+for (let it = 0; it < game.characters.length; it++) temp_arr[it] = {
+  name: game.characters[it],
+  weapon: {
+  name: weapon,
+  durability: 100,
+},
+};
+return temp_arr;
+}
+const characters = create_characters_from_game(game_a, "Assault Lancer Rifle");
+console.log(`${game_a.name}`, characters);

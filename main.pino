@@ -134,3 +134,19 @@ val languages = ["Vlang", "Swift"]
 val vlang = languages[0]
 
 println("Languages:", languages, vlang)
+
+fn create_characters_from_game(game Game, weapon str) {
+  return []Character {
+    len: game:characters:length,
+    init: Character {
+      name: game:characters[it]
+      weapon: Weapon {
+        name: weapon
+        durability: 100
+      }
+    }
+  }
+}
+
+val characters = create_characters_from_game(game_a, "Assault Lancer Rifle")
+println("$game_a:name", characters)

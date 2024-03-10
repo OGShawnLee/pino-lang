@@ -181,7 +181,7 @@ println("$person:full_name has a budget of $person:budget $")
 - [ ] Functions
   - [ ] Default Parameter Value
   - [ ] Function Return Typing
-  - [ ] Return Statement Vector Initialisation Support
+  - [X] Return Statement Vector Initialisation Support
 - [ ] Else If Statement
 - [ ] Match Statement
 - [ ] Modules and Import Statements
