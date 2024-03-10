@@ -248,6 +248,17 @@ PeekPtr<Identifier> Identifier::build(std::vector<Token> collection, size_t inde
     result.index = path.index;
   }
 
+  bool vector_notation = is_next<Token>(collection, result.index, [](Token &token) {
+    return token.kind == Kind::LITERAL && token.literal == Literal::VECTOR;
+  });
+
+  if (vector_notation) {
+    result.index += 1;
+    PeekPtr<Vector> vector = Vector::build(collection, result.index);
+    result.node->path_str = result.node->path_str + vector.node->value;
+    result.index = vector.index;
+  }
+
   return result;
 }
 

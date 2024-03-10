@@ -96,14 +96,41 @@ println("$character:person:name wields a $character:weapon:name as a weapon!")
 
 struct Game {
   name str
-  planets arr
+  release_year int
+  characters arr
 }
 
 println(Game {
-  name: "Gears of War"
-  planets: ["Marcus", "Dominic", "Baird", "Cole"]
+  name: "Halo Reach"
+  release_year: 2010
+  characters: ["Carter", "Kat", "Jun", "Emile", "Jorge", "Noble 6"]
 })
 
-val languages = ["Vlang", "Swift"]
+val game_a = Game {
+  name: "Gears of War"
+  release_year: 2005
+  characters: ["Marcus", "Dominic", "Cole", "Baird"]
+}
 
-println("Languages:", languages)
+val game_b = Game {
+  name: "Halo"
+  release_year: 2001
+  characters: ["Master Chief", "Cortana", "Captain Keyes", "Sergeant Johnson", "343 Guilty Spark"]
+}
+
+fn print_game_characters(game Game) {
+  val len = game:characters:length
+  println("$game:name Characters $len")
+  for i in len {
+    val char = game:characters[i]
+    println("  Character $i: $char")
+  }
+}
+
+print_game_characters(game_a)
+print_game_characters(game_b)
+
+val languages = ["Vlang", "Swift"]
+val vlang = languages[0]
+
+println("Languages:", languages, vlang)

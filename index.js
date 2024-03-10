@@ -61,8 +61,30 @@ const character = {
 console.log(character);
 console.log(`${character.person.name} wields a ${character.weapon.name} as a weapon!`);
 console.log({
-  name: "Gears of War",
-  planets: ["Marcus", "Dominic", "Baird", "Cole"],
+  name: "Halo Reach",
+  release_year: 2010,
+  characters: ["Carter", "Kat", "Jun", "Emile", "Jorge", "Noble 6"],
 });
+const game_a = {
+  name: "Gears of War",
+  release_year: 2005,
+  characters: ["Marcus", "Dominic", "Cole", "Baird"],
+};
+const game_b = {
+  name: "Halo",
+  release_year: 2001,
+  characters: ["Master Chief", "Cortana", "Captain Keyes", "Sergeant Johnson", "343 Guilty Spark"],
+};
+function print_game_characters(game) {
+const len = game.characters.length;
+console.log(`${game.name} Characters ${len}`);
+for (let i = 0; i < len; i++) {
+const char = game.characters[i];
+console.log(`  Character ${i}: ${char}`);
+}
+}
+print_game_characters(game_a);
+print_game_characters(game_b);
 const languages = ["Vlang", "Swift"];
-console.log("Languages:", languages);
+const vlang = languages[0];
+console.log("Languages:", languages, vlang);

@@ -61,9 +61,26 @@ println(Game {
   characters: ["Marcus", "Dominic", "Baird", "Cole"]
 })
 
-val languages = ["Vlang", "Swift"]
+val game = Game {
+  name: "Halo"
+  characters: ["Master Chief", "Cortana", "Captain Keyes", "Sergeant Johnson", "343 Guilty Spark"]
+}
 
-println("Languages:", languages)
+fn print_game_characters(game Game) {
+  val len = game:characters:length
+  println("$game:name Characters $len")
+  for i in len {
+    val char = game:characters[i]
+    println("  Character $i: $char")
+  }
+}
+
+print_game_characters(game)
+
+val languages = ["Vlang", "Swift"]
+val vlang = languages[0]
+
+println("Languages:", languages, vlang)
 ```
 
 ## Functions
@@ -173,7 +190,7 @@ println("$person:full_name has a budget of $person:budget $")
   - [ ] Struct Operations (delete, read, set)
   - [x] Struct Type for fn parameters
 - [ ] Vectors
-  - [ ] Vector Accesing
+  - [X] Vector Accesing
   - [x] Vector Initialisation
   - [x] Vector Literal (["Marcus", "Dominic", "Baird", "Cole"])
   - [ ] Vector Operations (pop, prepend, push, shift)
