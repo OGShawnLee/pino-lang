@@ -53,12 +53,12 @@ println(arr_int, arr_str)
 
 struct Game {
   name str
-  planets arr
+  characters arr
 }
 
 println(Game {
   name: "Gears of War"
-  planets: ["Marcus", "Dominic", "Baird", "Cole"]
+  characters: ["Marcus", "Dominic", "Baird", "Cole"]
 })
 
 val languages = ["Vlang", "Swift"]
