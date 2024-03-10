@@ -50,6 +50,20 @@ var arr_int = []int { len: 6, init: it * 2 }
 var arr_str = []str { len: 9, init: get_str(it) }
 
 println(arr_int, arr_str)
+
+struct Game {
+  name str
+  planets arr
+}
+
+println(Game {
+  name: "Gears of War"
+  planets: ["Marcus", "Dominic", "Baird", "Cole"]
+})
+
+val languages = ["Vlang", "Swift"]
+
+println("Languages:", languages)
 ```
 
 ## Functions
