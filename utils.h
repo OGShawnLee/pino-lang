@@ -86,6 +86,16 @@ Peek<T> peek(
   throw std::runtime_error("Unexpected Token");
 }
 
+size_t index_of(std::string line, char character, size_t index) {
+  for (size_t i = index; i < line.length(); i++) {
+    if (line[i] == character) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 template <typename T>
 bool is_previous(
   std::vector<T> stream,

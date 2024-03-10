@@ -9,18 +9,6 @@
 
 class Function;
 
-std::string infer_typing(Literal literal) {
-	if (literal == Literal::STRING) {
-		return "str";
-	} else if (literal == Literal::INTEGER) {
-		return "int";
-	} else if (literal == Literal::BOOLEAN) {
-		return "bool";
-	} else {
-		return "void";
-	}
-}
-
 Variable::Variable() {
   kind = StatementKind::VAR_DECLARATION;
 }

@@ -60,3 +60,9 @@ const character = {
 };
 console.log(character);
 console.log(`${character.person.name} wields a ${character.weapon.name} as a weapon!`);
+console.log({
+  name: "Gears of War",
+  planets: ["Marcus", "Dominic", "Baird", "Cole"],
+});
+const languages = ["Vlang", "Swift"];
+console.log("Languages:", languages);

@@ -93,3 +93,17 @@ val character = Character {
 
 println(character)
 println("$character:person:name wields a $character:weapon:name as a weapon!")
+
+struct Game {
+  name str
+  planets arr
+}
+
+println(Game {
+  name: "Gears of War"
+  planets: ["Marcus", "Dominic", "Baird", "Cole"]
+})
+
+val languages = ["Vlang", "Swift"]
+
+println("Languages:", languages)

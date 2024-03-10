@@ -159,9 +159,9 @@ println("$person:full_name has a budget of $person:budget $")
   - [ ] Struct Operations (delete, read, set)
   - [x] Struct Type for fn parameters
 - [ ] Vectors
-  - [ ] Vector Literal (["Marcus", "Dominic", "Baird", "Cole"])
   - [ ] Vector Accesing
   - [x] Vector Initialisation
+  - [x] Vector Literal (["Marcus", "Dominic", "Baird", "Cole"])
   - [ ] Vector Operations (pop, prepend, push, shift)
   - [ ] Vector Type for fn parameters
 - [ ] Yield Statement

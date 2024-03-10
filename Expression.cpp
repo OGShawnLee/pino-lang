@@ -2,6 +2,7 @@
 
 #include <memory>
 #include "Expression.h"
+#include "Variable.h"
 
 Expression::Expression() {
   kind = StatementKind::EXPRESSION;
@@ -455,7 +456,7 @@ PeekPtr<Struct> Struct::build(std::vector<Token> collection, size_t index) {
       result.index += 1;
       return result;
     }
-
+    
     PeekPtr<Field> field = Field::build_as_property(collection, result.index);
     result.node->fields.push_back(std::move(field.node));
     result.index = field.index;
@@ -507,6 +508,30 @@ void Value::print(size_t indentation) const {
 
 Vector::Vector() {
   literal = Literal::VECTOR;
+}
+
+void Vector::handle_children(std::vector<Token> children) {
+  size_t index = 0;
+
+  this->typing = infer_typing(children[0].literal);
+
+  while (true) {
+    PeekPtr<Expression> expression = Expression::build(children, index);
+    this->children.push_back(std::move(expression.node));
+    index = expression.index;
+
+    if (index + 1 >= children.size()) {
+      return;
+    }
+
+    auto comma = peek<Token>(children, index, [](Token &token) {
+      return token.is_given_marker(Marker::COMMA);
+    });
+
+    if (comma.node.is_given_marker(Marker::COMMA)) {
+      index = comma.index + 1;
+    }
+  }
 }
 
 size_t Vector::handle_init_block(std::vector<Token> collection, size_t index) {
@@ -571,19 +596,28 @@ size_t Vector::handle_init_block(std::vector<Token> collection, size_t index) {
 }
 
 PeekPtr<Vector> Vector::build(std::vector<Token> collection, size_t index) {
-  if (collection[index].is_given_literal(Literal::VECTOR) == false) {
+  Token arr = collection[index];
+
+  if (arr.is_given_literal(Literal::VECTOR) == false) {
     throw std::runtime_error("DEV: Not a Vector Literal");
   }
 
   PeekPtr<Vector> result;
   result.node->value = collection[index].value;
 
-  auto typing = peek<Token>(collection, index, [](Token &token) {
-    return token.kind == Kind::IDENTIFIER;
-  });
+  bool is_empty = result.node->value == "[]";
 
-  result.node->typing = typing.node.value;
-  result.index = result.node->handle_init_block(collection, typing.index);
+  if (is_empty) {
+    auto typing = peek<Token>(collection, index, [](Token &token) {
+      return token.kind == Kind::IDENTIFIER;
+    });
+
+    result.node->typing = typing.node.value;
+    result.index = result.node->handle_init_block(collection, typing.index);
+  } else {
+    result.node->handle_children(arr.children);
+    result.index = index; 
+  }
 
   return result;
 }
@@ -597,6 +631,14 @@ void Vector::print(size_t indentation) const {
   }
   if (init.get() != nullptr) {
     init->print(indentation + 2);
+  }
+  if (children.size() > 0) {
+    println(indent + "  value: " + value);
+    println(indent + "  children: [");
+    for (const std::unique_ptr<Expression> &child : children) {
+      child->print(indentation + 4);
+    }
+    println(indent + "  ]");
   }
   println(indent + "}");
 }

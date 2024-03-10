@@ -158,11 +158,14 @@ class Struct : public Value {
 };
 
 class Vector : public Value {
+  void handle_children(std::vector<Token> children);
+
   size_t handle_init_block(std::vector<Token> collection, size_t index);
 
   public:
     std::unique_ptr<Expression> len;
     std::unique_ptr<Expression> init;
+    std::vector<std::unique_ptr<Expression>> children;
     std::string typing;
 
     Vector();

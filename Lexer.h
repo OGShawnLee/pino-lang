@@ -91,6 +91,18 @@ enum class Literal {
 	STRUCT,
 };
 
+std::string infer_typing(Literal literal) {
+	if (literal == Literal::STRING) {
+		return "str";
+	} else if (literal == Literal::INTEGER) {
+		return "int";
+	} else if (literal == Literal::BOOLEAN) {
+		return "bool";
+	} else {
+		return "void";
+	}
+}
+
 enum class Marker {
 	COLON,
 	COMMA,
@@ -126,6 +138,7 @@ class Token {
 		BinaryOperator binary_operator;	
 		std::string value;
 		std::vector<std::string> injections;
+		std::vector<Token> children;
 
 		Token(BinaryOperator binary_operator, std::string buffer) {
 			this->kind = Kind::BINARY_OPERATOR;
@@ -178,19 +191,29 @@ class Token {
 			return kind == Kind::LITERAL && this->literal == literal;
 		}
 
-		void print() const {
-			println(get_kind_name(kind) + " {");
-			println("  value: " + value);
+		void print(size_t indentation = 0) const {
+			std::string indent = get_indentation(indentation);
 
-			if (injections.empty() == false) {
-				println("  injections: [");
-				for (std::string injection : injections) {
-					println("    " + injection);
-				}
-				println("  ]");
-			} 
+			println(indent + get_kind_name(kind) + " {");
+			println(indent + "  value: " + value);
 			
-			println("}");
+			if (injections.empty() == false) {
+				println(indent + "  injections: [");
+				for (std::string injection : injections) {
+					println(indent + "    " + injection);
+				}
+				println(indent + "  ]");
+			}
+
+			if (children.empty() == false) {
+				println(indent + "  children: [");
+				for (Token child : children) {
+					child.print(indentation + 4);
+				}
+				println(indent + "  ]");
+			}
+
+			println(indent + "}");
 		}
 
 		static bool is_binary_operator(std::string buffer) {
@@ -285,15 +308,29 @@ class Lexer {
 			throw std::runtime_error("DEV: Not an Array Literal");
 		}
 
-		auto marker = peek(line, index, [](char character) {
+		bool is_empty = is_next_char(line, index, [](char character) {
 			return character == ']';
 		});
 
 		Peek<Token> next;
-		next.node.value = "[]";
+		
+		if (is_empty) {
+			next.node.value = "[]";
+			next.index = index + 1;
+		} else {
+			size_t end = index_of(line, ']', index);
+
+			if (end == -1) {
+				throw std::runtime_error("USER: Unterminated Array Literal");
+			}
+
+			next.node.value = line.substr(index, end - index + 1);
+			next.node.children = lex_line(line.substr(index + 1, end - index - 1));
+			next.index = end;
+		}
+
 		next.node.kind = Kind::LITERAL;
 		next.node.literal = Literal::VECTOR;
-		next.index = marker.index;
 
 		return next;
 	}
@@ -363,13 +400,15 @@ class Lexer {
 	} 
 
 	public:
-		static std::vector<Token> lex_line(std::string line) {
+		static std::vector<Token> lex_line(std::string line, size_t end_i = 0) {
 			std::vector<Token> stream;
 			std::string buffer;
 
 			line += " ";
-			
-			for (size_t i = 0; i < line.length(); i++) {
+
+			if (end_i == 0) end_i = line.length();
+
+			for (size_t i = 0; i < end_i; i++) {
 				char character = line[i];
 
 				if (is_whitespace(character)) {
