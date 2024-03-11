@@ -1,4 +1,5 @@
 #include "Parser.h"
+#include "Checker.h"
 
 std::string replace(std::string str, std::string from, std::string to) {
   size_t start_pos = 0;
@@ -361,7 +362,10 @@ class JSTranspiler {
   public:
     static void transpile(std::string file_name, std::string file_output) {
       Statement program = Parser::parse_file(file_name);
+      Checker checker;
       std::string output;
+
+      program = checker.check(program);
 
       for (size_t i = 0; i < program.children.size(); i++) {
         std::unique_ptr<Statement> &statement = program.children[i];

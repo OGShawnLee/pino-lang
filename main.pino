@@ -46,8 +46,8 @@ fn dollar_to_yen(dollar int) {
 }
 
 val dollars = 100
-Val rubles = dollar_to_ruble(100)
-Val yens = dollar_to_yen(100)
+val rubles = dollar_to_ruble(100)
+val yens = dollar_to_yen(100)
 
 println("$dollars are $rubles rubles and $yens yens")
 

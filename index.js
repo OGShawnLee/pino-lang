@@ -30,8 +30,8 @@ function dollar_to_yen(dollar) {
 return times(dollar, 151);
 }
 const dollars = 100;
-rubles = dollar_to_ruble(100);
-yens = dollar_to_yen(100);
+const rubles = dollar_to_ruble(100);
+const yens = dollar_to_yen(100);
 console.log(`${dollars} are ${rubles} rubles and ${yens} yens`);
 if (yens > 10000 && true) {
 console.log("That is a lot of yens!");
