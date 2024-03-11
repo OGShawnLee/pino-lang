@@ -134,7 +134,7 @@ bool is_next(
   return is_valid_node(stream[index + 1]);
 }
 
-void println(std::string str) {
+void println(std::string str = "") {
   std::cout << str << std::endl;
 }
 

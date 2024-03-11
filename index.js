@@ -106,3 +106,5 @@ return temp_arr;
 }
 const characters = create_characters_from_game(game_a, "Assault Lancer Rifle");
 console.log(`${game_a.name}`, characters);
+let random = ["Not an Integer"];
+random = [12];

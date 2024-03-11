@@ -157,3 +157,6 @@ fn create_characters_from_game(game Game, weapon str) {
 
 val characters = create_characters_from_game(game_a, "Assault Lancer Rifle")
 println("$game_a:name", characters)
+
+var random = ["Not an Integer"]
+random = [12]
