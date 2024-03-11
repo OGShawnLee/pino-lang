@@ -160,3 +160,12 @@ println("$game_a:name", characters)
 
 var random = ["Not an Integer"]
 random = [12]
+
+fn get_full_name(name str, last_name str) {
+  return "$name $last_name"
+}
+
+var full_name = get_full_name("James", "China")
+
+name = get_full_name("Julius", "Ceasar")
+name = full_name

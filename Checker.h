@@ -7,7 +7,7 @@
 class Checker {
   struct Entity {
     std::string name;
-    std::string type;
+    std::string typing;
   };
 
   std::map<std::string, Entity> entities;
@@ -30,18 +30,26 @@ class Checker {
 
     Entity entity = entities[reassignment->identifier];
     Value *value = static_cast<Value *>(reassignment->value.get());
-    
-    std::string typing = infer_typing(value->literal);
+
+    std::string typing;
+
+    if (
+      value->expression == ExpressionKind::FN_CALL || 
+      value->expression == ExpressionKind::IDENTIFIER
+    ) {
+      typing = "void";
+    } else {
+      typing = infer_typing(value->literal);
+    }
     
     if (typing == "void") {
       println("WARNING: Assigning 'void' to variable '" + reassignment->identifier + "'.");
-      println("- Structs and Vectors are handled as 'void' types and will be checked properly in the future.");
-      println("- Please make sure you are not assigning a 'void' type to a variable that is not a Struct or Vector.");
+      println("- Function Calls, Identifiers, Structs and Vectors are handled as 'void'.");
+      println("- Please make sure you are assigning the correct type to the variable.");
+      println("- This will be fixed in the future.");
       println();
-    }
-
-    if (entity.type != typing) {
-      println("ERROR: Cannot reassign variable '" + reassignment->identifier + "' of type '" + entity.type + "' with value of type '" + typing + "'.");
+    } else if (entity.typing != typing) {
+      println("ERROR: Cannot reassign variable '" + reassignment->identifier + "' of type '" + entity.typing + "' with value of type '" + typing + "'.");
       println();
       throw std::runtime_error("Variable Reassignment Error.");
     }
@@ -50,7 +58,7 @@ class Checker {
   void create_entity(std::string identifier, std::string type) {
     Entity entity;
     entity.name = identifier;
-    entity.type = type;
+    entity.typing = type;
     entities[identifier] = entity;
   }
 

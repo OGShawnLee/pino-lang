@@ -108,3 +108,10 @@ const characters = create_characters_from_game(game_a, "Assault Lancer Rifle");
 console.log(`${game_a.name}`, characters);
 let random = ["Not an Integer"];
 random = [12];
+function get_full_name(name, last_name) {
+return `${name} ${last_name}`;
+}
+let full_name = get_full_name("James", "China");
+name = get_full_name("Julius", "Ceasar");
+name = full_name;
+country = "Japan";
