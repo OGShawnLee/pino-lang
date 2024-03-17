@@ -8,6 +8,7 @@ class Checker {
   struct Entity {
     std::string name;
     std::string typing;
+    bool is_constant = true;
   };
 
   std::map<std::string, Entity> entities;
@@ -22,13 +23,18 @@ class Checker {
     };
 
     Reassignment *reassignment = static_cast<Reassignment *>(expression);
+    Entity entity = entities[reassignment->identifier];
+
+    if (entity.is_constant) {
+      println("ERROR: Reassignment of Constant '" + reassignment->identifier + "'.");
+      throw std::runtime_error("Variable Reassignment Error.");
+    }
 
     if (is_declared_variable(reassignment->identifier) == false) {
       println("ERROR: Cannot reassign undeclared variable '" + reassignment->identifier + "'.");
       throw std::runtime_error("Variable Reassignment Error.");
     }
 
-    Entity entity = entities[reassignment->identifier];
     Value *value = static_cast<Value *>(reassignment->value.get());
 
     std::string typing;
@@ -55,7 +61,7 @@ class Checker {
     }
   }
 
-  void create_entity(std::string identifier, std::string type) {
+  void create_entity(std::string identifier, std::string type, bool is_constant) {
     if (is_declared_variable(identifier)) {
       println("ERROR: Variable '" + identifier + "' has been already declared.");
       throw std::runtime_error("Variable Assignment Error.");
@@ -64,6 +70,7 @@ class Checker {
     Entity entity;
     entity.name = identifier;
     entity.typing = type;
+    entity.is_constant = is_constant;
     entities[identifier] = entity;
   }
 
@@ -76,7 +83,7 @@ class Checker {
 
         if (child->kind == StatementKind::VAR_DECLARATION) {
           Variable *variable = static_cast<Variable *>(child.get());
-          create_entity(variable->name, variable->typing);
+          create_entity(variable->name, variable->typing, false);
         }
 
         if (child->kind == StatementKind::EXPRESSION) {

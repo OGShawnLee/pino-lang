@@ -169,3 +169,4 @@ var full_name = get_full_name("James", "China")
 
 name = get_full_name("Julius", "Ceasar")
 name = full_name
+country = "Japan"
