@@ -434,6 +434,9 @@ Struct::Struct() {
 bool Struct::is_struct(std::vector<Token> collection, size_t index) {
   return 
     is_previous<Token>(collection, index, [](Token &token) {
+      if (token.kind == Kind::KEYWORD && token.keyword == Keyword::RETURN_KEYWORD) 
+        return true;
+
       return token.kind != Kind::KEYWORD;
     }) &&
     collection[index].kind == Kind::IDENTIFIER && 
