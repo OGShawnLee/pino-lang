@@ -61,9 +61,11 @@ class Checker {
     }
   }
 
-  void create_entity(std::string identifier, std::string type, bool is_constant) {
+  void create_entity(std::string identifier, std::string type, bool is_constant = true) {
     if (is_declared_variable(identifier)) {
-      println("ERROR: Variable '" + identifier + "' has been already declared.");
+      Entity entity = entities[identifier];
+      std::string kind = entity.is_constant ? "Constant" : "Variable";
+      println("ERROR: " + kind + " '" + identifier + "' has been already declared.");
       throw std::runtime_error("Variable Assignment Error.");
     }
 
@@ -81,16 +83,21 @@ class Checker {
       for (size_t index = 0; index < input.children.size(); index++) {
         std::unique_ptr<Statement> child = std::move(input.children[index]);
 
-        if (child->kind == StatementKind::VAR_DECLARATION) {
-          Variable *variable = static_cast<Variable *>(child.get());
-          create_entity(variable->name, variable->typing, false);
-        }
-
-        if (child->kind == StatementKind::EXPRESSION) {
-          Expression *expression = static_cast<Expression *>(child.get());
-          if (expression->expression == ExpressionKind::VAR_REASSIGNMENT) {
-            check_var_reassignment(expression);
-          }
+        switch (child->kind) {
+          case StatementKind::VAL_DECLARATION:
+          case StatementKind::VAR_DECLARATION: {
+            Variable *variable = static_cast<Variable *>(child.get());
+            bool is_constant = child->kind == StatementKind::VAL_DECLARATION;
+            create_entity(variable->name, variable->typing, is_constant);
+          } break;
+          case StatementKind::EXPRESSION: {
+            Expression *expression = static_cast<Expression *>(child.get());
+            if (expression->expression == ExpressionKind::VAR_REASSIGNMENT) {
+              check_var_reassignment(expression);
+            }
+          } break;
+          default:
+            break;
         }
 
         program.children.push_back(std::move(child));
