@@ -8,12 +8,12 @@ class Checker {
   struct Entity {
     std::string name;
     std::string typing;
-    bool is_constant = true;
+    std::string kind;
   };
 
   std::map<std::string, Entity> entities;
 
-  bool is_declared_variable(std::string identifier) {
+  bool is_declared_entity(std::string identifier) {
     return entities.find(identifier) != entities.end();
   }
 
@@ -25,12 +25,12 @@ class Checker {
     Reassignment *reassignment = static_cast<Reassignment *>(expression);
     Entity entity = entities[reassignment->identifier];
 
-    if (entity.is_constant) {
+    if (entity.kind == "Constant") {
       println("ERROR: Reassignment of Constant '" + reassignment->identifier + "'.");
       throw std::runtime_error("Variable Reassignment Error.");
     }
 
-    if (is_declared_variable(reassignment->identifier) == false) {
+    if (is_declared_entity(reassignment->identifier) == false) {
       println("ERROR: Cannot reassign undeclared variable '" + reassignment->identifier + "'.");
       throw std::runtime_error("Variable Reassignment Error.");
     }
@@ -61,18 +61,17 @@ class Checker {
     }
   }
 
-  void create_entity(std::string identifier, std::string type, bool is_constant = true) {
-    if (is_declared_variable(identifier)) {
+  void create_entity(std::string identifier, std::string type, std::string kind) {
+    if (is_declared_entity(identifier)) {
       Entity entity = entities[identifier];
-      std::string kind = entity.is_constant ? "Constant" : "Variable";
-      println("ERROR: " + kind + " '" + identifier + "' has been already declared.");
+      println("ERROR: " + entity.kind + " '" + identifier + "' has been already declared.");
       throw std::runtime_error("Variable Assignment Error.");
     }
 
     Entity entity;
     entity.name = identifier;
     entity.typing = type;
-    entity.is_constant = is_constant;
+    entity.kind = kind;
     entities[identifier] = entity;
   }
 
@@ -84,17 +83,21 @@ class Checker {
         std::unique_ptr<Statement> child = std::move(input.children[index]);
 
         switch (child->kind) {
-          case StatementKind::VAL_DECLARATION:
-          case StatementKind::VAR_DECLARATION: {
-            Variable *variable = static_cast<Variable *>(child.get());
-            bool is_constant = child->kind == StatementKind::VAL_DECLARATION;
-            create_entity(variable->name, variable->typing, is_constant);
-          } break;
           case StatementKind::EXPRESSION: {
             Expression *expression = static_cast<Expression *>(child.get());
             if (expression->expression == ExpressionKind::VAR_REASSIGNMENT) {
               check_var_reassignment(expression);
             }
+          } break;
+          case StatementKind::STRUCT_DEFINITION: {
+            StructDefinition *definition = static_cast<StructDefinition *>(child.get());
+            create_entity(definition->name, definition->name, "Struct");
+          } break;
+          case StatementKind::VAL_DECLARATION:
+          case StatementKind::VAR_DECLARATION: {
+            Variable *variable = static_cast<Variable *>(child.get());
+            std::string kind = child->kind == StatementKind::VAL_DECLARATION ? "Constant" : "Variable";
+            create_entity(variable->name, variable->typing, kind);
           } break;
           default:
             break;
