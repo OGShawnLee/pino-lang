@@ -56,6 +56,11 @@ class Checker {
   }
 
   void create_entity(std::string identifier, std::string type) {
+    if (is_declared_variable(identifier)) {
+      println("ERROR: Variable '" + identifier + "' has been already declared.");
+      throw std::runtime_error("Variable Assignment Error.");
+    }
+
     Entity entity;
     entity.name = identifier;
     entity.typing = type;
