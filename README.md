@@ -6,7 +6,7 @@ Pino is transpiled to JavaScript because it is the language I know the best and 
 
 ## Comments
 
-Comments are not yet supported but the intended syntax is shown right below.
+Multi Line Comments are not yet supported but the intended syntax is shown right below.
 
 ```
 # Single Line Comment
@@ -176,6 +176,9 @@ println("$person:full_name has a budget of $person:budget $")
   - [ ] Order of Precedence (JavaScript handles it once it is transpiled but it is not built in Pino)
   - [ ] Parenthesis
 - [ ] Checker (Parser output is transpiled without validation)
+- [ ] Comments
+  - [X] Single Line Comment
+  - [ ] Multi Line Comment
 - [ ] Descriptive Parser and Lexer Errors
 - [ ] Floats
 - [ ] Functions

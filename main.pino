@@ -1,8 +1,9 @@
 println("Pino!")
 println("This was written in Pino and transpiled to JavaScript!")
 
+# this is a comment!
 var name = "Shawn Lee"
-var country = "China" 
+var country = "China" # same line as an statement comment!
 
 println("$name has created this language!")
 
@@ -105,7 +106,7 @@ println("$character:person:name wields a $character:weapon:name as a weapon!")
 struct Game {
   name str
   release_year int
-  characters arr
+  characters arr # cant declare the arr content type yet
 }
 
 println(Game {

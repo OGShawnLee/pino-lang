@@ -125,6 +125,7 @@ std::string infer_typing(Literal literal) {
 enum class Marker {
 	COLON,
 	COMMA,
+	COMMENT,
 	DOUBLE_QUOTE,
 	EQUAL_SIGN,
 	LEFT_BRACE,
@@ -146,6 +147,7 @@ std::map<char, Marker> MARKER_KEY = {
 	{'}', Marker::RIGHT_BRACE},
 	{']', Marker::RIGHT_BRACKET},
 	{')', Marker::RIGHT_PARENTHESIS},
+	{'#', Marker::COMMENT},
 };
 
 class Token {
@@ -499,6 +501,9 @@ class Lexer {
 							Peek<Token> str = get_str_literal(line, i);
 							stream.push_back(str.node);
 							i = str.index;
+						} break;
+						case Marker::COMMENT: {
+							return stream;
 						} break;
 						default:
 							stream.push_back(Token(marker, character));
