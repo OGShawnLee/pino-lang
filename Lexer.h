@@ -29,10 +29,25 @@ enum class BinaryOperator {
 	DIVIDE,
 	MODULUS,
 	LESS_THAN,
+	LESS_THAN_OR_EQUAL,
 	GREATER_THAN,
+	GREATER_THAN_OR_EQUAL,
 	NOT_EQUAL,
+	EQUAL,
 	AND,
 	OR,
+};
+
+std::map<char, BinaryOperator> BINARY_OPERATOR_CHAR = {
+	{'+', BinaryOperator::PLUS},
+	{'-', BinaryOperator::MINUS},
+	{'*', BinaryOperator::MULTIPLY},
+	{'/', BinaryOperator::DIVIDE},
+	{'%', BinaryOperator::MODULUS},
+	{'<', BinaryOperator::LESS_THAN},
+	{'>', BinaryOperator::GREATER_THAN},
+	{'!', BinaryOperator::NOT_EQUAL},
+	{'=', BinaryOperator::EQUAL},
 };
 
 std::map<std::string, BinaryOperator> BINARY_OPERATOR_KEY = {
@@ -42,7 +57,11 @@ std::map<std::string, BinaryOperator> BINARY_OPERATOR_KEY = {
 	{"/", BinaryOperator::DIVIDE},
 	{"%", BinaryOperator::MODULUS},
 	{"<", BinaryOperator::LESS_THAN},
+	{"<=", BinaryOperator::LESS_THAN_OR_EQUAL},
 	{">", BinaryOperator::GREATER_THAN},
+	{">=", BinaryOperator::GREATER_THAN_OR_EQUAL},
+	{"!=", BinaryOperator::NOT_EQUAL},
+	{"==", BinaryOperator::EQUAL},
 	{"and", BinaryOperator::AND},
 	{"or", BinaryOperator::OR},
 };
@@ -145,6 +164,12 @@ class Token {
 			this->binary_operator = binary_operator;
 			this->value = buffer;
 		}
+
+		Token(BinaryOperator binary_operator, char character) {
+			this->kind = Kind::BINARY_OPERATOR;
+			this->binary_operator = binary_operator;
+			this->value = std::string(1, character);
+		}
 		
 		Token(Keyword keyword, std::string buffer) {
 			this->kind = Kind::KEYWORD;
@@ -216,6 +241,10 @@ class Token {
 			println(indent + "}");
 		}
 
+		static bool is_binary_operator(char character) {
+			return BINARY_OPERATOR_CHAR.count(character) > 0;
+		}
+
 		static bool is_binary_operator(std::string buffer) {
 			return BINARY_OPERATOR_KEY.count(buffer) > 0;
 		}
@@ -240,7 +269,15 @@ class Token {
 			return MARKER_KEY.count(character) > 0;
 		}
 
+		static BinaryOperator get_binary_operator(char character) {
+			return BINARY_OPERATOR_CHAR.at(character);
+		}
+
 		static BinaryOperator get_binary_operator(std::string buffer) {
+			if (is_binary_operator(buffer) == false) {
+				throw std::runtime_error("DEV: Not a Binary Operator");
+			}
+
 			return BINARY_OPERATOR_KEY.at(buffer);
 		}
 
@@ -410,6 +447,30 @@ class Lexer {
 
 			for (size_t i = 0; i < end_i; i++) {
 				char character = line[i];
+
+				if (Token::is_binary_operator(character)) {
+					if (is_whitespace(buffer) == false) {
+						stream.push_back(handle_buffer(buffer));
+						buffer = "";
+					}
+
+					bool is_dual_char_operator = is_next_char(line, i, [](char character) {
+						return Token::is_binary_operator(character);
+					});
+
+					if (is_dual_char_operator) {
+						std::string dual_char_operator = std::string(1, character) + line[i + 1];
+						stream.push_back(Token(Token::get_binary_operator(dual_char_operator), dual_char_operator));
+						i++;
+						continue;
+					}
+
+					if (Token::is_marker(character) == false) {
+						BinaryOperator binary_operator = Token::get_binary_operator(character);
+						stream.push_back(Token(binary_operator, character));
+						continue;
+					}
+				}
 
 				if (is_whitespace(character)) {
 					if (is_whitespace(buffer)) continue;

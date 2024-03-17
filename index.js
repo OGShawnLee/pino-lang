@@ -115,3 +115,28 @@ let full_name = get_full_name("James", "China");
 name = get_full_name("Julius", "Ceasar");
 name = full_name;
 country = "Japan";
+function can_drink(age) {
+return age >= 21;
+}
+function has_great_name(first_name, last_name) {
+return first_name == "Shawn" && last_name == "Lee";
+}
+function handle_drinking_age(age) {
+if (can_drink(age)) {
+console.log("You can drink!");
+} else {
+console.log("You can't drink!");
+}
+}
+function handle_great_name(first_name, last_name) {
+if (has_great_name(first_name, last_name)) {
+console.log(`${first_name}, you have a great name!`);
+} else {
+console.log(`${first_name}, you dont have a great name!`);
+console.log("What a shame...");
+}
+}
+handle_drinking_age(20);
+handle_drinking_age(21);
+handle_great_name("Shawn", "Smith");
+handle_great_name("Shawn", "Lee");

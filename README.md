@@ -172,7 +172,7 @@ println("$person:full_name has a budget of $person:budget $")
 
 ## Missing Features
 - [X] Binary Expressions
-  - [ ] Dual Character Bool Operators (==, !=, >=, <=)
+  - [X] Dual Character Bool Operators (==, !=, >=, <=)
   - [ ] Order of Precedence (JavaScript handles it once it is transpiled but it is not built in Pino)
   - [ ] Parenthesis
 - [ ] Checker (Parser output is transpiled without validation)

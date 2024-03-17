@@ -170,3 +170,34 @@ var full_name = get_full_name("James", "China")
 name = get_full_name("Julius", "Ceasar")
 name = full_name
 country = "Japan"
+
+fn can_drink(age int) {
+  return age >= 21
+}
+
+fn has_great_name(first_name str, last_name str) {
+  return first_name == "Shawn" and last_name == "Lee"
+}
+
+fn handle_drinking_age(age int) {
+  if can_drink(age) {
+    println("You can drink!")
+  } else {
+    println("You can't drink!")
+  }
+}
+
+fn handle_great_name(first_name str, last_name str) {
+  if has_great_name(first_name, last_name) {
+    println("$first_name, you have a great name!")
+  } else {
+    println("$first_name, you dont have a great name!")
+    println("What a shame...")
+  }
+}
+
+handle_drinking_age(20)
+handle_drinking_age(21)
+
+handle_great_name("Shawn", "Smith")
+handle_great_name("Shawn", "Lee")
