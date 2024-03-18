@@ -68,6 +68,12 @@ std::vector<std::unique_ptr<Statement>> Block::build_program(std::vector<Token> 
           program.push_back(std::move(struct_peek.node));
           i = struct_peek.index;
         }
+
+        if (token.keyword == Keyword::DO_KEYWORD) {
+          PeekPtr<DOBlock> do_peek = DOBlock::build(collection, i);
+          program.push_back(std::move(do_peek.node));
+          i = do_peek.index;
+        }
       } break;
       default:
         break;
@@ -146,6 +152,12 @@ PeekStreamPtr<Statement> Block::build(
 
         if (token.keyword == Keyword::STRUCT_KEYWORD) {
           throw std::runtime_error("USER: Struct Definition not allowed in block");
+        }
+
+        if (token.keyword == Keyword::DO_KEYWORD) {
+          PeekPtr<DOBlock> do_peek = DOBlock::build(collection, i);
+          result.nodes.push_back(std::move(do_peek.node));
+          i = do_peek.index;
         }
       } break;
       default:

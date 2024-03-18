@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include "Expression.cpp"
 #include "Function.h"
 #include "Parser.h"
 #include "Statement.h"
@@ -40,6 +41,83 @@ void ReturnStatement::print(size_t indentation) const {
 		println(indent + "  value: ");
 		value->print(indentation + 4);
 	}
+
+	println(indent + "}");
+}
+
+size_t DOBlock::handle_arguments(std::vector<Token> collection, size_t index) {
+	auto left_pipe = peek<Token>(collection, index, [](Token &token) {
+		return token.is_given_marker(Marker::PIPE);
+	});
+
+	index = left_pipe.index;
+
+	while (true) {
+		auto id_or_right_pipe = peek<Token>(collection, index, [](Token &token) {
+			return token.kind == Kind::IDENTIFIER || token.is_given_marker(Marker::PIPE);
+		});
+
+		index = id_or_right_pipe.index;
+
+		if (id_or_right_pipe.node.is_given_marker(Marker::PIPE)) {
+			return index;
+		} 
+
+		PeekPtr<Identifier> argument = Identifier::build(collection, id_or_right_pipe.index);
+		arguments.push_back(std::move(argument.node));
+		index = argument.index;
+
+		auto comma_or_right_pipe = peek<Token>(collection, index, [](Token &token) {
+			return token.is_given_marker(Marker::COMMA, Marker::PIPE);
+		});
+
+		index = comma_or_right_pipe.index;
+
+		if (comma_or_right_pipe.node.is_given_marker(Marker::PIPE)) {
+			return index;
+		} 
+	}
+
+	throw std::runtime_error("DEV: Unterminated Do Block Arguments");
+}
+
+PeekPtr<DOBlock> DOBlock::build(std::vector<Token> collection, size_t index) {
+	Keyword keyword = collection[index].keyword;
+	if (keyword != Keyword::DO_KEYWORD) {
+		throw std::runtime_error("DEV: Not a Do Block");
+	}
+
+	PeekPtr<DOBlock> result;
+	result.index = index;
+
+	auto left_brace = peek<Token>(collection, result.index, [](Token &token) {
+		return token.is_given_marker(Marker::LEFT_BRACE);
+	});
+
+	result.index = left_brace.index;
+	result.index = result.node->handle_arguments(collection, result.index);
+
+	PeekPtr<Expression> block = Expression::build(collection, result.index + 1);
+	result.node->body = std::move(block.node);
+	result.index = block.index;
+
+	return result;
+}
+
+void DOBlock::print(size_t indentation) const {
+	std::string indent = get_indentation(indentation);
+	println(indent + "Do Block {");
+
+	if (arguments.size() > 0) {
+		println(indent + "  arguments: [");
+		for (const std::unique_ptr<Identifier> &argument : arguments) {
+			argument->print(indentation + 4);
+		}
+		println(indent + "  ]");
+	}
+
+	println(indent + "  body: ");
+	body->print(indentation + 2);
 
 	println(indent + "}");
 }

@@ -88,6 +88,8 @@ enum class Keyword {
 	IN_KEYWORD,
 	RETURN_KEYWORD,
 	STRUCT_KEYWORD,
+	DO_KEYWORD,
+	YIELD_KEYWORD,
 };
 
 std::map<std::string, Keyword> KEYWORD_KEY = {
@@ -100,6 +102,8 @@ std::map<std::string, Keyword> KEYWORD_KEY = {
 	{"in", Keyword::IN_KEYWORD},
 	{"return", Keyword::RETURN_KEYWORD},
 	{"struct", Keyword::STRUCT_KEYWORD},
+	{"do", Keyword::DO_KEYWORD},
+	{"yield", Keyword::YIELD_KEYWORD},
 };
 
 enum class Literal {
@@ -134,6 +138,7 @@ enum class Marker {
 	RIGHT_BRACE,
 	RIGHT_BRACKET,
 	RIGHT_PARENTHESIS,
+	PIPE,
 };
 
 std::map<char, Marker> MARKER_KEY = {
@@ -148,6 +153,7 @@ std::map<char, Marker> MARKER_KEY = {
 	{']', Marker::RIGHT_BRACKET},
 	{')', Marker::RIGHT_PARENTHESIS},
 	{'#', Marker::COMMENT},
+	{'|', Marker::PIPE},
 };
 
 class Token {

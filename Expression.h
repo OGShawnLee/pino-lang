@@ -8,6 +8,7 @@ enum class ExpressionKind {
   FN_CALL,
   VAR_REASSIGNMENT,
   BINARY_EXPRESSION,
+  YIELD_CALL,
 };
 
 std::map<ExpressionKind, std::string> EXPRESSION_KIND = {
@@ -16,6 +17,7 @@ std::map<ExpressionKind, std::string> EXPRESSION_KIND = {
   {ExpressionKind::FN_CALL, "Function Call"},
   {ExpressionKind::VAR_REASSIGNMENT, "Variable Reassignment"},
   {ExpressionKind::BINARY_EXPRESSION, "Binary Expression"},
+  {ExpressionKind::YIELD_CALL, "Yield Call"},
 };
 
 std::string get_expression_name(ExpressionKind kind) {
@@ -171,6 +173,16 @@ class Vector : public Value {
     Vector();
     
     static PeekPtr<Vector> build(std::vector<Token> collection, size_t index);
+
+    void print(size_t indentation = 0) const;
+};
+
+class Yield : public Expression {
+  public:
+    ExpressionKind expression = ExpressionKind::YIELD_CALL;
+    std::vector<std::unique_ptr<Expression>> arguments;
+
+    static PeekPtr<Yield> build(std::vector<Token> collection, size_t index);
 
     void print(size_t indentation = 0) const;
 };

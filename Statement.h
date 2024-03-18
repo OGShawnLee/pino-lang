@@ -15,6 +15,7 @@ enum class StatementKind {
 	LOOP_STATEMENT,
 	RETURN_STATEMENT,
 	STRUCT_DEFINITION,
+	DO_BLOCK,
 };
 
 std::map<StatementKind, std::string> STATEMENT_NAME = {
@@ -28,6 +29,7 @@ std::map<StatementKind, std::string> STATEMENT_NAME = {
 	{StatementKind::LOOP_STATEMENT, "Loop Statement"},
 	{StatementKind::RETURN_STATEMENT, "Return Statement"},
 	{StatementKind::STRUCT_DEFINITION, "Struct Definition"},
+	{StatementKind::DO_BLOCK, "Do Block"},
 };
 
 class Statement {

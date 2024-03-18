@@ -41,6 +41,10 @@ PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t inde
 
     result.node = Value::from_literal(collection[index]);
     result.index = index;
+  } else if (collection[index].is_given_keyword(Keyword::YIELD_KEYWORD)) {
+    PeekPtr<Yield> yield = Yield::build(collection, index);
+    result.node = std::move(yield.node);
+    result.index = yield.index;
   } else {
     throw std::runtime_error("USER: Not an Expression");
   }
@@ -651,6 +655,49 @@ void Vector::print(size_t indentation) const {
     println(indent + "  children: [");
     for (const std::unique_ptr<Expression> &child : children) {
       child->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  println(indent + "}");
+}
+
+PeekPtr<Yield> Yield::build(std::vector<Token> collection, size_t index) {
+  if (collection[index].keyword != Keyword::YIELD_KEYWORD) {
+    throw std::runtime_error("DEV: Not a Yield Statement");
+  }
+
+  PeekPtr<Yield> result;
+  result.index = index;
+
+  bool no_arguments = Expression::is_expression(collection, index + 1) == false;
+  if (no_arguments) {
+    return result;
+  }
+
+  while (true) {
+    PeekPtr<Expression> argument = Expression::build(collection, result.index + 1);
+    result.node->arguments.push_back(std::move(argument.node));
+    result.index = argument.index;
+
+    bool is_comma = is_next<Token>(collection, result.index, [](Token &token) {
+      return token.is_given_marker(Marker::COMMA);
+    });
+
+    result.index += 1;
+
+    if (is_comma == false) {
+      return result;
+    }
+  }
+}
+
+void Yield::print(size_t indentation) const {
+  std::string indent = get_indentation(indentation);
+  println(indent + "Yield {");
+  if (arguments.size() > 0) {
+    println(indent + "  arguments: [");
+    for (const std::unique_ptr<Expression> &argument : arguments) {
+      argument->print(indentation + 4);
     }
     println(indent + "  ]");
   }

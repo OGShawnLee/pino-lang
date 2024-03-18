@@ -16,6 +16,19 @@ class ReturnStatement : public Statement {
 		void print(size_t indentation = 0) const;
 };
 
+class DOBlock : public Statement {
+	size_t handle_arguments(std::vector<Token> collection, size_t index);
+	
+	public:
+		std::vector<std::unique_ptr<Identifier>> arguments;
+		std::unique_ptr<Expression> body;
+		StatementKind kind = StatementKind::DO_BLOCK;
+
+		static PeekPtr<DOBlock> build(std::vector<Token> collection, size_t index);
+		
+		void print(size_t indentation = 0) const;
+};
+
 class Function : public Statement {
 	static PeekStreamPtr<Variable> handle_parameters(std::vector<Token> collection, size_t index);
 
