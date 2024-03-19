@@ -168,7 +168,41 @@ val phone_name = person:phone:name
 println(person)
 println("$name owns a $phone_name")
 println("$person:full_name has a budget of $person:budget $")
-````
+```
+
+## Functional Programming
+
+Anonymous functions are not supported and there is no function type. However, functional behaviour can be achieved following the code shown right below.
+
+```
+# Higher Order Function
+fn get_multiplier_fn(multiplier int) {
+  # Cannot return an anonymous fn so we return a locally declared fn
+  fn multiply(num int) {
+    return num * multiplier
+  }
+
+  return multiply 
+}
+
+val double_it = get_multiplier_fn(2)
+
+fn times_ten(num int) {
+  return num * 10
+}
+
+fn map(array arr, fun function) {
+  return []any { len: array:length, init: fun(array[it]) }
+}
+
+val arr_int_big = []int { len: 4, init: times_ten(it) }
+val arr_double = map(arr_int_big, double_it)
+val arr_triple = map(arr_int_big, get_multiplier_fn(3))
+
+println("Array Integers:", arr_int_big)
+println("Array Integers Doubled:", arr_double)
+println("Array Integers Tripled:", arr_triple)
+```
 
 ## Missing Features
 - [X] Binary Expressions

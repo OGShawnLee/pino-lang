@@ -140,3 +140,25 @@ handle_drinking_age(20);
 handle_drinking_age(21);
 handle_great_name("Shawn", "Smith");
 handle_great_name("Shawn", "Lee");
+function get_multiplier_fn(multiplier) {
+function multiply(num) {
+return num * multiplier;
+}
+return multiply;
+}
+const double_it = get_multiplier_fn(2);
+function times_ten(num) {
+return num * 10;
+}
+function map(array, fun) {
+const temp_arr = [];
+for (let it = 0; it < array.length; it++) temp_arr[it] = fun(array[it]);
+return temp_arr;
+}
+const arr_int_big = [];
+for (let it = 0; it < 4; it++) arr_int_big[it] = times_ten(it);
+const arr_double = map(arr_int_big, double_it);
+const arr_triple = map(arr_int_big, get_multiplier_fn(3));
+console.log("Array Integers:", arr_int_big);
+console.log("Array Integers Doubled:", arr_double);
+console.log("Array Integers Tripled:", arr_triple);
