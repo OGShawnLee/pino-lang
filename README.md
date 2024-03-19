@@ -218,6 +218,7 @@ println("Array Integers Tripled:", arr_triple)
 - [ ] Functions
   - [ ] Default Parameter Value
   - [ ] Function Return Typing
+  - [ ] Lambda (Anonymous Function)
   - [X] Return Statement Vector Initialisation Support
 - [ ] Else If Statement
 - [ ] Match Statement
