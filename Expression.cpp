@@ -2,7 +2,8 @@
 
 #include <memory>
 #include "Expression.h"
-#include "Variable.h"
+#include "Function.cpp"
+#include "Lambda.cpp"
 
 Expression::Expression() {
   kind = StatementKind::EXPRESSION;
@@ -15,6 +16,10 @@ PeekPtr<Expression> Expression::build(std::vector<Token> collection, size_t inde
     PeekPtr<BinaryExpression> binary = BinaryExpression::build(collection, index);
     result.node = std::move(binary.node);
     result.index = binary.index;
+  } else if (Lambda::is_lambda(collection, index)) {
+    PeekPtr<Lambda> lambda = Lambda::build(collection, index);
+    result.node = std::move(lambda.node);
+    result.index = lambda.index;
   } else if (FunctionCall::is_fn_call(collection, index)) {    
     PeekPtr<FunctionCall> fn_call = FunctionCall::build(collection, index);
     result.node = std::move(fn_call.node);
@@ -122,6 +127,7 @@ void BinaryExpression::print(size_t indentation) const {
 
 bool Expression::is_expression(std::vector<Token> collection, size_t index) {
   return 
+    Lambda::is_lambda(collection, index) ||
     FunctionCall::is_fn_call(collection, index) || 
     Reassignment::is_reassigment(collection, index) ||
     Struct::is_struct(collection, index) ||
@@ -166,6 +172,7 @@ PeekStreamPtr<Expression> FunctionCall::handle_arguments(std::vector<Token> coll
   while (true) {
     auto next = peek<Token>(collection, result.index, [](Token &token) {
       return 
+        token.is_given_keyword(Keyword::FN_KEYWORD) ||
         token.kind == Kind::IDENTIFIER || 
         token.kind == Kind::LITERAL || 
         token.is_given_marker(Marker::RIGHT_PARENTHESIS);

@@ -141,10 +141,10 @@ handle_drinking_age(21);
 handle_great_name("Shawn", "Smith");
 handle_great_name("Shawn", "Lee");
 function get_multiplier_fn(multiplier) {
-function multiply(num) {
+return function (num) {
 return num * multiplier;
 }
-return multiply;
+;
 }
 const double_it = get_multiplier_fn(2);
 function times_ten(num) {
@@ -159,6 +159,29 @@ const arr_int_big = [];
 for (let it = 0; it < 4; it++) arr_int_big[it] = times_ten(it);
 const arr_double = map(arr_int_big, double_it);
 const arr_triple = map(arr_int_big, get_multiplier_fn(3));
-console.log("Array Integers:", arr_int_big);
-console.log("Array Integers Doubled:", arr_double);
-console.log("Array Integers Tripled:", arr_triple);
+console.log("Array Integers x 1:", arr_int_big);
+console.log("Array Integers x 2:", arr_double);
+console.log("Array Integers x 3:", arr_triple);
+const arr_quadruple = map(arr_int_big, function (num) {
+return num * 4;
+}
+);
+console.log("Array Integers x 4:", arr_quadruple);
+function fold(array, initial, fun) {
+let acc = initial;
+for (let i = 0; i < array.length; i++) {
+acc = fun(array[i], acc);
+}
+return acc;
+}
+let total = fold(arr_int_big, 0, function (current, acc) {
+return acc + current;
+}
+);
+console.log(`Total of [${arr_int_big}] = ${total}`);
+const add = function (a, b) {
+return a + b;
+}
+;
+total = fold(arr_quadruple, 0, add);
+console.log(`Total of [${arr_quadruple}] = ${total}`);

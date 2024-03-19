@@ -29,9 +29,9 @@ class DOBlock : public Statement {
 		void print(size_t indentation = 0) const;
 };
 
-class Function : public Statement {
-	static PeekStreamPtr<Variable> handle_parameters(std::vector<Token> collection, size_t index);
+PeekStreamPtr<Variable> handle_parameters(std::vector<Token> collection, size_t index);
 
+class Function : public Statement {
 	public:
 		std::string name;
 		std::vector<std::unique_ptr<Variable>> parameters;

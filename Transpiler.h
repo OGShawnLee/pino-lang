@@ -107,6 +107,10 @@ class JSTranspiler {
         Identifier *identifier = static_cast<Identifier *>(expression.get());
         return get_str_prop_access(identifier->path_str);
       }
+      case ExpressionKind::LAMBDA: {
+        Lambda *lambda = static_cast<Lambda *>(expression.get());
+        return get_fn_lambda(lambda->children, lambda->parameters);
+      }
       case ExpressionKind::LITERAL: {
         Value *value = static_cast<Value *>(expression.get());
 
@@ -192,6 +196,16 @@ class JSTranspiler {
 
     Function *fn = static_cast<Function *>(statement.get());
     std::string line = "function " + fn->name + get_fn_declaration_parameters(fn->parameters) + " " + get_block(fn->children);
+
+    return line;
+  }
+
+  static std::string get_fn_lambda(
+    std::vector<std::unique_ptr<Statement>> &children,
+    std::vector<std::unique_ptr<Variable>> &parameters
+  ) {
+
+    std::string line = "function " + get_fn_declaration_parameters(parameters) + " " + get_block(children);
 
     return line;
   }
@@ -311,6 +325,11 @@ class JSTranspiler {
     std::string line;
 
     switch (expression->expression) {
+      case ExpressionKind::LAMBDA: {
+        Lambda *lambda = static_cast<Lambda *>(expression);
+        line = get_fn_lambda(lambda->children, lambda->parameters);
+        break;
+      }
       case ExpressionKind::FN_CALL: {
         FunctionCall *fn_call = static_cast<FunctionCall *>(expression);
 

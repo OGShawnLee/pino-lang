@@ -9,6 +9,7 @@ enum class ExpressionKind {
   VAR_REASSIGNMENT,
   BINARY_EXPRESSION,
   YIELD_CALL,
+  LAMBDA,
 };
 
 std::map<ExpressionKind, std::string> EXPRESSION_KIND = {
@@ -18,6 +19,7 @@ std::map<ExpressionKind, std::string> EXPRESSION_KIND = {
   {ExpressionKind::VAR_REASSIGNMENT, "Variable Reassignment"},
   {ExpressionKind::BINARY_EXPRESSION, "Binary Expression"},
   {ExpressionKind::YIELD_CALL, "Yield Call"},
+  {ExpressionKind::LAMBDA, "Lambda"},
 };
 
 std::string get_expression_name(ExpressionKind kind) {

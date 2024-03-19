@@ -172,17 +172,12 @@ println("$person:full_name has a budget of $person:budget $")
 
 ## Functional Programming
 
-Anonymous functions are not supported and there is no function type. However, functional behaviour can be achieved following the code shown right below.
-
 ```
 # Higher Order Function
 fn get_multiplier_fn(multiplier int) {
-  # Cannot return an anonymous fn so we return a locally declared fn
-  fn multiply(num int) {
+  return fn (num int) {
     return num * multiplier
   }
-
-  return multiply 
 }
 
 val double_it = get_multiplier_fn(2)
@@ -195,13 +190,40 @@ fn map(array arr, fun function) {
   return []any { len: array:length, init: fun(array[it]) }
 }
 
-val arr_int_big = []int { len: 4, init: times_ten(it) }
-val arr_double = map(arr_int_big, double_it)
-val arr_triple = map(arr_int_big, get_multiplier_fn(3))
+val arr_int = []int { len: 4, init: times_ten(it) }
+val arr_double = map(arr_int, double_it)
+val arr_triple = map(arr_int, get_multiplier_fn(3))
 
-println("Array Integers:", arr_int_big)
-println("Array Integers Doubled:", arr_double)
-println("Array Integers Tripled:", arr_triple)
+println("Array Integers x 1:", arr_int)
+println("Array Integers x 2:", arr_double)
+println("Array Integers x 3:", arr_triple)
+
+fn fold(array arr, initial any, fun function) {
+  var acc = initial
+
+  for i in array:length {
+    acc = fun(array[i], acc)
+  }
+
+  return acc
+}
+
+var total = fold(arr_int, 0, fn (current int, acc int) {
+  return acc + current
+})
+
+println("Total of [$arr_int] = $total")
+
+# Assigning a Lambda to a Constant
+val add = fn (a int, b int) {
+  return a + b
+}
+
+total = fold(arr_double, 0, add) 
+println("Total of [$arr_double] = $total")
+
+total = fold(arr_triple, 0, add) 
+println("Total of [$arr_double] = $total")
 ```
 
 ## Missing Features
@@ -218,7 +240,7 @@ println("Array Integers Tripled:", arr_triple)
 - [ ] Functions
   - [ ] Default Parameter Value
   - [ ] Function Return Typing
-  - [ ] Lambda (Anonymous Function)
+  - [X] Lambda (Anonymous Function)
   - [X] Return Statement Vector Initialisation Support
 - [ ] Else If Statement
 - [ ] Match Statement

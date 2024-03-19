@@ -153,7 +153,7 @@ PeekPtr<Function> Function::build(std::vector<Token> collection, size_t index) {
 	return result;
 }
 
-PeekStreamPtr<Variable> Function::handle_parameters(std::vector<Token> collection, size_t index) {
+PeekStreamPtr<Variable> handle_parameters(std::vector<Token> collection, size_t index) {
 	if (collection[index].is_given_marker(Marker::LEFT_PARENTHESIS) == false) {
 		throw std::runtime_error("DEV: Not a Function Definition -> Expecting Left Parenthesis");
 	}

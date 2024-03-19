@@ -207,12 +207,9 @@ handle_great_name("Shawn", "Lee")
 
 # Higher Order Function
 fn get_multiplier_fn(multiplier int) {
-  # Cannot return an anonymous fn so we return a locally declared fn
-  fn multiply(num int) {
+  return fn (num int) {
     return num * multiplier
   }
-
-  return multiply 
 }
 
 val double_it = get_multiplier_fn(2)
@@ -229,6 +226,36 @@ val arr_int_big = []int { len: 4, init: times_ten(it) }
 val arr_double = map(arr_int_big, double_it)
 val arr_triple = map(arr_int_big, get_multiplier_fn(3))
 
-println("Array Integers:", arr_int_big)
-println("Array Integers Doubled:", arr_double)
-println("Array Integers Tripled:", arr_triple)
+println("Array Integers x 1:", arr_int_big)
+println("Array Integers x 2:", arr_double)
+println("Array Integers x 3:", arr_triple)
+
+val arr_quadruple = map(arr_int_big, fn (num int) {
+  return num * 4
+})
+
+println("Array Integers x 4:", arr_quadruple)
+
+fn fold(array arr, initial any, fun function) {
+  var acc = initial
+
+  for i in array:length {
+    acc = fun(array[i], acc)
+  }
+
+  return acc
+}
+
+var total = fold(arr_int_big, 0, fn (current int, acc int) {
+  return acc + current
+})
+
+println("Total of [$arr_int_big] = $total")
+
+# Assigning a Lambda to a Constant
+val add = fn (a int, b int) {
+  return a + b
+}
+
+total = fold(arr_quadruple, 0, add) 
+println("Total of [$arr_quadruple] = $total")
