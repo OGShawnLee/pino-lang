@@ -167,43 +167,6 @@ class Token {
 		std::vector<std::string> injections;
 		std::vector<Token> children;
 
-		Token(BinaryOperator binary_operator, std::string buffer) {
-			this->kind = Kind::BINARY_OPERATOR;
-			this->binary_operator = binary_operator;
-			this->value = buffer;
-		}
-
-		Token(BinaryOperator binary_operator, char character) {
-			this->kind = Kind::BINARY_OPERATOR;
-			this->binary_operator = binary_operator;
-			this->value = std::string(1, character);
-		}
-		
-		Token(Keyword keyword, std::string buffer) {
-			this->kind = Kind::KEYWORD;
-			this->value = buffer;
-			this->keyword = keyword;
-		}
-
-		Token(Literal literal, std::string buffer) {
-			this->kind = Kind::LITERAL;
-			this->literal = literal;
-			this->value = buffer;
-		}
-
-		Token(Marker marker, char character) {
-			this->kind = Kind::MARKER;
-			this->marker = marker;
-			this->value = std::string(1, character);
-		}
-
-		Token(std::string buffer) {
-			this->kind = Kind::IDENTIFIER;
-			this->value = buffer;
-		}
-
-		Token() {}
-
 		bool is_given_keyword(Keyword keyword) const {
 			return kind == Kind::KEYWORD && this->keyword == keyword;
 		}
@@ -212,16 +175,16 @@ class Token {
 			return kind == kind_a || kind == kind_b;
 		}
 
+		bool is_given_literal(Literal literal) const {
+			return kind == Kind::LITERAL && this->literal == literal;
+		}
+
 		bool is_given_marker(Marker marker) const {
 			return kind == Kind::MARKER && this->marker == marker;
 		}
 
 		bool is_given_marker(Marker marker_a, Marker marker_b) const {
 			return is_given_marker(marker_a) || is_given_marker(marker_b);
-		}
-
-		bool is_given_literal(Literal literal) const {
-			return kind == Kind::LITERAL && this->literal == literal;
 		}
 
 		void print(size_t indentation = 0) const {
@@ -247,6 +210,53 @@ class Token {
 			}
 
 			println(indent + "}");
+		}
+
+		static Token as_binary_operator(BinaryOperator binary_operator, std::string buffer) {
+			Token token;
+			token.kind = Kind::BINARY_OPERATOR;
+			token.binary_operator = binary_operator;
+			token.value = buffer;
+			return token;
+		}
+
+		static Token as_binary_operator(BinaryOperator binary_operator, char character) {
+			Token token;
+			token.kind = Kind::BINARY_OPERATOR;
+			token.binary_operator = binary_operator;
+			token.value = character;
+			return token;
+		}
+
+		static Token as_identifier(std::string buffer) {
+			Token token;
+			token.kind = Kind::IDENTIFIER;
+			token.value = buffer;
+			return token;
+		}
+
+		static Token as_keyword(Keyword keyword, std::string buffer) {
+			Token token;
+			token.kind = Kind::KEYWORD;
+			token.keyword = keyword;
+			token.value = buffer;
+			return token;
+		}
+
+		static Token as_literal(Literal literal, std::string buffer) {
+			Token token;
+			token.kind = Kind::LITERAL;
+			token.literal = literal;
+			token.value = buffer;
+			return token;
+		}
+
+		static Token as_marker(Marker marker, char character) {
+			Token token;
+			token.kind = Kind::MARKER;
+			token.marker = marker;
+			token.value = character;
+			return token;
 		}
 
 		static bool is_binary_operator(char character) {
@@ -412,22 +422,22 @@ class Lexer {
 
 	static Token handle_buffer(std::string buffer) {
 		if (Token::is_keyword(buffer)) {
-			return Token(Token::get_keyword(buffer), buffer);
+			return Token::as_keyword(Token::get_keyword(buffer), buffer);
 		} 
 		
 		if (Token::is_bool_literal(buffer)) {
-			return Token(Literal::BOOLEAN, buffer);
+			return Token::as_literal(Literal::BOOLEAN, buffer);
 		} 
 		
 		if (Token::is_int_literal(buffer)) {
-			return Token(Literal::INTEGER, buffer);
+			return Token::as_literal(Literal::INTEGER, buffer);
 		} 
 
 		if (Token::is_binary_operator(buffer)) {
-			return Token(Token::get_binary_operator(buffer), buffer);
+			return Token::as_binary_operator(Token::get_binary_operator(buffer), buffer);
 		}
 
-		return Token(buffer);
+		return Token::as_identifier(buffer);
 	}
 
 	static bool is_valid_identifier_char(char character) {
@@ -468,14 +478,15 @@ class Lexer {
 
 					if (is_dual_char_operator) {
 						std::string dual_char_operator = std::string(1, character) + line[i + 1];
-						stream.push_back(Token(Token::get_binary_operator(dual_char_operator), dual_char_operator));
+						BinaryOperator binary_operator = Token::get_binary_operator(dual_char_operator);
+						stream.push_back(Token::as_binary_operator(binary_operator, dual_char_operator));
 						i++;
 						continue;
 					}
 
 					if (Token::is_marker(character) == false) {
 						BinaryOperator binary_operator = Token::get_binary_operator(character);
-						stream.push_back(Token(binary_operator, character));
+						stream.push_back(Token::as_binary_operator(binary_operator, character));
 						continue;
 					}
 				}
@@ -512,7 +523,7 @@ class Lexer {
 							return stream;
 						} break;
 						default:
-							stream.push_back(Token(marker, character));
+							stream.push_back(Token::as_marker(marker, character));
 							break;
 					}
 
