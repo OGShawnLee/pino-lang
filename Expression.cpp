@@ -280,6 +280,13 @@ std::unique_ptr<Identifier> Identifier::from_identifier(Token token) {
   return identifier;
 }
 
+std::unique_ptr<Identifier> Identifier::from_str(std::string name) {
+  std::unique_ptr<Identifier> identifier = std::make_unique<Identifier>();
+  identifier->name = name;
+  identifier->path_str = name;
+  return identifier;
+}
+
 void Identifier::print(size_t indentation) const {
   std::string indent = get_indentation(indentation);
   println(indent + "Identifier {");
@@ -367,12 +374,8 @@ void Reassignment::print(size_t indentation) const {
 std::vector<std::unique_ptr<Identifier>> String::handle_injections(std::vector<std::string> injections) {
   std::vector<std::unique_ptr<Identifier>> result;
 
-  for (Token token : injections) {
-    if (token.kind != Kind::IDENTIFIER) {
-      throw std::runtime_error("Expected an identifier, but got " + token.value);
-    }
-
-    std::unique_ptr<Identifier> id = Identifier::from_identifier(token);
+  for (std::string name : injections) {
+    std::unique_ptr<Identifier> id = Identifier::from_str(name);
     result.push_back(std::move(id));
   }
 

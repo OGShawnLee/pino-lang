@@ -88,6 +88,8 @@ class Identifier : public Expression {
 
     static std::unique_ptr<Identifier> from_identifier(Token token);
 
+    static std::unique_ptr<Identifier> from_str(std::string name);
+
     void print(size_t indentation = 0) const;
 };
 
