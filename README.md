@@ -249,12 +249,14 @@ println("Total of [$arr_double] = $total")
 - [ ] Match Statement
 - [ ] Modules and Import Statements
 - [X] Strings
-  - [X] Struct Property Access Injection Support
+  - [X] Struct Property Access Injection Support ("$struct:property")
 - [ ] Structs
   - [X] Struct Definition
   - [X] Struct Initialisation
   - [ ] Struct Operations (delete, read, set)
   - [X] Struct Type for fn parameters
+  - [ ] Optional Commas
+  - [ ] Property Shortcut (when a variable is used as a value and has the same of a property, we skip the property and the colon)
 - [ ] Vectors
   - [X] Vector Accesing
   - [X] Vector Initialisation
