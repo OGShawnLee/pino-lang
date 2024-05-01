@@ -155,7 +155,9 @@ struct Person {
 }
 
 fn create_phone(brand str, name str) {
-  return Phone { brand: brand name: name }
+  return Phone { brand, name }
+  # or Phone { brand name } (commas are optional)
+  # or Phone { brand: brand, name: name } (with no prop shortcut)
 }
 
 val person = Person {
@@ -256,7 +258,7 @@ println("Total of [$arr_double] = $total")
   - [ ] Struct Operations (delete, read, set)
   - [X] Struct Type for fn parameters
   - [X] Optional Commas
-  - [ ] Property Shortcut (when a variable is used as a value and has the same name of a property, we skip the property and the colon)
+  - [X] Property Shortcut
 - [ ] Vectors
   - [X] Vector Accesing
   - [X] Vector Initialisation
