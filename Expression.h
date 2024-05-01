@@ -133,6 +133,8 @@ class String : public Value {
 };
 
 class Field {
+  static bool is_prop_shortcut(std::vector<Token> collection, size_t index);
+  
   public:
     std::string name;
     std::string typing;

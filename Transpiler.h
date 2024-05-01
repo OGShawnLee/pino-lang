@@ -83,7 +83,13 @@ class JSTranspiler {
 
     for (size_t i = 0; i < fields.size(); i++) {
       std::unique_ptr<Field> &field = fields[i];
-      line += "  " + field->name + ": " + get_value(field->value) + ",\n";
+
+      // Property Shortcut 
+      if (field->value == nullptr) {
+        line += "  " + field->name + ",\n";
+      } else {
+        line += "  " + field->name + ": " + get_value(field->value) + ",\n";
+      }
     }
 
     line += "}";

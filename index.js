@@ -190,3 +190,14 @@ let animal = {
   is_extinct: false,
 };
 console.log(animal);
+let is_extinct = true;
+animal = {
+  name,
+  is_extinct,
+};
+console.log(animal);
+animal = {
+  is_extinct: is_extinct = false,
+  name,
+};
+console.log(animal);

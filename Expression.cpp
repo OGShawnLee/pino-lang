@@ -382,6 +382,14 @@ std::vector<std::unique_ptr<Identifier>> String::handle_injections(std::vector<s
   return result;
 }
 
+bool Field::is_prop_shortcut(std::vector<Token> collection, size_t index) {
+  return 
+    collection[index].kind == Kind::IDENTIFIER &&
+    is_next<Token>(collection, index, [](Token &token) {
+      return token.is_given_marker(Marker::COLON);
+    }) == false;
+}
+
 PeekPtr<Field> Field::build(std::vector<Token> collection, size_t index) {
   PeekPtr<Field> result;
 
@@ -412,15 +420,17 @@ PeekPtr<Field> Field::build_as_property(std::vector<Token> collection, size_t in
   result.node->name = name.node.value;
   result.index = name.index;
 
-  auto colon = peek<Token>(collection, result.index, [](Token &token) {
-    return token.is_given_marker(Marker::COLON);
-  });
+  if (is_prop_shortcut(collection, result.index) == false) {
+    auto colon = peek<Token>(collection, result.index, [](Token &token) {
+      return token.is_given_marker(Marker::COLON);
+    });
 
-  result.index = colon.index;
+    result.index = colon.index;
 
-  PeekPtr<Expression> value = Expression::build(collection, result.index + 1);
-  result.node->value = std::move(value.node);
-  result.index = value.index;
+    PeekPtr<Expression> value = Expression::build(collection, result.index + 1);
+    result.node->value = std::move(value.node);
+    result.index = value.index;
+  } 
 
   bool is_comma = is_next<Token>(collection, result.index, [](Token &token) {
     return token.is_given_marker(Marker::COMMA);

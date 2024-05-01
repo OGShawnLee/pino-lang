@@ -268,3 +268,15 @@ struct Animal {
 var animal = Animal { name: "Penguin", is_extinct: false }
 
 println(animal)
+
+var is_extinct = true
+animal = Animal { name, is_extinct }
+
+println(animal)
+
+animal = Animal { 
+  is_extinct: is_extinct = false 
+  name 
+}
+
+println(animal)
