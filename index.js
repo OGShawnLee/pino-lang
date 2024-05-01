@@ -11,6 +11,7 @@ const person = {
   name: "Shawn Lee",
   country: "China",
   is_married: false,
+  salary: 0.25,
 };
 function print_person(person) {
 const message = `${person.name} lives in ${person.country} and`;
@@ -19,6 +20,7 @@ console.log(`${message} is married!`);
 } else {
 console.log(`${person.name} lives in ${person.country} and is married!`);
 }
+console.log(`${person.name} has a budget of ${person.salary} $`);
 }
 function times(a, b) {
 return a * b;
@@ -186,18 +188,21 @@ return a + b;
 total = fold(arr_quadruple, 0, add);
 console.log(`Total of [${arr_quadruple}] = ${total}`);
 let animal = {
-  name: "Penguin",
+  name: "Elephant",
   is_extinct: false,
+  height: 3.2,
 };
 console.log(animal);
 let is_extinct = true;
 animal = {
   name,
   is_extinct,
+  height: 1.85,
 };
 console.log(animal);
 animal = {
   is_extinct: is_extinct = false,
   name,
+  height: 1.85,
 };
 console.log(animal);

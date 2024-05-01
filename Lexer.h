@@ -109,6 +109,7 @@ std::map<std::string, Keyword> KEYWORD_KEY = {
 enum class Literal {
 	BOOLEAN,
 	INTEGER,
+	FLOAT,
 	STRING,
 	VECTOR,
 	STRUCT,
@@ -119,6 +120,8 @@ std::string infer_typing(Literal literal) {
 		return "str";
 	} else if (literal == Literal::INTEGER) {
 		return "int";
+	} else if (literal == Literal::FLOAT) {
+		return "float";
 	} else if (literal == Literal::BOOLEAN) {
 		return "bool";
 	} else {
@@ -278,6 +281,29 @@ class Token {
 		
 			return true;
 		}
+
+		static bool is_float_literal(std::string buffer) {
+			bool has_decimal = false;
+
+			for (char character : buffer) {
+				if (character == '.') {
+					if (has_decimal) {
+						throw std::runtime_error(
+							"USER: Invalid Float Literal: " + buffer + " has multiple decimal points."
+						);
+					}
+
+					has_decimal = true;
+					continue;
+				}
+
+				if (isdigit(character)) continue;
+
+				return false;
+			}
+
+			return true;
+		}
 	
 		static bool is_keyword(std::string buffer) {
 			return KEYWORD_KEY.count(buffer) > 0;
@@ -432,6 +458,10 @@ class Lexer {
 		if (Token::is_int_literal(buffer)) {
 			return Token::as_literal(Literal::INTEGER, buffer);
 		} 
+
+		if (Token::is_float_literal(buffer)) {
+			return Token::as_literal(Literal::FLOAT, buffer);
+		}
 
 		if (Token::is_binary_operator(buffer)) {
 			return Token::as_binary_operator(Token::get_binary_operator(buffer), buffer);

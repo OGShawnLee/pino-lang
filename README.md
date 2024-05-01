@@ -39,7 +39,8 @@ var people = name
 val name = "Shawn Lee"
 val country = "China"
 val budget = 0
-var message = "$name lives in $country and has a budget of $budget"
+val weight = 64.5
+var message = "$name lives in $country, has a budget of $budget and weighs $weight kg"
 ```
 
 ## Vectors
@@ -241,7 +242,7 @@ println("Total of [$arr_double] = $total")
   - [X] Single Line Comment
   - [ ] Multi Line Comment
 - [ ] Descriptive Parser and Lexer Errors
-- [ ] Floats
+- [X] Floats
 - [ ] Functions
   - [ ] Default Parameter Value
   - [ ] Function Return Typing

@@ -17,21 +17,26 @@ struct Person {
   name str
   country str
   is_married bool
+  salary float
 }
 
 val person = Person {
   name: "Shawn Lee"
   country: "China"
   is_married: false
+  salary: 0.25
 }
 
 fn print_person(person Person) {
   val message = "$person:name lives in $person:country and"
+  
   if person:is_married {
     println("$message is married!")
   } else {
     println("$person:name lives in $person:country and is married!")
   }
+
+  println("$person:name has a budget of $person:salary $")
 }
 
 fn times(a int, b int) {
@@ -263,20 +268,22 @@ println("Total of [$arr_quadruple] = $total")
 struct Animal {
   name str
   is_extinct str
+  height float
 }
 
-var animal = Animal { name: "Penguin", is_extinct: false }
+var animal = Animal { name: "Elephant", is_extinct: false, height: 3.2 }
 
 println(animal)
 
 var is_extinct = true
-animal = Animal { name, is_extinct }
+animal = Animal { name, is_extinct, height: 1.85 }
 
 println(animal)
 
 animal = Animal { 
   is_extinct: is_extinct = false 
   name 
+  height: 1.85
 }
 
 println(animal)
