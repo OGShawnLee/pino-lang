@@ -422,6 +422,12 @@ PeekPtr<Field> Field::build_as_property(std::vector<Token> collection, size_t in
   result.node->value = std::move(value.node);
   result.index = value.index;
 
+  bool is_comma = is_next<Token>(collection, result.index, [](Token &token) {
+    return token.is_given_marker(Marker::COMMA);
+  });
+
+  if (is_comma) result.index += 1;
+
   return result;
 }
 

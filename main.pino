@@ -259,3 +259,12 @@ val add = fn (a int, b int) {
 
 total = fold(arr_quadruple, 0, add) 
 println("Total of [$arr_quadruple] = $total")
+
+struct Animal {
+  name str
+  is_extinct str
+}
+
+var animal = Animal { name: "Penguin", is_extinct: false }
+
+println(animal)
