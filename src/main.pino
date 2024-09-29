@@ -1,0 +1,6 @@
+var name = "Shawn Lee" 
+var budget = 12.55 # The actual amount is 0 really
+var country = "China"
+var is_married = false
+val planet = "Earth"
+var message = "#name lives in #country and has a budget of #budget"

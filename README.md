@@ -4,6 +4,8 @@ All the programming languages I've used have something I like and dislike, so I 
 I am studying Software Enginnering and C++ is the language I am being taught, so that is the language used in the project. 
 Pino is transpiled to JavaScript because it is the language I know the best and I don't know how to compile it to a lower level.
 
+REWRITE: PINO WILL BE REWRITTEN FROM THE GROUND UP BUT THERE WILL NOT BE MANY CHANGES TO THE SYNTAX 
+
 ## Why Pino?
 Every cool name I thought of was already used and at that moment I was thinking about **Ergo Proxy**, *my all time favourite anime*. Since **Pino** is a little adorable character from that anime and it is a short name as well... **Pino! Pino! Pino!**
 
