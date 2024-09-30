@@ -15,6 +15,7 @@ class Statement {
       CONSTANT_DECLARATION,
       VARIABLE_DECLARATION,
       FUNCTION_DECLARATION,
+      STRUCT_DECLARATION,
     };
 
     Statement();

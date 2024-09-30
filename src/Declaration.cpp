@@ -133,3 +133,62 @@ void Function::print(const size_t &indentation = 0) const {
   }
   println(indent + "}");
 }
+
+void Struct::consume_keyword(Lexer::Stream &collection) {
+  const Token& current = collection.consume();
+
+  if (current.get_keyword() != Lexer::Token::Keyword::STRUCT) {
+    throw std::runtime_error("PARSER: Invalid Struct Declaration");
+  }
+
+  set_type(Type::STRUCT_DECLARATION);
+}
+
+void Struct::consume_field(Lexer::Stream &collection) {
+  std::unique_ptr<Variable> field = std::make_unique<Variable>();
+
+  field->consume_identifier(collection);
+  field->consume_typing(collection);
+
+  fields.push_back(std::move(field));
+}
+
+void Struct::consume_fields(Lexer::Stream &collection) {
+  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Open Brace");
+  }
+
+  while (true) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
+      if (fields.empty()) {
+        println("WARNING: Empty Struct Declaration");
+      }
+
+      collection.next();
+      return;
+    }
+    
+    consume_field(collection);
+
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
+      collection.next();
+      continue;
+    }
+  }
+}
+
+void Struct::print(const size_t &indentation = 0) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + "Struct Declaration {");
+  println(indent + "  identifier: " + identifier);
+  if (not fields.empty()) {
+    println(indent + "  fields: [");
+
+    for (const auto &field : fields) {
+      field->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  println(indent + "}");
+}

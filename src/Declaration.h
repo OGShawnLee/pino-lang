@@ -50,3 +50,17 @@ class Function : public Declaration {
 
     void print(const size_t &indentation) const override;
 };
+
+class Struct : public Declaration {
+  private:
+    std::vector<std::unique_ptr<Variable>> fields;
+
+  public:
+    Struct() = default;
+
+    void consume_keyword(Lexer::Stream &collection);
+    void consume_field(Lexer::Stream &collection);
+    void consume_fields(Lexer::Stream &collection);
+
+    void print(const size_t &indentation) const override;
+};

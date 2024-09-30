@@ -1,8 +1,26 @@
+# enum Planet {
+#  MERCURY = "Mercury"
+#  VENUS = "Venus"
+#  EARTH = "Earth"
+#  MARS = "Mars"
+# }
+
+struct Planet { name str, position int }
+struct Person {
+  name str
+  budget float
+  children int
+  country str
+  is_married bool
+  planet Planet
+}
+
 var name = "Shawn Lee" 
 var budget = 12.55 # The actual amount is 0 really
 var children = 0
 var country = "China"
 var is_married = false
+# val planet = Planet::EARTH
 val planet = "Earth"
 var message = "#name lives in #country and has a budget of #budget"
 
@@ -11,7 +29,7 @@ fn greet {
 }
 
 fn get_rectangle_area(width float, length float) {
-  return float * length
+  return width * length
 }
 
 fn get_message(

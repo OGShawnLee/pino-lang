@@ -24,6 +24,16 @@ std::unique_ptr<Variable> Parser::parse_variable(Lexer::Stream &collection) {
   return variable;
 }
 
+std::unique_ptr<Struct> Parser::parse_struct(Lexer::Stream &collection) {
+  std::unique_ptr<Struct> structure = std::make_unique<Struct>();
+
+  structure->consume_keyword(collection);
+  structure->consume_identifier(collection);
+  structure->consume_fields(collection);
+
+  return structure;
+}
+
 Statement Parser::parse_file(const std::string &filename) {
   Lexer::Stream collection = Lexer::lex_file(filename);
   Statement program;
@@ -40,6 +50,9 @@ Statement Parser::parse_file(const std::string &filename) {
             continue;
           case Lexer::Token::Keyword::FUNCTION:
             program.push(std::move(parse_function(collection)));
+            continue;
+          case Lexer::Token::Keyword::STRUCT:
+            program.push(std::move(parse_struct(collection)));
             continue;
         }
         break; 
