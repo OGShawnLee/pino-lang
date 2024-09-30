@@ -13,6 +13,7 @@ class Statement {
       PROGRAM,
       CONSTANT_DECLARATION,
       VARIABLE_DECLARATION,
+      FUNCTION_DECLARATION,
     };
 
     Statement();

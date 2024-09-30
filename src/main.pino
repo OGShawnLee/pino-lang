@@ -5,3 +5,19 @@ var country = "China"
 var is_married = false
 val planet = "Earth"
 var message = "#name lives in #country and has a budget of #budget"
+
+fn greet {
+  println("Hello, stranger!")
+}
+
+fn get_rectangle_area(width float, length float) {
+  return float * length
+}
+
+fn get_message(
+  name str
+  country str
+  budget float
+) {
+  return "#name lives in #country and has a budget of #budget"
+}
