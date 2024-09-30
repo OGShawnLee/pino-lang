@@ -80,6 +80,26 @@ Lexer::Token::Token(const std::string &value, const Type &type, const std::vecto
   this->injections = injections;
 }
 
+Lexer::Token::Type Lexer::Token::get_type() const {
+  return this->type;
+}
+
+std::string Lexer::Token::get_value() const {
+  return this->value;
+}
+
+Lexer::Token::Keyword Lexer::Token::get_keyword() const {
+  return KEYWORD_MAPPING.at(this->value);
+}
+
+bool Lexer::Token::is_given_marker(Marker marker) const {
+  return type == Type::MARKER && MARKER_MAPPING.at(this->value[0]) == marker;
+}
+
+bool Lexer::Token::is_given_operator(Operator operation) const {
+  return type == Type::OPERATOR && OPERATOR_MAPPING.at(this->value) == operation;
+}
+
 Lexer::Token Lexer::consume_buffer(std::string &buffer) {
   Token::Type type;
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <functional>
 #include <map>
 #include <vector>
@@ -80,6 +82,13 @@ class Lexer {
 				Token() = default;
 				Token(const std::string &value, const Type &type);
 				Token(const std::string &value, const Type &type, const std::vector<std::string> &injections);
+
+				Type get_type() const;
+				std::string get_value() const;
+				Keyword get_keyword() const;
+
+				bool is_given_marker(Marker marker) const;
+				bool is_given_operator(Operator operation) const;
 
 				void print() const;
 		};
