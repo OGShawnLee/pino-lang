@@ -5,7 +5,12 @@
 #  MARS = "Mars"
 # }
 
-struct Planet { name str, position int }
+enum Planet {
+  MERCURY, VENUS, EARTH, MARS
+  JUPITER, SATURN, URANUS, NEPTUNE
+}
+
+struct Phone { name str, brand str, release_date str }
 struct Person {
   name str
   budget float
@@ -13,6 +18,7 @@ struct Person {
   country str
   is_married bool
   planet Planet
+  phone Phone
 }
 
 var name = "Shawn Lee" 

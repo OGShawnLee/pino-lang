@@ -6,6 +6,7 @@ class Parser {
   public:
     static std::unique_ptr<Expression> build_expression(Lexer::Stream &collection);
 
+    static std::unique_ptr<Enum> parse_enum(Lexer::Stream &collection);
     static std::unique_ptr<Function> parse_function(Lexer::Stream &collection);
     static std::unique_ptr<Variable> parse_variable(Lexer::Stream &collection);
     static std::unique_ptr<Struct> parse_struct(Lexer::Stream &collection);

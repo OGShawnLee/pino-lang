@@ -16,6 +16,7 @@ class Statement {
       VARIABLE_DECLARATION,
       FUNCTION_DECLARATION,
       STRUCT_DECLARATION,
+      ENUM_DECLARATION,
     };
 
     Statement();

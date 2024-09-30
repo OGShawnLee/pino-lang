@@ -64,3 +64,17 @@ class Struct : public Declaration {
 
     void print(const size_t &indentation) const override;
 };
+
+class Enum : public Declaration {
+  private:
+    std::vector<std::string> fields;
+
+  public:
+    Enum() = default;
+
+    void consume_keyword(Lexer::Stream &collection);
+    void consume_value(Lexer::Stream &collection);
+    void consume_values(Lexer::Stream &collection);
+
+    void print(const size_t &indentation) const override;
+};

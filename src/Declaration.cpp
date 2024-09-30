@@ -125,7 +125,6 @@ void Function::print(const size_t &indentation = 0) const {
   println(indent + "  identifier: " + identifier);
   if (not parameters.empty()) {
     println(indent + "  parameters: [");
-
     for (const auto &parameter : parameters) {
       parameter->print(indentation + 4);
     }
@@ -184,9 +183,67 @@ void Struct::print(const size_t &indentation = 0) const {
   println(indent + "  identifier: " + identifier);
   if (not fields.empty()) {
     println(indent + "  fields: [");
-
     for (const auto &field : fields) {
       field->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  println(indent + "}");
+}
+
+void Enum::consume_keyword(Lexer::Stream &collection) {
+  const Token& current = collection.consume();
+
+  if (current.get_keyword() != Lexer::Token::Keyword::ENUM) {
+    throw std::runtime_error("PARSER: Invalid Enum Declaration");
+  }
+
+  set_type(Type::ENUM_DECLARATION);
+}
+
+void Enum::consume_value(Lexer::Stream &collection) {
+  const Token& current = collection.consume();
+
+  if (current.get_type() != Lexer::Token::Type::IDENTIFIER) {
+    throw std::runtime_error("PARSER: Invalid Enum Value");
+  }
+
+  fields.push_back(current.get_value());
+}
+
+void Enum::consume_values(Lexer::Stream &collection) {
+  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Open Brace");
+  }
+
+  while (true) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
+      if (fields.empty()) {
+        println("WARNING: Empty Enum Declaration");
+      }
+
+      collection.next();
+      return;
+    }
+    
+    consume_value(collection);
+
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
+      collection.next();
+      continue;
+    }
+  }
+}
+
+void Enum::print(const size_t &indentation = 0) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + "Enum Declaration {");
+  println(indent + "  identifier: " + identifier);
+  if (not fields.empty()) {
+    println(indent + "  fields: [");
+    for (const auto &field : fields) {
+      println(indent + "    " + field);
     }
     println(indent + "  ]");
   }

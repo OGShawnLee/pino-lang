@@ -4,6 +4,16 @@
 #include "Declaration.cpp"
 #include "Expression.cpp"
 
+std::unique_ptr<Enum> Parser::parse_enum(Lexer::Stream &collection) {
+  std::unique_ptr<Enum> enumeration = std::make_unique<Enum>();
+
+  enumeration->consume_keyword(collection);
+  enumeration->consume_identifier(collection);
+  enumeration->consume_values(collection);
+
+  return enumeration;
+}
+
 std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
   std::unique_ptr<Function> function = std::make_unique<Function>();
 
@@ -53,6 +63,9 @@ Statement Parser::parse_file(const std::string &filename) {
             continue;
           case Lexer::Token::Keyword::STRUCT:
             program.push(std::move(parse_struct(collection)));
+            continue;
+          case Lexer::Token::Keyword::ENUM:
+            program.push(std::move(parse_enum(collection)));
             continue;
         }
         break; 
