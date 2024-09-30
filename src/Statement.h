@@ -11,6 +11,7 @@ class Statement {
   public:
     enum class Type {
       PROGRAM,
+      EXPRESSION,
       CONSTANT_DECLARATION,
       VARIABLE_DECLARATION,
       FUNCTION_DECLARATION,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Statement.h"
+#include "Expression.h"
 
 class Declaration : public Statement {
   protected:
@@ -21,7 +22,7 @@ class Variable : public Declaration {
 
   private:
     Kind kind;
-    std::string value;
+    std::unique_ptr<Expression> value;
     std::string typing;
 
     static std::map<Kind, std::string> KIND_NAME_MAPPING;

@@ -2,6 +2,7 @@
 #include "Lexer.cpp"
 #include "Statement.cpp"
 #include "Declaration.cpp"
+#include "Expression.cpp"
 
 std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
   std::unique_ptr<Function> function = std::make_unique<Function>();
@@ -41,7 +42,12 @@ Statement Parser::parse_file(const std::string &filename) {
             program.push(std::move(parse_function(collection)));
             continue;
         }
-        break;
+        break; 
+      case Token::Type::IDENTIFIER:
+      case Token::Type::LITERAL: {
+        program.push(std::move(Expression::build(collection)));
+        continue;
+      }
       case Lexer::Token::Type::ILLEGAL:
         println("Illegal Token");
         token.print();

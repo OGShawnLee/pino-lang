@@ -38,7 +38,7 @@ void Variable::consume_value(Lexer::Stream &collection) {
     throw std::runtime_error("PARSER: Invalid Assignment Operator");
   }
 
-  value = collection.consume().get_value();
+  value = Expression::build(collection);
 }
 
 void Variable::consume_typing(Lexer::Stream &collection) {
@@ -59,8 +59,10 @@ void Variable::print(const size_t &indentation = 0) const {
   if (not typing.empty()) {
     println(indent + "  typing: " + typing);
   }
-  if (not value.empty()) {
-    println(indent + "  value: " + value);
+  if (value) {
+    println(indent + "  value: {");
+    value->print(indentation + 4);
+    println(indent + "  }");
   }
   println(indent + "}");
 }
