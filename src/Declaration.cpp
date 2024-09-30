@@ -7,10 +7,8 @@ std::map<Variable::Kind, std::string> Variable::KIND_NAME_MAPPING = {
   {Variable::Kind::PARAMETER_DECLARATION, "Parameter Declaration"},
 };
 
-void Variable::consume_keyword(
-  const std::vector<Lexer::Token> &collection, size_t &index
-) {
-  Lexer::Token::Keyword keyword = collection[index].get_keyword();
+void Variable::consume_keyword(Lexer::Stream &collection) {
+  Lexer::Token::Keyword keyword = collection.consume().get_keyword();
 
   if (keyword != Lexer::Token::Keyword::CONSTANT and keyword != Lexer::Token::Keyword::VARIABLE) {
     throw std::runtime_error("PARSER: Invalid Variable Declaration");
@@ -23,41 +21,34 @@ void Variable::consume_keyword(
     kind = Kind::VARIABLE_DECLARATION;
     set_type(Type::VARIABLE_DECLARATION);
   }
-
-  index++;
 }
 
-void Declaration::consume_identifier(
-  const std::vector<Lexer::Token> &collection, size_t &index
-) {
-  if (collection[index].get_type() != Lexer::Token::Type::IDENTIFIER) {
+void Declaration::consume_identifier(Lexer::Stream &collection) {
+  const Token& current = collection.consume();
+
+  if (current.get_type() != Lexer::Token::Type::IDENTIFIER) {
     throw std::runtime_error("PARSER: Invalid Identifier");
   }
 
-  identifier = collection[index].get_value();
-  index++;
+  identifier = current.get_value();
 }
 
-void Variable::consume_value(
-  const std::vector<Lexer::Token> &collection, size_t &index
-) {
-  if (not collection[index].is_given_operator(Token::Operator::ASSIGNMENT)) {
+void Variable::consume_value(Lexer::Stream &collection) {
+  if (not collection.consume().is_given_operator(Token::Operator::ASSIGNMENT)) {
     throw std::runtime_error("PARSER: Invalid Assignment Operator");
   }
 
-  index++;
-  value = collection[index].get_value();
+  value = collection.consume().get_value();
 }
 
-void Variable::consume_typing(
-  const std::vector<Lexer::Token> &collection, size_t &index
-) {
-  if (collection[index].get_type() != Lexer::Token::Type::IDENTIFIER) {
+void Variable::consume_typing(Lexer::Stream &collection) {
+  const Token& current = collection.consume();
+
+  if (current.get_type() != Lexer::Token::Type::IDENTIFIER) {
     throw std::runtime_error("PARSER: Invalid Typing");
   }
 
-  typing = collection[index].get_value();
-  index++;
+  typing = current.get_value();
 }
 
 void Variable::print(const size_t &indentation = 0) const {
@@ -74,58 +65,52 @@ void Variable::print(const size_t &indentation = 0) const {
   println(indent + "}");
 }
 
-void Function::consume_keyword(
-  const std::vector<Lexer::Token> &collection, size_t &index
-) {
-  if (collection[index].get_keyword() != Lexer::Token::Keyword::FUNCTION) {
+void Function::consume_keyword(Lexer::Stream &collection) {
+  const Token& current = collection.consume();
+
+  if (current.get_keyword() != Lexer::Token::Keyword::FUNCTION) {
     throw std::runtime_error("PARSER: Invalid Function Declaration");
   }
 
   set_type(Type::FUNCTION_DECLARATION);
-  index++;
 }
 
-void Function::consume_parameter(
-  const std::vector<Lexer::Token> &collection, size_t &index
-) {
+void Function::consume_parameter(Lexer::Stream &collection) {
   std::unique_ptr<Variable> parameter = std::make_unique<Variable>();
 
-  parameter->consume_identifier(collection, index);
-  parameter->consume_typing(collection, index);
+  parameter->consume_identifier(collection);
+  parameter->consume_typing(collection);
 
   parameters.push_back(std::move(parameter));
 }
 
-void Function::consume_parameters(
-  const std::vector<Lexer::Token> &collection, size_t &index
-) {
-
-  if (collection[index].is_given_marker(Token::Marker::BLOCK_BEGIN)) {
-    index++;
+void Function::consume_parameters(Lexer::Stream &collection) {
+  if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
+    collection.next();
     return;
   }
 
-  if (not collection[index].is_given_marker(Token::Marker::PARENTHESIS_BEGIN)) {
+  if (not collection.current().is_given_marker(Token::Marker::PARENTHESIS_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Parenthesis");
   }
 
-  index++;
+  collection.next();
 
-  if (collection[index].is_given_marker(Token::Marker::PARENTHESIS_END)) {
-    index++;
+  if (collection.current().is_given_marker(Token::Marker::PARENTHESIS_END)) {
+    collection.next();
     return;
   }
 
   while (true) {
-    if (collection[index].is_given_marker(Token::Marker::PARENTHESIS_END)) {
-      index++;
+    if (collection.current().is_given_marker(Token::Marker::PARENTHESIS_END)) {
+      collection.next();
       return;
     }
+    
+    consume_parameter(collection);
 
-    consume_parameter(collection, index);
-
-    if (collection[index].is_given_marker(Token::Marker::COMMA)) {
-      index++;
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
+      collection.next();
       continue;
     }
   }

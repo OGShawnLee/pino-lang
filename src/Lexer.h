@@ -93,6 +93,22 @@ class Lexer {
 				void print() const;
 		};
 
+		class Stream {
+			size_t index;
+			std::vector<Token> collection;
+
+			public:
+				Stream(const std::vector<Token> &collection);
+
+				const Token& current();
+				const Token& consume();
+
+				void next();
+
+				bool has_next() const;
+				bool is_next(const std::function<bool(const Token &)> &predicate) const;
+		};
+
 	private:
 		static std::map<Token::Type, std::string> TYPE_NAME_MAPPING;
 		static std::map<std::string, Token::Keyword> KEYWORD_MAPPING;
@@ -121,5 +137,5 @@ class Lexer {
 
 	public:
 		static std::vector<Token> lex(const std::string &line);
-		static std::vector<Token> lex_file(const std::string &filename);
+		static Stream lex_file(const std::string &filename);
 };

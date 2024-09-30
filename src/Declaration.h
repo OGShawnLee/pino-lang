@@ -7,12 +7,8 @@ class Declaration : public Statement {
     std::string identifier;
 
   public:
-    virtual void consume_keyword(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    ) = 0;
-    void consume_identifier(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    );
+    virtual void consume_keyword(Lexer::Stream &collection) = 0;
+    void consume_identifier(Lexer::Stream &collection);
 };
 
 class Variable : public Declaration {
@@ -33,15 +29,9 @@ class Variable : public Declaration {
   public:
     Variable() = default;
 
-    void consume_keyword(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    );
-    void consume_typing(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    );
-    void consume_value(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    );
+    void consume_keyword(Lexer::Stream &collection);
+    void consume_typing(Lexer::Stream &collection);
+    void consume_value(Lexer::Stream &collection);
 
     void print(const size_t &indentation) const override;
 };
@@ -53,15 +43,9 @@ class Function : public Declaration {
   public:
     Function() = default;
 
-    void consume_keyword(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    );
-    void consume_parameter(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    );
-    void consume_parameters(
-      const std::vector<Lexer::Token> &collection, size_t &index
-    );
+    void consume_keyword(Lexer::Stream &collection);
+    void consume_parameter(Lexer::Stream &collection);
+    void consume_parameters(Lexer::Stream &collection);
 
     void print(const size_t &indentation) const override;
 };

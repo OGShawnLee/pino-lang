@@ -210,6 +210,31 @@ void Lexer::Token::print() const {
   println("}");
 }
 
+Lexer::Stream::Stream(const std::vector<Token> &collection) {
+  this->index = 0;
+  this->collection = std::move(collection);
+}
+
+const Lexer::Token& Lexer::Stream::current() {
+  return this->collection[this->index];
+}
+
+const Lexer::Token& Lexer::Stream::consume() {
+  return this->collection[this->index++];
+}
+
+void Lexer::Stream::next() {
+  this->index++;
+}
+
+bool Lexer::Stream::has_next() const {
+  return this->index < this->collection.size();
+}
+
+bool Lexer::Stream::is_next(const std::function<bool(const Token &)> &predicate) const {  
+  return this->index + 1 < this->collection.size() and predicate(this->collection[this->index + 1]);
+}
+
 bool Lexer::is_boolean_literal(const std::string &buffer) {
   return buffer == "true" or buffer == "false";
 }
@@ -324,7 +349,7 @@ std::vector<Lexer::Token> Lexer::lex(const std::string &line) {
   return collection;
 }
 
-std::vector<Lexer::Token> Lexer::lex_file(const std::string &filename) {
+Lexer::Stream Lexer::lex_file(const std::string &filename) {
   std::vector<Token> collection;
 
   each_line(filename, [&collection](const std::string &line) {
@@ -332,5 +357,5 @@ std::vector<Lexer::Token> Lexer::lex_file(const std::string &filename) {
     collection.insert(collection.end(), tokens.begin(), tokens.end());
   });
 
-  return collection;
+  return Stream(collection);
 }
