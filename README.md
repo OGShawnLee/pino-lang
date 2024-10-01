@@ -111,6 +111,36 @@ val final_message = get_message(
 println("Message: #final_message")
 ```
 
+### Function Lambdas
+
+Lambdas are anonymous functions that are treated as expressions. They are declared with the **fn** keyword and evidently they don't have a name, and they benefit from the syntax of normal functions: optional commas and parenthesis.
+
+```
+val first_name = "Shawn"
+val last_name = "Lee"
+
+val get_full_name = fn (first_name str, last_name str) {
+  return "#first_name #last_name"
+}
+
+val greet = fn {
+  val full_name = get_full_name(first_name, last_name)
+  println("Hello from the creator of Pinolang, #full_name")
+}
+
+val print_person = fn (
+  first_name str 
+  last_name str
+  country str
+) {
+  val full_name = get_full_name(first_name, last_name)
+  println("#full_name lives in #country")
+}
+
+greet()
+print_person("John", "China", "China")
+```
+
 ### Structs
 
 Structs are declared with the **struct** keyword followed by their name and their body declaration. Attributes are declared with their name followed by their type.
