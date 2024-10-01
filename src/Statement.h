@@ -26,9 +26,10 @@ class Statement {
 
   private:
     Type type;
-    std::vector<std::unique_ptr<Statement>> children;
 
   protected:
+    std::vector<std::unique_ptr<Statement>> children;
+    
     Type get_type() const;
     void set_type(const Type &type);
 

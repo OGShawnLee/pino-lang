@@ -78,3 +78,18 @@ val final_message = get_message(
 )
 
 println("Message: #final_message")
+
+val pair = [1, 2]
+val collection = [
+  "Marcus"
+  "Dominic"
+  "Baird"
+  "Cole"
+]
+val matrix = [
+  [1, 2, 3]
+  [4, 5, 6]
+  [7, 8, 9]
+]
+
+println([1.234, 2.345, 3.456])

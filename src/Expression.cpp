@@ -68,3 +68,21 @@ void FunctionLambda::print(const size_t &indentation) const {
   println(indent + "  }");
   println(indent + "}");
 }
+
+Vector::Vector() {
+  Expression(Kind::VECTOR, "");
+}
+
+void Vector::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + "Vector {");
+  if (not children.empty()) {
+    println(indent + "  elements: [");
+    for (const auto &child : children) {
+      child->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  println(indent + "}");
+}

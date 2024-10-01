@@ -7,6 +7,7 @@ class Expression : public Statement {
     enum class Kind {
       IDENTIFIER,
       LITERAL,
+        VECTOR,
       FUNCTION_CALL,
       FUNCTION_LAMBDA,
     };
@@ -43,5 +44,12 @@ class FunctionLambda : public Expression {
   public:
     FunctionLambda(std::vector<std::unique_ptr<Variable>> parameters, std::unique_ptr<Statement> body);
     
+    void print(const size_t &indentation) const override;
+};
+
+class Vector : public Expression {
+  public:
+    Vector();
+
     void print(const size_t &indentation) const override;
 };
