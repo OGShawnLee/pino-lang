@@ -5,6 +5,37 @@ Simple and aesthetic programming language built with C++ that intends to turn pr
 
 All the programming languages I've used have something I like and dislike, so I decided to make one that takes the good from all those languages; a language tailored to my taste. I am studying Software Engineering and I thought this project would help me test what I've learnt and become a better programmer by not only doing Web Development but some Systems Programming with a gigachad language such as C++ as well.
 
+## Features
+- [X] Constant and Variable Declaration
+- [X] Function Declaration
+  - [X] Parameter Declaration
+  - [X] Optional Parameter List (no parenthesis)
+  - [X] Parameter List
+    - [X] Optional Commas
+  - [X] Return Statement 
+  - [ ] Return Typing
+- [X] Struct Declaration
+  - [X] Attribute Declaration
+  - [ ] Method Declaration
+- [X] Enum Declaration
+- [X] Expression
+  - [X] Identifier
+  - [X] Literal
+    - [X] Boolean
+    - [X] Float
+    - [X] Integer
+    - [X] String
+      - [X] String Injection
+    - [X] Function Lambda
+      - [X] Parameter Declaration
+      - [X] Optional Parameter List (no parenthesis)
+      - [X] Parameter List (no parenthesis)
+        - [X] Optional Commas
+      - [X] Return Statement
+      - [ ] Return Typing
+  - [X] Function Call
+
+
 ## Syntax
 
 The syntax is heavily inspired by the programming language that has the best one in my opinion, Vlang (and Golang I guess). There are also bits inspired by other languages like Kotlin and Ruby.
