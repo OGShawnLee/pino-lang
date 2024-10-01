@@ -92,8 +92,16 @@ Lexer::Token::Keyword Lexer::Token::get_keyword() const {
   return KEYWORD_MAPPING.at(this->value);
 }
 
+bool Lexer::Token::is_given_keyword(Keyword keyword) const {
+  return type == Type::KEYWORD && KEYWORD_MAPPING.at(this->value) == keyword;
+}
+
 bool Lexer::Token::is_given_marker(Marker marker) const {
   return type == Type::MARKER && MARKER_MAPPING.at(this->value[0]) == marker;
+}
+
+bool Lexer::Token::is_given_marker(Marker marker_a, Marker marker_b) const {
+  return type == Type::MARKER && (MARKER_MAPPING.at(this->value[0]) == marker_a or MARKER_MAPPING.at(this->value[0]) == marker_b);
 }
 
 bool Lexer::Token::is_given_operator(Operator operation) const {

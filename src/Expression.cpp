@@ -45,3 +45,26 @@ void FunctionCall::print(const size_t &indentation) const {
   println(indent + "  ]");
   println(indent + "}");
 }
+
+FunctionLambda::FunctionLambda(std::vector<std::unique_ptr<Variable>> parameters, std::unique_ptr<Statement> body) {
+  Expression(Kind::FUNCTION_LAMBDA, "");
+  this->parameters = std::move(parameters);
+  this->body = std::move(body);
+}
+
+void FunctionLambda::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + "Function Lambda {");
+  if (not parameters.empty()) {
+    println(indent + "  parameters: [");
+    for (const auto &parameter : parameters) {
+      parameter->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  println(indent + "  body: {");
+  body->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "}");
+}

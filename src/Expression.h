@@ -8,6 +8,7 @@ class Expression : public Statement {
       IDENTIFIER,
       LITERAL,
       FUNCTION_CALL,
+      FUNCTION_LAMBDA,
     };
 
   private:
@@ -29,6 +30,18 @@ class FunctionCall : public Expression {
   
   public:
     FunctionCall(std::string calle, std::vector<std::unique_ptr<Expression>> arguments);    
+    
+    void print(const size_t &indentation) const override;
+};
+
+class Variable;
+
+class FunctionLambda : public Expression {
+  std::vector<std::unique_ptr<Variable>> parameters;
+  std::unique_ptr<Statement> body;
+  
+  public:
+    FunctionLambda(std::vector<std::unique_ptr<Variable>> parameters, std::unique_ptr<Statement> body);
     
     void print(const size_t &indentation) const override;
 };

@@ -30,6 +30,22 @@ var is_married = false
 val planet = "Earth"
 var message = "#name lives in #country and has a budget of #budget"
 
+val jumpscare = fn {
+  println("You have been jumpscared!")
+}
+
+val print_budget = fn (budget float) {
+  println("Your budget is #budget")
+}
+
+val call = fn (fun function) {
+  fun()
+}
+
+call(fn {
+  println("What is going on?")
+})
+
 fn greet {
   println("Hello, stranger!")
 }

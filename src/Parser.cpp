@@ -11,12 +11,18 @@ bool Parser::is_binary_expression(Lexer::Stream &collection) {
 }
 
 bool Parser::is_expression(Lexer::Stream &collection) {
-  return collection.current().is_given_type(Lexer::Token::Type::IDENTIFIER, Lexer::Token::Type::LITERAL);
+  return is_function_lambda(collection) or collection.current().is_given_type(Lexer::Token::Type::IDENTIFIER, Lexer::Token::Type::LITERAL);
 }
 
 bool Parser::is_function_call(Lexer::Stream &collection) {
   return collection.current().is_given_type(Lexer::Token::Type::IDENTIFIER) && collection.is_next([](const Lexer::Token &token) {
     return token.is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN);
+  });
+}
+
+bool Parser::is_function_lambda(Lexer::Stream &collection) {
+  return collection.current().is_given_keyword(Lexer::Token::Keyword::FUNCTION) and collection.is_next([](const Lexer::Token &token) {
+    return token.is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN, Lexer::Token::Marker::BLOCK_BEGIN);
   });
 }
 
@@ -42,11 +48,8 @@ std::vector<std::unique_ptr<Expression>> Parser::consume_arguments(Lexer::Stream
 }
 
 std::unique_ptr<Variable> Parser::consume_attribute(Lexer::Stream &collection) {
- return std::make_unique<Variable>(
-    Variable::Kind::VARIABLE_DECLARATION,
-    consume_identifier(collection),
-    consume_typing(collection)
-  );
+  std::string identifier = consume_identifier(collection);
+ return std::make_unique<Variable>(Variable::Kind::VARIABLE_DECLARATION, identifier, consume_typing(collection));
 }
 
 std::vector<std::unique_ptr<Variable>> Parser::consume_attributes(Lexer::Stream &collection) {
@@ -140,11 +143,8 @@ std::string Parser::consume_identifier(Lexer::Stream &collection) {
 }
 
 std::unique_ptr<Variable> Parser::consume_parameter(Lexer::Stream &collection) {
-  return std::make_unique<Variable>(
-    Variable::Kind::PARAMETER_DECLARATION,
-    consume_identifier(collection),
-    consume_typing(collection)
-  );
+  std::string identifier = consume_identifier(collection);
+  return std::make_unique<Variable>(Variable::Kind::PARAMETER_DECLARATION, identifier, consume_typing(collection));
 }
 
 std::vector<std::unique_ptr<Variable>> Parser::consume_parameters(Lexer::Stream &collection) {
@@ -205,6 +205,10 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
     return parse_function_call(collection);
   }
 
+  if (is_function_lambda(collection)) {
+    return parse_function_lambda(collection);
+  }
+
   const Lexer::Token &current = collection.consume();
   if (current.get_type() == Lexer::Token::Type::IDENTIFIER) {
     return std::make_unique<Expression>(Expression::Kind::IDENTIFIER, current.get_value());
@@ -228,6 +232,17 @@ std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
 std::unique_ptr<FunctionCall> Parser::parse_function_call(Lexer::Stream &collection) {
   std::string callee = consume_identifier(collection);
   return std::make_unique<FunctionCall>(callee, consume_arguments(collection));
+}
+
+std::unique_ptr<FunctionLambda> Parser::parse_function_lambda(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Lexer::Token::Keyword::FUNCTION) {
+    throw std::runtime_error("PARSER: Invalid Function Lambda Declaration");
+  }
+
+  std::vector<std::unique_ptr<Variable>> parameters = consume_parameters(collection);
+  std::unique_ptr<Statement> body = parse_block(collection);
+
+  return std::make_unique<FunctionLambda>(std::move(parameters), std::move(body));
 }
 
 std::unique_ptr<Variable> Parser::parse_variable(Lexer::Stream &collection) {

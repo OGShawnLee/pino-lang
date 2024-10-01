@@ -88,6 +88,8 @@ class Lexer {
 				Keyword get_keyword() const;
 
 				bool is_given_marker(Marker marker) const;
+				bool is_given_marker(Marker marker_a, Marker marker_b) const;
+				bool is_given_keyword(Keyword keyword) const;
 				bool is_given_operator(Operator operation) const;
 				bool is_given_type(Type type_a) const;
 				bool is_given_type(Type type_a, Type type_b) const;
