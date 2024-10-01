@@ -58,20 +58,26 @@ fn greet(name str, from str) {
 fn get_message(
   name str
   country str
-  children int
-  is_married bool
+  budget float
 ) {
-  val message = "#name lives in #country and is married? #is_married"
-  println("Return Statement not implemented yet... we cannot return the message :yikes:")
+  return "#name lives in #country and has a budget of #budget"
 }
 
-greet("Shawn Lee", "China")
-get_message(
-  "Shawn Lee"
-  "China"
-  0
-  false
+fn get_str(prompt str) {
+  return readline(prompt)
+}
+
+fn get_float(prompt str) {
+  return float(get_str(prompt))
+}
+
+val final_message = get_message(
+  get_str("What is your name?")
+  get_str("What country do you live in?")
+  get_float("What is your budget?")
 )
+
+println("Message: #final_message")
 ```
 
 ### Structs
