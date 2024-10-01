@@ -29,10 +29,15 @@ Variable::Variable(Kind kind, std::string identifier, std::string typing) {
   this->typing = typing;
 }
 
-Function::Function(std::string identifier, std::vector<std::unique_ptr<Variable>> parameters) {
+Function::Function(
+  std::string identifier,
+  std::vector<std::unique_ptr<Variable>> parameters,
+  std::unique_ptr<Statement> children
+) {
   set_type(Type::FUNCTION_DECLARATION);
   this->identifier = identifier;
   this->parameters = std::move(parameters);
+  this->children = std::move(children);
 }
 
 Struct::Struct(std::string identifier, std::vector<std::unique_ptr<Variable>> fields) {
@@ -75,6 +80,9 @@ void Function::print(const size_t &indentation = 0) const {
     }
     println(indent + "  ]");
   }
+  println(indent + "  children: {");
+  children->print(indentation + 4);
+  println(indent + "  }");
   println(indent + "}");
 }
 

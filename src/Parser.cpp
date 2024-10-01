@@ -151,7 +151,6 @@ std::vector<std::unique_ptr<Variable>> Parser::consume_parameters(Lexer::Stream 
   std::vector<std::unique_ptr<Variable>> parameters;
   
   if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
-    collection.next();
     return parameters;
   }
 
@@ -220,7 +219,10 @@ std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
   }
 
   std::string identifier = consume_identifier(collection);
-  return std::make_unique<Function>(identifier, std::move(consume_parameters(collection)));
+  std::vector<std::unique_ptr<Variable>> parameters = consume_parameters(collection);
+  std::unique_ptr<Statement> body = parse_block(collection);
+
+  return std::make_unique<Function>(identifier, std::move(parameters), std::move(body));
 }
 
 std::unique_ptr<FunctionCall> Parser::parse_function_call(Lexer::Stream &collection) {
@@ -254,6 +256,66 @@ std::unique_ptr<Struct> Parser::parse_struct(Lexer::Stream &collection) {
   return std::make_unique<Struct>(identifier, consume_attributes(collection));
 }
 
+std::unique_ptr<Return> Parser::parse_return(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Lexer::Token::Keyword::RETURN) {
+    throw std::runtime_error("PARSER: Invalid Return Statement");
+  }
+
+  return std::make_unique<Return>(is_expression(collection) ? parse_expression(collection) : nullptr);
+}
+
+std::unique_ptr<Statement> Parser::parse_block(Lexer::Stream &collection) {
+  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Open Brace");
+  }
+
+  std::unique_ptr<Statement> block = std::make_unique<Statement>(Statement::Type::BLOCK);
+
+  while (collection.has_next()) {
+    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+      collection.next();
+      return block;
+    }
+
+    const Lexer::Token &token = collection.current();
+
+    switch (token.get_type()) {
+      case Lexer::Token::Type::KEYWORD:
+        switch (token.get_keyword()) {
+          case Lexer::Token::Keyword::CONSTANT:
+          case Lexer::Token::Keyword::VARIABLE:
+            block->push(std::move(parse_variable(collection)));
+            continue;
+          case Lexer::Token::Keyword::FUNCTION:
+            block->push(std::move(parse_function(collection)));
+            continue;
+          case Lexer::Token::Keyword::STRUCT:
+            block->push(std::move(parse_struct(collection)));
+            continue;
+          case Lexer::Token::Keyword::ENUM:
+            block->push(std::move(parse_enum(collection)));
+            continue;
+          case Lexer::Token::Keyword::RETURN:
+            block->push(std::move(parse_return(collection)));
+            continue;
+        }
+        break;
+      case Lexer::Token::Type::IDENTIFIER:
+      case Lexer::Token::Type::LITERAL:
+        block->push(std::move(parse_expression(collection)));
+        continue;
+      case Lexer::Token::Type::ILLEGAL:
+        println("Illegal Token");
+        token.print();
+        break;
+    }
+
+    collection.next();
+  }
+
+  throw std::runtime_error("PARSER: Expected Close Brace");
+}
+
 Statement Parser::parse_file(const std::string &filename) {
   Lexer::Stream collection = Lexer::lex_file(filename);
   Statement program;
@@ -277,6 +339,8 @@ Statement Parser::parse_file(const std::string &filename) {
           case Lexer::Token::Keyword::ENUM:
             program.push(std::move(parse_enum(collection)));
             continue;
+          case Lexer::Token::Keyword::RETURN:
+            throw std::runtime_error("PARSER: Return Statement Outside Function");
         }
         break; 
       case Token::Type::IDENTIFIER:

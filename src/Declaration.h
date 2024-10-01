@@ -33,9 +33,14 @@ class Variable : public Declaration {
 class Function : public Declaration {
   private:
     std::vector<std::unique_ptr<Variable>> parameters;
+    std::unique_ptr<Statement> children;
 
   public:
-    Function(std::string name, std::vector<std::unique_ptr<Variable>> parameters);
+    Function(
+      std::string identifier,
+      std::vector<std::unique_ptr<Variable>> parameters,
+      std::unique_ptr<Statement> children
+    );
 
     void print(const size_t &indentation) const override;
 };
