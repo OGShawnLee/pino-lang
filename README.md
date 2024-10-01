@@ -1,4 +1,112 @@
 # Pino
+Simple and aesthetic programming language built with C++ that intends to turn programming a joyful experience.
+
+## Why?
+
+All the programming languages I've used have something I like and dislike, so I decided to make one that takes the good from all those languages; a language tailored to my taste. I am studying Software Engineering and I thought this project would help me test what I've learnt and become a better programmer by not only doing Web Development but some Systems Programming with a gigachad language such as C++ as well.
+
+## Syntax
+
+The syntax is heavily inspired by the programming language that has the best one in my opinion, Vlang (and Golang I guess). There are also bits inspired by other languages like Kotlin and Ruby.
+
+### Variables
+
+Constants are declared using the **val** keyword and variables with the **var** keyword. Variables must be assigned a value. (This syntax comes from Kotlin).
+
+```
+var name = "Shawn Lee"
+var country = "China"
+var children = 0
+var budget = 12.5 # In terms of money, I have none :yikes:
+var is_married = false
+
+val planet = "Earth"
+val pi = 3.1416
+```
+
+### String Injection
+
+Variables can be easily interpolated inside of strings by writting their name preceded by a **#** character. (This syntax comes from Ruby).
+
+```
+val name = "Augustus"
+val empire = "Roman"
+
+println("#name was the first emperor of the #empire Empire")
+
+val planet = "Earth"
+val diameter = 12714
+val message = "#planet has a diameter of #diameter kilometres"
+```
+
+### Functions
+Functions are declared with the **fn** keyword followed by their name and their parameters.
+
+* Parenthesis are optional if the function does not have any parameters.
+* Commas are optional to separate parameters, it is recommeded to add them when the parameters are written in a single line otherwise omit them.
+* When calling a function, commas are optional to separate its arguments.
+
+```
+fn print {
+  println("This is a random print, doesn't do much but it's honest work.")
+}
+
+fn greet(name str, from str) {
+  println("Greetings from #from, #name.")
+}
+
+fn get_message(
+  name str
+  country str
+  children int
+  is_married bool
+) {
+  val message = "#name lives in #country and is married? #is_married"
+  println("Return Statement not implemented yet... we cannot return the message :yikes:")
+}
+
+greet("Shawn Lee", "China")
+get_message(
+  "Shawn Lee"
+  "China"
+  0
+  false
+)
+```
+
+### Structs
+
+Structs are declared with the **struct** keyword followed by their name and their body declaration. Attributes are declared with their name followed by their type.
+
+* Commas are optional to separate attributes. It is recommended to keep them if the struct declaration is written in a single line, otherwise omit them.
+
+```
+struct Country { name str, continent str }
+struct Person {
+  name str
+  country Country
+  children int
+  height float
+  is_married bool
+}
+```
+
+### Enums
+
+Enums are declared with the **enum** keyword followed by their name and their members. Members are just identifiers and I recommend following the SCREMING_SNAKE_CASE naming convention... not sure if I should enforce it.
+
+* Commas are optional to separate members, it is recommended to keep them when multiple members are declared on the same line, otherwise omit them.
+
+```
+enum Planet {
+  MERCURY, VENUS, EARTH, MARS
+  JUPITER, SATURN, URANUS, NEPTUNE
+}
+```
+
+<!-- # Pino
+
+Simple and aesthetic programming language built with C++ that intends to turn programming a joyful experience.
 
 All the programming languages I've used have something I like and dislike, so I decided to make one based on the language I like the most, the V programming language.
 I am studying Software Enginnering and C++ is the language I am being taught, so that is the language used in the project. 
@@ -268,4 +376,4 @@ println("Total of [$arr_double] = $total")
   - [X] Vector Literal (["Marcus", "Dominic", "Baird", "Cole"])
   - [ ] Vector Operations (pop, prepend, push, shift)
   - [ ] Vector Type for fn parameters
-- [ ] Yield Statement
+- [ ] Yield Statement -->
