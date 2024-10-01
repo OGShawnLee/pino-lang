@@ -14,6 +14,33 @@ bool Parser::is_expression(Lexer::Stream &collection) {
   return collection.current().is_given_type(Lexer::Token::Type::IDENTIFIER, Lexer::Token::Type::LITERAL);
 }
 
+bool Parser::is_function_call(Lexer::Stream &collection) {
+  return collection.current().is_given_type(Lexer::Token::Type::IDENTIFIER) && collection.is_next([](const Lexer::Token &token) {
+    return token.is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN);
+  });
+}
+
+std::vector<std::unique_ptr<Expression>> Parser::consume_arguments(Lexer::Stream &collection) {
+  if (not collection.consume().is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Open Parenthesis");
+  }
+
+  std::vector<std::unique_ptr<Expression>> arguments;
+
+  while (true) {
+    if (collection.current().is_given_marker(Lexer::Token::Marker::PARENTHESIS_END)) {
+      collection.next();
+      return arguments;
+    }
+
+    arguments.push_back(parse_expression(collection));
+
+    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+      collection.next();
+    }
+  }
+}
+
 std::unique_ptr<Variable> Parser::consume_attribute(Lexer::Stream &collection) {
  return std::make_unique<Variable>(
     Variable::Kind::VARIABLE_DECLARATION,
@@ -175,6 +202,10 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
     throw std::runtime_error("PARSER: Expected Expression");
   }
 
+  if (is_function_call(collection)) {
+    return parse_function_call(collection);
+  }
+
   const Lexer::Token &current = collection.consume();
   if (current.get_type() == Lexer::Token::Type::IDENTIFIER) {
     return std::make_unique<Expression>(Expression::Kind::IDENTIFIER, current.get_value());
@@ -190,6 +221,11 @@ std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
 
   std::string identifier = consume_identifier(collection);
   return std::make_unique<Function>(identifier, std::move(consume_parameters(collection)));
+}
+
+std::unique_ptr<FunctionCall> Parser::parse_function_call(Lexer::Stream &collection) {
+  std::string callee = consume_identifier(collection);
+  return std::make_unique<FunctionCall>(callee, consume_arguments(collection));
 }
 
 std::unique_ptr<Variable> Parser::parse_variable(Lexer::Stream &collection) {

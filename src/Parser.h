@@ -8,6 +8,7 @@ class Parser {
     static bool is_expression(Lexer::Stream &collection);
     static bool is_function_call(Lexer::Stream &collection);
 
+    static std::vector<std::unique_ptr<Expression>> consume_arguments(Lexer::Stream &collection);
     static std::unique_ptr<Variable> consume_attribute(Lexer::Stream &collection);
     static std::vector<std::unique_ptr<Variable>> consume_attributes(Lexer::Stream &collection);
     static std::unique_ptr<Expression> consume_assignment(Lexer::Stream &collection);
@@ -22,6 +23,7 @@ class Parser {
     static std::unique_ptr<Enum> parse_enum(Lexer::Stream &collection);
     static std::unique_ptr<Expression> parse_expression(Lexer::Stream &collection);
     static std::unique_ptr<Function> parse_function(Lexer::Stream &collection);
+    static std::unique_ptr<FunctionCall> parse_function_call(Lexer::Stream &collection);
     static std::unique_ptr<Variable> parse_variable(Lexer::Stream &collection);
     static std::unique_ptr<Struct> parse_struct(Lexer::Stream &collection);
     static Statement parse_file(const std::string &filename);

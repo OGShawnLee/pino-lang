@@ -45,3 +45,20 @@ fn get_message(
 ) {
   return "#name lives in #country and has a budget of #budget"
 }
+
+fn get_str(prompt str) {
+  return readline(prompt)
+}
+
+fn get_float(prompt str) {
+  return float(get_str(prompt))
+}
+
+get_rectangle_area(10, 20)
+val final_message = get_message(
+  get_str("What is your name?")
+  get_str("What country do you live in?")
+  get_float("What is your budget?")
+)
+
+println("Message: #final_message")
