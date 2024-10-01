@@ -27,6 +27,7 @@ class Parser {
     static std::unique_ptr<Function> parse_function(Lexer::Stream &collection);
     static std::unique_ptr<FunctionLambda> parse_function_lambda(Lexer::Stream &collection);
     static std::unique_ptr<FunctionCall> parse_function_call(Lexer::Stream &collection);
+    static std::unique_ptr<Loop> parse_loop(Lexer::Stream &collection);
     static std::unique_ptr<Variable> parse_variable(Lexer::Stream &collection);
     static std::unique_ptr<Vector> parse_vector(Lexer::Stream &collection);
     static std::unique_ptr<Struct> parse_struct(Lexer::Stream &collection);

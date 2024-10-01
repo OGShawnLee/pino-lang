@@ -11,6 +11,7 @@ std::map<Statement::Type, std::string> Statement::TYPE_NAME_MAPPING = {
   {Type::STRUCT_DECLARATION, "Struct Declaration"},
   {Type::ENUM_DECLARATION, "Enum Declaration"},
   {Type::RETURN, "Return Statement"},
+  {Type::LOOP_STATEMENT, "Loop Statement"},
 };
 
 Statement::Statement() {
@@ -61,5 +62,34 @@ void Return::print(const size_t &indentation) const {
     this->argument->print(indentation + 4);
     println(indent + "  }");
   }
+  println(indent + "}");
+}
+
+Loop::Loop(Kind kind, std::unique_ptr<Expression> begin, std::unique_ptr<Expression> end, std::unique_ptr<Statement> children) {
+  set_type(Type::LOOP_STATEMENT);
+  this->kind = kind;
+  this->begin = std::move(begin);
+  this->end = std::move(end);
+  this->children = std::move(children);
+}
+
+void Loop::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + TYPE_NAME_MAPPING.at(get_type()) + " {");
+  println(indent + "  kind: " + (this->kind == Kind::FOR_IN_LOOP ? "For In Loop" : "For Times Loop"));
+  if (this->begin != nullptr) {
+    println(indent + "  begin: {");
+    this->begin->print(indentation + 4);
+    println(indent + "  }");
+  }
+  if (this->end != nullptr) {
+    println(indent + "  end: {");
+    this->end->print(indentation + 4);
+    println(indent + "  }");
+  }
+  println(indent + "  children: {");
+  this->children->print(indentation + 4);
+  println(indent + "  }");
   println(indent + "}");
 }

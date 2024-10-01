@@ -254,6 +254,26 @@ std::unique_ptr<FunctionLambda> Parser::parse_function_lambda(Lexer::Stream &col
   return std::make_unique<FunctionLambda>(std::move(parameters), std::move(body));
 }
 
+std::unique_ptr<Loop> Parser::parse_loop(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Token::Keyword::LOOP) {
+    throw std::runtime_error("PARSER: Invalid Loop Declaration");
+  }
+
+  std::unique_ptr<Expression> begin = parse_expression(collection);
+
+  if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
+    return std::make_unique<Loop>(Loop::Kind::FOR_TIMES_LOOP, std::move(begin), nullptr, parse_block(collection));
+  }
+
+  if (consume_keyword(collection) != Token::Keyword::IN) {
+    throw std::runtime_error("PARSER: Invalid Loop Declaration");
+  }
+
+  std::unique_ptr<Expression> end = parse_expression(collection);
+  std::unique_ptr<Statement> children = parse_block(collection);
+  return std::make_unique<Loop>(Loop::Kind::FOR_IN_LOOP, std::move(begin), std::move(end), std::move(children));
+}
+
 std::unique_ptr<Variable> Parser::parse_variable(Lexer::Stream &collection) {
   Token::Keyword keyword = consume_keyword(collection);
 
@@ -346,6 +366,9 @@ std::unique_ptr<Statement> Parser::parse_block(Lexer::Stream &collection) {
           case Lexer::Token::Keyword::RETURN:
             block->push(std::move(parse_return(collection)));
             continue;
+          case Lexer::Token::Keyword::LOOP:
+            block->push(std::move(parse_loop(collection)));
+            continue;
         }
         break;
       case Lexer::Token::Type::IDENTIFIER:
@@ -389,6 +412,9 @@ Statement Parser::parse_file(const std::string &filename) {
             continue;
           case Lexer::Token::Keyword::RETURN:
             throw std::runtime_error("PARSER: Return Statement Outside Function");
+          case Lexer::Token::Keyword::LOOP:
+            program.push(std::move(parse_loop(collection)));
+            continue;
         }
         break; 
       case Token::Type::IDENTIFIER:

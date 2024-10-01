@@ -19,6 +19,7 @@ class Statement {
       STRUCT_DECLARATION,
       ENUM_DECLARATION,
       RETURN,
+      LOOP_STATEMENT,
     };
 
     Statement();
@@ -49,6 +50,25 @@ class Return : public Statement {
 
   public:
     Return(std::unique_ptr<Expression> argument);
+
+    void print(const size_t &indentation) const;
+};
+
+class Loop : public Statement {
+  public:
+    enum class Kind {
+      FOR_IN_LOOP,
+      FOR_TIMES_LOOP,
+    };
+
+  private:
+    Kind kind;
+    std::unique_ptr<Expression> begin;
+    std::unique_ptr<Expression> end;
+    std::unique_ptr<Statement> children;
+
+  public:
+    Loop(Kind kind, std::unique_ptr<Expression> begin, std::unique_ptr<Expression> end, std::unique_ptr<Statement> children);
 
     void print(const size_t &indentation) const;
 };

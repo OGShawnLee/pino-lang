@@ -85,6 +85,15 @@ val collection = [
   "Baird"
   "Cole"
 ]
+
+for character in collection {
+  println("#character is an awesome Gears of War character")
+}
+
+for 12 {
+  println("This will run 12 times")
+}
+
 val matrix = [
   [1, 2, 3]
   [4, 5, 6]
@@ -94,3 +103,8 @@ val matrix = [
 println([1.234, 2.345, 3.456])
 println(90 + 12 * 12)
 println(name:uppercase(), Planet::JUPITER)
+
+val numbers = []
+for number in 30 {
+  numbers:push(number)
+}
