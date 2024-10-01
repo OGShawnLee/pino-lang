@@ -19,6 +19,11 @@ All the programming languages I've used have something I like and dislike, so I 
   - [ ] Method Declaration
 - [X] Enum Declaration
 - [X] Expression
+  - [X] Binary Expression
+    - [X] Enum Member Access
+    - [X] Struct Attribute / Method Access
+    - [ ] Order of Precedence
+    - [ ] Parenthesis
   - [X] Identifier
   - [X] Literal
     - [X] Boolean
@@ -94,6 +99,14 @@ fn get_message(
   return "#name lives in #country and has a budget of #budget"
 }
 
+fn get_screaming_message(message str) 
+  return message:uppercase()
+}
+
+fn double_it(amount int) {
+  return amount * 2
+}
+
 fn get_str(prompt str) {
   return readline(prompt)
 }
@@ -163,12 +176,15 @@ struct Person {
 Enums are declared with the **enum** keyword followed by their name and their members. Members are just identifiers and I recommend following the SCREMING_SNAKE_CASE naming convention... not sure if I should enforce it.
 
 * Commas are optional to separate members, it is recommended to keep them when multiple members are declared on the same line, otherwise omit them.
+* Accessing an enum member value is done with the **::** operator.
 
 ```
 enum Planet {
   MERCURY, VENUS, EARTH, MARS
   JUPITER, SATURN, URANUS, NEPTUNE
 }
+
+val planet = Planet::EARTH
 ```
 
 <!-- # Pino
