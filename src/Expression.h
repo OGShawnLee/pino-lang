@@ -5,6 +5,7 @@
 class Expression : public Statement {
   public:
     enum class Kind {
+      BINARY_EXPRESSION,
       IDENTIFIER,
       LITERAL,
         VECTOR,
@@ -22,6 +23,17 @@ class Expression : public Statement {
     Expression();
     Expression(Kind kind, std::string value);
     
+    void print(const size_t &indentation) const override;
+};
+
+class BinaryExpression : public Expression {
+  std::unique_ptr<Expression> left;
+  std::unique_ptr<Expression> right;
+  std::string operation;
+
+  public:
+    BinaryExpression(std::unique_ptr<Expression> left, std::string operation, std::unique_ptr<Expression> right);
+
     void print(const size_t &indentation) const override;
 };
 

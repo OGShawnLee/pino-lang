@@ -25,6 +25,27 @@ void Expression::print(const size_t &indentation) const {
   println(indent + "}");
 }
 
+BinaryExpression::BinaryExpression(std::unique_ptr<Expression> left, std::string operation, std::unique_ptr<Expression> right) {
+  Expression(Kind::BINARY_EXPRESSION, "");
+  this->left = std::move(left);
+  this->operation = operation;
+  this->right = std::move(right);
+}
+
+void BinaryExpression::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + "Binary Expression {");
+  println(indent + "  left: {");
+  left->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "  operation: " + operation);
+  println(indent + "  right: {");
+  right->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "}");
+}
+
 FunctionCall::FunctionCall(std::string callee, std::vector<std::unique_ptr<Expression>> arguments) {
   Expression(Kind::FUNCTION_CALL, callee);
   this->callee = callee;
@@ -41,8 +62,8 @@ void FunctionCall::print(const size_t &indentation) const {
     for (const auto &argument : arguments) {
       argument->print(indentation + 4);
     }
+    println(indent + "  ]");
   }
-  println(indent + "  ]");
   println(indent + "}");
 }
 

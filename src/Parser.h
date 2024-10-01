@@ -4,7 +4,6 @@
 
 class Parser {
   public:
-    static bool is_binary_expression(Lexer::Stream &collection);
     static bool is_expression(Lexer::Stream &collection);
     static bool is_function_call(Lexer::Stream &collection);
     static bool is_function_lambda(Lexer::Stream &collection);

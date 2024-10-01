@@ -4,14 +4,11 @@
 #include "Declaration.cpp"
 #include "Expression.cpp"
 
-bool Parser::is_binary_expression(Lexer::Stream &collection) {
-  return is_expression(collection) && collection.is_next([](const Lexer::Token &token) {
-    return token.is_given_type(Lexer::Token::Type::OPERATOR);
-  });
-}
-
 bool Parser::is_expression(Lexer::Stream &collection) {
-  return is_function_lambda(collection) or is_vector(collection) or collection.current().is_given_type(Lexer::Token::Type::IDENTIFIER, Lexer::Token::Type::LITERAL);
+  return 
+    is_function_lambda(collection)
+    or is_vector(collection)
+    or collection.current().is_given_type(Token::Type::IDENTIFIER, Token::Type::LITERAL);
 }
 
 bool Parser::is_function_call(Lexer::Stream &collection) {
@@ -205,26 +202,28 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
     throw std::runtime_error("PARSER: Expected Expression");
   }
 
+  std::unique_ptr<Expression> expression;
+
   if (is_function_call(collection)) {
-    return parse_function_call(collection);
-  }
-
-  if (is_function_lambda(collection)) {
-    return parse_function_lambda(collection);
-  }
-   
-  if (is_vector(collection)) {
-    return parse_vector(collection);
-  }
-
-  const Lexer::Token &current = collection.consume();
-  if (current.get_type() == Lexer::Token::Type::IDENTIFIER) {
-    return std::make_unique<Expression>(Expression::Kind::IDENTIFIER, current.get_value());
+    expression = parse_function_call(collection);
+  } else if (is_function_lambda(collection)) {
+    expression = parse_function_lambda(collection);
+  } else if (is_vector(collection)) {
+    expression = parse_vector(collection);
   } else {
-
-
-    return std::make_unique<Expression>(Expression::Kind::LITERAL, current.get_value());
+    expression = std::make_unique<Expression>(
+      collection.current().is_given_type(Token::Type::IDENTIFIER) ? Expression::Kind::IDENTIFIER : Expression::Kind::LITERAL,
+      collection.consume().get_value()
+    );
   }
+
+  if (collection.current().is_given_type(Token::Type::OPERATOR)) {
+    std::string operation = collection.consume().get_value();
+    std::unique_ptr<Expression> right = parse_expression(collection);
+    expression = std::make_unique<BinaryExpression>(std::move(expression), operation, std::move(right));
+  }
+
+  return expression;
 }
 
 std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
