@@ -50,7 +50,7 @@ std::vector<std::unique_ptr<Expression>> Parser::consume_arguments(Lexer::Stream
 
 std::unique_ptr<Variable> Parser::consume_attribute(Lexer::Stream &collection) {
   std::string identifier = consume_identifier(collection);
- return std::make_unique<Variable>(Variable::Kind::VARIABLE_DECLARATION, identifier, consume_typing(collection));
+  return std::make_unique<Variable>(Variable::Kind::VARIABLE_DECLARATION, identifier, consume_typing(collection));
 }
 
 std::vector<std::unique_ptr<Variable>> Parser::consume_attributes(Lexer::Stream &collection) {

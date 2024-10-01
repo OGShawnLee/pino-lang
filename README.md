@@ -39,7 +39,10 @@ All the programming languages I've used have something I like and dislike, so I 
       - [X] Return Statement
       - [ ] Return Typing
   - [X] Function Call
-
+  - [X] Loop Statement
+    - [X] For In Loop (for i in <iterable> {})
+    - [X] For Times Loop (for i in <integer> {})
+    - [ ] Loop Keywords (continue, break)
 
 ## Syntax
 
@@ -99,7 +102,7 @@ fn get_message(
   return "#name lives in #country and has a budget of #budget"
 }
 
-fn get_screaming_message(message str) 
+fn get_screaming_message(message str) {
   return message:uppercase()
 }
 
@@ -185,6 +188,41 @@ enum Planet {
 }
 
 val planet = Planet::EARTH
+```
+
+### Loop Statement
+
+Loops can only be declared with the **for** keyword, there is no while nor do keyword.
+
+* Use ``for <it> in <iterable> {}`` for iterating over an iterable expression such as a vector or an string.
+* Use ``for <index> in <integer> {}`` for executing a set of instructions a certain number of times while keeping a reference to the current iteration index.
+* Use ``for <integer> {}`` for executing a set of instructions a certain number of times.
+* Use ``for <condition> {}`` for executing a "while" kind of loop. Break out of the loop with keywords (**break, continue, return**).
+ 
+```
+val characters = [
+  "Marcus"
+  "Dominic"
+  "Baird"
+  "Cole"
+]
+
+for character in characters {
+  println("#character is an awesome Gears of War character!")
+}
+
+for time in 100 {
+  println("This has run for the #time time for a total of 100 times")
+}
+
+for 100 {
+  println("This will run a hundred times")
+}
+
+for true {
+  println("This will run forever!")
+  break # not really
+}
 ```
 
 <!-- # Pino
