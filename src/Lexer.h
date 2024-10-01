@@ -89,6 +89,7 @@ class Lexer {
 
 				bool is_given_marker(Marker marker) const;
 				bool is_given_operator(Operator operation) const;
+				bool is_given_type(Type type_a) const;
 				bool is_given_type(Type type_a, Type type_b) const;
 
 				void print() const;

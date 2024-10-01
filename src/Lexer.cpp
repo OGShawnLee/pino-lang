@@ -100,6 +100,10 @@ bool Lexer::Token::is_given_operator(Operator operation) const {
   return type == Type::OPERATOR && OPERATOR_MAPPING.at(this->value) == operation;
 }
 
+bool Lexer::Token::is_given_type(Type type_a) const {
+  return type == type_a;
+}
+
 bool Lexer::Token::is_given_type(Type type_a, Type type_b) const {
   return type == type_a || type == type_b;
 }

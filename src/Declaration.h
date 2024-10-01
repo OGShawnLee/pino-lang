@@ -6,10 +6,6 @@
 class Declaration : public Statement {
   protected:
     std::string identifier;
-
-  public:
-    virtual void consume_keyword(Lexer::Stream &collection) = 0;
-    void consume_identifier(Lexer::Stream &collection);
 };
 
 class Variable : public Declaration {
@@ -28,11 +24,8 @@ class Variable : public Declaration {
     static std::map<Kind, std::string> KIND_NAME_MAPPING;
 
   public:
-    Variable() = default;
-
-    void consume_keyword(Lexer::Stream &collection);
-    void consume_typing(Lexer::Stream &collection);
-    void consume_value(Lexer::Stream &collection);
+    Variable(Kind kind, std::string identifier, std::unique_ptr<Expression> value);
+    Variable(Kind kind, std::string identifier, std::string typing);
 
     void print(const size_t &indentation) const override;
 };
@@ -42,11 +35,7 @@ class Function : public Declaration {
     std::vector<std::unique_ptr<Variable>> parameters;
 
   public:
-    Function() = default;
-
-    void consume_keyword(Lexer::Stream &collection);
-    void consume_parameter(Lexer::Stream &collection);
-    void consume_parameters(Lexer::Stream &collection);
+    Function(std::string name, std::vector<std::unique_ptr<Variable>> parameters);
 
     void print(const size_t &indentation) const override;
 };
@@ -56,11 +45,7 @@ class Struct : public Declaration {
     std::vector<std::unique_ptr<Variable>> fields;
 
   public:
-    Struct() = default;
-
-    void consume_keyword(Lexer::Stream &collection);
-    void consume_field(Lexer::Stream &collection);
-    void consume_fields(Lexer::Stream &collection);
+    Struct(std::string name, std::vector<std::unique_ptr<Variable>> fields);
 
     void print(const size_t &indentation) const override;
 };
@@ -70,11 +55,7 @@ class Enum : public Declaration {
     std::vector<std::string> fields;
 
   public:
-    Enum() = default;
-
-    void consume_keyword(Lexer::Stream &collection);
-    void consume_value(Lexer::Stream &collection);
-    void consume_values(Lexer::Stream &collection);
+    Enum(std::string name, std::vector<std::string> fields);
 
     void print(const size_t &indentation) const override;
 };

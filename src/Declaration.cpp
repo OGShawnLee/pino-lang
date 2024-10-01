@@ -7,48 +7,44 @@ std::map<Variable::Kind, std::string> Variable::KIND_NAME_MAPPING = {
   {Variable::Kind::PARAMETER_DECLARATION, "Parameter Declaration"},
 };
 
-void Variable::consume_keyword(Lexer::Stream &collection) {
-  Lexer::Token::Keyword keyword = collection.consume().get_keyword();
-
-  if (keyword != Lexer::Token::Keyword::CONSTANT and keyword != Lexer::Token::Keyword::VARIABLE) {
-    throw std::runtime_error("PARSER: Invalid Variable Declaration");
-  }
-
-  if (keyword == Token::Keyword::CONSTANT) {
-    kind = Kind::CONSTANT_DECLARATION;
-    set_type(Type::CONSTANT_DECLARATION);
-  } else {
-    kind = Kind::VARIABLE_DECLARATION;
-    set_type(Type::VARIABLE_DECLARATION);
-  }
+Variable::Variable(Kind kind, std::string identifier, std::unique_ptr<Expression> value) {
+  set_type(
+    kind == Kind::PARAMETER_DECLARATION or kind == Kind::CONSTANT_DECLARATION
+      ? Type::CONSTANT_DECLARATION
+      : Type::VARIABLE_DECLARATION
+  );
+  this->kind = kind;
+  this->identifier = identifier;
+  this->value = std::move(value);
 }
 
-void Declaration::consume_identifier(Lexer::Stream &collection) {
-  const Token& current = collection.consume();
-
-  if (current.get_type() != Lexer::Token::Type::IDENTIFIER) {
-    throw std::runtime_error("PARSER: Invalid Identifier");
-  }
-
-  identifier = current.get_value();
+Variable::Variable(Kind kind, std::string identifier, std::string typing) {
+  set_type(
+    kind == Kind::PARAMETER_DECLARATION or kind == Kind::CONSTANT_DECLARATION
+      ? Type::CONSTANT_DECLARATION
+      : Type::VARIABLE_DECLARATION
+  );
+  this->kind = kind;
+  this->identifier = identifier;
+  this->typing = typing;
 }
 
-void Variable::consume_value(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_operator(Token::Operator::ASSIGNMENT)) {
-    throw std::runtime_error("PARSER: Invalid Assignment Operator");
-  }
-
-  value = Expression::build(collection);
+Function::Function(std::string identifier, std::vector<std::unique_ptr<Variable>> parameters) {
+  set_type(Type::FUNCTION_DECLARATION);
+  this->identifier = identifier;
+  this->parameters = std::move(parameters);
 }
 
-void Variable::consume_typing(Lexer::Stream &collection) {
-  const Token& current = collection.consume();
+Struct::Struct(std::string identifier, std::vector<std::unique_ptr<Variable>> fields) {
+  set_type(Type::STRUCT_DECLARATION);
+  this->identifier = identifier;
+  this->fields = std::move(fields);
+}
 
-  if (current.get_type() != Lexer::Token::Type::IDENTIFIER) {
-    throw std::runtime_error("PARSER: Invalid Typing");
-  }
-
-  typing = current.get_value();
+Enum::Enum(std::string identifier, std::vector<std::string> fields) {
+  set_type(Type::ENUM_DECLARATION);
+  this->identifier = identifier;
+  this->fields = std::move(fields);
 }
 
 void Variable::print(const size_t &indentation = 0) const {
@@ -67,57 +63,6 @@ void Variable::print(const size_t &indentation = 0) const {
   println(indent + "}");
 }
 
-void Function::consume_keyword(Lexer::Stream &collection) {
-  const Token& current = collection.consume();
-
-  if (current.get_keyword() != Lexer::Token::Keyword::FUNCTION) {
-    throw std::runtime_error("PARSER: Invalid Function Declaration");
-  }
-
-  set_type(Type::FUNCTION_DECLARATION);
-}
-
-void Function::consume_parameter(Lexer::Stream &collection) {
-  std::unique_ptr<Variable> parameter = std::make_unique<Variable>();
-
-  parameter->consume_identifier(collection);
-  parameter->consume_typing(collection);
-
-  parameters.push_back(std::move(parameter));
-}
-
-void Function::consume_parameters(Lexer::Stream &collection) {
-  if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
-    collection.next();
-    return;
-  }
-
-  if (not collection.current().is_given_marker(Token::Marker::PARENTHESIS_BEGIN)) {
-    throw std::runtime_error("PARSER: Expected Open Parenthesis");
-  }
-
-  collection.next();
-
-  if (collection.current().is_given_marker(Token::Marker::PARENTHESIS_END)) {
-    collection.next();
-    return;
-  }
-
-  while (true) {
-    if (collection.current().is_given_marker(Token::Marker::PARENTHESIS_END)) {
-      collection.next();
-      return;
-    }
-    
-    consume_parameter(collection);
-
-    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
-      collection.next();
-      continue;
-    }
-  }
-}
-
 void Function::print(const size_t &indentation = 0) const {
   std::string indent(indentation, ' ');
 
@@ -133,49 +78,6 @@ void Function::print(const size_t &indentation = 0) const {
   println(indent + "}");
 }
 
-void Struct::consume_keyword(Lexer::Stream &collection) {
-  const Token& current = collection.consume();
-
-  if (current.get_keyword() != Lexer::Token::Keyword::STRUCT) {
-    throw std::runtime_error("PARSER: Invalid Struct Declaration");
-  }
-
-  set_type(Type::STRUCT_DECLARATION);
-}
-
-void Struct::consume_field(Lexer::Stream &collection) {
-  std::unique_ptr<Variable> field = std::make_unique<Variable>();
-
-  field->consume_identifier(collection);
-  field->consume_typing(collection);
-
-  fields.push_back(std::move(field));
-}
-
-void Struct::consume_fields(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
-    throw std::runtime_error("PARSER: Expected Open Brace");
-  }
-
-  while (true) {
-    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
-      if (fields.empty()) {
-        println("WARNING: Empty Struct Declaration");
-      }
-
-      collection.next();
-      return;
-    }
-    
-    consume_field(collection);
-
-    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
-      collection.next();
-      continue;
-    }
-  }
-}
-
 void Struct::print(const size_t &indentation = 0) const {
   std::string indent(indentation, ' ');
 
@@ -189,50 +91,6 @@ void Struct::print(const size_t &indentation = 0) const {
     println(indent + "  ]");
   }
   println(indent + "}");
-}
-
-void Enum::consume_keyword(Lexer::Stream &collection) {
-  const Token& current = collection.consume();
-
-  if (current.get_keyword() != Lexer::Token::Keyword::ENUM) {
-    throw std::runtime_error("PARSER: Invalid Enum Declaration");
-  }
-
-  set_type(Type::ENUM_DECLARATION);
-}
-
-void Enum::consume_value(Lexer::Stream &collection) {
-  const Token& current = collection.consume();
-
-  if (current.get_type() != Lexer::Token::Type::IDENTIFIER) {
-    throw std::runtime_error("PARSER: Invalid Enum Value");
-  }
-
-  fields.push_back(current.get_value());
-}
-
-void Enum::consume_values(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
-    throw std::runtime_error("PARSER: Expected Open Brace");
-  }
-
-  while (true) {
-    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
-      if (fields.empty()) {
-        println("WARNING: Empty Enum Declaration");
-      }
-
-      collection.next();
-      return;
-    }
-    
-    consume_value(collection);
-
-    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
-      collection.next();
-      continue;
-    }
-  }
 }
 
 void Enum::print(const size_t &indentation = 0) const {
