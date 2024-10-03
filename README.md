@@ -40,9 +40,12 @@ All the programming languages I've used have something I like and dislike, so I 
       - [ ] Return Typing
   - [X] Function Call
   - [X] Loop Statement
-    - [X] For In Loop (for i in <iterable> {})
-    - [X] For Times Loop (for i in <integer> {})
+    - [X] For In Loop (``for i in <iterable> {}``)
+    - [X] For Times Loop (``for i in <integer> {}``)
     - [ ] Loop Keywords (continue, break)
+  - [X] Struct Instance
+    - [X] Property Accessing
+    - [ ] Shorthand Syntax 
 
 ## Syntax
 
@@ -174,12 +177,41 @@ struct Person {
 }
 ```
 
+### Struct Instances
+
+To initialise a struct instance declare the name of the struct followed by the definition of its body composed by properties. Properties are defined by their **identifier**, a **colon**, and their **value** which must be an expression (``name: "Shawn"``).
+
+* Commas are optional to separate properties, it is recommended to keep them when multiple properties are declared on a single line, otherwise omit them.
+* Accessing an struct instance is done with the member access operator ``:``.
+
+```
+struct Country { name str, continent str }
+struct Person {
+  name str
+  country Country # Nested Struct
+  children int
+  height float
+  is_married bool
+  country Country
+}
+
+val person = Person {
+  name: "Shawn Lee"
+  country: Country { name: "China", "Asia" } # Nested Struct Instance
+  children: 0
+  height: 1.74
+  is_married: false
+}
+
+println(person:name + "lives in " + country:name) # Accesing a Property
+```
+
 ### Enums
 
 Enums are declared with the **enum** keyword followed by their name and their members. Members are just identifiers and I recommend following the SCREMING_SNAKE_CASE naming convention... not sure if I should enforce it.
 
 * Commas are optional to separate members, it is recommended to keep them when multiple members are declared on the same line, otherwise omit them.
-* Accessing an enum member value is done with the **::** operator.
+* Accessing an enum member value is done with the ``::`` operator.
 
 ```
 enum Planet {
