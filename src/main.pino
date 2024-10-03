@@ -28,6 +28,15 @@ var country = "China"
 var is_married = false
 val planet = Planet::EARTH
 var message = "#name lives in #country and has a budget of #budget"
+val person = Person {
+  name: name
+  budget: budget
+  children: children
+  country: country
+  is_married: is_married
+  planet: planet
+  phone: Phone { name: "Samsung Galaxy A10", brand: "Samsung", release_date: "2019" }
+}
 
 val jumpscare = fn {
   println("You have been jumpscared!")

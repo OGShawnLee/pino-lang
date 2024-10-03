@@ -1,3 +1,4 @@
+#include "Declaration.h"
 #include "Expression.h"
 #include "Common.h"
 
@@ -15,6 +16,10 @@ Expression::Expression(Kind kind, std::string value) {
   Expression();
   this->kind = kind;
   this->value = value;
+}
+
+void Expression::set_kind(Kind kind) {
+  this->kind = kind;
 }
 
 void Expression::print(const size_t &indentation) const {
@@ -102,6 +107,27 @@ void Vector::print(const size_t &indentation) const {
     println(indent + "  elements: [");
     for (const auto &child : children) {
       child->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  println(indent + "}");
+}
+
+StructInstance::StructInstance(std::string struct_name, std::vector<std::unique_ptr<Variable>> properties) {
+  set_kind(Kind::STRUCT_INSTANCE);
+  this->struct_name = struct_name;
+  this->properties = std::move(properties);
+}
+
+void StructInstance::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + "Struct Instance {");
+  println(indent + "  struct: " + struct_name);
+  if (not properties.empty()) {
+    println(indent + "  properties: [");
+    for (const auto &property : properties) {
+      property->print(indentation + 4);
     }
     println(indent + "  ]");
   }

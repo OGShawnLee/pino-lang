@@ -5,6 +5,7 @@ std::map<Variable::Kind, std::string> Variable::KIND_NAME_MAPPING = {
   {Variable::Kind::CONSTANT_DECLARATION, "Constant Declaration"},
   {Variable::Kind::VARIABLE_DECLARATION, "Variable Declaration"},
   {Variable::Kind::PARAMETER_DECLARATION, "Parameter Declaration"},
+  {Variable::Kind::PROPERTY_DECLARATION, "Property Declaration"},
 };
 
 Variable::Variable(Kind kind, std::string identifier, std::unique_ptr<Expression> value) {

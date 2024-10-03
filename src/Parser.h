@@ -7,6 +7,7 @@ class Parser {
     static bool is_expression(Lexer::Stream &collection);
     static bool is_function_call(Lexer::Stream &collection);
     static bool is_function_lambda(Lexer::Stream &collection);
+    static bool is_struct_instance(Lexer::Stream &collection);
     static bool is_vector(Lexer::Stream &collection);
 
     static std::vector<std::unique_ptr<Expression>> consume_arguments(Lexer::Stream &collection);
@@ -19,6 +20,8 @@ class Parser {
     static std::string consume_identifier(Lexer::Stream &collection);
     static std::unique_ptr<Variable> consume_parameter(Lexer::Stream &collection);
     static std::vector<std::unique_ptr<Variable>> consume_parameters(Lexer::Stream &collection);
+    static std::unique_ptr<Variable> consume_property(Lexer::Stream &collection);
+    static std::vector<std::unique_ptr<Variable>> consume_properties(Lexer::Stream &collection);
     static std::string consume_typing(Lexer::Stream &collection);
 
     static std::unique_ptr<Statement> parse_block(Lexer::Stream &collection);
@@ -31,6 +34,7 @@ class Parser {
     static std::unique_ptr<Variable> parse_variable(Lexer::Stream &collection);
     static std::unique_ptr<Vector> parse_vector(Lexer::Stream &collection);
     static std::unique_ptr<Struct> parse_struct(Lexer::Stream &collection);
+    static std::unique_ptr<StructInstance> parse_struct_instance(Lexer::Stream &collection);
     static std::unique_ptr<Return> parse_return(Lexer::Stream &collection);
     static Statement parse_file(const std::string &filename);
 };

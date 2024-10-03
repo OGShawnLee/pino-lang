@@ -9,6 +9,7 @@ class Expression : public Statement {
       IDENTIFIER,
       LITERAL,
         VECTOR,
+        STRUCT_INSTANCE,
       FUNCTION_CALL,
       FUNCTION_LAMBDA,
     };
@@ -18,6 +19,9 @@ class Expression : public Statement {
     std::string value;
 
     static std::map<Kind, std::string> KIND_NAME_MAPPING;
+
+  protected:
+    void set_kind(Kind kind);
 
   public:
     Expression();
@@ -62,6 +66,16 @@ class FunctionLambda : public Expression {
 class Vector : public Expression {
   public:
     Vector();
+
+    void print(const size_t &indentation) const override;
+};
+
+class StructInstance : public Expression {
+  std::string struct_name;
+  std::vector<std::unique_ptr<Variable>> properties;
+
+  public:
+    StructInstance(std::string struct_name, std::vector<std::unique_ptr<Variable>> properties);
 
     void print(const size_t &indentation) const override;
 };

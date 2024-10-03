@@ -14,6 +14,7 @@ class Variable : public Declaration {
       CONSTANT_DECLARATION,
       VARIABLE_DECLARATION,
       PARAMETER_DECLARATION,
+      PROPERTY_DECLARATION,
     }; 
 
   private:

@@ -23,6 +23,16 @@ bool Parser::is_function_lambda(Lexer::Stream &collection) {
   });
 }
 
+bool Parser::is_struct_instance(Lexer::Stream &collection) {
+  const Token &current = collection.current();
+  return
+    current.is_given_type(Lexer::Token::Type::IDENTIFIER) and
+    isupper(current.get_value()[0]) and
+    collection.is_next([](const Lexer::Token &token) {
+      return token.is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN);
+    });
+}
+
 bool Parser::is_vector(Lexer::Stream &collection) {
   return collection.current().is_given_marker(Lexer::Token::Marker::BRACKET_BEGIN);
 }
@@ -178,6 +188,44 @@ std::vector<std::unique_ptr<Variable>> Parser::consume_parameters(Lexer::Stream 
   }
 }
 
+std::unique_ptr<Variable> Parser::consume_property(Lexer::Stream &collection) {
+  std::string identifier = consume_identifier(collection);
+
+  if (not collection.consume().is_given_operator(Token::Operator::MEMBER_ACCESS)) {
+    throw std::runtime_error("PARSER: Expected Colon");
+  }
+
+  return std::make_unique<Variable>(Variable::Kind::PROPERTY_DECLARATION, identifier, parse_expression(collection));
+}
+
+std::vector<std::unique_ptr<Variable>> Parser::consume_properties(Lexer::Stream &collection) {
+  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Open Brace");
+  }
+
+  std::vector<std::unique_ptr<Variable>> properties;
+
+  while (collection.has_next()) {
+    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+      collection.next();
+
+      if (properties.empty()) {
+        println("WARNING: Empty Struct Literal");
+      }
+
+      return properties;
+    }
+
+    properties.push_back(consume_property(collection));
+
+    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+      collection.next();
+    }
+  }
+
+  throw std::runtime_error("PARSER: Expected Close Brace");
+}
+
 std::string Parser::consume_typing(Lexer::Stream &collection) {
   const Token &current = collection.consume();
 
@@ -210,6 +258,8 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
     expression = parse_function_lambda(collection);
   } else if (is_vector(collection)) {
     expression = parse_vector(collection);
+  } else if (is_struct_instance(collection)) {
+    expression = parse_struct_instance(collection);
   } else {
     expression = std::make_unique<Expression>(
       collection.current().is_given_type(Token::Type::IDENTIFIER) ? Expression::Kind::IDENTIFIER : Expression::Kind::LITERAL,
@@ -218,6 +268,7 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
   }
 
   if (collection.current().is_given_type(Token::Type::OPERATOR)) {
+    collection.current().print();
     std::string operation = collection.consume().get_value();
     std::unique_ptr<Expression> right = parse_expression(collection);
     expression = std::make_unique<BinaryExpression>(std::move(expression), operation, std::move(right));
@@ -322,6 +373,11 @@ std::unique_ptr<Struct> Parser::parse_struct(Lexer::Stream &collection) {
 
   std::string identifier = consume_identifier(collection);
   return std::make_unique<Struct>(identifier, consume_attributes(collection));
+}
+
+std::unique_ptr<StructInstance> Parser::parse_struct_instance(Lexer::Stream &collection) {
+  std::string struct_name = consume_identifier(collection);
+  return std::make_unique<StructInstance>(struct_name, consume_properties(collection));
 }
 
 std::unique_ptr<Return> Parser::parse_return(Lexer::Stream &collection) {
