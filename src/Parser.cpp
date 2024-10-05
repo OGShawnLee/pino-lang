@@ -236,6 +236,20 @@ std::string Parser::consume_typing(Lexer::Stream &collection) {
   return current.get_value();
 }
 
+std::unique_ptr<Variable> Parser::extract_property(std::vector<std::unique_ptr<Variable>> &properties, const std::string &identifier) {
+  auto it = std::find_if(properties.begin(), properties.end(), [&identifier](const std::unique_ptr<Variable> &property) {
+    return property->get_identifier() == identifier;
+  });
+
+  if (it != properties.end()) {
+    std::unique_ptr<Variable> property = std::move(*it);
+    properties.erase(it);
+    return property;
+  }
+
+  return nullptr;
+}
+
 std::unique_ptr<Enum> Parser::parse_enum(Lexer::Stream &collection) {
   if (consume_keyword(collection) != Lexer::Token::Keyword::ENUM) {
     throw std::runtime_error("PARSER: Invalid Enum Declaration");
@@ -347,8 +361,28 @@ std::unique_ptr<Vector> Parser::parse_vector(Lexer::Stream &collection) {
     throw std::runtime_error("PARSER: Invalid Vector Declaration");
   }
 
-  std::unique_ptr<Vector> list = std::make_unique<Vector>();
+  if (collection.current().is_given_marker(Lexer::Token::Marker::BRACKET_END)) {
+    collection.next();
 
+    std::string typing = consume_typing(collection);
+
+    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+      std::vector<std::unique_ptr<Variable>> properties = consume_properties(collection);
+      std::unique_ptr<Variable> len = extract_property(properties, "len");
+      std::unique_ptr<Variable> init = extract_property(properties, "init");
+
+      if (not len and not init) {
+        throw std::runtime_error("PARSER: Empty Vector Init Block");
+      }
+
+      return std::make_unique<Vector>(len->extract_value(), init->extract_value(), typing);
+    }
+
+    return std::make_unique<Vector>(nullptr, nullptr, typing);
+  }
+
+  std::unique_ptr<Vector> list = std::make_unique<Vector>();
+  
   while (collection.has_next()) {
     if (collection.current().is_given_marker(Lexer::Token::Marker::BRACKET_END)) {
       collection.next();

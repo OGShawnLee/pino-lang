@@ -113,7 +113,12 @@ println([1.234, 2.345, 3.456])
 println(90 + 12 * 12)
 println(name:uppercase(), Planet::JUPITER)
 
-val numbers = []
+val numbers = []int
 for number in 30 {
   numbers:push(number)
 }
+
+println([]int {
+  len: 10
+  init: it + 1
+})

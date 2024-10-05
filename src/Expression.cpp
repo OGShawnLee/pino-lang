@@ -99,10 +99,35 @@ Vector::Vector() {
   Expression(Kind::VECTOR, "");
 }
 
+Vector::Vector(std::unique_ptr<Expression> len, std::unique_ptr<Expression> init, std::string typing) {
+  this->set_type(Type::EXPRESSION);
+  this->set_kind(Kind::VECTOR);
+  this->len = std::move(len);
+  this->init = std::move(init);
+  this->typing = typing;
+}
+
 void Vector::print(const size_t &indentation) const {
   std::string indent(indentation, ' ');
 
   println(indent + "Vector {");
+  
+  if (not typing.empty()) {
+    println(indent + "  typing: " + typing);
+  }
+  
+  if (len) {
+    println(indent + "  length: {");
+    len->print(indentation + 4);
+    println(indent + "  }");
+  }
+
+  if (init) {
+    println(indent + "  init: {");
+    init->print(indentation + 4);
+    println(indent + "  }");
+  }
+
   if (not children.empty()) {
     println(indent + "  elements: [");
     for (const auto &child : children) {
@@ -110,6 +135,7 @@ void Vector::print(const size_t &indentation) const {
     }
     println(indent + "  ]");
   }
+
   println(indent + "}");
 }
 

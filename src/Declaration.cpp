@@ -8,6 +8,10 @@ std::map<Variable::Kind, std::string> Variable::KIND_NAME_MAPPING = {
   {Variable::Kind::PROPERTY_DECLARATION, "Property Declaration"},
 };
 
+std::string Declaration::get_identifier() const {
+  return identifier;
+}
+
 Variable::Variable(Kind kind, std::string identifier, std::unique_ptr<Expression> value) {
   set_type(
     kind == Kind::PARAMETER_DECLARATION or kind == Kind::CONSTANT_DECLARATION
@@ -51,6 +55,10 @@ Enum::Enum(std::string identifier, std::vector<std::string> fields) {
   set_type(Type::ENUM_DECLARATION);
   this->identifier = identifier;
   this->fields = std::move(fields);
+}
+
+std::unique_ptr<Expression> Variable::extract_value() {
+  return std::move(this->value);
 }
 
 void Variable::print(const size_t &indentation = 0) const {

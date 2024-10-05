@@ -24,6 +24,8 @@ class Parser {
     static std::vector<std::unique_ptr<Variable>> consume_properties(Lexer::Stream &collection);
     static std::string consume_typing(Lexer::Stream &collection);
 
+    static std::unique_ptr<Variable> extract_property(std::vector<std::unique_ptr<Variable>> &properties, const std::string &identifier);
+
     static std::unique_ptr<Statement> parse_block(Lexer::Stream &collection);
     static std::unique_ptr<Enum> parse_enum(Lexer::Stream &collection);
     static std::unique_ptr<Expression> parse_expression(Lexer::Stream &collection);

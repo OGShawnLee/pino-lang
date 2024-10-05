@@ -6,6 +6,9 @@
 class Declaration : public Statement {
   protected:
     std::string identifier;
+
+  public:
+    std::string get_identifier() const;
 };
 
 class Variable : public Declaration {
@@ -27,6 +30,8 @@ class Variable : public Declaration {
   public:
     Variable(Kind kind, std::string identifier, std::unique_ptr<Expression> value);
     Variable(Kind kind, std::string identifier, std::string typing);
+
+    std::unique_ptr<Expression> extract_value();
 
     void print(const size_t &indentation) const override;
 };

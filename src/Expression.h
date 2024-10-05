@@ -64,8 +64,13 @@ class FunctionLambda : public Expression {
 };
 
 class Vector : public Expression {
+  std::unique_ptr<Expression> len;
+  std::unique_ptr<Expression> init;
+  std::string typing;
+
   public:
     Vector();
+    Vector(std::unique_ptr<Expression> len, std::unique_ptr<Expression> init, std::string typing);
 
     void print(const size_t &indentation) const override;
 };
