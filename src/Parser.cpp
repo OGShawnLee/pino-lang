@@ -261,8 +261,9 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
   } else if (is_struct_instance(collection)) {
     expression = parse_struct_instance(collection);
   } else {
+    bool is_identifier = collection.current().is_given_type(Token::Type::IDENTIFIER);
     expression = std::make_unique<Expression>(
-      collection.current().is_given_type(Token::Type::IDENTIFIER) ? Expression::Kind::IDENTIFIER : Expression::Kind::LITERAL,
+      is_identifier ? Expression::Kind::IDENTIFIER : Expression::Kind::LITERAL,
       collection.consume().get_value()
     );
   }
