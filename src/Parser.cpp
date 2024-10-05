@@ -269,7 +269,6 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
   }
 
   if (collection.current().is_given_type(Token::Type::OPERATOR)) {
-    collection.current().print();
     std::string operation = collection.consume().get_value();
     std::unique_ptr<Expression> right = parse_expression(collection);
     expression = std::make_unique<BinaryExpression>(std::move(expression), operation, std::move(right));
