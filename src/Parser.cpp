@@ -380,6 +380,37 @@ std::unique_ptr<Loop> Parser::parse_loop(Lexer::Stream &collection) {
   return std::make_unique<Loop>(Loop::Kind::FOR_IN_LOOP, std::move(begin), std::move(end), std::move(children));
 }
 
+std::unique_ptr<MatchStatement> Parser::parse_match_statement(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Lexer::Token::Keyword::MATCH) {
+    throw std::runtime_error("PARSER: Invalid Match Statement");
+  }
+
+  std::unique_ptr<Expression> value = parse_expression(collection);
+  std::vector<std::unique_ptr<WhenStatement>> branches;
+  std::unique_ptr<ElseStatement> alternate;
+
+  while (collection.has_next()) {
+    if (collection.current().is_given_keyword(Lexer::Token::Keyword::ELSE)) {
+      alternate = parse_else_statement(collection);
+      break;
+    } 
+
+    if (collection.current().is_given_keyword(Lexer::Token::Keyword::WHEN)) {
+      branches.push_back(parse_when_statement(collection));
+      
+      continue;
+    }
+
+    break;
+  }
+
+  if (branches.empty() and not alternate) {
+    throw std::runtime_error("PARSER: Empty Match Statement");
+  }
+
+  return std::make_unique<MatchStatement>(std::move(value), std::move(branches), std::move(alternate));
+}
+
 std::unique_ptr<Variable> Parser::parse_variable(Lexer::Stream &collection) {
   Token::Keyword keyword = consume_keyword(collection);
 
@@ -468,6 +499,34 @@ std::unique_ptr<Return> Parser::parse_return(Lexer::Stream &collection) {
   return std::make_unique<Return>(is_expression(collection) ? parse_expression(collection) : nullptr);
 }
 
+std::unique_ptr<WhenStatement> Parser::parse_when_statement(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Lexer::Token::Keyword::WHEN) {
+    throw std::runtime_error("PARSER: Invalid When Statement");
+  }
+
+  std::vector<std::unique_ptr<Expression>> conditions;
+
+  if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+    throw std::runtime_error("PARSER: When Statement Without Conditions");
+  }
+
+  while (collection.has_next()) {
+    conditions.push_back(parse_expression(collection));
+  
+    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+      collection.next();
+      continue;
+    }
+
+    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+      break;
+    }
+  }
+
+  std::unique_ptr<Statement> body = parse_block(collection);
+  return std::make_unique<WhenStatement>(std::move(conditions), std::move(body));
+}
+
 std::unique_ptr<Statement> Parser::parse_block(Lexer::Stream &collection) {
   if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Brace");
@@ -510,6 +569,11 @@ std::unique_ptr<Statement> Parser::parse_block(Lexer::Stream &collection) {
             continue;
           case Lexer::Token::Keyword::ELSE:
             throw std::runtime_error("PARSER: Else Statement Without If Statement");
+          case Lexer::Token::Keyword::MATCH:
+            block->push(std::move(parse_match_statement(collection)));
+            continue;
+          case Lexer::Token::Keyword::WHEN:
+            throw std::runtime_error("PARSER: When Statement Outside Match Statement");
         }
         break;
       case Lexer::Token::Type::IDENTIFIER:
@@ -561,6 +625,11 @@ Statement Parser::parse_file(const std::string &filename) {
             continue;
           case Lexer::Token::Keyword::ELSE:
             throw std::runtime_error("PARSER: Else Statement Without If Statement");
+          case Lexer::Token::Keyword::MATCH:
+            program.push(std::move(parse_match_statement(collection)));
+            continue;
+          case Lexer::Token::Keyword::WHEN:
+            throw std::runtime_error("PARSER: When Statement Outside Match Statement");
         }
         break; 
       case Token::Type::IDENTIFIER:

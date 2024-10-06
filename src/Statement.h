@@ -22,6 +22,8 @@ class Statement {
       LOOP_STATEMENT,
       IF_STATEMENT,
       ELSE_STATEMENT,
+      WHEN_STATEMENT,
+      MATCH_STATEMENT,
     };
 
     Statement();
@@ -103,4 +105,31 @@ class IfStatement : public Statement {
     );
 
   void print(const size_t &indentation) const;
+};
+
+class WhenStatement : public Statement {
+  private:
+    std::vector<std::unique_ptr<Expression>> conditions;
+    std::unique_ptr<Statement> children;
+
+  public:
+    WhenStatement(std::vector<std::unique_ptr<Expression>> conditions, std::unique_ptr<Statement> children);
+
+    void print(const size_t &indentation) const;
+};
+
+class MatchStatement : public Statement {
+  private:
+    std::unique_ptr<Expression> condition;
+    std::vector<std::unique_ptr<WhenStatement>> children;
+    std::unique_ptr<ElseStatement> alternate;
+
+  public:
+    MatchStatement(
+      std::unique_ptr<Expression> condition,
+      std::vector<std::unique_ptr<WhenStatement>> branches,
+      std::unique_ptr<ElseStatement> alternate
+    );
+
+    void print(const size_t &indentation) const;
 };

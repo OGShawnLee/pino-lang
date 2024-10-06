@@ -14,6 +14,8 @@ std::map<Statement::Type, std::string> Statement::TYPE_NAME_MAPPING = {
   {Type::LOOP_STATEMENT, "Loop Statement"},
   {Type::IF_STATEMENT, "If Statement"},
   {Type::ELSE_STATEMENT, "Else Statement"},
+  {Type::WHEN_STATEMENT, "When Statement"},
+  {Type::MATCH_STATEMENT, "Match Statement"},
 };
 
 Statement::Statement() {
@@ -139,5 +141,57 @@ void ElseStatement::print(const size_t &indentation) const {
   println(indent + "  children: {");
   this->children->print(indentation + 4);
   println(indent + "  }");
+  println(indent + "}");
+}
+
+WhenStatement::WhenStatement(std::vector<std::unique_ptr<Expression>> conditions, std::unique_ptr<Statement> children) {
+  set_type(Type::WHEN_STATEMENT);
+  this->conditions = std::move(conditions);
+  this->children = std::move(children);
+}
+
+void WhenStatement::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + TYPE_NAME_MAPPING.at(get_type()) + " {");
+  println(indent + "  conditions: [");
+  for (const std::unique_ptr<Expression> &condition : this->conditions) {
+    condition->print(indentation + 4);
+  }
+  println(indent + "  ]");
+  println(indent + "  children: {");
+  this->children->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "}");
+}
+
+MatchStatement::MatchStatement(
+  std::unique_ptr<Expression> condition, 
+  std::vector<std::unique_ptr<WhenStatement>> branches,
+  std::unique_ptr<ElseStatement> alternate
+) {
+  set_type(Type::MATCH_STATEMENT);
+  this->condition = std::move(condition);
+  this->children = std::move(branches);
+  this->alternate = std::move(alternate);
+}
+
+void MatchStatement::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + TYPE_NAME_MAPPING.at(get_type()) + " {");
+  println(indent + "  condition: {");
+  this->condition->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "  branches: [");
+  for (const std::unique_ptr<WhenStatement> &child : this->children) {
+    child->print(indentation + 4);
+  }
+  println(indent + "  ]");
+  if (this->alternate != nullptr) {
+    println(indent + "  alternate: {");
+    this->alternate->print(indentation + 4);
+    println(indent + "  }");
+  }
   println(indent + "}");
 }
