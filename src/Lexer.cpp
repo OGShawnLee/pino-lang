@@ -319,7 +319,7 @@ Lexer::Token::Marker Lexer::get_marker(const char &character) {
   return MARKER_MAPPING.at(character);
 }
 
-std::vector<Lexer::Token> Lexer::lex(const std::string &line) {
+std::vector<Lexer::Token> Lexer::lex_line(const std::string &line) {
   std::vector<Token> collection;
   std::string final_line = line + " ";
   std::string buffer = "";
@@ -375,7 +375,7 @@ Lexer::Stream Lexer::lex_file(const std::string &filename) {
   std::vector<Token> collection;
 
   each_line(filename, [&collection](const std::string &line) {
-    std::vector<Token> tokens = lex(line);
+    std::vector<Token> tokens = lex_line(line);
     collection.insert(collection.end(), tokens.begin(), tokens.end());
   });
 

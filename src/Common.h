@@ -14,6 +14,13 @@ inline void each_line(const std::string &filename, const std::function<void(cons
   }
 }
 
+inline std::string get_string(const std::string &prompt) {
+	std::string input;
+	std::cout << prompt;
+	std::getline(std::cin, input);
+	return input;
+}
+
 inline bool is_whitespace(const char &character) {
   return character == ' ' or character == '\t' or character == '\n';
 }

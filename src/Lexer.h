@@ -141,6 +141,6 @@ class Lexer {
 	static Token::Marker get_marker(const char &character);
 
 	public:
-		static std::vector<Token> lex(const std::string &line);
+		static std::vector<Token> lex_line(const std::string &line);
 		static Stream lex_file(const std::string &filename);
 };
