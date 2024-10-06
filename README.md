@@ -248,7 +248,7 @@ val matrix = [][]int {
     return []int {
       len: 3
       init: fn (col int) {
-        for true {
+        for {
           val integer = int(readline("Enter a cero or positive integer for position (#row, #col): "))
           # Conditional Statements are not supported yet
           if integer < 0 { 
@@ -285,6 +285,7 @@ Loops can only be declared with the **for** keyword, there is no while nor do ke
 * Use ``for <index> in <integer> {}`` for executing a set of instructions a certain number of times while keeping a reference to the current iteration index.
 * Use ``for <integer> {}`` for executing a set of instructions a certain number of times.
 * Use ``for <condition> {}`` for executing a "while" kind of loop. Break out of the loop with keywords (**break, continue, return**).
+* Use ``for {}`` for executing infinite loop, Break out of the loop with keywords.
  
 ```
 val characters = [
@@ -306,7 +307,15 @@ for 100 {
   println("This will run a hundred times")
 }
 
-for true {
+var is_sleeping = true
+for is_sleeping {
+  println("Pablo is sleeping...")
+  is_sleeping = false
+}
+
+println("Pablo is no longer sleeping!")
+
+for {
   println("This will run forever!")
   break # not really
 }
