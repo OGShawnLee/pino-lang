@@ -59,6 +59,7 @@ class Loop : public Statement {
     enum class Kind {
       FOR_IN_LOOP,
       FOR_TIMES_LOOP,
+      INFINITE_LOOP,
     };
 
   private:
@@ -66,6 +67,9 @@ class Loop : public Statement {
     std::unique_ptr<Expression> begin;
     std::unique_ptr<Expression> end;
     std::unique_ptr<Statement> children;
+
+  protected:
+    static std::map<Kind, std::string> KIND_NAME_MAPPING;
 
   public:
     Loop(Kind kind, std::unique_ptr<Expression> begin, std::unique_ptr<Expression> end, std::unique_ptr<Statement> children);

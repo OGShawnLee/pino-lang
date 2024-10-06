@@ -73,11 +73,17 @@ Loop::Loop(Kind kind, std::unique_ptr<Expression> begin, std::unique_ptr<Express
   this->children = std::move(children);
 }
 
+std::map<Loop::Kind, std::string> Loop::KIND_NAME_MAPPING = {
+  {Kind::FOR_IN_LOOP, "For In Loop"},
+  {Kind::FOR_TIMES_LOOP, "For Times Loop"},
+  {Kind::INFINITE_LOOP, "Infinite Loop"},
+};
+
 void Loop::print(const size_t &indentation) const {
   std::string indent(indentation, ' ');
 
   println(indent + TYPE_NAME_MAPPING.at(get_type()) + " {");
-  println(indent + "  kind: " + (this->kind == Kind::FOR_IN_LOOP ? "For In Loop" : "For Times Loop"));
+  println(indent + "  kind: " + KIND_NAME_MAPPING.at(kind));
   if (this->begin != nullptr) {
     println(indent + "  begin: {");
     this->begin->print(indentation + 4);

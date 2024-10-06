@@ -118,6 +118,10 @@ for 12 {
   println("This will run 12 times")
 }
 
+for {
+  println("This is an infinite loop!")
+}
+
 val matrix = [
   [1, 2, 3]
   [4, 5, 6]

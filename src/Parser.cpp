@@ -330,6 +330,10 @@ std::unique_ptr<Loop> Parser::parse_loop(Lexer::Stream &collection) {
     throw std::runtime_error("PARSER: Invalid Loop Declaration");
   }
 
+  if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
+    return std::make_unique<Loop>(Loop::Kind::INFINITE_LOOP, nullptr, nullptr, parse_block(collection));
+  }
+
   std::unique_ptr<Expression> begin = parse_expression(collection);
 
   if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
