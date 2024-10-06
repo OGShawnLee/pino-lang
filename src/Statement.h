@@ -20,6 +20,8 @@ class Statement {
       ENUM_DECLARATION,
       RETURN,
       LOOP_STATEMENT,
+      IF_STATEMENT,
+      ELSE_STATEMENT,
     };
 
     Statement();
@@ -75,4 +77,30 @@ class Loop : public Statement {
     Loop(Kind kind, std::unique_ptr<Expression> begin, std::unique_ptr<Expression> end, std::unique_ptr<Statement> children);
 
     void print(const size_t &indentation) const;
+};
+
+class ElseStatement : public Statement {
+  private:
+    std::unique_ptr<Statement> children;
+
+  public:
+    ElseStatement(std::unique_ptr<Statement> children);
+
+    void print(const size_t &indentation) const;
+};
+
+class IfStatement : public Statement {
+  private:
+    std::unique_ptr<Expression> condition;
+    std::unique_ptr<ElseStatement> consequent;
+    std::unique_ptr<Statement> children;
+
+  public:
+    IfStatement(
+      std::unique_ptr<Expression> condition, 
+      std::unique_ptr<Statement> children, 
+      std::unique_ptr<ElseStatement> consequent
+    );
+
+  void print(const size_t &indentation) const;
 };

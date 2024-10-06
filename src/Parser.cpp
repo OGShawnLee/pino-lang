@@ -297,6 +297,14 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
   return expression;
 }
 
+std::unique_ptr<ElseStatement> Parser::parse_else_statement(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Lexer::Token::Keyword::ELSE) {
+    throw std::runtime_error("PARSER: Invalid Else Statement");
+  }
+
+  return std::make_unique<ElseStatement>(parse_block(collection));
+}
+
 std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
   if (consume_keyword(collection) != Lexer::Token::Keyword::FUNCTION) {
     throw std::runtime_error("PARSER: Invalid Function Declaration");
@@ -323,6 +331,22 @@ std::unique_ptr<FunctionLambda> Parser::parse_function_lambda(Lexer::Stream &col
   std::unique_ptr<Statement> body = parse_block(collection);
 
   return std::make_unique<FunctionLambda>(std::move(parameters), std::move(body));
+}
+
+std::unique_ptr<IfStatement> Parser::parse_if_statement(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Token::Keyword::IF) {
+    throw std::runtime_error("PARSER: Invalid If Statement");
+  }
+
+  std::unique_ptr<Expression> condition = parse_expression(collection);
+  std::unique_ptr<Statement> body = parse_block(collection);
+  std::unique_ptr<ElseStatement> consequent;
+
+  if (collection.current().is_given_keyword(Token::Keyword::ELSE)) {
+    consequent = parse_else_statement(collection);
+  }
+
+  return std::make_unique<IfStatement>(std::move(condition), std::move(body), std::move(consequent));
 }
 
 std::unique_ptr<Loop> Parser::parse_loop(Lexer::Stream &collection) {
@@ -474,6 +498,11 @@ std::unique_ptr<Statement> Parser::parse_block(Lexer::Stream &collection) {
           case Lexer::Token::Keyword::LOOP:
             block->push(std::move(parse_loop(collection)));
             continue;
+          case Lexer::Token::Keyword::IF:
+            block->push(std::move(parse_if_statement(collection)));
+            continue;
+          case Lexer::Token::Keyword::ELSE:
+            throw std::runtime_error("PARSER: Else Statement Without If Statement");
         }
         break;
       case Lexer::Token::Type::IDENTIFIER:
@@ -520,6 +549,11 @@ Statement Parser::parse_file(const std::string &filename) {
           case Lexer::Token::Keyword::LOOP:
             program.push(std::move(parse_loop(collection)));
             continue;
+          case Lexer::Token::Keyword::IF:
+            program.push(std::move(parse_if_statement(collection)));
+            continue;
+          case Lexer::Token::Keyword::ELSE:
+            throw std::runtime_error("PARSER: Else Statement Without If Statement");
         }
         break; 
       case Token::Type::IDENTIFIER:

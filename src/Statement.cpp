@@ -12,6 +12,8 @@ std::map<Statement::Type, std::string> Statement::TYPE_NAME_MAPPING = {
   {Type::ENUM_DECLARATION, "Enum Declaration"},
   {Type::RETURN, "Return Statement"},
   {Type::LOOP_STATEMENT, "Loop Statement"},
+  {Type::IF_STATEMENT, "If Statement"},
+  {Type::ELSE_STATEMENT, "Else Statement"},
 };
 
 Statement::Statement() {
@@ -94,6 +96,46 @@ void Loop::print(const size_t &indentation) const {
     this->end->print(indentation + 4);
     println(indent + "  }");
   }
+  println(indent + "  children: {");
+  this->children->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "}");
+}
+
+IfStatement::IfStatement(std::unique_ptr<Expression> condition, std::unique_ptr<Statement> children, std::unique_ptr<ElseStatement> consequent) {
+  set_type(Type::IF_STATEMENT);
+  this->condition = std::move(condition);
+  this->consequent = std::move(consequent);
+  this->children = std::move(children);
+}
+
+void IfStatement::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + TYPE_NAME_MAPPING.at(get_type()) + " {");
+  println(indent + "  condition: {");
+  this->condition->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "  children: {");
+  this->children->print(indentation + 4);
+  println(indent + "  }");
+  if (this->consequent != nullptr) {
+    println(indent + "  consequent: {");
+    this->consequent->print(indentation + 4);
+    println(indent + "  }");
+  } 
+  println(indent + "}");
+}
+
+ElseStatement::ElseStatement(std::unique_ptr<Statement> children) {
+  set_type(Type::ELSE_STATEMENT);
+  this->children = std::move(children);
+}
+
+void ElseStatement::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + TYPE_NAME_MAPPING.at(get_type()) + " {");
   println(indent + "  children: {");
   this->children->print(indentation + 4);
   println(indent + "  }");
