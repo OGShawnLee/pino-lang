@@ -21,7 +21,11 @@ struct Person {
   phone Phone
 
   fn get_message {
-    return "#name lives in #country and a budget of #budget dollars"
+    if is_married {
+      return "#name lives in #country and a budget of #budget dollars and is married!"
+    } else {
+      return "#name lives in #country and a budget of #budget dollars and is not married"
+    }
   }
 
   fn greet {
@@ -49,6 +53,16 @@ val person = Person {
   is_married: is_married
   planet: planet
   phone: Phone { name: "Samsung Galaxy A10", brand: "Samsung", release_date: "2019" }
+}
+
+if person:budget > 10000 {
+  println("Damn, you a G!")
+} else if person:budget > 5000 {
+  println("Ight, not bad!")
+} else if person:budget > 3000 {
+  println("Almost decent, common get you shit together!")
+} else {
+  println("Damn, you a brokie!")
 }
 
 person:marry("Lenore")

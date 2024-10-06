@@ -49,6 +49,10 @@ All the programming languages I've used have something I like and dislike, so I 
   - [X] Vector
     - [X] Initial Elements
     - [X] Init Block
+- [X] Conditional
+  - [X] If Statement
+    - [X] Else If Statement
+  - [X] Else Statement
 
 ## Syntax
 
@@ -318,6 +322,38 @@ println("Pablo is no longer sleeping!")
 for {
   println("This will run forever!")
   break # not really
+}
+```
+
+### Conditional Statements
+
+Conditional statements are straightforward and there is not much to say about them, the condition for all of them doesn't require parenthesis.
+
+* `if`: an if statement is declared with the `if` keyword followed by a condition and its block body.
+* `else if`: an else if statement is declared with the keywords `else if` followed by a condition and its block body.
+* `else`: an else statement is declared with the keyword `else` followed by its block body.
+
+```
+if true {
+  println("This if statement will always run")
+}
+
+if false {
+  println("This if statement will never run")
+} else {
+  println("This else statement will always run")
+}
+
+val budget = 12.5
+
+if budget > 10000 {
+  println("Damn, you a G!")
+} else if budget > 5000 {
+  println("Ight, not bad!")
+} else if budget > 3000 {
+  println("Almost decent, common get you shit together!")
+} else {
+  println("Damn, you a brokie!")
 }
 ```
 
