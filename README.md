@@ -46,6 +46,9 @@ All the programming languages I've used have something I like and dislike, so I 
   - [X] Struct Instance
     - [X] Property Accessing
     - [ ] Shorthand Syntax 
+  - [X] Vector
+    - [X] Initial Elements
+    - [X] Init Block
 
 ## Syntax
 
@@ -204,6 +207,58 @@ val person = Person {
 }
 
 println(person:name + "lives in " + country:name) # Accesing a Property
+```
+
+### Vectors
+
+A vector is a dynamic array of elements of the same type.
+
+* Use ``[<element-1>, <element-2>, <element-n>]`` for initialising a vector with literal elements, its type will be infered from the first element.
+  * Commas are optional to separate members, it is recommended to keep them when multiple elements are declared on the same line, otherwise omit them.
+* Use ``[]<type>`` for initialising an empty vector that will be filled with elements of the given type.
+* Use ``[]<type> { len: <integer>, init: <expression> }`` for quickly declaring an array with a given length and filling each index with the result of an expression. Both ``len`` and ``init`` must be declared.
+  * ``len``: is the length of the vector and the number of times the init expression will be evaluated.
+  * ``init``: is an expression that will be called at each index of the vector and its value will be assigned at that position. This expression has access to a context variable called ``it`` that represents the current index. A lambda can be used if multiple stataments are needed for computing a value, or for renaming ``it``.
+
+```
+val countries = [
+  "Portugal"
+  "Spain"
+  "France"
+  "Italy"
+  "England"
+  "Scotland"
+  "Ireland"
+]
+
+for country in countries {
+  println("#country is in Europe.")
+}
+
+val scores = []float
+val integers = []int {
+  len: 30
+  init: it * 1
+}
+
+# '[]int' as a type is not supported yet
+val matrix = [][]int {
+  len: 3
+  init: fn (row int) {
+    return []int {
+      len: 3
+      init: fn (col int) {
+        for true {
+          val integer = int(readline("Enter a cero or positive integer for position (#row, #col): "))
+          # Conditional Statements are not supported yet
+          if integer < 0 { 
+            println("Negative numbers are not allowed, please enter a number number")
+          }
+          return integer
+        }
+    }
+  }
+}
 ```
 
 ### Enums
