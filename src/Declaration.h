@@ -54,9 +54,10 @@ class Function : public Declaration {
 class Struct : public Declaration {
   private:
     std::vector<std::unique_ptr<Variable>> fields;
+    std::vector<std::unique_ptr<Function>> methods;
 
   public:
-    Struct(std::string name, std::vector<std::unique_ptr<Variable>> fields);
+    Struct(std::string name, std::vector<std::unique_ptr<Variable>> fields, std::vector<std::unique_ptr<Function>> methods);
 
     void print(const size_t &indentation) const override;
 };

@@ -63,12 +63,14 @@ std::unique_ptr<Variable> Parser::consume_attribute(Lexer::Stream &collection) {
   return std::make_unique<Variable>(Variable::Kind::VARIABLE_DECLARATION, identifier, consume_typing(collection));
 }
 
-std::vector<std::unique_ptr<Variable>> Parser::consume_attributes(Lexer::Stream &collection) {
+void Parser::consume_attributes_and_methods(
+  Lexer::Stream &collection,
+  std::vector<std::unique_ptr<Variable>> &attributes,
+  std::vector<std::unique_ptr<Function>> &methods
+) {
   if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Brace");
   }
-
-  std::vector<std::unique_ptr<Variable>> attributes;
 
   while (true) {
     if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
@@ -78,10 +80,14 @@ std::vector<std::unique_ptr<Variable>> Parser::consume_attributes(Lexer::Stream 
         println("WARNING: Empty Struct Declaration");
       }
 
-      return attributes;
+      break;
     }
 
-    attributes.push_back(consume_attribute(collection));
+    if (collection.current().is_given_keyword(Lexer::Token::Keyword::FUNCTION)) {
+      methods.push_back(parse_function(collection));
+    } else {
+      attributes.push_back(consume_attribute(collection));
+    }
 
     if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
       collection.next();
@@ -406,7 +412,12 @@ std::unique_ptr<Struct> Parser::parse_struct(Lexer::Stream &collection) {
   }
 
   std::string identifier = consume_identifier(collection);
-  return std::make_unique<Struct>(identifier, consume_attributes(collection));
+  std::vector<std::unique_ptr<Variable>> fields;
+  std::vector<std::unique_ptr<Function>> methods;
+  
+  consume_attributes_and_methods(collection, fields, methods);
+
+  return std::make_unique<Struct>(identifier, std::move(fields), std::move(methods));
 }
 
 std::unique_ptr<StructInstance> Parser::parse_struct_instance(Lexer::Stream &collection) {

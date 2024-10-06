@@ -19,6 +19,19 @@ struct Person {
   is_married bool
   planet Planet
   phone Phone
+
+  fn get_message {
+    return "#name lives in #country and a budget of #budget dollars"
+  }
+
+  fn greet {
+    println("Hello, #name")
+  }
+
+  fn marry(spouse str) {
+    is_married = true
+    println("#name is now married to #spouse!")
+  }
 }
 
 var name = "Shawn Lee" 
@@ -37,6 +50,8 @@ val person = Person {
   planet: planet
   phone: Phone { name: "Samsung Galaxy A10", brand: "Samsung", release_date: "2019" }
 }
+
+person:marry("Lenore")
 
 val jumpscare = fn {
   println("You have been jumpscared!")

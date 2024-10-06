@@ -45,10 +45,11 @@ Function::Function(
   this->children = std::move(children);
 }
 
-Struct::Struct(std::string identifier, std::vector<std::unique_ptr<Variable>> fields) {
+Struct::Struct(std::string identifier, std::vector<std::unique_ptr<Variable>> fields, std::vector<std::unique_ptr<Function>> methods) {
   set_type(Type::STRUCT_DECLARATION);
   this->identifier = identifier;
   this->fields = std::move(fields);
+  this->methods = std::move(methods);
 }
 
 Enum::Enum(std::string identifier, std::vector<std::string> fields) {
@@ -104,6 +105,13 @@ void Struct::print(const size_t &indentation = 0) const {
     println(indent + "  fields: [");
     for (const auto &field : fields) {
       field->print(indentation + 4);
+    }
+    println(indent + "  ]");
+  }
+  if (not methods.empty()) {
+    println(indent + "  methods: [");
+    for (const auto &method : methods) {
+      method->print(indentation + 4);
     }
     println(indent + "  ]");
   }

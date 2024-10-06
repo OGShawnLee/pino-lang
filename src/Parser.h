@@ -12,7 +12,11 @@ class Parser {
 
     static std::vector<std::unique_ptr<Expression>> consume_arguments(Lexer::Stream &collection);
     static std::unique_ptr<Variable> consume_attribute(Lexer::Stream &collection);
-    static std::vector<std::unique_ptr<Variable>> consume_attributes(Lexer::Stream &collection);
+    static void consume_attributes_and_methods(
+      Lexer::Stream &collection, 
+      std::vector<std::unique_ptr<Variable>> &attributes,
+      std::vector<std::unique_ptr<Function>> &methods
+    );
     static std::unique_ptr<Expression> consume_assignment(Lexer::Stream &collection);
     static std::string consume_enum_member(Lexer::Stream &collection);
     static std::vector<std::string> consume_enum_members(Lexer::Stream &collection);
