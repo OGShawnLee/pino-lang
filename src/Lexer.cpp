@@ -26,7 +26,7 @@ std::map<std::string, Lexer::Token::Keyword> Lexer::KEYWORD_MAPPING = {
   {"else", Token::Keyword::ELSE},
   {"in", Token::Keyword::IN},
   {"match", Token::Keyword::MATCH},
-  {"case", Token::Keyword::CASE},
+  {"when", Token::Keyword::WHEN},
   {"for", Token::Keyword::LOOP},
   {"continue", Token::Keyword::CONTINUE},
   {"break", Token::Keyword::BREAK},
