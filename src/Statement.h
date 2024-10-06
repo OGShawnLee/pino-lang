@@ -92,14 +92,14 @@ class ElseStatement : public Statement {
 class IfStatement : public Statement {
   private:
     std::unique_ptr<Expression> condition;
-    std::unique_ptr<ElseStatement> consequent;
+    std::unique_ptr<Statement> alternate;
     std::unique_ptr<Statement> children;
 
   public:
     IfStatement(
       std::unique_ptr<Expression> condition, 
       std::unique_ptr<Statement> children, 
-      std::unique_ptr<ElseStatement> consequent
+      std::unique_ptr<Statement> alternate
     );
 
   void print(const size_t &indentation) const;

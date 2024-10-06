@@ -102,10 +102,10 @@ void Loop::print(const size_t &indentation) const {
   println(indent + "}");
 }
 
-IfStatement::IfStatement(std::unique_ptr<Expression> condition, std::unique_ptr<Statement> children, std::unique_ptr<ElseStatement> consequent) {
+IfStatement::IfStatement(std::unique_ptr<Expression> condition, std::unique_ptr<Statement> children, std::unique_ptr<Statement> alternate) {
   set_type(Type::IF_STATEMENT);
   this->condition = std::move(condition);
-  this->consequent = std::move(consequent);
+  this->alternate = std::move(alternate);
   this->children = std::move(children);
 }
 
@@ -119,9 +119,9 @@ void IfStatement::print(const size_t &indentation) const {
   println(indent + "  children: {");
   this->children->print(indentation + 4);
   println(indent + "  }");
-  if (this->consequent != nullptr) {
-    println(indent + "  consequent: {");
-    this->consequent->print(indentation + 4);
+  if (this->alternate != nullptr) {
+    println(indent + "  alternate: {");
+    this->alternate->print(indentation + 4);
     println(indent + "  }");
   } 
   println(indent + "}");

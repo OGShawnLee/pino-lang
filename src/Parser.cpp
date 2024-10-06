@@ -340,10 +340,17 @@ std::unique_ptr<IfStatement> Parser::parse_if_statement(Lexer::Stream &collectio
 
   std::unique_ptr<Expression> condition = parse_expression(collection);
   std::unique_ptr<Statement> body = parse_block(collection);
-  std::unique_ptr<ElseStatement> consequent;
+  std::unique_ptr<Statement> consequent;
 
   if (collection.current().is_given_keyword(Token::Keyword::ELSE)) {
-    consequent = parse_else_statement(collection);
+    if (collection.is_next([](const Token &token) {
+      return token.is_given_keyword(Token::Keyword::IF);
+    })) {
+      collection.next();
+      consequent = parse_if_statement(collection);
+    } else {
+      consequent = parse_else_statement(collection);
+    } 
   }
 
   return std::make_unique<IfStatement>(std::move(condition), std::move(body), std::move(consequent));
