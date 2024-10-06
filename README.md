@@ -16,7 +16,7 @@ All the programming languages I've used have something I like and dislike, so I 
   - [ ] Return Typing
 - [X] Struct Declaration
   - [X] Attribute Declaration
-  - [ ] Method Declaration
+  - [X] Method Declaration
 - [X] Enum Declaration
 - [X] Expression
   - [X] Binary Expression
