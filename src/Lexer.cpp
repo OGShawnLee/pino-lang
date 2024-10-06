@@ -243,6 +243,12 @@ void Lexer::Stream::next() {
   this->index++;
 }
 
+void Lexer::Stream::print() const {
+  for (const Token &token : this->collection) {
+    token.print();
+  }
+}
+
 bool Lexer::Stream::has_next() const {
   return this->index < this->collection.size();
 }

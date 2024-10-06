@@ -108,6 +108,7 @@ class Lexer {
 				const Token& consume();
 
 				void next();
+				void print() const;
 
 				bool has_next() const;
 				bool is_next(const std::function<bool(const Token &)> &predicate) const;
