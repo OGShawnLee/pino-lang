@@ -53,6 +53,10 @@ All the programming languages I've used have something I like and dislike, so I 
   - [X] If Statement
     - [X] Else If Statement
   - [X] Else Statement
+  - [X] Match Statement
+    - [X] When Statement
+      - [X] Multiple Expressions
+    - [X] Default Statement (Else Statement)
 
 ## Syntax
 
@@ -332,6 +336,8 @@ Conditional statements are straightforward and there is not much to say about th
 * `if`: an if statement is declared with the `if` keyword followed by a condition and its block body.
 * `else if`: an else if statement is declared with the keywords `else if` followed by a condition and its block body.
 * `else`: an else statement is declared with the keyword `else` followed by its block body.
+* `match`: a match statement is declared with the `match` keyword followed by a condition and `when` statements or a default `else` branch.
+* `when`: a when statements acts as a branch for a `match` statement, it is declared with the `when` keyword followed by one or multiple expressions.
 
 ```
 if true {
@@ -354,6 +360,38 @@ if budget > 10000 {
   println("Almost decent, common get you shit together!")
 } else {
   println("Damn, you a brokie!")
+}
+
+match readline("Enter a planet of the solar system to teleport: ")
+when "Earth" {
+  println("You are alive")
+}
+when "Sun" {
+  println("The sun is not a planet! You dead anyways")
+}
+else {
+  println("You dead")
+}
+
+match readline("Enter a planet of the solar system: ") 
+when 
+"Mercury"
+"Venus"
+"Earth"
+"Mars" {
+  println("Rocky Planet")
+}
+when "Jupiter", "Saturn" {
+  println("Gas Giant")
+}
+when "Uranus", "Neptune" {
+  println("Ice Giant")
+}
+when "Sun" {
+  println("The sun is a star not a planet!")
+}
+else {
+  println("Not a planet I know of")
 }
 ```
 
