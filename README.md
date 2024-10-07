@@ -24,6 +24,7 @@ All the programming languages I've used have something I like and dislike, so I 
     - [X] Struct Attribute / Method Access
     - [ ] Order of Precedence
     - [ ] Parenthesis
+  - [X] Ternary Expression
   - [X] Identifier
   - [X] Literal
     - [X] Boolean
@@ -139,6 +140,35 @@ val final_message = get_message(
 )
 
 println("Message: #final_message")
+```
+
+### Ternary Expression
+
+Since Pino does not have a ternary operator like C-like languages, the `if` keyword can be used to create what I call a **Ternary Expression**. A ternary expression is declared with the `if` keyword followed by a condition, the `then` keyword followed by an expression and ended with an `else` followed by an expression (`if <condition> then <expression> else <expression>`). 
+
+```
+fn get_message(name str, country str, is_married bool) {
+  return if is_married
+    then "#name lives in #country and is_married"
+    else "#name lives in #country and is not married"
+}
+
+fn max(a int, b int) {
+  return if a > b then a else b
+}
+
+fn min(a int, b int) {
+  return if a < b then a else b
+}
+
+val has_taxes = false
+var budget = 10
+val amount = if has_taxes then 40 * 0.7 else 40
+val nested = if true
+  then if true 
+      then "Do not" 
+      else "use"
+  else "nested ternary expressions"
 ```
 
 ### Function Lambdas
