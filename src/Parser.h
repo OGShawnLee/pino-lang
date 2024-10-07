@@ -38,6 +38,7 @@ class Parser {
     static std::unique_ptr<FunctionLambda> parse_function_lambda(Lexer::Stream &collection);
     static std::unique_ptr<FunctionCall> parse_function_call(Lexer::Stream &collection);
     static std::unique_ptr<IfStatement> parse_if_statement(Lexer::Stream &collection);
+    static std::unique_ptr<TernaryExpression> parse_if_expression(Lexer::Stream &collection);
     static std::unique_ptr<Loop> parse_loop(Lexer::Stream &collection);
     static std::unique_ptr<MatchStatement> parse_match_statement(Lexer::Stream &collection);
     static std::unique_ptr<Variable> parse_variable(Lexer::Stream &collection);

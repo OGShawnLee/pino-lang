@@ -159,3 +159,30 @@ void StructInstance::print(const size_t &indentation) const {
   }
   println(indent + "}");
 }
+
+TernaryExpression::TernaryExpression(
+  std::unique_ptr<Expression> condition, 
+  std::unique_ptr<Expression> consequent,
+  std::unique_ptr<Expression> alternate
+) {
+  set_kind(Kind::TERNARY_EXPRESSION);
+  this->condition = std::move(condition);
+  this->consequent = std::move(consequent);
+  this->alternate = std::move(alternate);
+}
+
+void TernaryExpression::print(const size_t &indentation) const {
+  std::string indent(indentation, ' ');
+
+  println(indent + "Ternary Expression {");
+  println(indent + "  condition: {");
+  condition->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "  consequent: {");
+  consequent->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "  alternate: {");
+  alternate->print(indentation + 4);
+  println(indent + "  }");
+  println(indent + "}");
+}

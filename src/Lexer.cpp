@@ -23,6 +23,7 @@ std::map<std::string, Lexer::Token::Keyword> Lexer::KEYWORD_MAPPING = {
   {"pub", Token::Keyword::PUB},
   {"enum", Token::Keyword::ENUM},
   {"if", Token::Keyword::IF},
+  {"then", Token::Keyword::THEN},
   {"else", Token::Keyword::ELSE},
   {"in", Token::Keyword::IN},
   {"match", Token::Keyword::MATCH},

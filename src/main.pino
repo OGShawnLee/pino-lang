@@ -21,11 +21,9 @@ struct Person {
   phone Phone
 
   fn get_message {
-    if is_married {
-      return "#name lives in #country and a budget of #budget dollars and is married!"
-    } else {
-      return "#name lives in #country and a budget of #budget dollars and is not married"
-    }
+    return if is_married
+      then "#name lives in #country and a budget of #budget dollars and is married!"
+      else "#name lives in #country and a budget of #budget dollars and is not married"
   }
 
   fn greet {
@@ -187,3 +185,22 @@ when "Sun" {
 else {
   println("Not a planet I know of")
 }
+
+val result = 1 + if 1 > 2 then 1 else 2 + 3
+
+fn max(a int, b int) {
+  return if a > b then a else b
+}
+
+fn min(a int, b int) {
+  return if a < b then a else b
+}
+
+val has_taxes = false
+var budget = 10
+val amount = if has_taxes then 40 * 0.7 else 40
+val nested = if true
+  then if true 
+      then "Do not" 
+      else "use"
+  else "nested ternary expressions"

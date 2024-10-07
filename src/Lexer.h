@@ -24,7 +24,7 @@ class Lexer {
 					IMPORT, FROM, AS,
 					STRUCT, STATIC, PUB,
 					ENUM,
-					IF, ELSE, MATCH, WHEN,
+					IF, THEN, ELSE, MATCH, WHEN,
 					IN,
 					LOOP, CONTINUE, BREAK,
 				};

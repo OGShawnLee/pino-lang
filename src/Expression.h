@@ -6,6 +6,7 @@ class Expression : public Statement {
   public:
     enum class Kind {
       BINARY_EXPRESSION,
+      TERNARY_EXPRESSION,
       IDENTIFIER,
       LITERAL,
         VECTOR,
@@ -81,6 +82,21 @@ class StructInstance : public Expression {
 
   public:
     StructInstance(std::string struct_name, std::vector<std::unique_ptr<Variable>> properties);
+
+    void print(const size_t &indentation) const override;
+};
+
+class TernaryExpression : public Expression {
+  std::unique_ptr<Expression> condition;
+  std::unique_ptr<Expression> consequent;
+  std::unique_ptr<Expression> alternate;
+
+  public:
+    TernaryExpression(
+      std::unique_ptr<Expression> condition, 
+      std::unique_ptr<Expression> consequent, 
+      std::unique_ptr<Expression> alternate
+    );
 
     void print(const size_t &indentation) const override;
 };

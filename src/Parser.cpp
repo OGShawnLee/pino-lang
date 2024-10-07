@@ -8,6 +8,7 @@ bool Parser::is_expression(Lexer::Stream &collection) {
   return 
     is_function_lambda(collection)
     or is_vector(collection)
+    or collection.current().is_given_keyword(Token::Keyword::IF)
     or collection.current().is_given_type(Token::Type::IDENTIFIER, Token::Type::LITERAL);
 }
 
@@ -280,6 +281,8 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
     expression = parse_vector(collection);
   } else if (is_struct_instance(collection)) {
     expression = parse_struct_instance(collection);
+  } else if (collection.current().is_given_keyword(Token::Keyword::IF)) {
+    expression = parse_if_expression(collection);
   } else {
     bool is_identifier = collection.current().is_given_type(Token::Type::IDENTIFIER);
     expression = std::make_unique<Expression>(
@@ -288,7 +291,7 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
     );
   }
 
-  if (collection.current().is_given_type(Token::Type::OPERATOR)) {
+  if (collection.has_next() and collection.current().is_given_type(Token::Type::OPERATOR)) {
     std::string operation = collection.consume().get_value();
     std::unique_ptr<Expression> right = parse_expression(collection);
     expression = std::make_unique<BinaryExpression>(std::move(expression), operation, std::move(right));
@@ -354,6 +357,28 @@ std::unique_ptr<IfStatement> Parser::parse_if_statement(Lexer::Stream &collectio
   }
 
   return std::make_unique<IfStatement>(std::move(condition), std::move(body), std::move(consequent));
+}
+
+std::unique_ptr<TernaryExpression> Parser::parse_if_expression(Lexer::Stream &collection) {
+  if (consume_keyword(collection) != Token::Keyword::IF) {
+    throw std::runtime_error("PARSER: Invalid If Expression");
+  }
+
+  std::unique_ptr<Expression> condition = parse_expression(collection);
+
+  if (consume_keyword(collection) != Token::Keyword::THEN) {
+    throw std::runtime_error("PARSER: Invalid If Expression");
+  }
+
+  std::unique_ptr<Expression> consequent = parse_expression(collection);
+  
+  if (consume_keyword(collection) != Token::Keyword::ELSE) {
+    throw std::runtime_error("PARSER: Invalid If Expression");
+  }
+
+  std::unique_ptr<Expression> alternate = parse_expression(collection);
+
+  return std::make_unique<TernaryExpression>(std::move(condition), std::move(consequent), std::move(alternate));
 }
 
 std::unique_ptr<Loop> Parser::parse_loop(Lexer::Stream &collection) {
