@@ -7,6 +7,8 @@
 
 typedef Lexer::Token Token;
 
+class Expression;
+
 class Statement {
   public:
     enum class Type {
@@ -45,8 +47,6 @@ class Statement {
 
     virtual void print(const size_t &indentation = 0) const;
 };
-
-class Expression;
 
 class Return : public Statement {
   private:

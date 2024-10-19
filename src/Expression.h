@@ -2,6 +2,8 @@
 
 #include "Statement.h"
 
+class Variable;
+
 class Expression : public Statement {
   public:
     enum class Kind {
@@ -51,8 +53,6 @@ class FunctionCall : public Expression {
     
     void print(const size_t &indentation) const override;
 };
-
-class Variable;
 
 class FunctionLambda : public Expression {
   std::vector<std::unique_ptr<Variable>> parameters;
