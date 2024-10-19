@@ -13,47 +13,47 @@ bool Parser::is_expression(Lexer::Stream &collection) {
 }
 
 bool Parser::is_function_call(Lexer::Stream &collection) {
-  return collection.current().is_given_type(Lexer::Token::Type::IDENTIFIER) && collection.is_next([](const Lexer::Token &token) {
-    return token.is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN);
+  return collection.current().is_given_type(Token::Type::IDENTIFIER) && collection.is_next([](const Token &token) {
+    return token.is_given_marker(Token::Marker::PARENTHESIS_BEGIN);
   });
 }
 
 bool Parser::is_function_lambda(Lexer::Stream &collection) {
-  return collection.current().is_given_keyword(Lexer::Token::Keyword::FUNCTION) and collection.is_next([](const Lexer::Token &token) {
-    return token.is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN, Lexer::Token::Marker::BLOCK_BEGIN);
+  return collection.current().is_given_keyword(Token::Keyword::FUNCTION) and collection.is_next([](const Token &token) {
+    return token.is_given_marker(Token::Marker::PARENTHESIS_BEGIN, Token::Marker::BLOCK_BEGIN);
   });
 }
 
 bool Parser::is_struct_instance(Lexer::Stream &collection) {
   const Token &current = collection.current();
   return
-    current.is_given_type(Lexer::Token::Type::IDENTIFIER) and
+    current.is_given_type(Token::Type::IDENTIFIER) and
     isupper(current.get_value()[0]) and
-    collection.is_next([](const Lexer::Token &token) {
-      return token.is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN);
+    collection.is_next([](const Token &token) {
+      return token.is_given_marker(Token::Marker::BLOCK_BEGIN);
     });
 }
 
 bool Parser::is_vector(Lexer::Stream &collection) {
-  return collection.current().is_given_marker(Lexer::Token::Marker::BRACKET_BEGIN);
+  return collection.current().is_given_marker(Token::Marker::BRACKET_BEGIN);
 }
 
 std::vector<std::unique_ptr<Expression>> Parser::consume_arguments(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::PARENTHESIS_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Parenthesis");
   }
 
   std::vector<std::unique_ptr<Expression>> arguments;
 
   while (true) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::PARENTHESIS_END)) {
+    if (collection.current().is_given_marker(Token::Marker::PARENTHESIS_END)) {
       collection.next();
       return arguments;
     }
 
     arguments.push_back(parse_expression(collection));
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
       collection.next();
     }
   }
@@ -69,12 +69,12 @@ void Parser::consume_attributes_and_methods(
   std::vector<std::unique_ptr<Variable>> &attributes,
   std::vector<std::unique_ptr<Function>> &methods
 ) {
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Brace");
   }
 
   while (true) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
       collection.next();
       
       if (attributes.empty()) {
@@ -84,20 +84,20 @@ void Parser::consume_attributes_and_methods(
       break;
     }
 
-    if (collection.current().is_given_keyword(Lexer::Token::Keyword::FUNCTION)) {
+    if (collection.current().is_given_keyword(Token::Keyword::FUNCTION)) {
       methods.push_back(parse_function(collection));
     } else {
       attributes.push_back(consume_attribute(collection));
     }
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
       collection.next();
     }
   }
 }
 
 std::unique_ptr<Expression> Parser::consume_assignment(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_operator(Lexer::Token::Operator::ASSIGNMENT)) {
+  if (not collection.consume().is_given_operator(Token::Operator::ASSIGNMENT)) {
     throw std::runtime_error("PARSER: Expected Assignment Operator");
   }
 
@@ -107,7 +107,7 @@ std::unique_ptr<Expression> Parser::consume_assignment(Lexer::Stream &collection
 std::string Parser::consume_enum_member(Lexer::Stream &collection) {
   const Token &current = collection.consume();
 
-  if (not current.is_given_type(Lexer::Token::Type::IDENTIFIER)) {
+  if (not current.is_given_type(Token::Type::IDENTIFIER)) {
     throw std::runtime_error("PARSER: Expected Enum Member");
   }
 
@@ -115,14 +115,14 @@ std::string Parser::consume_enum_member(Lexer::Stream &collection) {
 }
 
 std::vector<std::string> Parser::consume_enum_members(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Brace");
   }
 
   std::vector<std::string> members;
 
   while (true) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
       collection.next();
 
       if (members.empty()) {
@@ -134,7 +134,7 @@ std::vector<std::string> Parser::consume_enum_members(Lexer::Stream &collection)
 
     members.push_back(consume_enum_member(collection));
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
       collection.next();
     }
   }
@@ -143,7 +143,7 @@ std::vector<std::string> Parser::consume_enum_members(Lexer::Stream &collection)
 Token::Keyword Parser::consume_keyword(Lexer::Stream &collection) {
   const Token &current = collection.consume();
 
-  if (not current.is_given_type(Lexer::Token::Type::KEYWORD)) {
+  if (not current.is_given_type(Token::Type::KEYWORD)) {
     throw std::runtime_error("PARSER: Expected Keyword");
   }
 
@@ -153,7 +153,7 @@ Token::Keyword Parser::consume_keyword(Lexer::Stream &collection) {
 std::string Parser::consume_identifier(Lexer::Stream &collection) {
   const Token &current = collection.consume();
 
-  if (not current.is_given_type(Lexer::Token::Type::IDENTIFIER)) {
+  if (not current.is_given_type(Token::Type::IDENTIFIER)) {
     throw std::runtime_error("PARSER: Expected Identifier");
   }
 
@@ -168,28 +168,28 @@ std::unique_ptr<Variable> Parser::consume_parameter(Lexer::Stream &collection) {
 std::vector<std::unique_ptr<Variable>> Parser::consume_parameters(Lexer::Stream &collection) {
   std::vector<std::unique_ptr<Variable>> parameters;
   
-  if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+  if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
     return parameters;
   }
 
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::PARENTHESIS_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::PARENTHESIS_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Parenthesis");
   }
 
-  if (collection.current().is_given_marker(Lexer::Token::Marker::PARENTHESIS_END)) {
+  if (collection.current().is_given_marker(Token::Marker::PARENTHESIS_END)) {
     collection.next();
     return parameters;
   }
 
   while (true) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::PARENTHESIS_END)) {
+    if (collection.current().is_given_marker(Token::Marker::PARENTHESIS_END)) {
       collection.next();
       return parameters;
     }
 
     parameters.push_back(consume_parameter(collection));
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
       collection.next();
     }
   }
@@ -206,14 +206,14 @@ std::unique_ptr<Variable> Parser::consume_property(Lexer::Stream &collection) {
 }
 
 std::vector<std::unique_ptr<Variable>> Parser::consume_properties(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Brace");
   }
 
   std::vector<std::unique_ptr<Variable>> properties;
 
   while (collection.has_next()) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
       collection.next();
 
       if (properties.empty()) {
@@ -225,7 +225,7 @@ std::vector<std::unique_ptr<Variable>> Parser::consume_properties(Lexer::Stream 
 
     properties.push_back(consume_property(collection));
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
       collection.next();
     }
   }
@@ -236,7 +236,7 @@ std::vector<std::unique_ptr<Variable>> Parser::consume_properties(Lexer::Stream 
 std::string Parser::consume_typing(Lexer::Stream &collection) {
   const Token &current = collection.consume();
 
-  if (not current.is_given_type(Lexer::Token::Type::IDENTIFIER)) {
+  if (not current.is_given_type(Token::Type::IDENTIFIER)) {
     throw std::runtime_error("PARSER: Expected Typing");
   }
 
@@ -258,7 +258,7 @@ std::unique_ptr<Variable> Parser::extract_property(std::vector<std::unique_ptr<V
 }
 
 std::unique_ptr<Enum> Parser::parse_enum(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::ENUM) {
+  if (consume_keyword(collection) != Token::Keyword::ENUM) {
     throw std::runtime_error("PARSER: Invalid Enum Declaration");
   }
 
@@ -301,7 +301,7 @@ std::unique_ptr<Expression> Parser::parse_expression(Lexer::Stream &collection) 
 }
 
 std::unique_ptr<ElseStatement> Parser::parse_else_statement(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::ELSE) {
+  if (consume_keyword(collection) != Token::Keyword::ELSE) {
     throw std::runtime_error("PARSER: Invalid Else Statement");
   }
 
@@ -309,7 +309,7 @@ std::unique_ptr<ElseStatement> Parser::parse_else_statement(Lexer::Stream &colle
 }
 
 std::unique_ptr<Function> Parser::parse_function(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::FUNCTION) {
+  if (consume_keyword(collection) != Token::Keyword::FUNCTION) {
     throw std::runtime_error("PARSER: Invalid Function Declaration");
   }
 
@@ -326,7 +326,7 @@ std::unique_ptr<FunctionCall> Parser::parse_function_call(Lexer::Stream &collect
 }
 
 std::unique_ptr<FunctionLambda> Parser::parse_function_lambda(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::FUNCTION) {
+  if (consume_keyword(collection) != Token::Keyword::FUNCTION) {
     throw std::runtime_error("PARSER: Invalid Function Lambda Declaration");
   }
 
@@ -406,13 +406,13 @@ std::unique_ptr<Loop> Parser::parse_loop(Lexer::Stream &collection) {
 }
 
 std::unique_ptr<MatchStatement> Parser::parse_match_statement(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::MATCH) {
+  if (consume_keyword(collection) != Token::Keyword::MATCH) {
     throw std::runtime_error("PARSER: Invalid Match Statement");
   }
 
   std::unique_ptr<Expression> value = parse_expression(collection);
 
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Match Open Brace");
   }
 
@@ -420,17 +420,17 @@ std::unique_ptr<MatchStatement> Parser::parse_match_statement(Lexer::Stream &col
   std::unique_ptr<ElseStatement> alternate;
 
   while (collection.has_next()) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
       collection.next();
       break;
     }
 
-    if (collection.current().is_given_keyword(Lexer::Token::Keyword::ELSE)) {
+    if (collection.current().is_given_keyword(Token::Keyword::ELSE)) {
       alternate = parse_else_statement(collection);
       break;
     } 
 
-    if (collection.current().is_given_keyword(Lexer::Token::Keyword::WHEN)) {
+    if (collection.current().is_given_keyword(Token::Keyword::WHEN)) {
       branches.push_back(parse_when_statement(collection));
       continue;
     }
@@ -448,13 +448,13 @@ std::unique_ptr<MatchStatement> Parser::parse_match_statement(Lexer::Stream &col
 std::unique_ptr<Variable> Parser::parse_variable(Lexer::Stream &collection) {
   Token::Keyword keyword = consume_keyword(collection);
 
-  if (keyword != Lexer::Token::Keyword::CONSTANT and keyword != Lexer::Token::Keyword::VARIABLE) {
+  if (keyword != Token::Keyword::CONSTANT and keyword != Token::Keyword::VARIABLE) {
     throw std::runtime_error("PARSER: Invalid Variable Declaration");
   }
 
   std::string identifier = consume_identifier(collection);
   std::unique_ptr<Variable> variable = std::make_unique<Variable>(
-    keyword == Lexer::Token::Keyword::CONSTANT ? Variable::Kind::CONSTANT_DECLARATION : Variable::Kind::VARIABLE_DECLARATION,
+    keyword == Token::Keyword::CONSTANT ? Variable::Kind::CONSTANT_DECLARATION : Variable::Kind::VARIABLE_DECLARATION,
     identifier,
     consume_assignment(collection)
   );
@@ -463,16 +463,16 @@ std::unique_ptr<Variable> Parser::parse_variable(Lexer::Stream &collection) {
 }
 
 std::unique_ptr<Vector> Parser::parse_vector(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BRACKET_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::BRACKET_BEGIN)) {
     throw std::runtime_error("PARSER: Invalid Vector Declaration");
   }
 
-  if (collection.current().is_given_marker(Lexer::Token::Marker::BRACKET_END)) {
+  if (collection.current().is_given_marker(Token::Marker::BRACKET_END)) {
     collection.next();
 
     std::string typing = consume_typing(collection);
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
       std::vector<std::unique_ptr<Variable>> properties = consume_properties(collection);
       std::unique_ptr<Variable> len = extract_property(properties, "len");
       std::unique_ptr<Variable> init = extract_property(properties, "init");
@@ -490,12 +490,12 @@ std::unique_ptr<Vector> Parser::parse_vector(Lexer::Stream &collection) {
   std::unique_ptr<Vector> list = std::make_unique<Vector>();
   
   while (collection.has_next()) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BRACKET_END)) {
+    if (collection.current().is_given_marker(Token::Marker::BRACKET_END)) {
       collection.next();
       return list;
     }
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
       collection.next();
       continue;
     }
@@ -507,7 +507,7 @@ std::unique_ptr<Vector> Parser::parse_vector(Lexer::Stream &collection) {
 }
 
 std::unique_ptr<Struct> Parser::parse_struct(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::STRUCT) {
+  if (consume_keyword(collection) != Token::Keyword::STRUCT) {
     throw std::runtime_error("PARSER: Invalid Struct Declaration");
   }
 
@@ -526,7 +526,7 @@ std::unique_ptr<StructInstance> Parser::parse_struct_instance(Lexer::Stream &col
 }
 
 std::unique_ptr<Return> Parser::parse_return(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::RETURN) {
+  if (consume_keyword(collection) != Token::Keyword::RETURN) {
     throw std::runtime_error("PARSER: Invalid Return Statement");
   }
 
@@ -534,25 +534,25 @@ std::unique_ptr<Return> Parser::parse_return(Lexer::Stream &collection) {
 }
 
 std::unique_ptr<WhenStatement> Parser::parse_when_statement(Lexer::Stream &collection) {
-  if (consume_keyword(collection) != Lexer::Token::Keyword::WHEN) {
+  if (consume_keyword(collection) != Token::Keyword::WHEN) {
     throw std::runtime_error("PARSER: Invalid When Statement");
   }
 
   std::vector<std::unique_ptr<Expression>> conditions;
 
-  if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+  if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: When Statement Without Conditions");
   }
 
   while (collection.has_next()) {
     conditions.push_back(parse_expression(collection));
   
-    if (collection.current().is_given_marker(Lexer::Token::Marker::COMMA)) {
+    if (collection.current().is_given_marker(Token::Marker::COMMA)) {
       collection.next();
       continue;
     }
 
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
       break;
     }
   }
@@ -562,59 +562,59 @@ std::unique_ptr<WhenStatement> Parser::parse_when_statement(Lexer::Stream &colle
 }
 
 std::unique_ptr<Statement> Parser::parse_block(Lexer::Stream &collection) {
-  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+  if (not collection.consume().is_given_marker(Token::Marker::BLOCK_BEGIN)) {
     throw std::runtime_error("PARSER: Expected Open Brace");
   }
 
   std::unique_ptr<Statement> block = std::make_unique<Statement>(Statement::Type::BLOCK);
 
   while (collection.has_next()) {
-    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+    if (collection.current().is_given_marker(Token::Marker::BLOCK_END)) {
       collection.next();
       return block;
     }
 
-    const Lexer::Token &token = collection.current();
+    const Token &token = collection.current();
 
     switch (token.get_type()) {
-      case Lexer::Token::Type::KEYWORD:
+      case Token::Type::KEYWORD:
         switch (token.get_keyword()) {
-          case Lexer::Token::Keyword::CONSTANT:
-          case Lexer::Token::Keyword::VARIABLE:
+          case Token::Keyword::CONSTANT:
+          case Token::Keyword::VARIABLE:
             block->push(std::move(parse_variable(collection)));
             continue;
-          case Lexer::Token::Keyword::FUNCTION:
+          case Token::Keyword::FUNCTION:
             block->push(std::move(parse_function(collection)));
             continue;
-          case Lexer::Token::Keyword::STRUCT:
+          case Token::Keyword::STRUCT:
             block->push(std::move(parse_struct(collection)));
             continue;
-          case Lexer::Token::Keyword::ENUM:
+          case Token::Keyword::ENUM:
             block->push(std::move(parse_enum(collection)));
             continue;
-          case Lexer::Token::Keyword::RETURN:
+          case Token::Keyword::RETURN:
             block->push(std::move(parse_return(collection)));
             continue;
-          case Lexer::Token::Keyword::LOOP:
+          case Token::Keyword::LOOP:
             block->push(std::move(parse_loop(collection)));
             continue;
-          case Lexer::Token::Keyword::IF:
+          case Token::Keyword::IF:
             block->push(std::move(parse_if_statement(collection)));
             continue;
-          case Lexer::Token::Keyword::ELSE:
+          case Token::Keyword::ELSE:
             throw std::runtime_error("PARSER: Else Statement Without If Statement");
-          case Lexer::Token::Keyword::MATCH:
+          case Token::Keyword::MATCH:
             block->push(std::move(parse_match_statement(collection)));
             continue;
-          case Lexer::Token::Keyword::WHEN:
+          case Token::Keyword::WHEN:
             throw std::runtime_error("PARSER: When Statement Outside Match Statement");
         }
         break;
-      case Lexer::Token::Type::IDENTIFIER:
-      case Lexer::Token::Type::LITERAL:
+      case Token::Type::IDENTIFIER:
+      case Token::Type::LITERAL:
         block->push(std::move(parse_expression(collection)));
         continue;
-      case Lexer::Token::Type::ILLEGAL:
+      case Token::Type::ILLEGAL:
         println("Illegal Token");
         token.print();
         break;
@@ -631,38 +631,38 @@ Statement Parser::parse_file(const std::string &filename) {
   Statement program;
 
   while (collection.has_next()) {
-    const Lexer::Token &token = collection.current();
+    const Token &token = collection.current();
 
     switch (token.get_type()) {
       case (Token::Type::KEYWORD): 
         switch (token.get_keyword()) {
-          case Lexer::Token::Keyword::CONSTANT:
-          case Lexer::Token::Keyword::VARIABLE:
+          case Token::Keyword::CONSTANT:
+          case Token::Keyword::VARIABLE:
             program.push(std::move(parse_variable(collection)));
             continue;
-          case Lexer::Token::Keyword::FUNCTION:
+          case Token::Keyword::FUNCTION:
             program.push(std::move(parse_function(collection)));
             continue;
-          case Lexer::Token::Keyword::STRUCT:
+          case Token::Keyword::STRUCT:
             program.push(std::move(parse_struct(collection)));
             continue;
-          case Lexer::Token::Keyword::ENUM:
+          case Token::Keyword::ENUM:
             program.push(std::move(parse_enum(collection)));
             continue;
-          case Lexer::Token::Keyword::RETURN:
+          case Token::Keyword::RETURN:
             throw std::runtime_error("PARSER: Return Statement Outside Function");
-          case Lexer::Token::Keyword::LOOP:
+          case Token::Keyword::LOOP:
             program.push(std::move(parse_loop(collection)));
             continue;
-          case Lexer::Token::Keyword::IF:
+          case Token::Keyword::IF:
             program.push(std::move(parse_if_statement(collection)));
             continue;
-          case Lexer::Token::Keyword::ELSE:
+          case Token::Keyword::ELSE:
             throw std::runtime_error("PARSER: Else Statement Without If Statement");
-          case Lexer::Token::Keyword::MATCH:
+          case Token::Keyword::MATCH:
             program.push(std::move(parse_match_statement(collection)));
             continue;
-          case Lexer::Token::Keyword::WHEN:
+          case Token::Keyword::WHEN:
             throw std::runtime_error("PARSER: When Statement Outside Match Statement");
         }
         break; 
@@ -671,7 +671,7 @@ Statement Parser::parse_file(const std::string &filename) {
         program.push(std::move(parse_expression(collection)));
         continue;
       }
-      case Lexer::Token::Type::ILLEGAL:
+      case Token::Type::ILLEGAL:
         println("Illegal Token");
         token.print();
         break;
