@@ -404,25 +404,26 @@ else {
   println("You dead")
 }
 
-match readline("Enter a planet of the solar system: ") 
-when 
-"Mercury"
-"Venus"
-"Earth"
-"Mars" {
-  println("Rocky Planet")
-}
-when "Jupiter", "Saturn" {
-  println("Gas Giant")
-}
-when "Uranus", "Neptune" {
-  println("Ice Giant")
-}
-when "Sun" {
-  println("The sun is a star not a planet!")
-}
-else {
-  println("Not a planet I know of")
+match readline("Enter a planet of the solar system: ") {
+  when 
+  "Mercury"
+  "Venus"
+  "Earth"
+  "Mars" {
+    println("Rocky Planet")
+  }
+  when "Jupiter", "Saturn" {
+    println("Gas Giant")
+  }
+  when "Uranus", "Neptune" {
+    println("Ice Giant")
+  }
+  when "Sun" {
+    println("The sun is a star not a planet!")
+  }
+  else {
+    println("Not a planet I know of")
+  }
 }
 ```
 

@@ -154,36 +154,38 @@ println([]int {
   init: it + 1
 })
 
-match readline("Enter a planet of the solar system to teleport: ")
-when "Earth" {
-  println("You are alive")
-}
-when "Sun" {
-  println("The sun is not a planet! You dead anyways")
-}
-else {
-  println("You dead")
+match readline("Enter a planet of the solar system to teleport: ") {
+  when "Earth" {
+    println("You are alive")
+  }
+  when "Sun" {
+    println("The sun is not a planet! You dead anyways")
+  }
+  else {
+    println("You dead")
+  }
 }
 
-match readline("Enter a planet of the solar system: ") 
-when 
-"Mercury"
-"Venus"
-"Earth"
-"Mars" {
-  println("Rocky Planet")
-}
-when "Jupiter", "Saturn" {
-  println("Gas Giant")
-}
-when "Uranus", "Neptune" {
-  println("Ice Giant")
-}
-when "Sun" {
-  println("The sun is a star not a planet!")
-}
-else {
-  println("Not a planet I know of")
+match readline("Enter a planet of the solar system: ") {
+  when 
+  "Mercury"
+  "Venus"
+  "Earth"
+  "Mars" {
+    println("Rocky Planet")
+  }
+  when "Jupiter", "Saturn" {
+    println("Gas Giant")
+  }
+  when "Uranus", "Neptune" {
+    println("Ice Giant")
+  }
+  when "Sun" {
+    println("The sun is a star not a planet!")
+  }
+  else {
+    println("Not a planet I know of")
+  }
 }
 
 val result = 1 + if 1 > 2 then 1 else 2 + 3

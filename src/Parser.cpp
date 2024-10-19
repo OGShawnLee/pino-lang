@@ -411,10 +411,20 @@ std::unique_ptr<MatchStatement> Parser::parse_match_statement(Lexer::Stream &col
   }
 
   std::unique_ptr<Expression> value = parse_expression(collection);
+
+  if (not collection.consume().is_given_marker(Lexer::Token::Marker::BLOCK_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Match Open Brace");
+  }
+
   std::vector<std::unique_ptr<WhenStatement>> branches;
   std::unique_ptr<ElseStatement> alternate;
 
   while (collection.has_next()) {
+    if (collection.current().is_given_marker(Lexer::Token::Marker::BLOCK_END)) {
+      collection.next();
+      break;
+    }
+
     if (collection.current().is_given_keyword(Lexer::Token::Keyword::ELSE)) {
       alternate = parse_else_statement(collection);
       break;
@@ -422,11 +432,10 @@ std::unique_ptr<MatchStatement> Parser::parse_match_statement(Lexer::Stream &col
 
     if (collection.current().is_given_keyword(Lexer::Token::Keyword::WHEN)) {
       branches.push_back(parse_when_statement(collection));
-      
       continue;
     }
 
-    break;
+    throw std::runtime_error("PARSER: Invalid Match Statement");
   }
 
   if (branches.empty() and not alternate) {
