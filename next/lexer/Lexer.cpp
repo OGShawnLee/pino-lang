@@ -45,6 +45,10 @@ std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
     return std::make_shared<Literal>(LITERAL_TYPE::INTEGER, buffer);
   }
 
+   if (Matcher::is_operator(buffer)) {
+     return std::make_shared<Operator>(Mapper::get_operator_enum_from_str(buffer), buffer);
+   }
+ 
   if (Matcher::is_float(buffer)) {
     return std::make_shared<Literal>(LITERAL_TYPE::FLOAT, buffer);
   }
@@ -74,7 +78,7 @@ Stream Lexer::lex_line(const std::string &line) {
     }
 
     bool is_marker = Matcher::is_marker(character);
-    bool is_operator = Matcher::is_operator(std::string(1, character));
+    bool is_operator = Matcher::is_operator(to_str(character)) or character == '!' or Matcher::is_operator(buffer);
 
     if (is_marker or is_operator) {
       if (not is_whitespace(buffer)) {

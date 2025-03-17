@@ -60,9 +60,6 @@ class Test {
     run("Lexer::Should identify a float literal", []() {
       return Lexer::lex_line("1.0").current()->equals(Literal(LITERAL_TYPE::FLOAT, "1.0"));
     });
-    run("Lexer::Should identify a float literal with a negative sign", []() {
-      return Lexer::lex_line("-1.0").current()->equals(Literal(LITERAL_TYPE::FLOAT, "-1.0"));
-    });
     run("Lexer::Should identify a float literal with underscores", []() {
       return 
         Lexer::lex_line("1_000.0").current()->equals(Literal(LITERAL_TYPE::FLOAT, "1_000.0")) and
@@ -100,9 +97,6 @@ class Test {
     run("Lexer::Should identify an integer literal", []() {
       return Lexer::lex_line("1").current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
     });
-    run("Lexer::Should identify an integer literal with a positive or negative sign", []() {
-      return Lexer::lex_line("-1").current()->equals(Literal(LITERAL_TYPE::INTEGER, "-1"));
-    });
     run("Lexer::Should identify an integer literal with underscores", []() {
       return 
         Lexer::lex_line("1_000").current()->equals(Literal(LITERAL_TYPE::INTEGER, "1_000")) and
@@ -125,8 +119,22 @@ class Test {
 
   void test_marker() {
     for (const auto &pair : Mapper::CHAR_TO_MARKER) {
-      run("Lexer::Should identify a " + std::string(1, pair.first) + " marker", [pair]() {
-        return Lexer::lex_line(std::string(1, pair.first)).current()->equals(Marker(pair.second, pair.first));
+      run("Lexer::Should identify a " + to_str(pair.first) + " marker", [pair]() {
+        return Lexer::lex_line(to_str(pair.first)).current()->equals(Marker(pair.second, pair.first));
+      });
+      run("Lexer::Should identify an " + to_str(pair.first) + " marker between other tokens", [&pair]() {
+        Stream stream = Lexer::lex_line("1 " + to_str(pair.first) + " 1");
+        return 
+          stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
+          stream.consume()->equals(Marker(pair.second, pair.first)) and
+          stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
+      });
+      run("Lexer::Should identify an " + to_str(pair.first) + " marker between other tokens without spaces", [&pair]() {
+        Stream stream = Lexer::lex_line("1" + to_str(pair.first) + "1");
+        return 
+          stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
+          stream.consume()->equals(Marker(pair.second, pair.first)) and
+          stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
       });
     }
   }
@@ -135,6 +143,28 @@ class Test {
     for (const auto &pair : Mapper::STR_TO_OPERATOR) {
       run("Lexer::Should identify a " + pair.first + " operator", [pair]() {
         return Lexer::lex_line(pair.first).current()->equals(Operator(pair.second, pair.first));
+      });
+      run("Lexer::Should identify an " + pair.first + " operator between other tokens", [&pair]() {
+        Stream stream = Lexer::lex_line("1 " + pair.first + " 1");
+        return 
+          stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
+          stream.consume()->equals(Operator(pair.second, pair.first)) and
+          stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
+      });
+
+      if (pair.second == OPERATOR_TYPE::AND or pair.second == OPERATOR_TYPE::OR or pair.second == OPERATOR_TYPE::NOT) {
+        run("Lexer::Should mark as illegal an " + pair.first + " operator without space", [&pair]() {
+          return Lexer::lex_line("1" + pair.first + "1").current()->equals(Token(TOKEN_TYPE::ILLEGAL, "1" + pair.first + "1"));
+        });
+        continue;
+      }
+
+      run("Lexer::Should identify an " + pair.first + " operator between other tokens without spaces", [&pair]() {
+        Stream stream = Lexer::lex_line("1" + pair.first + "1");
+        return 
+          stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
+          stream.consume()->equals(Operator(pair.second, pair.first)) and
+          stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
       });
     }
   }
