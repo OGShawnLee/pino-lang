@@ -19,7 +19,7 @@ class Token {
     
     std::string get_name() const;
     
-    bool equals(const Token &candidate) const;
+    virtual bool equals(const Token &candidate) const;
 
     virtual inline void print() const;
 };

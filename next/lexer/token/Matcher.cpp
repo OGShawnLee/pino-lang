@@ -35,6 +35,10 @@ bool Matcher::is_float(const std::string &str) {
   return std::regex_match(str, std::regex(FLOAT_REGEX));
 }
 
+bool Matcher::is_identifier(const char &character) {
+  return Matcher::is_identifier(to_str(character));
+}
+
 bool Matcher::is_identifier(const std::string &str) {
   return std::regex_match(str, std::regex(IDENTIFIER_REGEX));
 }
@@ -53,4 +57,13 @@ bool Matcher::is_marker(const char &c) {
 
 bool Matcher::is_operator(const std::string &str) {
   return Mapper::is_operator(str);
+}
+
+bool Matcher::is_str_injection(const std::string &line, const size_t &index) {
+  return 
+    not has_escape_character(line, index) and 
+    line[index] == '#' and 
+    is_next_char(line, index, [](const char &character) {
+      return not isdigit(character) and isalpha(character);
+    });
 }

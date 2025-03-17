@@ -9,7 +9,32 @@
 #include "./token/Matcher.cpp"
 #include "./token/Stream.cpp"
 
-std::shared_ptr<Token> Lexer::consume_operator(const std::string &final_line, int &index) {
+std::shared_ptr<Token> Lexer::build_str_literal(const std::string &final_line, size_t &index) {
+  std::string buffer = "";
+  std::vector<std::string> injections;
+  
+  for (size_t i = index + 1; i < final_line.size(); i++) {
+    const char &character = final_line[i];
+
+    if (character == '"' and not has_escape_character(final_line, i)) {
+      index = i;
+      return std::make_shared<Literal>(LITERAL_TYPE::STRING, buffer, injections);
+    }
+
+    if (Matcher::is_str_injection(final_line, i)) {
+      std::string injection = consume_str_injection(final_line, i);
+      injections.push_back(injection);
+      buffer += "#" + injection;
+      continue;
+    }
+
+    buffer += character;
+  }
+
+  throw std::runtime_error("Unterminated String Literal");
+}
+
+std::shared_ptr<Token> Lexer::consume_operator(const std::string &final_line, size_t &index) {
   std::string single_char_operator = final_line.substr(index, 1);
   
   if (index == final_line.size() - 1) {
@@ -30,6 +55,24 @@ std::shared_ptr<Token> Lexer::consume_operator(const std::string &final_line, in
   return std::make_shared<Operator>(
     Mapper::get_operator_enum_from_str(single_char_operator), single_char_operator
   );
+}
+
+std::string Lexer::consume_str_injection(const std::string &line, size_t &index) {
+  std::string injection = "";
+
+  for (size_t i = index + 1; i < line.size(); i++) {
+    const char &character = line[i];
+
+    if (Matcher::is_identifier(character)) {
+      injection += character;
+      continue;
+    }
+
+    index = i - 1;
+    return injection;
+  }
+
+  throw std::runtime_error("Unterminated String Injection");
 }
 
 std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
@@ -60,40 +103,50 @@ std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
   return std::make_shared<Token>(TOKEN_TYPE::ILLEGAL, buffer);
 }
 
+void Lexer::handle_buffer(std::vector<std::shared_ptr<Token>> &collection, std::string &buffer) {
+  if (is_whitespace(buffer)) {
+    return;
+  }
+
+  collection.push_back(get_token_from_buffer(buffer));
+  buffer = "";
+}
+
 Stream Lexer::lex_line(const std::string &line) {
   std::vector<std::shared_ptr<Token>> collection;
   std::string final_line = line + " ";
   std::string buffer = "";
 
-  for (int i = 0; i < final_line.size(); i++) {
+  for (size_t i = 0; i < final_line.size(); i++) {
     char character = final_line[i];
 
     if (is_whitespace(character)) {
-      if (is_whitespace(buffer)) continue;
-    
-      collection.push_back(get_token_from_buffer(buffer));
-      buffer = "";
+      handle_buffer(collection, buffer);
+      continue;
+    }
+
+    if (Matcher::is_marker(character)) {
+      handle_buffer(collection, buffer);
+
+      MARKER_TYPE marker_type = Mapper::get_marker_enum_from_char(character);
+      switch (marker_type) {
+        case MARKER_TYPE::COMMENT:
+          return Stream(collection);
+        case MARKER_TYPE::STR_QUOTE:
+          collection.push_back(build_str_literal(final_line, i));
+          break;
+        default:
+          collection.push_back(std::make_shared<Marker>(marker_type, character));
+          break;
+      }
 
       continue;
     }
 
-    bool is_marker = Matcher::is_marker(character);
     bool is_operator = Matcher::is_operator(to_str(character)) or character == '!' or Matcher::is_operator(buffer);
-
-    if (is_marker or is_operator) {
-      if (not is_whitespace(buffer)) {
-        collection.push_back(get_token_from_buffer(buffer));
-        buffer = "";
-      }
-
-      if (is_operator) {
-        collection.push_back(consume_operator(final_line, i));
-      } else {
-        collection.push_back(
-          std::make_shared<Marker>(Mapper::get_marker_enum_from_char(character), character)
-        );
-      }
-
+    if (is_operator) {
+      handle_buffer(collection, buffer);
+      collection.push_back(consume_operator(final_line, i));
       continue;
     }
 

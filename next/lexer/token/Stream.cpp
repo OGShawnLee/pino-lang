@@ -30,6 +30,10 @@ bool Stream::has_next() const {
   return this->index < this->collection.size();
 }
 
+bool Stream::is_empty() const {
+  return this->collection.empty();
+}
+
 bool Stream::is_next(const std::function<bool(const std::shared_ptr<Token> &)> &predicate) const {
   return this->index + 1 < this->collection.size() and predicate(this->collection[this->index + 1]);
 }

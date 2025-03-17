@@ -18,6 +18,8 @@ class Stream {
     
     bool has_next() const;
     
+    bool is_empty() const;
+
     bool is_next(const std::function<bool(const std::shared_ptr<Token> &)> &predicate) const;
     
     void increase_index();

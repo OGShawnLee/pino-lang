@@ -1,9 +1,10 @@
 #pragma once
 
 #include <algorithm>
-#include <iostream>
 #include <fstream>
 #include <functional>
+#include <iostream>
+#include <vector>
 
 inline void each_line(const std::string &filename, const std::function<void(const std::string&)> &callback) {
   std::ifstream file(filename);
@@ -21,6 +22,28 @@ inline std::string get_string_from_input(const std::string &prompt) {
 	return input;
 }
 
+inline bool is_equal_vector_content(
+  const std::vector<std::string> &vec_a, 
+  const std::vector<std::string> &vec_b
+) {
+  if (vec_a.size() != vec_b.size()) {
+    return false;
+  }
+
+  for (int i = 0; i < vec_a.size(); i++) {
+    if (vec_a[i] != vec_b[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+inline bool is_prev_char(const std::string &line, int index, std::function<bool(const char &)> predicate) {
+  if (index - 1 < 0) return false;
+  return predicate(line[index - 1]);
+}
+
 inline bool is_next_char(const std::string &line, int index, std::function<bool(const char &)> predicate) {
   if (index + 1 > line.size()) return false;
   return predicate(line[index + 1]);
@@ -33,6 +56,12 @@ inline bool is_whitespace(const char &character) {
 inline bool is_whitespace(const std::string &line) {
   return std::all_of(line.begin(), line.end(), [](const char &character) {
     return is_whitespace(character);
+  });
+}
+
+inline bool has_escape_character(const std::string &line, size_t index) {
+  return is_prev_char(line, index, [](const char &character) {
+    return character == '\\';
   });
 }
 

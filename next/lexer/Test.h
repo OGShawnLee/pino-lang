@@ -115,10 +115,90 @@ class Test {
     run("Lexer::Should mark as identifier an integer literal with an initial separator", []() {
       return Lexer::lex_line("_1").current()->equals(Token(TOKEN_TYPE::IDENTIFIER, "_1"));
     });
+    // String
+    run("Lexer::Should identify a string literal", []() {
+      return Lexer::lex_line("\"name\"").current()->equals(Literal(LITERAL_TYPE::STRING, "name"));
+    });
+    run("Lexer::Should identify a string literal with an escape character", []() {
+      return Lexer::lex_line("\"na\\\"me\"").current()->equals(Literal(LITERAL_TYPE::STRING, "na\\\"me"));
+    });
+    run("Lexer::Should identify a string literal with an escape character at the end", []() {
+      return Lexer::lex_line("\"name\\\"\"").current()->equals(Literal(LITERAL_TYPE::STRING, "name\\\""));
+    });
+    run("Lexer::Should identify a string literal with an escape character at the beginning", []() {
+      return Lexer::lex_line("\"\\\"name\"").current()->equals(Literal(LITERAL_TYPE::STRING, "\\\"name"));
+    });
+    run("Lexer::Should identify a string literal with an escape character at the beginning and end", []() {
+      return Lexer::lex_line("\"\\\"name\\\"\"").current()->equals(Literal(LITERAL_TYPE::STRING, "\\\"name\\\""));
+    });
+    run("Lexer::Should identify a string literal with an escape character in the middle", []() {
+      return Lexer::lex_line("\"na\\\"me\"").current()->equals(Literal(LITERAL_TYPE::STRING, "na\\\"me"));
+    });
+    /// String Injection
+    run("Lexer::Should identify a string literal with an injection", []() {
+      return 
+        std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name #name\"").current())->
+        equals(Literal(LITERAL_TYPE::STRING, "name #name", { "name" }));
+      });
+      run("Lexer::Should identify a string literal with an injection at the beginning", []() {
+        return 
+          std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"#name name\"").current())->
+          equals(Literal(LITERAL_TYPE::STRING, "#name name", { "name" }));
+    });
+    run("Lexer::Should identify a string literal with an injection at the end", []() {
+      return 
+        std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name #name\"").current())->
+        equals(Literal(LITERAL_TYPE::STRING, "name #name", { "name" }));
+    });
+    run("Lexer::Should identify a string literal with an injection in the middle", []() {
+      return 
+        std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name #name name\"").current())->
+        equals(Literal(LITERAL_TYPE::STRING, "name #name name", { "name" }));
+    });
+    run("Lexer::Should identify a string literal with multiple injections", []() {
+      return 
+        std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name #name #country name\"").current())->
+        equals(Literal(LITERAL_TYPE::STRING, "name #name #country name", { "name", "country" }));
+    });
+    run("Lexer::Should identify a string literal and not capture an escaped injection", []() {
+      return 
+        std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name \\#name name\"").current())->
+        equals(Literal(LITERAL_TYPE::STRING, "name \\#name name"));
+    });
+    run("Lexer::Should identify a string literal and not capture a single injection character", []() {
+      return 
+        std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name # name\"").current())->
+        equals(Literal(LITERAL_TYPE::STRING, "name # name"));
+    });
+    run("Lexer::Should identify a string literal and not capture an invalid injection", []() {
+      return 
+        std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name #123 #_ name #\"").current())->
+        equals(Literal(LITERAL_TYPE::STRING, "name #123 #_ name #"));
+    });
   }
 
   void test_marker() {
     for (const auto &pair : Mapper::CHAR_TO_MARKER) {
+      if (pair.second == MARKER_TYPE::COMMENT) {
+        run("Lexer::Should lex everything before a comment", []() {
+          Stream stream = Lexer::lex_line("1.000 + 1.000 # This is a comment");
+          return 
+            stream.consume()->equals(Literal(LITERAL_TYPE::FLOAT, "1.000")) and
+            stream.consume()->equals(Operator(OPERATOR_TYPE::ADDITION, "+")) and
+            stream.consume()->equals(Literal(LITERAL_TYPE::FLOAT, "1.000")) and
+            not stream.has_next();
+        });
+        run("Lexer::Should not identify a comment as a token", []() {
+          return Lexer::lex_line("#").is_empty();
+        });
+        
+        continue;
+      }
+
+      if (pair.second == MARKER_TYPE::STR_QUOTE) {
+        continue;
+      }
+
       run("Lexer::Should identify a " + to_str(pair.first) + " marker", [pair]() {
         return Lexer::lex_line(to_str(pair.first)).current()->equals(Marker(pair.second, pair.first));
       });

@@ -14,6 +14,8 @@ class Matcher {
 
     static inline bool is_float(const std::string &str);
 
+    static inline bool is_identifier(const char &character);
+
     static inline bool is_identifier(const std::string &str);
 
     static inline bool is_integer(const std::string &str);
@@ -23,4 +25,6 @@ class Matcher {
     static inline bool is_marker(const char &c);
 
     static inline bool is_operator(const std::string &str);
+
+    static inline bool is_str_injection(const std::string &line, const size_t &index);
 };
