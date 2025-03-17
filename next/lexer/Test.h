@@ -178,6 +178,22 @@ class Test {
     });
   }
 
+  void test_marker() {
+    for (const auto &pair : Mapper::CHAR_TO_MARKER) {
+      run("Lexer::Should identify a " + std::string(1, pair.first) + " marker", [pair]() {
+        return Lexer::lex_line(std::string(1, pair.first)).current()->equals(Marker(pair.second, pair.first));
+      });
+    }
+  }
+
+  void test_operator() {
+    for (const auto &pair : Mapper::STR_TO_OPERATOR) {
+      run("Lexer::Should identify a " + pair.first + " operator", [pair]() {
+        return Lexer::lex_line(pair.first).current()->equals(Operator(pair.second, pair.first));
+      });
+    }
+  }
+
   void print_results() {
     println("Tests passed: " + std::to_string(this->count_passed));
     println("Tests failed: " + std::to_string(this->count_failed));
@@ -188,6 +204,8 @@ class Test {
       test_identifier();
       test_keyword();
       test_literal();
+      test_marker();
+      test_operator();
       print_results();
     }
 };

@@ -46,3 +46,11 @@ bool Matcher::is_integer(const std::string &str) {
 bool Matcher::is_keyword(const std::string &str) {
   return Mapper::is_keyword(str);
 }
+
+bool Matcher::is_marker(const char &c) {
+  return Mapper::is_marker(c);
+}
+
+bool Matcher::is_operator(const std::string &str) {
+  return Mapper::is_operator(str);
+}

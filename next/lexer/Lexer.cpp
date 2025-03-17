@@ -3,6 +3,8 @@
 #include "./Lexer.h"
 #include "./token/Keyword.cpp"
 #include "./token/Literal.cpp"
+#include "./token/Marker.cpp"
+#include "./token/Operator.cpp"
 #include "./token/Mapper.cpp"
 #include "./token/Matcher.cpp"
 #include "./token/Stream.cpp"
@@ -22,6 +24,10 @@ std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
 
   if (Matcher::is_float(buffer)) {
     return std::make_shared<Literal>(LITERAL_TYPE::FLOAT, buffer);
+  }
+
+  if (Matcher::is_operator(buffer)) {
+    return std::make_shared<Operator>(Mapper::get_operator_enum_from_str(buffer), buffer);
   }
 
   if (Matcher::is_identifier(buffer)) {
@@ -45,6 +51,19 @@ Stream Lexer::lex_line(const std::string &line) {
       collection.push_back(get_token_from_buffer(buffer));
       buffer = "";
 
+      continue;
+    }
+
+    if (Matcher::is_marker(character)) {
+      if (not is_whitespace(buffer)) {
+        collection.push_back(get_token_from_buffer(buffer));
+        buffer = "";
+      }
+
+      collection.push_back(
+        std::make_shared<Marker>(Mapper::get_marker_enum_from_char(character), character)
+      );
+      
       continue;
     }
 

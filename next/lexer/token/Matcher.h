@@ -19,4 +19,8 @@ class Matcher {
     static inline bool is_integer(const std::string &str);
 
     static inline bool is_keyword(const std::string &str);
+
+    static inline bool is_marker(const char &c);
+
+    static inline bool is_operator(const std::string &str);
 };
