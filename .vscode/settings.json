@@ -52,6 +52,9 @@
     "ctime": "cpp",
     "ratio": "cpp",
     "*.inc": "cpp",
-    "*.def": "cpp"
+    "*.def": "cpp",
+    "condition_variable": "cpp",
+    "regex": "cpp",
+    "shared_mutex": "cpp"
   }
 }

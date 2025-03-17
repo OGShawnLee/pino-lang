@@ -9,6 +9,29 @@
 #include "./token/Matcher.cpp"
 #include "./token/Stream.cpp"
 
+std::shared_ptr<Token> Lexer::consume_operator(const std::string &final_line, int &index) {
+  std::string single_char_operator = final_line.substr(index, 1);
+  
+  if (index == final_line.size() - 1) {
+    return std::make_shared<Operator>(
+      Mapper::get_operator_enum_from_str(single_char_operator), single_char_operator
+    );
+  }
+  
+  std::string dual_char_operator = final_line.substr(index, 2);
+  
+  if (Matcher::is_operator(dual_char_operator)) {
+    index++;
+    return std::make_shared<Operator>(
+      Mapper::get_operator_enum_from_str(dual_char_operator), dual_char_operator
+    );
+  } 
+    
+  return std::make_shared<Operator>(
+    Mapper::get_operator_enum_from_str(single_char_operator), single_char_operator
+  );
+}
+
 std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
   if (Matcher::is_keyword(buffer)) {
     return std::make_shared<Keyword>(Mapper::get_keyword_enum_from_str(buffer), buffer);
@@ -24,10 +47,6 @@ std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
 
   if (Matcher::is_float(buffer)) {
     return std::make_shared<Literal>(LITERAL_TYPE::FLOAT, buffer);
-  }
-
-  if (Matcher::is_operator(buffer)) {
-    return std::make_shared<Operator>(Mapper::get_operator_enum_from_str(buffer), buffer);
   }
 
   if (Matcher::is_identifier(buffer)) {
@@ -54,16 +73,23 @@ Stream Lexer::lex_line(const std::string &line) {
       continue;
     }
 
-    if (Matcher::is_marker(character)) {
+    bool is_marker = Matcher::is_marker(character);
+    bool is_operator = Matcher::is_operator(std::string(1, character));
+
+    if (is_marker or is_operator) {
       if (not is_whitespace(buffer)) {
         collection.push_back(get_token_from_buffer(buffer));
         buffer = "";
       }
 
-      collection.push_back(
-        std::make_shared<Marker>(Mapper::get_marker_enum_from_char(character), character)
-      );
-      
+      if (is_operator) {
+        collection.push_back(consume_operator(final_line, i));
+      } else {
+        collection.push_back(
+          std::make_shared<Marker>(Mapper::get_marker_enum_from_char(character), character)
+        );
+      }
+
       continue;
     }
 
