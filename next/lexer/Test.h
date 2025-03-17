@@ -42,66 +42,11 @@ class Test {
   }
   
   void test_keyword() {
-    run("Lexer::Should identify an as keyword", []() {
-      return Lexer::lex_line("as").current()->equals(Keyword(KEYWORD_TYPE::AS, "as"));
-    });
-    run("Lexer::Should identify a break keyword", []() {
-      return Lexer::lex_line("break").current()->equals(Keyword(KEYWORD_TYPE::BREAK, "break"));
-    });
-    run("Lexer::Should identify a constant keyword", []() {
-      return Lexer::lex_line("val").current()->equals(Keyword(KEYWORD_TYPE::CONSTANT, "val"));
-    });
-    run("Lexer::Should identify a continue keyword", []() {
-      return Lexer::lex_line("continue").current()->equals(Keyword(KEYWORD_TYPE::CONTINUE, "continue"));
-    });
-    run("Lexer::Should identify an else keyword", []() {
-      return Lexer::lex_line("else").current()->equals(Keyword(KEYWORD_TYPE::ELSE, "else"));
-    });
-    run("Lexer::Should identify an enum keyword", []() {
-      return Lexer::lex_line("enum").current()->equals(Keyword(KEYWORD_TYPE::ENUM, "enum"));
-    });
-    run("Lexer::Should identify a from keyword", []() {
-      return Lexer::lex_line("from").current()->equals(Keyword(KEYWORD_TYPE::FROM, "from"));
-    });
-    run("Lexer::Should identify a function keyword", []() {
-      return Lexer::lex_line("fn").current()->equals(Keyword(KEYWORD_TYPE::FUNCTION, "fn"));
-    });
-    run("Lexer::Should identify an if keyword", []() {
-      return Lexer::lex_line("if").current()->equals(Keyword(KEYWORD_TYPE::IF, "if"));
-    });
-    run("Lexer::Should identify an import keyword", []() {
-      return Lexer::lex_line("import").current()->equals(Keyword(KEYWORD_TYPE::IMPORT, "import"));
-    });
-    run("Lexer::Should identify an in keyword", []() {
-      return Lexer::lex_line("in").current()->equals(Keyword(KEYWORD_TYPE::IN, "in"));
-    });
-    run("Lexer::Should identify a loop keyword", []() {
-      return Lexer::lex_line("for").current()->equals(Keyword(KEYWORD_TYPE::LOOP, "for"));
-    });
-    run("Lexer::Should identify a match keyword", []() {
-      return Lexer::lex_line("match").current()->equals(Keyword(KEYWORD_TYPE::MATCH, "match"));
-    });
-    run("Lexer::Should identify a pub keyword", []() {
-      return Lexer::lex_line("pub").current()->equals(Keyword(KEYWORD_TYPE::PUB, "pub"));
-    });
-    run("Lexer::Should identify a return keyword", []() {
-      return Lexer::lex_line("return").current()->equals(Keyword(KEYWORD_TYPE::RETURN, "return"));
-    });
-    run("Lexer::Should identify a static keyword", []() {
-      return Lexer::lex_line("static").current()->equals(Keyword(KEYWORD_TYPE::STATIC, "static"));
-    });
-    run("Lexer::Should identify a struct keyword", []() {
-      return Lexer::lex_line("struct").current()->equals(Keyword(KEYWORD_TYPE::STRUCT, "struct"));
-    });
-    run("Lexer::Should identify a then keyword", []() {
-      return Lexer::lex_line("then").current()->equals(Keyword(KEYWORD_TYPE::THEN, "then"));
-    });
-    run("Lexer::Should identify a variable keyword", []() {
-      return Lexer::lex_line("var").current()->equals(Keyword(KEYWORD_TYPE::VARIABLE, "var"));
-    });
-    run("Lexer::Should identify a when keyword", []() {
-      return Lexer::lex_line("when").current()->equals(Keyword(KEYWORD_TYPE::WHEN, "when"));
-    });
+    for (const auto &keyword : Mapper::STR_TO_KEYWORD) {
+      run("Lexer::Should identify a " + keyword.first + " keyword", [keyword]() {
+        return Lexer::lex_line(keyword.first).current()->equals(Keyword(keyword.second, keyword.first));
+      });
+    }
   }
 
   void test_literal() {
