@@ -169,6 +169,28 @@ class Test {
     }
   }
 
+  void test_constant() {
+    run("Lexer::Should lex all tokens from a constant declaration properly", []() {
+      Stream stream = Lexer::lex_line("val is_married = false");
+      return 
+        stream.consume()->equals(Keyword(KEYWORD_TYPE::CONSTANT, "val")) and
+        stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "is_married")) and
+        stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
+        stream.consume()->equals(Literal(LITERAL_TYPE::BOOLEAN, "false"));
+    });
+  }
+
+  void test_variable() {
+    run("Lexer::Should lex all tokens from a variable declaration properly", []() {
+      Stream stream = Lexer::lex_line("var age = 25");
+      return 
+        stream.consume()->equals(Keyword(KEYWORD_TYPE::VARIABLE, "var")) and
+        stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "age")) and
+        stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
+        stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25"));
+    });
+  }
+
   void print_results() {
     println("Tests passed: " + std::to_string(this->count_passed));
     println("Tests failed: " + std::to_string(this->count_failed));
@@ -181,6 +203,8 @@ class Test {
       test_literal();
       test_marker();
       test_operator();
+      test_constant();
+      test_variable();
       print_results();
     }
 };
