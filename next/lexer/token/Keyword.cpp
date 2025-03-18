@@ -16,6 +16,10 @@ KEYWORD_TYPE Keyword::get_keyword() const {
   return keyword;
 }
 
+Keyword* Keyword::from_base(const std::shared_ptr<Token> &base) {
+  return dynamic_cast<Keyword*>(base.get());
+}
+
 void Keyword::print() const {
   println("Keyword {");
   println("  type: " + get_name());

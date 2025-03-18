@@ -29,6 +29,14 @@ std::string Token::get_name() const {
   return name;
 }
 
+bool Token::is_given_type(TOKEN_TYPE type) const {
+  return this->token_type == type;
+}
+
+bool Token::is_given_type(TOKEN_TYPE type_a, TOKEN_TYPE type_b) const {
+  return this->is_given_type(type_a) or this->is_given_type(type_b);
+}
+
 void Token::print() const {
   println("Token {");
   println("  type: " + get_name());

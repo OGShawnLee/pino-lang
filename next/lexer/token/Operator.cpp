@@ -15,6 +15,10 @@ OPERATOR_TYPE Operator::get_marker_type() const {
   return this->operator_type;
 }
 
+Operator* Operator::from_base(const std::shared_ptr<Token> &base) {
+  return dynamic_cast<Operator*>(base.get());
+}
+
 void Operator::print() const {
   println("Operator {");
   println("  type: " + this->get_name());

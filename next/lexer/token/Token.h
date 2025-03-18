@@ -18,6 +18,9 @@ class Token {
     std::string get_data() const;
     
     std::string get_name() const;
+
+    bool is_given_type(TOKEN_TYPE type) const;
+    bool is_given_type(TOKEN_TYPE type_a, TOKEN_TYPE type_b) const;
     
     virtual bool equals(const Token &candidate) const;
 

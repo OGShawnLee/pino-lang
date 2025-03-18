@@ -7,9 +7,17 @@
 class Test {
   int count_passed = 0;
   int count_failed = 0;
+  bool with_test_name = false;
+
+  bool each(std::vector<bool> cases) {
+    return std::all_of(cases.begin(), cases.end(), [](bool value) { return value; });
+  }
 
   void run(const std::string &name, const std::function<bool()> &test) {
     if (test()) {
+      if (this->with_test_name) {
+        println("Test '" + name + "' passed");
+      }
       this->count_passed++;
     } else {
       println("Test '" + name + "' failed");
@@ -38,6 +46,16 @@ class Test {
     });
     run("Lexer::Should mark as illegal an identifier with an initial number", []() {
       return Lexer::lex_line("1name").current()->equals(Token(TOKEN_TYPE::ILLEGAL, "1name"));
+    });
+    run("Parser: Should parse an identifier expression", [this]() {
+      return each({
+        Identifier("name").equals(Parser::parse_line("name")),
+        Identifier("name1").equals(Parser::parse_line("name1")),
+        Identifier("name$").equals(Parser::parse_line("name$")),
+        Identifier("name_").equals(Parser::parse_line("name_")),
+        Identifier("_name").equals(Parser::parse_line("_name")),
+        Identifier("$name").equals(Parser::parse_line("$name")),
+      });
     });
   }
   
@@ -175,6 +193,36 @@ class Test {
         std::dynamic_pointer_cast<Literal>(Lexer::lex_line("\"name #123 #_ name #\"").current())->
         equals(Literal(LITERAL_TYPE::STRING, "name #123 #_ name #"));
     });
+    run("Parser::Should parse a boolean literal", []() {
+      return 
+        Value(Literal(LITERAL_TYPE::BOOLEAN, "true")).equals(Parser::parse_line("true")) and
+        Value(Literal(LITERAL_TYPE::BOOLEAN, "false")).equals(Parser::parse_line("false"));
+    });
+    run("Parser::Should parse a float literal", []() {
+      return Value(Literal(LITERAL_TYPE::FLOAT, "1.0")).equals(Parser::parse_line("1.0"));
+    });
+    run("Parser::Should parse a float literal with underscores", []() {
+      return 
+        Value(Literal(LITERAL_TYPE::FLOAT, "1_000.0")).equals(Parser::parse_line("1_000.0")) and
+        Value(Literal(LITERAL_TYPE::FLOAT, "1_000_000.0")).equals(Parser::parse_line("1_000_000.0")) and
+        Value(Literal(LITERAL_TYPE::FLOAT, "1_000_000_000.0")).equals(Parser::parse_line("1_000_000_000.0")) and
+        Value(Literal(LITERAL_TYPE::FLOAT, "1.000_000")).equals(Parser::parse_line("1.000_000")) and
+        Value(Literal(LITERAL_TYPE::FLOAT, "1.000_000_000")).equals(Parser::parse_line("1.000_000_000")) and
+        Value(Literal(LITERAL_TYPE::FLOAT, "1_000.000_000")).equals(Parser::parse_line("1_000.000_000")) and
+        Value(Literal(LITERAL_TYPE::FLOAT, "1_000_000.000_000")).equals(Parser::parse_line("1_000_000.000_000"));
+    });
+    run("Parser::Should parse an integer literal", []() {
+      return Value(Literal(LITERAL_TYPE::INTEGER, "1")).equals(Parser::parse_line("1"));
+    });
+    run("Parser::Should parse an integer literal with underscores", []() {
+      return 
+        Value(Literal(LITERAL_TYPE::INTEGER, "1_000")).equals(Parser::parse_line("1_000")) and
+        Value(Literal(LITERAL_TYPE::INTEGER, "1_000_000")).equals(Parser::parse_line("1_000_000")) and
+        Value(Literal(LITERAL_TYPE::INTEGER, "1_000_000_000")).equals(Parser::parse_line("1_000_000_000"));
+    });
+    run("Parser::Should parse a string literal", []() {
+      return Value(Literal(LITERAL_TYPE::STRING, "name")).equals(Parser::parse_line("\"name\""));
+    });
   }
 
   void test_marker() {
@@ -258,6 +306,75 @@ class Test {
         stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
         stream.consume()->equals(Literal(LITERAL_TYPE::BOOLEAN, "false"));
     });
+    run("Parser::Should parse a constant declaration", [this]() {
+      return each({
+        Variable("is_married", "false", "PENDING", VARIABLE_KIND::CONSTANT).equals(Parser::parse_line("val is_married = false")),
+        Variable("is_married", "true", "PENDING", VARIABLE_KIND::CONSTANT).equals(Parser::parse_line("val is_married = true")),
+        Variable("age", "25", "PENDING", VARIABLE_KIND::CONSTANT).equals(Parser::parse_line("val age = 25")),
+        Variable("name", "\"John Doe\"", "PENDING", VARIABLE_KIND::CONSTANT).equals(Parser::parse_line("val name = \"John Doe\"")),
+      });
+    });
+    run("Parser::Should parse a constant declaration with a reference", [this]{
+      return Variable("full_name", "name", "PENDING", VARIABLE_KIND::CONSTANT).equals(Parser::parse_line("val full_name = name"));
+    });
+  }
+
+  void test_function_call() {
+    run("Lexer::Should lex all tokens from a function call properly", []() {
+      Stream stream = Lexer::lex_line("print(\"Hello, World!\")");
+      return 
+        stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
+        stream.consume()->equals(Literal(LITERAL_TYPE::STRING, "Hello, World!")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+    });
+    run("Parser::Should parse a function call", [this]() {
+      return FunctionCall("print", { std::make_shared<Value>(Literal(LITERAL_TYPE::STRING, "Hello, World!")) })
+        .equals(Parser::parse_line("print(\"Hello, World!\")"));
+    });
+    run("Lexer::Should lex all tokens from a function call without arguments properly", []() {
+      Stream stream = Lexer::lex_line("print()");
+      return 
+        stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+    });
+    run("Parser::Should parse a function call without arguments", [this]() {
+      return FunctionCall("print", {}).equals(Parser::parse_line("print()"));
+    });
+    run("Lexer::Should lex all tokens from a function call with multiple arguments properly", []() {
+      Stream stream = Lexer::lex_line("print(\"Hello, World!\", 25)");
+      return 
+        stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
+        stream.consume()->equals(Literal(LITERAL_TYPE::STRING, "Hello, World!")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::COMMA, ',')) and
+        stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+    });
+    run("Parser::Should parse a function call with multiple arguments", []() {
+      return 
+        FunctionCall("print", { 
+          std::make_shared<Value>(Literal(LITERAL_TYPE::STRING, "Hello, World!")),
+          std::make_shared<Value>(Literal(LITERAL_TYPE::INTEGER, "25")),
+        }).equals(Parser::parse_line("print(\"Hello, World!\", 25)"));
+    });    
+    run("Lexer::Should lex all tokens from a function call with multiple arguments without commas properly", []() {
+      Stream stream = Lexer::lex_line("print(\"Hello, World!\" 25)");
+      return 
+        stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
+        stream.consume()->equals(Literal(LITERAL_TYPE::STRING, "Hello, World!")) and
+        stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25")) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+    });
+    run("Parser::Should parse a function call with multiple arguments without commas", []() {
+      return 
+        FunctionCall("print", { 
+          std::make_shared<Value>(Literal(LITERAL_TYPE::STRING, "Hello, World!")),
+          std::make_shared<Value>(Literal(LITERAL_TYPE::INTEGER, "25")),
+        }).equals(Parser::parse_line("print(\"Hello, World!\" 25)"));
+    });
   }
 
   void test_variable() {
@@ -269,6 +386,17 @@ class Test {
         stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
         stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25"));
     });
+    run("Parser::Should parse a variable declaration", [this]() {
+      return each({
+        Variable("is_married", "false", "PENDING").equals(Parser::parse_line("var is_married = false")),
+        Variable("is_married", "true", "PENDING").equals(Parser::parse_line("var is_married = true")),
+        Variable("age", "25", "PENDING").equals(Parser::parse_line("var age = 25")),
+        Variable("name", "\"John Doe\"", "PENDING").equals(Parser::parse_line("var name = \"John Doe\"")),
+      });
+    });
+    run("Parser::Should parse a variable declaration with a reference", [this]{
+      return Variable("full_name", "name", "PENDING").equals(Parser::parse_line("var full_name = name"));
+    });
   }
 
   void print_results() {
@@ -277,14 +405,22 @@ class Test {
   }
 
   public:
-    void run_all() {
+    void run_all(const bool &with_test_name = false) {
+      this->with_test_name = with_test_name;
+
       test_identifier();
       test_keyword();
       test_literal();
       test_marker();
       test_operator();
       test_constant();
+      test_function_call();
       test_variable();
       print_results();
+
+      int total_cases = this->count_passed + this->count_failed;
+      int coverage = (this->count_passed * 100) / total_cases;
+
+      println("Coverage: " + std::to_string(coverage) + " %");
     }
 };

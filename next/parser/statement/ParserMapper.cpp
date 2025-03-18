@@ -1,0 +1,31 @@
+#include "./ParserMapper.h"
+
+const std::map<EXPRESSION_TYPE, std::string> ParserMapper::EXPRESSION_TYPE_TO_STR_NAME = {
+  {EXPRESSION_TYPE::FUNCTION_CALL, "FUNCTION_CALL"},
+  {EXPRESSION_TYPE::IDENTIFIER, "IDENTIFIER"},
+  {EXPRESSION_TYPE::LITERAL, "LITERAL"},
+};
+const std::map<STATEMENT_TYPE, std::string> ParserMapper::STATEMENT_TYPE_TO_STR_NAME = {
+  {STATEMENT_TYPE::CONSTANT_DECLARATION, "CONSTANT_DECLARATION"},
+  {STATEMENT_TYPE::EXPRESSION, "EXPRESSION"},
+  {STATEMENT_TYPE::PROGRAM, "PROGRAM"},
+  {STATEMENT_TYPE::VARIABLE_DECLARATION, "VARIABLE_DECLARATION"},
+};
+const std::map<LITERAL_TYPE, BUILT_IN_TYPE> ParserMapper::LITERAL_TYPE_TO_BUILT_IN_TYPE = {
+  {LITERAL_TYPE::BOOLEAN, BUILT_IN_TYPE::BOOLEAN},
+  {LITERAL_TYPE::FLOAT, BUILT_IN_TYPE::FLOAT},
+  {LITERAL_TYPE::INTEGER, BUILT_IN_TYPE::INTEGER},
+  {LITERAL_TYPE::STRING, BUILT_IN_TYPE::STRING},
+};
+
+BUILT_IN_TYPE ParserMapper::infer_built_in_type_from_literal_type(const LITERAL_TYPE &type) {
+  return LITERAL_TYPE_TO_BUILT_IN_TYPE.at(type);
+}
+
+std::string ParserMapper::get_expression_name_from_enum(const EXPRESSION_TYPE &type) {
+  return EXPRESSION_TYPE_TO_STR_NAME.at(type);
+}
+
+std::string ParserMapper::get_statement_name_from_enum(const STATEMENT_TYPE &type) {
+  return STATEMENT_TYPE_TO_STR_NAME.at(type);
+}
