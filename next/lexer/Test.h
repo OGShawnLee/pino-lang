@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./Lexer.cpp"
+#include "../transpiler/Transpiler.cpp"
 #include "./token/Keyword.h"
 #include "../Common.h"
 
@@ -223,6 +224,51 @@ class Test {
     run("Parser::Should parse a string literal", []() {
       return Value(Literal(LITERAL_TYPE::STRING, "name")).equals(Parser::parse_line("\"name\""));
     });
+    run("Transpiler::Should transpile a boolean literal", [this]() {
+      return each({
+        Transpiler::transpile_line("true") == "True",
+        Transpiler::transpile_line("false") == "False",
+      });
+    });
+    run("Transpiler::Should transpile a float literal", [this]() {
+      return each({
+        Transpiler::transpile_line("1.0") == "1.0",
+        Transpiler::transpile_line("1_000.0") == "1_000.0",
+        Transpiler::transpile_line("1_000_000.0") == "1_000_000.0",
+        Transpiler::transpile_line("1_000_000_000.0") == "1_000_000_000.0",
+        Transpiler::transpile_line("1.000_000") == "1.000_000",
+        Transpiler::transpile_line("1.000_000_000") == "1.000_000_000",
+        Transpiler::transpile_line("1_000.000_000") == "1_000.000_000",
+        Transpiler::transpile_line("1_000_000.000_000") == "1_000_000.000_000",
+      });
+    });
+    run("Transpiler::Should transpile an integer literal", [this]() {
+      return each({
+        Transpiler::transpile_line("1") == "1",
+        Transpiler::transpile_line("100") == "100",
+        Transpiler::transpile_line("1_000") == "1_000",
+        Transpiler::transpile_line("1_000_000") == "1_000_000",
+        Transpiler::transpile_line("1_000_000_000") == "1_000_000_000",
+        Transpiler::transpile_line("123_123") == "123_123",
+        Transpiler::transpile_line("300") == "300",
+        Transpiler::transpile_line("900_800_700") == "900_800_700",
+      });
+    });
+    run("Transpiler::Should transpile a string literal", [this]() {
+      return each({
+        Transpiler::transpile_line("\"Shawn Lee\"") == "\"Shawn Lee\"",
+        Transpiler::transpile_line("\"China\"") == "\"China\"",
+        Transpiler::transpile_line("\"Hunter\"") == "\"Hunter\"",
+      });
+    });
+    run("Transpiler::Should transpile a string literal with string injections", [this]() {
+      return each({
+        Transpiler::transpile_line("\"Shawn $last_name\"") == "f\"Shawn {last_name}\"",
+        Transpiler::transpile_line("\"China$\"") == "\"China$\"",
+        Transpiler::transpile_line("\"$China\"") == "\"$China\"",
+        Transpiler::transpile_line("\"$full_name lives in $country\"") == "f\"{full_name} lives in {country}\"",
+      });
+    });
   }
 
   void test_marker() {
@@ -317,6 +363,15 @@ class Test {
     run("Parser::Should parse a constant declaration with a reference", [this]{
       return Variable("full_name", "name", "PENDING", VARIABLE_KIND::CONSTANT).equals(Parser::parse_line("val full_name = name"));
     });
+    run("Transpiler::Should transpile a constant declaration with a literal", [this]() {
+      return each({
+        Transpiler::transpile_line("val budget = 1_000.001") == "budget = 1_000.001",
+        Transpiler::transpile_line("val budget = 1_000") == "budget = 1_000",
+        Transpiler::transpile_line("val is_married = false") == "is_married = false",
+        Transpiler::transpile_line("val is_married = true") == "is_married = true",
+        Transpiler::transpile_line("val name = \"Shawn Lee\"") == "is_married = \"Shawn Lee\"",
+      });
+    });
   }
 
   void test_function_call() {
@@ -375,6 +430,29 @@ class Test {
           std::make_shared<Value>(Literal(LITERAL_TYPE::INTEGER, "25")),
         }).equals(Parser::parse_line("print(\"Hello, World!\" 25)"));
     });
+    run("Transpiler::Should transpile a function call with no arguments", []() {
+      return Transpiler::transpile_line("print()") == "print()";
+    });
+    run("Transpiler::Should transpile a function call with one argument", []() {
+      return Transpiler::transpile_line("print(12)") == "print(12)";
+    });
+    run("Transpiler::Should transpile a function call with multiple arguments", [this]() {
+      return each({
+        Transpiler::transpile_line("print(12, false)") == "print(12, false)",
+        Transpiler::transpile_line("print(12, false, 1.001)") == "print(12, false, 1.001)",
+      });
+    });
+    run("Transpiler::Should transpile a function call with multiple arguments and no commas", []() {
+      return Transpiler::transpile_line("print(12 false 1.245)") == "print(12, false, 1.245)";
+    });
+    run("Transpiler::Should transpile a function call with multiple references an no commas", [this]() {
+      return each({
+        Transpiler::transpile_line("print(name)") == "print(name)",
+        Transpiler::transpile_line("print(name, budget)") == "print(name, budget)",
+        Transpiler::transpile_line("print(name, budget, country)") == "print(name, budget, country)",
+        Transpiler::transpile_line("print(name budget country)") == "print(name, budget, country)",
+      });
+    });
   }
 
   void test_variable() {
@@ -396,6 +474,15 @@ class Test {
     });
     run("Parser::Should parse a variable declaration with a reference", [this]{
       return Variable("full_name", "name", "PENDING").equals(Parser::parse_line("var full_name = name"));
+    });
+    run("Transpiler::Should transpile a variable declaration with a literal", [this]() {
+      return each({
+        Transpiler::transpile_line("var budget = 1_000.001") == "budget = 1_000.001",
+        Transpiler::transpile_line("var budget = 1_000") == "budget = 1_000",
+        Transpiler::transpile_line("var is_married = false") == "is_married = false",
+        Transpiler::transpile_line("var is_married = true") == "is_married = true",
+        Transpiler::transpile_line("var name = \"Shawn Lee\"") == "is_married = \"Shawn Lee\"",
+      });
     });
   }
 
@@ -422,10 +509,5 @@ class Test {
       test_function_call();
       test_variable();
       print_results();
-
-      int total_cases = this->count_passed + this->count_failed;
-      int coverage = (this->count_passed * 100) / total_cases;
-
-      println("Coverage: " + std::to_string(coverage) + " %");
     }
 };

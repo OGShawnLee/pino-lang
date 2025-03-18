@@ -1,3 +1,5 @@
+#pragma once
+
 #include "./Parser.h"
 #include "./statement/Variable.cpp"
 #include "./statement/expression/Value.h"

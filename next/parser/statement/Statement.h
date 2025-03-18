@@ -17,6 +17,10 @@ class Statement {
       return this->statement_type;
     }
 
+    const std::vector<std::shared_ptr<Statement>>& get_children() const {
+      return this->children;
+    }
+
     virtual bool equals(const Statement &candidate) const {
       return this->statement_type == candidate.get_type();
     }
