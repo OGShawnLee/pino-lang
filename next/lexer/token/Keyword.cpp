@@ -4,9 +4,9 @@
 #include "./Keyword.h"
 #include "./Mapper.cpp"
 
-Keyword::Keyword(KEYWORD_TYPE keyword, std::string data) : Token(
+Keyword::Keyword(KEYWORD_TYPE keyword) : Token(
   TOKEN_TYPE::KEYWORD, 
-  data, 
+  Mapper::get_keyword_name_from_enum(keyword), 
   Mapper::get_keyword_name_from_enum(keyword)
 ) {
   this->keyword = keyword;

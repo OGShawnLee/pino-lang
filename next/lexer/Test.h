@@ -62,7 +62,7 @@ class Test {
   void test_keyword() {
     for (const auto &keyword : Mapper::STR_TO_KEYWORD) {
       run("Lexer::Should identify a " + keyword.first + " keyword", [keyword]() {
-        return Lexer::lex_line(keyword.first).current()->equals(Keyword(keyword.second, keyword.first));
+        return Lexer::lex_line(keyword.first).current()->equals(Keyword(keyword.second));
       });
     }
   }
@@ -301,7 +301,7 @@ class Test {
     run("Lexer::Should lex all tokens from a constant declaration properly", []() {
       Stream stream = Lexer::lex_line("val is_married = false");
       return 
-        stream.consume()->equals(Keyword(KEYWORD_TYPE::CONSTANT, "val")) and
+        stream.consume()->equals(Keyword(KEYWORD_TYPE::CONSTANT)) and
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "is_married")) and
         stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
         stream.consume()->equals(Literal(LITERAL_TYPE::BOOLEAN, "false"));
@@ -381,7 +381,7 @@ class Test {
     run("Lexer::Should lex all tokens from a variable declaration properly", []() {
       Stream stream = Lexer::lex_line("var age = 25");
       return 
-        stream.consume()->equals(Keyword(KEYWORD_TYPE::VARIABLE, "var")) and
+        stream.consume()->equals(Keyword(KEYWORD_TYPE::VARIABLE)) and
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "age")) and
         stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
         stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25"));

@@ -77,7 +77,7 @@ std::string Lexer::consume_str_injection(const std::string &line, size_t &index)
 
 std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
   if (Matcher::is_keyword(buffer)) {
-    return std::make_shared<Keyword>(Mapper::get_keyword_enum_from_str(buffer), buffer);
+    return std::make_shared<Keyword>(Mapper::get_keyword_enum_from_str(buffer));
   }
 
   if (Matcher::is_boolean(buffer)) {
