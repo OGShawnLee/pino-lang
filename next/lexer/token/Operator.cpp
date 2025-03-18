@@ -3,9 +3,9 @@
 #include "./Operator.h"
 #include "../../Common.h"
 
-Operator::Operator(OPERATOR_TYPE operator_type, const std::string data) : Token(
+Operator::Operator(OPERATOR_TYPE operator_type) : Token(
   TOKEN_TYPE::MARKER, 
-  data,
+  Mapper::get_operator_str_from_enum(operator_type),
   Mapper::get_operator_name_from_enum(operator_type)
 ) {
   this->operator_type = operator_type;

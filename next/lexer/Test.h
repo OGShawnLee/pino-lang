@@ -232,7 +232,7 @@ class Test {
           Stream stream = Lexer::lex_line("1.000 + 1.000 # This is a comment");
           return 
             stream.consume()->equals(Literal(LITERAL_TYPE::FLOAT, "1.000")) and
-            stream.consume()->equals(Operator(OPERATOR_TYPE::ADDITION, "+")) and
+            stream.consume()->equals(Operator(OPERATOR_TYPE::ADDITION)) and
             stream.consume()->equals(Literal(LITERAL_TYPE::FLOAT, "1.000")) and
             not stream.has_next();
         });
@@ -270,13 +270,13 @@ class Test {
   void test_operator() {
     for (const auto &pair : Mapper::STR_TO_OPERATOR) {
       run("Lexer::Should identify a " + pair.first + " operator", [pair]() {
-        return Lexer::lex_line(pair.first).current()->equals(Operator(pair.second, pair.first));
+        return Lexer::lex_line(pair.first).current()->equals(Operator(pair.second));
       });
       run("Lexer::Should identify an " + pair.first + " operator between other tokens", [&pair]() {
         Stream stream = Lexer::lex_line("1 " + pair.first + " 1");
         return 
           stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
-          stream.consume()->equals(Operator(pair.second, pair.first)) and
+          stream.consume()->equals(Operator(pair.second)) and
           stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
       });
 
@@ -291,7 +291,7 @@ class Test {
         Stream stream = Lexer::lex_line("1" + pair.first + "1");
         return 
           stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
-          stream.consume()->equals(Operator(pair.second, pair.first)) and
+          stream.consume()->equals(Operator(pair.second)) and
           stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
       });
     }
@@ -303,7 +303,7 @@ class Test {
       return 
         stream.consume()->equals(Keyword(KEYWORD_TYPE::CONSTANT)) and
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "is_married")) and
-        stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
+        stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT)) and
         stream.consume()->equals(Literal(LITERAL_TYPE::BOOLEAN, "false"));
     });
     run("Parser::Should parse a constant declaration", [this]() {
@@ -383,7 +383,7 @@ class Test {
       return 
         stream.consume()->equals(Keyword(KEYWORD_TYPE::VARIABLE)) and
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "age")) and
-        stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT, "=")) and
+        stream.consume()->equals(Operator(OPERATOR_TYPE::ASSIGNMENT)) and
         stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25"));
     });
     run("Parser::Should parse a variable declaration", [this]() {

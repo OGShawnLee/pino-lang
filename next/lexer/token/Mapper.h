@@ -83,6 +83,7 @@ class Mapper {
   static const std::map<LITERAL_TYPE, std::string> LITERAL_TO_STR_NAME;
   static const std::map<MARKER_TYPE, char> MARKER_TO_CHAR;
   static const std::map<MARKER_TYPE, std::string> MARKER_TO_STR_NAME;
+  static const std::map<OPERATOR_TYPE, std::string> OPERATOR_TO_STR;
   static const std::map<OPERATOR_TYPE, std::string> OPERATOR_TO_STR_NAME;
   static const std::map<TOKEN_TYPE, std::string> TOKEN_TYPE_TO_STR_NAME;
   static const std::map<KEYWORD_TYPE, std::string> KEYWORD_TO_STR_NAME;
@@ -107,6 +108,8 @@ class Mapper {
     inline static OPERATOR_TYPE get_operator_enum_from_str(const std::string &str);
 
     inline static std::string get_operator_name_from_enum(const OPERATOR_TYPE &operator_type);
+
+    inline static std::string get_operator_str_from_enum(const OPERATOR_TYPE &operator_type);
 
     inline static std::string get_token_name_from_enum(const TOKEN_TYPE &token_type);
 

@@ -39,7 +39,7 @@ std::shared_ptr<Token> Lexer::consume_operator(const std::string &final_line, si
   
   if (index == final_line.size() - 1) {
     return std::make_shared<Operator>(
-      Mapper::get_operator_enum_from_str(single_char_operator), single_char_operator
+      Mapper::get_operator_enum_from_str(single_char_operator)
     );
   }
   
@@ -48,12 +48,12 @@ std::shared_ptr<Token> Lexer::consume_operator(const std::string &final_line, si
   if (Matcher::is_operator(dual_char_operator)) {
     index++;
     return std::make_shared<Operator>(
-      Mapper::get_operator_enum_from_str(dual_char_operator), dual_char_operator
+      Mapper::get_operator_enum_from_str(dual_char_operator)
     );
   } 
     
   return std::make_shared<Operator>(
-    Mapper::get_operator_enum_from_str(single_char_operator), single_char_operator
+    Mapper::get_operator_enum_from_str(single_char_operator)
   );
 }
 
@@ -89,7 +89,7 @@ std::shared_ptr<Token> Lexer::get_token_from_buffer(const std::string &buffer) {
   }
 
    if (Matcher::is_operator(buffer)) {
-     return std::make_shared<Operator>(Mapper::get_operator_enum_from_str(buffer), buffer);
+     return std::make_shared<Operator>(Mapper::get_operator_enum_from_str(buffer));
    }
  
   if (Matcher::is_float(buffer)) {

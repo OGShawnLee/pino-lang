@@ -85,6 +85,30 @@ const std::map<MARKER_TYPE, std::string> Mapper::MARKER_TO_STR_NAME = {
   {MARKER_TYPE::PARENTHESIS_END, "Parenthesis End"},
   {MARKER_TYPE::STR_QUOTE, "String Quote"},
 };
+const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR = {
+  {OPERATOR_TYPE::ASSIGNMENT, "="},
+  {OPERATOR_TYPE::ADDITION, "+"},
+  {OPERATOR_TYPE::ADDITION_ASSIGNMENT, "+="},
+  {OPERATOR_TYPE::SUBTRACTION, "-"},
+  {OPERATOR_TYPE::SUBTRACTION_ASSIGNMENT, "-="},
+  {OPERATOR_TYPE::MULTIPLICATION, "*"},
+  {OPERATOR_TYPE::MULTIPLICATION_ASSIGNMENT, "*="},
+  {OPERATOR_TYPE::DIVISION, "/"},
+  {OPERATOR_TYPE::DIVISION_ASSIGNMENT, "/="},
+  {OPERATOR_TYPE::MODULUS, "%"},
+  {OPERATOR_TYPE::MODULUS_ASSIGNMENT, "%="},
+  {OPERATOR_TYPE::LESS_THAN, "<"},
+  {OPERATOR_TYPE::LESS_THAN_EQUAL, "<="},
+  {OPERATOR_TYPE::GREATER_THAN, ">"},
+  {OPERATOR_TYPE::GREATER_THAN_EQUAL, ">="},
+  {OPERATOR_TYPE::EQUAL, "=="},
+  {OPERATOR_TYPE::NOT_EQUAL, "!="},
+  {OPERATOR_TYPE::AND, "and"},
+  {OPERATOR_TYPE::OR, "or"},
+  {OPERATOR_TYPE::NOT, "not"},
+  {OPERATOR_TYPE::MEMBER_ACCESS, ":"},
+  {OPERATOR_TYPE::STATIC_MEMBER_ACCESS, "::"},
+};
 const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR_NAME = {
   {OPERATOR_TYPE::ASSIGNMENT, "Assignment"},
   {OPERATOR_TYPE::ADDITION, "Addition"},
@@ -172,6 +196,10 @@ OPERATOR_TYPE Mapper::get_operator_enum_from_str(const std::string &str) {
 
 std::string Mapper::get_operator_name_from_enum(const OPERATOR_TYPE &operator_type) {
   return OPERATOR_TO_STR_NAME.at(operator_type);
+}
+
+std::string Mapper::get_operator_str_from_enum(const OPERATOR_TYPE &operator_type) {
+  return OPERATOR_TO_STR.at(operator_type);
 }
 
 std::string Mapper::get_token_name_from_enum(const TOKEN_TYPE &token_type) {
