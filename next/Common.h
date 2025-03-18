@@ -4,6 +4,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <vector>
 
 inline void each_line(const std::string &filename, const std::function<void(const std::string&)> &callback) {
@@ -58,6 +59,19 @@ inline bool is_whitespace(const std::string &line) {
     return is_whitespace(character);
   });
 }
+
+template<typename K, typename V> const std::map<V, K> get_inverted_map(
+  const std::map<K, V> &original_map
+) {
+  std::map<V, K> inverted_map;
+
+  for (const auto &pair : original_map) {
+    inverted_map[pair.second] = pair.first;
+  }
+
+  return inverted_map;
+}
+
 
 inline bool has_escape_character(const std::string &line, size_t index) {
   return is_prev_char(line, index, [](const char &character) {

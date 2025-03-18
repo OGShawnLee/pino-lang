@@ -6,7 +6,7 @@
 
 Keyword::Keyword(KEYWORD_TYPE keyword) : Token(
   TOKEN_TYPE::KEYWORD, 
-  Mapper::get_keyword_name_from_enum(keyword), 
+  Mapper::get_keyword_str_from_enum(keyword), 
   Mapper::get_keyword_name_from_enum(keyword)
 ) {
   this->keyword = keyword;

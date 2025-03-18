@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./Mapper.h"
+#include "../../Common.h"
 
 const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_TO_STR_NAME = {
   {KEYWORD_TYPE::AS, "as"},
@@ -46,6 +47,7 @@ const std::map<std::string, KEYWORD_TYPE> Mapper::STR_TO_KEYWORD = {
   {"var", KEYWORD_TYPE::VARIABLE},
   {"when", KEYWORD_TYPE::WHEN},
 };
+const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_TO_STR = get_inverted_map(STR_TO_KEYWORD);
 const std::map<LITERAL_TYPE, std::string> Mapper::LITERAL_TO_STR_NAME = {
   {LITERAL_TYPE::BOOLEAN, "Boolean"},
   {LITERAL_TYPE::FLOAT, "Float"},
@@ -63,17 +65,7 @@ const std::map<MARKER_TYPE, char> Mapper::MARKER_TO_CHAR = {
   {MARKER_TYPE::PARENTHESIS_END, ')'},
   {MARKER_TYPE::STR_QUOTE, '"'},
 };
-const std::map<char, MARKER_TYPE> Mapper::CHAR_TO_MARKER = {
-  {'{', MARKER_TYPE::BLOCK_BEGIN},
-  {'}', MARKER_TYPE::BLOCK_END},
-  {'[', MARKER_TYPE::BRACKET_BEGIN},
-  {']', MARKER_TYPE::BRACKET_END},
-  {',', MARKER_TYPE::COMMA},
-  {'#', MARKER_TYPE::COMMENT},
-  {'(', MARKER_TYPE::PARENTHESIS_BEGIN},
-  {')', MARKER_TYPE::PARENTHESIS_END},
-  {'"', MARKER_TYPE::STR_QUOTE},
-};
+const std::map<char, MARKER_TYPE> Mapper::CHAR_TO_MARKER = get_inverted_map(MARKER_TO_CHAR);
 const std::map<MARKER_TYPE, std::string> Mapper::MARKER_TO_STR_NAME = {
   {MARKER_TYPE::BLOCK_BEGIN, "Block Begin"},
   {MARKER_TYPE::BLOCK_END, "Block End"},
@@ -109,6 +101,7 @@ const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR = {
   {OPERATOR_TYPE::MEMBER_ACCESS, ":"},
   {OPERATOR_TYPE::STATIC_MEMBER_ACCESS, "::"},
 };
+const std::map<std::string, OPERATOR_TYPE> Mapper::STR_TO_OPERATOR = get_inverted_map(OPERATOR_TO_STR);
 const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR_NAME = {
   {OPERATOR_TYPE::ASSIGNMENT, "Assignment"},
   {OPERATOR_TYPE::ADDITION, "Addition"},
@@ -133,30 +126,6 @@ const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR_NAME = {
   {OPERATOR_TYPE::MEMBER_ACCESS, "Member Access"},
   {OPERATOR_TYPE::STATIC_MEMBER_ACCESS, "Static Member Access"},
 };
-const std::map<std::string, OPERATOR_TYPE> Mapper::STR_TO_OPERATOR = {
-  {"=", OPERATOR_TYPE::ASSIGNMENT},
-  {"+", OPERATOR_TYPE::ADDITION},
-  {"+=", OPERATOR_TYPE::ADDITION_ASSIGNMENT},
-  {"-", OPERATOR_TYPE::SUBTRACTION},
-  {"-=", OPERATOR_TYPE::SUBTRACTION_ASSIGNMENT},
-  {"*", OPERATOR_TYPE::MULTIPLICATION},
-  {"*=", OPERATOR_TYPE::MULTIPLICATION_ASSIGNMENT},
-  {"/", OPERATOR_TYPE::DIVISION},
-  {"/=", OPERATOR_TYPE::DIVISION_ASSIGNMENT},
-  {"%", OPERATOR_TYPE::MODULUS},
-  {"%=", OPERATOR_TYPE::MODULUS_ASSIGNMENT},
-  {"<", OPERATOR_TYPE::LESS_THAN},
-  {"<=", OPERATOR_TYPE::LESS_THAN_EQUAL},
-  {">", OPERATOR_TYPE::GREATER_THAN},
-  {">=", OPERATOR_TYPE::GREATER_THAN_EQUAL},
-  {"!=", OPERATOR_TYPE::NOT_EQUAL},
-  {"==", OPERATOR_TYPE::EQUAL},
-  {"and", OPERATOR_TYPE::AND},
-  {"or", OPERATOR_TYPE::OR},
-  {"not", OPERATOR_TYPE::NOT},
-  {":", OPERATOR_TYPE::MEMBER_ACCESS},
-  {"::", OPERATOR_TYPE::STATIC_MEMBER_ACCESS},
-};
 const std::map<TOKEN_TYPE, std::string> Mapper::TOKEN_TYPE_TO_STR_NAME = {
   {TOKEN_TYPE::IDENTIFIER, "Identifier"},
   {TOKEN_TYPE::ILLEGAL, "Illegal"},
@@ -172,6 +141,10 @@ KEYWORD_TYPE Mapper::get_keyword_enum_from_str(const std::string &str) {
 
 std::string Mapper::get_keyword_name_from_enum(const KEYWORD_TYPE &keyword) {
   return KEYWORD_TO_STR_NAME.at(keyword);
+}
+
+std::string Mapper::get_keyword_str_from_enum(const KEYWORD_TYPE &keyword) {
+  return KEYWORD_TO_STR.at(keyword);
 }
 
 std::string Mapper::get_literal_name_from_enum(const LITERAL_TYPE &literal) {
