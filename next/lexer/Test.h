@@ -248,20 +248,20 @@ class Test {
       }
 
       run("Lexer::Should identify a " + to_str(pair.first) + " marker", [pair]() {
-        return Lexer::lex_line(to_str(pair.first)).current()->equals(Marker(pair.second, pair.first));
+        return Lexer::lex_line(to_str(pair.first)).current()->equals(Marker(pair.second));
       });
       run("Lexer::Should identify an " + to_str(pair.first) + " marker between other tokens", [&pair]() {
         Stream stream = Lexer::lex_line("1 " + to_str(pair.first) + " 1");
         return 
           stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
-          stream.consume()->equals(Marker(pair.second, pair.first)) and
+          stream.consume()->equals(Marker(pair.second)) and
           stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
       });
       run("Lexer::Should identify an " + to_str(pair.first) + " marker between other tokens without spaces", [&pair]() {
         Stream stream = Lexer::lex_line("1" + to_str(pair.first) + "1");
         return 
           stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "1")) and
-          stream.consume()->equals(Marker(pair.second, pair.first)) and
+          stream.consume()->equals(Marker(pair.second)) and
           stream.current()->equals(Literal(LITERAL_TYPE::INTEGER, "1"));
       });
     }
@@ -324,9 +324,9 @@ class Test {
       Stream stream = Lexer::lex_line("print(\"Hello, World!\")");
       return 
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN)) and
         stream.consume()->equals(Literal(LITERAL_TYPE::STRING, "Hello, World!")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END));
     });
     run("Parser::Should parse a function call", [this]() {
       return FunctionCall("print", { std::make_shared<Value>(Literal(LITERAL_TYPE::STRING, "Hello, World!")) })
@@ -336,8 +336,8 @@ class Test {
       Stream stream = Lexer::lex_line("print()");
       return 
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN)) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END));
     });
     run("Parser::Should parse a function call without arguments", [this]() {
       return FunctionCall("print", {}).equals(Parser::parse_line("print()"));
@@ -346,11 +346,11 @@ class Test {
       Stream stream = Lexer::lex_line("print(\"Hello, World!\", 25)");
       return 
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN)) and
         stream.consume()->equals(Literal(LITERAL_TYPE::STRING, "Hello, World!")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::COMMA, ',')) and
+        stream.consume()->equals(Marker(MARKER_TYPE::COMMA)) and
         stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END));
     });
     run("Parser::Should parse a function call with multiple arguments", []() {
       return 
@@ -363,10 +363,10 @@ class Test {
       Stream stream = Lexer::lex_line("print(\"Hello, World!\" 25)");
       return 
         stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "print")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN, '(')) and
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN)) and
         stream.consume()->equals(Literal(LITERAL_TYPE::STRING, "Hello, World!")) and
         stream.consume()->equals(Literal(LITERAL_TYPE::INTEGER, "25")) and
-        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END, ')'));
+        stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END));
     });
     run("Parser::Should parse a function call with multiple arguments without commas", []() {
       return 

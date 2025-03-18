@@ -52,6 +52,17 @@ const std::map<LITERAL_TYPE, std::string> Mapper::LITERAL_TO_STR_NAME = {
   {LITERAL_TYPE::INTEGER, "Integer"},
   {LITERAL_TYPE::STRING, "String"},
 };
+const std::map<MARKER_TYPE, char> Mapper::MARKER_TO_CHAR = {
+  {MARKER_TYPE::BLOCK_BEGIN, '{'},
+  {MARKER_TYPE::BLOCK_END, '}'},
+  {MARKER_TYPE::BRACKET_BEGIN, '['},
+  {MARKER_TYPE::BRACKET_END, ']'},
+  {MARKER_TYPE::COMMA, ','},
+  {MARKER_TYPE::COMMENT, '#'},
+  {MARKER_TYPE::PARENTHESIS_BEGIN, '('},
+  {MARKER_TYPE::PARENTHESIS_END, ')'},
+  {MARKER_TYPE::STR_QUOTE, '"'},
+};
 const std::map<char, MARKER_TYPE> Mapper::CHAR_TO_MARKER = {
   {'{', MARKER_TYPE::BLOCK_BEGIN},
   {'}', MARKER_TYPE::BLOCK_END},
@@ -141,6 +152,10 @@ std::string Mapper::get_keyword_name_from_enum(const KEYWORD_TYPE &keyword) {
 
 std::string Mapper::get_literal_name_from_enum(const LITERAL_TYPE &literal) {
   return LITERAL_TO_STR_NAME.at(literal);
+}
+
+char Mapper::get_marker_char_from_enum(const MARKER_TYPE &marker) {
+  return MARKER_TO_CHAR.at(marker);
 }
 
 MARKER_TYPE Mapper::get_marker_enum_from_char(const char &character) {

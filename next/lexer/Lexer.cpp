@@ -136,7 +136,7 @@ Stream Lexer::lex_line(const std::string &line) {
           collection.push_back(build_str_literal(final_line, i));
           break;
         default:
-          collection.push_back(std::make_shared<Marker>(marker_type, character));
+          collection.push_back(std::make_shared<Marker>(marker_type));
           break;
       }
 

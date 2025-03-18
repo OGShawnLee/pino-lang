@@ -6,7 +6,7 @@ class Marker : public Token {
   MARKER_TYPE marker_type;
 
   public:
-    Marker(MARKER_TYPE marker_type, const char data);
+    Marker(MARKER_TYPE marker_type);
 
     MARKER_TYPE get_marker_type() const;
 

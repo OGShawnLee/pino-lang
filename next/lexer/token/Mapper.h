@@ -81,6 +81,7 @@ enum class TOKEN_TYPE {
 
 class Mapper {
   static const std::map<LITERAL_TYPE, std::string> LITERAL_TO_STR_NAME;
+  static const std::map<MARKER_TYPE, char> MARKER_TO_CHAR;
   static const std::map<MARKER_TYPE, std::string> MARKER_TO_STR_NAME;
   static const std::map<OPERATOR_TYPE, std::string> OPERATOR_TO_STR_NAME;
   static const std::map<TOKEN_TYPE, std::string> TOKEN_TYPE_TO_STR_NAME;
@@ -96,6 +97,8 @@ class Mapper {
     inline static std::string get_keyword_name_from_enum(const KEYWORD_TYPE &keyword);
 
     inline static std::string get_literal_name_from_enum(const LITERAL_TYPE &literal);
+
+    inline static char get_marker_char_from_enum(const MARKER_TYPE &marker);
 
     inline static MARKER_TYPE get_marker_enum_from_char(const char &character);
 

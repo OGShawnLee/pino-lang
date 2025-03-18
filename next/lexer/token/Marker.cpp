@@ -3,9 +3,9 @@
 #include "./Marker.h"
 #include "../../Common.h"
 
-Marker::Marker(MARKER_TYPE marker_type, const char data) : Token(
+Marker::Marker(MARKER_TYPE marker_type) : Token(
   TOKEN_TYPE::MARKER, 
-  std::string(1, data), 
+  std::to_string(Mapper::get_marker_char_from_enum(marker_type)),
   Mapper::get_marker_name_from_enum(marker_type)
 ) {
   this->marker_type = marker_type;
