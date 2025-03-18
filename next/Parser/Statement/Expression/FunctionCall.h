@@ -1,7 +1,7 @@
 #pragma once
 
 #include "./Expression.h"
-#include "../../../lexer/token/Literal.h"
+#include "../../../Lexer/Token/Literal.h"
 
 class FunctionCall : public Expression {
   std::vector<std::shared_ptr<Expression>> arguments;

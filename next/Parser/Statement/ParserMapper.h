@@ -2,7 +2,7 @@
 
 #include <map>
 #include <string>
-#include "../../lexer/token/Mapper.h"
+#include "../../Lexer/Token/Mapper.h"
 
 enum class BUILT_IN_TYPE {
   BOOLEAN,

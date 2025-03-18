@@ -1,9 +1,9 @@
 #pragma once
 
 #include "./Lexer.cpp"
-#include "../transpiler/Transpiler.cpp"
-#include "./token/Keyword.h"
+#include "./Token/Keyword.h"
 #include "../Common.h"
+#include "../Transpiler/Transpiler.cpp"
 
 class Test {
   int count_passed = 0;

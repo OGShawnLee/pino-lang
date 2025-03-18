@@ -1,10 +1,10 @@
 #pragma once
 
-#include "./statement/Statement.h"
-#include "./statement/expression/Expression.h"
-#include "./statement/expression/Identifier.h"
-#include "./statement/expression/FunctionCall.h"
-#include "../lexer/Lexer.h"
+#include "./Statement/Statement.h"
+#include "./Statement/Expression/Expression.h"
+#include "./Statement/Expression/Identifier.h"
+#include "./Statement/Expression/FunctionCall.h"
+#include "../Lexer/Lexer.h"
 
 class Variable;
 

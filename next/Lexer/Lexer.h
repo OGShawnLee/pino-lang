@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <vector>
-#include "./token/Stream.h"
+#include "./Token/Stream.h"
 
 class Lexer {
   

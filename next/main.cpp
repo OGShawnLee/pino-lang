@@ -1,7 +1,7 @@
 #include "Common.h"
-#include "./lexer/Lexer.cpp"
-#include "./parser/Parser.cpp"
-#include "./lexer/Test.h"
+#include "./Lexer/Lexer.cpp"
+#include "./Lexer/Test.h"
+#include "./Parser/Parser.cpp"
 
 int main(int argc, char *argv[]) {
   if (argc > 1) {

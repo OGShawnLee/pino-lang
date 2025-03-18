@@ -1,5 +1,5 @@
 #include "./Expression.h"
-#include "../../../lexer/token/Literal.h"
+#include "../../../Lexer/Token/Literal.h"
 
 class Value : public Expression {
   LITERAL_TYPE literal_type;

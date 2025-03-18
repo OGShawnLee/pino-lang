@@ -1,13 +1,13 @@
 #pragma once
 
 #include "./Lexer.h"
-#include "./token/Keyword.cpp"
-#include "./token/Literal.cpp"
-#include "./token/Marker.cpp"
-#include "./token/Operator.cpp"
-#include "./token/Mapper.cpp"
-#include "./token/Matcher.cpp"
-#include "./token/Stream.cpp"
+#include "./Token/Keyword.cpp"
+#include "./Token/Literal.cpp"
+#include "./Token/Marker.cpp"
+#include "./Token/Operator.cpp"
+#include "./Token/Mapper.cpp"
+#include "./Token/Matcher.cpp"
+#include "./Token/Stream.cpp"
 
 std::shared_ptr<Token> Lexer::build_str_literal(const std::string &final_line, size_t &index) {
   std::string buffer = "";
