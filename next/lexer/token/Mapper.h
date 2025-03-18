@@ -80,19 +80,19 @@ enum class TOKEN_TYPE {
 };
 
 class Mapper {
-  static const std::map<LITERAL_TYPE, std::string> LITERAL_TO_STR_NAME;
-  static const std::map<MARKER_TYPE, char> MARKER_TO_CHAR;
-  static const std::map<MARKER_TYPE, std::string> MARKER_TO_STR_NAME;
-  static const std::map<OPERATOR_TYPE, std::string> OPERATOR_TO_STR;
-  static const std::map<OPERATOR_TYPE, std::string> OPERATOR_TO_STR_NAME;
-  static const std::map<TOKEN_TYPE, std::string> TOKEN_TYPE_TO_STR_NAME;
-  static const std::map<KEYWORD_TYPE, std::string> KEYWORD_TO_STR_NAME;
-  static const std::map<KEYWORD_TYPE, std::string> KEYWORD_TO_STR;
+  static const std::map<KEYWORD_TYPE, std::string> KEYWORD_ENUM_TO_NAME;
+  static const std::map<KEYWORD_TYPE, std::string> KEYWORD_ENUM_TO_STR;
+  static const std::map<LITERAL_TYPE, std::string> LITERAL_ENUM_TO_NAME;
+  static const std::map<MARKER_TYPE, char> MARKER_ENUM_TO_CHAR;
+  static const std::map<MARKER_TYPE, std::string> MARKER_ENUM_TO_NAME;
+  static const std::map<OPERATOR_TYPE, std::string> OPERATOR_ENUM_TO_STR;
+  static const std::map<OPERATOR_TYPE, std::string> OPERATOR_ENUM_TO_NAME;
+  static const std::map<TOKEN_TYPE, std::string> TOKEN_ENUM_TO_NAME;
   
   public:
-    static const std::map<std::string, KEYWORD_TYPE> STR_TO_KEYWORD;
-    static const std::map<char, MARKER_TYPE> CHAR_TO_MARKER;
-    static const std::map<std::string, OPERATOR_TYPE> STR_TO_OPERATOR;
+    static const std::map<std::string, KEYWORD_TYPE> STR_TO_KEYWORD_ENUM;
+    static const std::map<char, MARKER_TYPE> CHAR_TO_MARKER_ENUM;
+    static const std::map<std::string, OPERATOR_TYPE> STR_TO_OPERATOR_ENUM;
 
     inline static KEYWORD_TYPE get_keyword_enum_from_str(const std::string &str);
 

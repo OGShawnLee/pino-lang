@@ -61,7 +61,7 @@ class Test {
   }
   
   void test_keyword() {
-    for (const auto &keyword : Mapper::STR_TO_KEYWORD) {
+    for (const auto &keyword : Mapper::STR_TO_KEYWORD_ENUM) {
       run("Lexer::Should identify a " + keyword.first + " keyword", [keyword]() {
         return Lexer::lex_line(keyword.first).current()->equals(Keyword(keyword.second));
       });
@@ -272,7 +272,7 @@ class Test {
   }
 
   void test_marker() {
-    for (const auto &pair : Mapper::CHAR_TO_MARKER) {
+    for (const auto &pair : Mapper::CHAR_TO_MARKER_ENUM) {
       if (pair.second == MARKER_TYPE::COMMENT) {
         run("Lexer::Should lex everything before a comment", []() {
           Stream stream = Lexer::lex_line("1.000 + 1.000 # This is a comment");
@@ -314,7 +314,7 @@ class Test {
   }
 
   void test_operator() {
-    for (const auto &pair : Mapper::STR_TO_OPERATOR) {
+    for (const auto &pair : Mapper::STR_TO_OPERATOR_ENUM) {
       run("Lexer::Should identify a " + pair.first + " operator", [pair]() {
         return Lexer::lex_line(pair.first).current()->equals(Operator(pair.second));
       });

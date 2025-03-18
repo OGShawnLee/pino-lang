@@ -3,7 +3,7 @@
 #include "./Mapper.h"
 #include "../../Common.h"
 
-const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_TO_STR_NAME = {
+const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_ENUM_TO_NAME = {
   {KEYWORD_TYPE::AS, "as"},
   {KEYWORD_TYPE::BREAK, "break"},
   {KEYWORD_TYPE::CONSTANT, "constant"},
@@ -25,7 +25,7 @@ const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_TO_STR_NAME = {
   {KEYWORD_TYPE::VARIABLE, "variable"},
   {KEYWORD_TYPE::WHEN, "when"},
 };
-const std::map<std::string, KEYWORD_TYPE> Mapper::STR_TO_KEYWORD = {
+const std::map<std::string, KEYWORD_TYPE> Mapper::STR_TO_KEYWORD_ENUM = {
   {"as", KEYWORD_TYPE::AS},
   {"break", KEYWORD_TYPE::BREAK},
   {"val", KEYWORD_TYPE::CONSTANT},
@@ -47,14 +47,14 @@ const std::map<std::string, KEYWORD_TYPE> Mapper::STR_TO_KEYWORD = {
   {"var", KEYWORD_TYPE::VARIABLE},
   {"when", KEYWORD_TYPE::WHEN},
 };
-const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_TO_STR = get_inverted_map(STR_TO_KEYWORD);
-const std::map<LITERAL_TYPE, std::string> Mapper::LITERAL_TO_STR_NAME = {
+const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_ENUM_TO_STR = get_inverted_map(STR_TO_KEYWORD_ENUM);
+const std::map<LITERAL_TYPE, std::string> Mapper::LITERAL_ENUM_TO_NAME = {
   {LITERAL_TYPE::BOOLEAN, "Boolean"},
   {LITERAL_TYPE::FLOAT, "Float"},
   {LITERAL_TYPE::INTEGER, "Integer"},
   {LITERAL_TYPE::STRING, "String"},
 };
-const std::map<MARKER_TYPE, char> Mapper::MARKER_TO_CHAR = {
+const std::map<MARKER_TYPE, char> Mapper::MARKER_ENUM_TO_CHAR = {
   {MARKER_TYPE::BLOCK_BEGIN, '{'},
   {MARKER_TYPE::BLOCK_END, '}'},
   {MARKER_TYPE::BRACKET_BEGIN, '['},
@@ -65,8 +65,8 @@ const std::map<MARKER_TYPE, char> Mapper::MARKER_TO_CHAR = {
   {MARKER_TYPE::PARENTHESIS_END, ')'},
   {MARKER_TYPE::STR_QUOTE, '"'},
 };
-const std::map<char, MARKER_TYPE> Mapper::CHAR_TO_MARKER = get_inverted_map(MARKER_TO_CHAR);
-const std::map<MARKER_TYPE, std::string> Mapper::MARKER_TO_STR_NAME = {
+const std::map<char, MARKER_TYPE> Mapper::CHAR_TO_MARKER_ENUM = get_inverted_map(MARKER_ENUM_TO_CHAR);
+const std::map<MARKER_TYPE, std::string> Mapper::MARKER_ENUM_TO_NAME = {
   {MARKER_TYPE::BLOCK_BEGIN, "Block Begin"},
   {MARKER_TYPE::BLOCK_END, "Block End"},
   {MARKER_TYPE::BRACKET_BEGIN, "Bracket Begin"},
@@ -77,7 +77,7 @@ const std::map<MARKER_TYPE, std::string> Mapper::MARKER_TO_STR_NAME = {
   {MARKER_TYPE::PARENTHESIS_END, "Parenthesis End"},
   {MARKER_TYPE::STR_QUOTE, "String Quote"},
 };
-const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR = {
+const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_ENUM_TO_STR = {
   {OPERATOR_TYPE::ASSIGNMENT, "="},
   {OPERATOR_TYPE::ADDITION, "+"},
   {OPERATOR_TYPE::ADDITION_ASSIGNMENT, "+="},
@@ -101,8 +101,8 @@ const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR = {
   {OPERATOR_TYPE::MEMBER_ACCESS, ":"},
   {OPERATOR_TYPE::STATIC_MEMBER_ACCESS, "::"},
 };
-const std::map<std::string, OPERATOR_TYPE> Mapper::STR_TO_OPERATOR = get_inverted_map(OPERATOR_TO_STR);
-const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR_NAME = {
+const std::map<std::string, OPERATOR_TYPE> Mapper::STR_TO_OPERATOR_ENUM = get_inverted_map(OPERATOR_ENUM_TO_STR);
+const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_ENUM_TO_NAME = {
   {OPERATOR_TYPE::ASSIGNMENT, "Assignment"},
   {OPERATOR_TYPE::ADDITION, "Addition"},
   {OPERATOR_TYPE::ADDITION_ASSIGNMENT, "Addition Assignment"},
@@ -126,7 +126,7 @@ const std::map<OPERATOR_TYPE, std::string> Mapper::OPERATOR_TO_STR_NAME = {
   {OPERATOR_TYPE::MEMBER_ACCESS, "Member Access"},
   {OPERATOR_TYPE::STATIC_MEMBER_ACCESS, "Static Member Access"},
 };
-const std::map<TOKEN_TYPE, std::string> Mapper::TOKEN_TYPE_TO_STR_NAME = {
+const std::map<TOKEN_TYPE, std::string> Mapper::TOKEN_ENUM_TO_NAME = {
   {TOKEN_TYPE::IDENTIFIER, "Identifier"},
   {TOKEN_TYPE::ILLEGAL, "Illegal"},
   {TOKEN_TYPE::KEYWORD, "Keyword"},
@@ -136,57 +136,57 @@ const std::map<TOKEN_TYPE, std::string> Mapper::TOKEN_TYPE_TO_STR_NAME = {
 };
 
 KEYWORD_TYPE Mapper::get_keyword_enum_from_str(const std::string &str) {
-  return STR_TO_KEYWORD.at(str);
+  return STR_TO_KEYWORD_ENUM.at(str);
 }
 
 std::string Mapper::get_keyword_name_from_enum(const KEYWORD_TYPE &keyword) {
-  return KEYWORD_TO_STR_NAME.at(keyword);
+  return KEYWORD_ENUM_TO_NAME.at(keyword);
 }
 
 std::string Mapper::get_keyword_str_from_enum(const KEYWORD_TYPE &keyword) {
-  return KEYWORD_TO_STR.at(keyword);
+  return KEYWORD_ENUM_TO_STR.at(keyword);
 }
 
 std::string Mapper::get_literal_name_from_enum(const LITERAL_TYPE &literal) {
-  return LITERAL_TO_STR_NAME.at(literal);
+  return LITERAL_ENUM_TO_NAME.at(literal);
 }
 
 char Mapper::get_marker_char_from_enum(const MARKER_TYPE &marker) {
-  return MARKER_TO_CHAR.at(marker);
+  return MARKER_ENUM_TO_CHAR.at(marker);
 }
 
 MARKER_TYPE Mapper::get_marker_enum_from_char(const char &character) {
-  return CHAR_TO_MARKER.at(character);
+  return CHAR_TO_MARKER_ENUM.at(character);
 }
 
 std::string Mapper::get_marker_name_from_enum(const MARKER_TYPE &marker) {
-  return MARKER_TO_STR_NAME.at(marker);
+  return MARKER_ENUM_TO_NAME.at(marker);
 }
 
 OPERATOR_TYPE Mapper::get_operator_enum_from_str(const std::string &str) {
-  return STR_TO_OPERATOR.at(str);
+  return STR_TO_OPERATOR_ENUM.at(str);
 }
 
 std::string Mapper::get_operator_name_from_enum(const OPERATOR_TYPE &operator_type) {
-  return OPERATOR_TO_STR_NAME.at(operator_type);
+  return OPERATOR_ENUM_TO_NAME.at(operator_type);
 }
 
 std::string Mapper::get_operator_str_from_enum(const OPERATOR_TYPE &operator_type) {
-  return OPERATOR_TO_STR.at(operator_type);
+  return OPERATOR_ENUM_TO_STR.at(operator_type);
 }
 
 std::string Mapper::get_token_name_from_enum(const TOKEN_TYPE &token_type) {
-  return TOKEN_TYPE_TO_STR_NAME.at(token_type);
+  return TOKEN_ENUM_TO_NAME.at(token_type);
 }
 
 bool Mapper::is_keyword(const std::string &data) {
-  return STR_TO_KEYWORD.find(data) != STR_TO_KEYWORD.end();
+  return STR_TO_KEYWORD_ENUM.find(data) != STR_TO_KEYWORD_ENUM.end();
 }
 
 bool Mapper::is_marker(const char &data) {
-  return CHAR_TO_MARKER.find(data) != CHAR_TO_MARKER.end();
+  return CHAR_TO_MARKER_ENUM.find(data) != CHAR_TO_MARKER_ENUM.end();
 }
 
 bool Mapper::is_operator(const std::string &data) {
-  return STR_TO_OPERATOR.find(data) != STR_TO_OPERATOR.end();
+  return STR_TO_OPERATOR_ENUM.find(data) != STR_TO_OPERATOR_ENUM.end();
 }
