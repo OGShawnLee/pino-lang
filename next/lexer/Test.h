@@ -402,6 +402,11 @@ class Test {
   void print_results() {
     println("Tests passed: " + std::to_string(this->count_passed));
     println("Tests failed: " + std::to_string(this->count_failed));
+
+    int total_cases = this->count_passed + this->count_failed;
+    int coverage = (this->count_passed * 100) / total_cases;
+
+    println("Coverage: " + std::to_string(coverage) + " %");
   }
 
   public:
