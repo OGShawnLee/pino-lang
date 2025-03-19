@@ -27,6 +27,8 @@ class Test {
 
   void test_function_call();
 
+  void test_function();
+
   void test_variable();
 
   void print_results();

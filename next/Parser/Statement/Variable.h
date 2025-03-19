@@ -2,32 +2,35 @@
 
 #include <memory>
 #include <string>
-#include "Statement.h"
+#include "Declaration.h"
 #include "Expression/Expression.h"
 
-class Variable : public Statement {
-  std::string identifier;
+class Variable : public Declaration {
   std::shared_ptr<Expression> value;
   std::string type;
   VARIABLE_KIND variable_kind;
 
   public:
     Variable(
-      std::string identifier, 
+      const std::string &identifier, 
       std::shared_ptr<Expression> value, 
       std::string type,
       VARIABLE_KIND variable_kind = VARIABLE_KIND::VARIABLE
     );
+    
+    Variable(
+      const std::string &identifier, 
+      std::string type,
+      VARIABLE_KIND variable_kind = VARIABLE_KIND::PARAMETER
+    );
 
     // @WARNING: This constructor is used for testing purposes only.
     Variable(
-      std::string identifier, 
+      const std::string &identifier, 
       std::string value, 
       std::string type,
       VARIABLE_KIND variable_kind = VARIABLE_KIND::VARIABLE 
     );
-
-    std::string get_identifier() const;
 
     const std::shared_ptr<Expression>& get_value() const;
 
