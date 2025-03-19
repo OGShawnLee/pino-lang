@@ -94,31 +94,31 @@ class Mapper {
     static const std::map<char, MARKER_TYPE> CHAR_TO_MARKER_ENUM;
     static const std::map<std::string, OPERATOR_TYPE> STR_TO_OPERATOR_ENUM;
 
-    inline static KEYWORD_TYPE get_keyword_enum_from_str(const std::string &str);
+    static KEYWORD_TYPE get_keyword_enum_from_str(const std::string &str);
 
-    inline static std::string get_keyword_name_from_enum(const KEYWORD_TYPE &keyword);
+    static std::string get_keyword_name_from_enum(const KEYWORD_TYPE &keyword);
 
-    inline static std::string get_keyword_str_from_enum(const KEYWORD_TYPE &keyword);
+    static std::string get_keyword_str_from_enum(const KEYWORD_TYPE &keyword);
 
-    inline static std::string get_literal_name_from_enum(const LITERAL_TYPE &literal);
+    static std::string get_literal_name_from_enum(const LITERAL_TYPE &literal);
 
-    inline static char get_marker_char_from_enum(const MARKER_TYPE &marker);
+    static char get_marker_char_from_enum(const MARKER_TYPE &marker);
 
-    inline static MARKER_TYPE get_marker_enum_from_char(const char &character);
+    static MARKER_TYPE get_marker_enum_from_char(const char &character);
 
-    inline static std::string get_marker_name_from_enum(const MARKER_TYPE &marker);
+    static std::string get_marker_name_from_enum(const MARKER_TYPE &marker);
 
-    inline static OPERATOR_TYPE get_operator_enum_from_str(const std::string &str);
+    static OPERATOR_TYPE get_operator_enum_from_str(const std::string &str);
 
-    inline static std::string get_operator_name_from_enum(const OPERATOR_TYPE &operator_type);
+    static std::string get_operator_name_from_enum(const OPERATOR_TYPE &operator_type);
 
-    inline static std::string get_operator_str_from_enum(const OPERATOR_TYPE &operator_type);
+    static std::string get_operator_str_from_enum(const OPERATOR_TYPE &operator_type);
 
-    inline static std::string get_token_name_from_enum(const TOKEN_TYPE &token_type);
+    static std::string get_token_name_from_enum(const TOKEN_TYPE &token_type);
 
-    inline static bool is_keyword(const std::string &data);
+    static bool is_keyword(const std::string &data);
 
-    inline static bool is_marker(const char &data);
+    static bool is_marker(const char &data);
 
-    inline static bool is_operator(const std::string &data);
+    static bool is_operator(const std::string &data);
 };

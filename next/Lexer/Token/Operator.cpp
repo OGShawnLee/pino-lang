@@ -1,7 +1,7 @@
-#pragma once
-
-#include "./Operator.h"
-#include "../../Common.h"
+#include "Operator.h"
+#include "Mapper.h"
+#include "Common.h"
+#include <memory>
 
 Operator::Operator(OPERATOR_TYPE operator_type) : Token(
   TOKEN_TYPE::MARKER, 

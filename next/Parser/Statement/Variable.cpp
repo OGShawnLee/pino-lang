@@ -1,6 +1,6 @@
 #include "Variable.h"
-#include "../Parser.h"
-#include "../../Common.h"
+#include "Parser.h"
+#include "Common.h"
 
 Variable::Variable(
   std::string identifier, 

@@ -1,9 +1,10 @@
-#pragma once
-
-#include "./Parser.h"
-#include "./Statement/Variable.cpp"
-#include "./Statement/Expression/Value.h"
-#include "../Lexer/Lexer.cpp"
+#include "Parser.h"
+#include "Variable.h"
+#include "Expression/Value.h"
+#include "Keyword.h"
+#include "Literal.h"
+#include "Marker.h"
+#include "Operator.h"
 
 std::shared_ptr<Expression> Parser::consume_assignment(Stream &stream) {
   if (Operator::from_base(stream.consume())->get_marker_type() != OPERATOR_TYPE::ASSIGNMENT) {

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "./Token.h"
+#include "Token.h"
+#include <memory>
 
 class Marker : public Token {
   MARKER_TYPE marker_type;

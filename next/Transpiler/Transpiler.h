@@ -1,7 +1,10 @@
-#include "../Parser/Parser.h"
+#pragma once
+
+#include "Parser.h"
 
 class Transpiler {
   static std::string handle_expression(const Expression &expression);
+  
   static std::string handle_variable(const Variable &variable);
   
   public:

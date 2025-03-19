@@ -1,9 +1,7 @@
-#pragma once
-
 #include <regex>
-#include "./Literal.h"
-#include "./Mapper.cpp"
-#include "../../Common.h"
+#include "Literal.h"
+#include "Mapper.h"
+#include "Common.h"
 
 Literal::Literal(LITERAL_TYPE literal_type, std::string data) : Token(
   TOKEN_TYPE::LITERAL, 

@@ -1,8 +1,7 @@
-#pragma once
-
 #include <regex>
-#include "./Matcher.h"
-#include "./Mapper.cpp"
+#include "Matcher.h"
+#include "Mapper.h"
+#include "Common.h"
 
 const std::string Matcher::BOOLEAN_REGEX = "^(true|false)$";
 /* 

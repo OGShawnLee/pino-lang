@@ -1,9 +1,6 @@
-#pragma once
-
-#include <regex>
-#include "./Mapper.cpp"
-#include "./Token.h"
-#include "../../Common.h"
+#include "Token.h"
+#include "Mapper.h"
+#include "Common.h"
 
 Token::Token(TOKEN_TYPE token_type, std::string data) {
   this->token_type = token_type;

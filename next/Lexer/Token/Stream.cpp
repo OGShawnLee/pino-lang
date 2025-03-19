@@ -1,7 +1,4 @@
-#pragma once
-
-#include "./Stream.h"
-#include "./Token.cpp"
+#include "Stream.h"
 
 Stream::Stream(const std::vector<std::shared_ptr<Token>> &collection) {
   this->index = 0;

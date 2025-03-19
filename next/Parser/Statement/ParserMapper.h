@@ -2,7 +2,7 @@
 
 #include <map>
 #include <string>
-#include "../../Lexer/Token/Mapper.h"
+#include "Mapper.h"
 
 enum class BUILT_IN_TYPE {
   BOOLEAN,
@@ -35,9 +35,7 @@ class ParserMapper {
   static const std::map<BUILT_IN_TYPE, std::string> BUILT_IN_TYPE_TO_STR_NAME;
   static const std::map<LITERAL_TYPE, BUILT_IN_TYPE> LITERAL_TYPE_TO_BUILT_IN_TYPE;
 
-  public:
-    static std::string get_built_in_type_name_from_enum(const BUILT_IN_TYPE &type);
-    
+  public:    
     static std::string get_expression_name_from_enum(const EXPRESSION_TYPE &type);
     
     static std::string get_statement_name_from_enum(const STATEMENT_TYPE &type);

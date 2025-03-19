@@ -3,7 +3,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
-#include "./Token.h"
+#include "Token.h"
 
 class Stream {
   size_t index;

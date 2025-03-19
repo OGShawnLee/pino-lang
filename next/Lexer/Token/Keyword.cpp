@@ -1,8 +1,6 @@
-#pragma once
-
-#include "../../Common.h"
-#include "./Keyword.h"
-#include "./Mapper.cpp"
+#include "Keyword.h"
+#include "Mapper.h"
+#include "Common.h"
 
 Keyword::Keyword(KEYWORD_TYPE keyword) : Token(
   TOKEN_TYPE::KEYWORD, 

@@ -1,7 +1,8 @@
 #pragma once
 
+#include <memory>
 #include <string>
-#include "./Mapper.h"
+#include "Mapper.h"
 
 class Token {
   TOKEN_TYPE token_type;
@@ -24,5 +25,5 @@ class Token {
     
     virtual bool equals(const Token &candidate) const;
 
-    virtual inline void print() const;
+    virtual void print() const;
 };

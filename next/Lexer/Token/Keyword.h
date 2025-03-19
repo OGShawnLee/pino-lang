@@ -1,7 +1,6 @@
 #pragma once
 
-#include "./Mapper.h"
-#include "./Token.h"
+#include "Token.h"
 
 class Keyword : public Token {
   KEYWORD_TYPE keyword;
@@ -13,5 +12,5 @@ class Keyword : public Token {
 
     static Keyword* from_base(const std::shared_ptr<Token> &base);
     
-    inline void print() const override;
+    void print() const override;
 };

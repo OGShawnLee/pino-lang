@@ -1,7 +1,6 @@
-#pragma once
-
-#include "./Marker.h"
-#include "../../Common.h"
+#include "Marker.h"
+#include "Mapper.h"
+#include "Common.h"
 
 Marker::Marker(MARKER_TYPE marker_type) : Token(
   TOKEN_TYPE::MARKER, 

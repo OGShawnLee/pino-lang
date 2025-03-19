@@ -1,7 +1,5 @@
-#pragma once
-
-#include "./Mapper.h"
-#include "../../Common.h"
+#include "Mapper.h"
+#include "Common.h"
 
 const std::map<KEYWORD_TYPE, std::string> Mapper::KEYWORD_ENUM_TO_NAME = {
   {KEYWORD_TYPE::AS, "as"},

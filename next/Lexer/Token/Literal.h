@@ -1,7 +1,7 @@
 #pragma once
 
-#include "./Mapper.h"
-#include "./Token.h"
+#include "Token.h"
+#include <vector>
 
 class Literal : public Token {
   LITERAL_TYPE literal_type;
@@ -15,7 +15,7 @@ class Literal : public Token {
 
     const std::vector<std::string>& get_injections() const;
 
-    inline void print() const override;
+    void print() const override;
 
     bool equals(const Token &other) const override;
 };

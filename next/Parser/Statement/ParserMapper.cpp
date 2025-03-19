@@ -1,4 +1,4 @@
-#include "./ParserMapper.h"
+#include "ParserMapper.h"
 
 const std::map<EXPRESSION_TYPE, std::string> ParserMapper::EXPRESSION_TYPE_TO_STR_NAME = {
   {EXPRESSION_TYPE::FUNCTION_CALL, "FUNCTION_CALL"},

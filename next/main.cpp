@@ -1,7 +1,6 @@
 #include "Common.h"
-#include "./Lexer/Lexer.cpp"
-#include "./Lexer/Test.h"
-#include "./Parser/Parser.cpp"
+#include "Parser.h"
+#include "Test.h"
 
 int main(int argc, char *argv[]) {
   if (argc > 1) {
@@ -33,7 +32,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (line == ".t") {
-      Test().run_all();
+      Test().run_all(false);
       continue;
     }
 

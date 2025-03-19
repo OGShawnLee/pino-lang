@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./Token.h"
+#include "Token.h"
 
 class Operator : public Token {
   OPERATOR_TYPE operator_type;

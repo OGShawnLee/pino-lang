@@ -1,12 +1,9 @@
 #pragma once
 
-#include "./Statement.h"
-#include "./Expression/Expression.h"
 #include <memory>
 #include <string>
-
-// Forward declaration of Parser class
-class Parser;
+#include "Statement.h"
+#include "Expression.h"
 
 class Variable : public Statement {
   std::string identifier;
