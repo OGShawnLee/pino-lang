@@ -1,10 +1,11 @@
+#include <stdexcept>
 #include "Parser.h"
-#include "Variable.h"
-#include "Expression/Value.h"
-#include "Keyword.h"
-#include "Literal.h"
-#include "Marker.h"
-#include "Operator.h"
+#include "Statement/Variable.h"
+#include "Statement/Expression/Value.h"
+#include "Lexer/Token/Keyword.h"
+#include "Lexer/Token/Literal.h"
+#include "Lexer/Token/Marker.h"
+#include "Lexer/Token/Operator.h"
 
 std::shared_ptr<Expression> Parser::consume_assignment(Stream &stream) {
   if (Operator::from_base(stream.consume())->get_marker_type() != OPERATOR_TYPE::ASSIGNMENT) {

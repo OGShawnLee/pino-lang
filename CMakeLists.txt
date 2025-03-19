@@ -57,10 +57,7 @@ set(SOURCES
 
 include_directories(${CMAKE_SOURCE_DIR}/next)
 include_directories(${CMAKE_SOURCE_DIR}/next/Lexer)
-include_directories(${CMAKE_SOURCE_DIR}/next/Lexer/Token)
 include_directories(${CMAKE_SOURCE_DIR}/next/Parser)
-include_directories(${CMAKE_SOURCE_DIR}/next/Parser/Statement)
-include_directories(${CMAKE_SOURCE_DIR}/next/Parser/Statement/Expression)
 include_directories(${CMAKE_SOURCE_DIR}/next/Transpiler)
 
 # Create the executable

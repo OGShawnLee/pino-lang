@@ -2,7 +2,7 @@
 
 #include <map>
 #include <string>
-#include "Mapper.h"
+#include "Token/Mapper.h"
 
 enum class BUILT_IN_TYPE {
   BOOLEAN,

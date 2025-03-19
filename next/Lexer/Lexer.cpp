@@ -1,10 +1,11 @@
+#include <stdexcept>
 #include "Lexer.h"
-#include "Keyword.h"
-#include "Literal.h"
-#include "Marker.h"
-#include "Matcher.h"
-#include "Operator.h"
 #include "Common.h"
+#include "Token/Keyword.h"
+#include "Token/Literal.h"
+#include "Token/Marker.h"
+#include "Token/Matcher.h"
+#include "Token/Operator.h"
 
 std::shared_ptr<Token> Lexer::build_str_literal(const std::string &final_line, size_t &index) {
   std::string buffer = "";

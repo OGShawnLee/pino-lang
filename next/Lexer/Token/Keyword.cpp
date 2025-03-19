@@ -1,6 +1,6 @@
 #include "Keyword.h"
-#include "Mapper.h"
 #include "Common.h"
+#include "Mapper.h"
 
 Keyword::Keyword(KEYWORD_TYPE keyword) : Token(
   TOKEN_TYPE::KEYWORD, 

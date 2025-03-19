@@ -12,6 +12,7 @@ public:
   Statement(STATEMENT_TYPE statement_type);
 
   STATEMENT_TYPE get_type() const;
+
   const std::vector<std::shared_ptr<Statement>>& get_children() const;
 
   virtual bool equals(const Statement &candidate) const;

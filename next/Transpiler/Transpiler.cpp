@@ -1,8 +1,8 @@
 #include <fstream>
 #include "Transpiler.h"
-#include "Variable.h"
-#include "Value.h"
-#include "FunctionCall.h"
+#include "Statement/Variable.h"
+#include "Statement/Expression/Value.h"
+#include "Statement/Expression/FunctionCall.h"
 
 std::string Transpiler::handle_expression(const Expression &expression) {
   std::string output;

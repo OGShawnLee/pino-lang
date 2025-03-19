@@ -1,7 +1,7 @@
-#include "Operator.h"
-#include "Mapper.h"
-#include "Common.h"
 #include <memory>
+#include "Operator.h"
+#include "Common.h"
+#include "Mapper.h"
 
 Operator::Operator(OPERATOR_TYPE operator_type) : Token(
   TOKEN_TYPE::MARKER, 

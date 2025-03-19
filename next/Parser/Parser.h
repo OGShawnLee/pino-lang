@@ -1,11 +1,10 @@
 #pragma once
 
-#include "Statement.h"
-#include "Expression.h"
-#include "FunctionCall.h"
-#include "Identifier.h"
 #include "Lexer.h"
-#include "Variable.h"
+#include "Statement/Variable.h"
+#include "Statement/Expression/Expression.h"
+#include "Statement/Expression/FunctionCall.h"
+#include "Statement/Expression/Identifier.h"
 
 class Parser {
   static std::shared_ptr<Expression> consume_assignment(Stream &stream);

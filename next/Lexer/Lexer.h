@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <vector>
-#include "Stream.h"
+#include "Token/Stream.h"
 
 class Lexer {
   static std::shared_ptr<Token> build_str_literal(const std::string &final_line, size_t &index); 

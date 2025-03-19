@@ -1,6 +1,6 @@
 #include "Marker.h"
-#include "Mapper.h"
 #include "Common.h"
+#include "Mapper.h"
 
 Marker::Marker(MARKER_TYPE marker_type) : Token(
   TOKEN_TYPE::MARKER, 

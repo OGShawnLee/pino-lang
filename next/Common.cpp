@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <fstream>
+#include <iostream>
 #include "Common.h"
 
 void each_line(const std::string &filename, const std::function<void(const std::string&)> &callback) {

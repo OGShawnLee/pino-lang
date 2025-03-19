@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Token.h"
 #include <vector>
+#include "Token.h"
 
 class Literal : public Token {
   LITERAL_TYPE literal_type;

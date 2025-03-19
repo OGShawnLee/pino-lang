@@ -1,7 +1,7 @@
 #include <regex>
 #include "Literal.h"
-#include "Mapper.h"
 #include "Common.h"
+#include "Mapper.h"
 
 Literal::Literal(LITERAL_TYPE literal_type, std::string data) : Token(
   TOKEN_TYPE::LITERAL, 

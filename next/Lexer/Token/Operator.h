@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include "Token.h"
 
 class Operator : public Token {

@@ -1,6 +1,6 @@
 #include "Token.h"
-#include "Mapper.h"
 #include "Common.h"
+#include "Mapper.h"
 
 Token::Token(TOKEN_TYPE token_type, std::string data) {
   this->token_type = token_type;
