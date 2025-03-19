@@ -39,6 +39,31 @@ std::string Transpiler::handle_expression(const Expression &expression) {
   return output;
 }
 
+std::string Transpiler::handle_function(const Function &function) {
+  std::string output = "def " + function.get_identifier() + "(";
+
+  if (function.get_parameters().size() == 0) {
+    output += "):\n";
+  } else if (function.get_parameters().size() == 1) {
+    output += function.get_parameters()[0]->get_identifier() + "):\n";
+  } else {
+    for (size_t i = 0; i < function.get_parameters().size() - 1; i++) {
+      output += function.get_parameters()[i]->get_identifier() + ", ";
+    }
+    output += function.get_parameters().back()->get_identifier() + "):\n";
+  }
+
+  if (function.get_children().size() == 0) {
+    output += "\tpass\n";
+  }
+
+  for (const std::shared_ptr<Statement> &child : function.get_children()) {
+    output += "\t" + transpile_statement(child) + "\n";
+  }
+
+  return output;
+}
+
 std::string Transpiler::handle_variable(const Variable &variable) {
   return variable.get_identifier() + " = " + handle_expression(
     static_cast<const Expression&>(*variable.get_value())
@@ -58,6 +83,9 @@ std::string Transpiler::transpile_statement(const std::shared_ptr<Statement> sta
     case STATEMENT_TYPE::CONSTANT_DECLARATION:
     case STATEMENT_TYPE::VARIABLE_DECLARATION:
       return handle_variable(static_cast<const Variable&>(*statement));
+    case STATEMENT_TYPE::FUNCTION_DECLARATION:
+      return handle_function(static_cast<const Function&>(*statement));
+      break;
     case STATEMENT_TYPE::EXPRESSION:
       return handle_expression(static_cast<const Expression&>(*statement));
   }

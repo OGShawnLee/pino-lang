@@ -14,6 +14,13 @@ public:
   STATEMENT_TYPE get_type() const;
 
   const std::vector<std::shared_ptr<Statement>>& get_children() const;
+  
+  const std::shared_ptr<std::shared_ptr<Statement>> push(
+    const std::shared_ptr<Statement> &child
+  );
 
   virtual bool equals(const Statement &candidate) const;
+
+protected:
+  void set_children(const std::vector<std::shared_ptr<Statement>> &children);
 };

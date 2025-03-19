@@ -15,6 +15,17 @@ bool Test::each(std::vector<bool> cases) {
   return std::all_of(cases.begin(), cases.end(), [](bool value) { return value; });
 }
 
+bool Test::expect(const std::string &expected, const std::string &actual) {
+  bool is_equal = expected == actual;
+
+  if (not is_equal) {
+    println("Expected: " + expected);
+    println("Actual: " + actual);
+  }
+
+  return expected == actual;
+}
+
 void Test::run(const std::string &name, const std::function<bool()> &test) {
   if (test()) {
     if (this->with_test_name) {
@@ -456,6 +467,48 @@ void Test::test_function_call() {
   });
 }
 
+void Test::test_function() {
+  run("Lexer::Should lex all tokens from a function declaration properly", [this]() {
+    Stream stream = Lexer::lex_line("fn greet(name str) {}");
+    return each({
+      stream.consume()->equals(Keyword(KEYWORD_TYPE::FUNCTION)),
+      stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "greet")),
+      stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_BEGIN)),
+      stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "name")),
+      stream.consume()->equals(Token(TOKEN_TYPE::IDENTIFIER, "str")),
+      stream.consume()->equals(Marker(MARKER_TYPE::PARENTHESIS_END)),
+      stream.consume()->equals(Marker(MARKER_TYPE::BLOCK_BEGIN)),
+      stream.consume()->equals(Marker(MARKER_TYPE::BLOCK_END)),
+    });
+  });
+  run("Parser::Should parse a function with no parameters nor paranthesis", []() {
+    return Function("greet", {}, {}).equals(Parser::parse_line("fn greet {}"));
+  });
+  run("Parser::Should parse a function with no parameters and with parenthesis", []() {
+    return Function("greet", {}, {}).equals(Parser::parse_line("fn greet() {}"));
+  });
+  run("Parser::Should parse a function with parameters", []() {
+    return Function("greet", {
+      std::make_shared<Variable>("name", "str", VARIABLE_KIND::PARAMETER)
+    }, {}).equals(Parser::parse_line("fn greet(name str) {}"));
+  });
+  run("Transpiler::Should transpile a function with no parameters nor paranthesis", [this]() {
+    return expect(Transpiler::transpile_line("fn greet {}"), "def greet():\n\tpass\n");
+  });
+  run("Transpiler::Should transpile a function with no parameters and with parenthesis", [this]() {
+    return expect(Transpiler::transpile_line("fn greet() {}"), "def greet():\n\tpass\n");
+  });
+  run("Transpiler::Should transpile a function with parameters", [this]() {
+    return expect(Transpiler::transpile_line("fn greet(name str) {}"), "def greet(name):\n\tpass\n");
+  });
+  run("Transpiler::Should transpile a function with a body", [this]() {
+    return each({
+      expect(Transpiler::transpile_line("fn greet(name str) { var budget = 1_000 }"), "def greet(name):\n\tbudget = 1_000\n"),
+      expect(Transpiler::transpile_line("fn greet(name str) { println(name) }"), "def greet(name):\n\tprintln(name)\n"),
+    }); 
+  });
+}
+
 void Test::test_variable() {
   run("Lexer::Should lex all tokens from a variable declaration properly", []() {
     Stream stream = Lexer::lex_line("var age = 25");
@@ -507,6 +560,7 @@ void Test::run_all(const bool &with_test_name = false) {
   test_operator();
   test_constant();
   test_function_call();
+  test_function();
   test_variable();
   print_results();
 }

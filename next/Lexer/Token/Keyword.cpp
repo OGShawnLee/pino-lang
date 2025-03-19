@@ -18,6 +18,10 @@ Keyword* Keyword::from_base(const std::shared_ptr<Token> &base) {
   return dynamic_cast<Keyword*>(base.get());
 }
 
+bool Keyword::is_given_keyword(const std::shared_ptr<Token> &token, KEYWORD_TYPE keyword) {
+  return token->is_given_type(TOKEN_TYPE::KEYWORD) and Keyword::from_base(token)->get_keyword() == keyword;
+}
+
 void Keyword::print() const {
   println("Keyword {");
   println("  type: " + get_name());

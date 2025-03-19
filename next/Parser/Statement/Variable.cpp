@@ -3,24 +3,32 @@
 #include "Parser.h"
 
 Variable::Variable(
-  std::string identifier, 
+  const std::string &identifier, 
   std::shared_ptr<Expression> value, 
   std::string type,
   VARIABLE_KIND variable_kind
-) : Statement(STATEMENT_TYPE::VARIABLE_DECLARATION) {
-  this->identifier = identifier;
+) : Declaration(STATEMENT_TYPE::VARIABLE_DECLARATION, identifier) {
   this->value = value;
+  this->type = type;
+  this->variable_kind = variable_kind;
+}
+
+Variable::Variable(
+  const std::string &identifier, 
+  std::string type,
+  VARIABLE_KIND variable_kind
+) : Declaration(STATEMENT_TYPE::VARIABLE_DECLARATION, identifier) {
   this->type = type;
   this->variable_kind = variable_kind;
 }
 
 // @WARNING: This constructor is used for testing purposes only.
 Variable::Variable(
-  std::string identifier, 
+  const std::string &identifier, 
   std::string value, 
   std::string type,
   VARIABLE_KIND variable_kind
-) : Statement(STATEMENT_TYPE::VARIABLE_DECLARATION) {
+) : Declaration(STATEMENT_TYPE::VARIABLE_DECLARATION, identifier) {
   
   std::shared_ptr<Statement> statement = Parser::parse_line(value);
   
@@ -30,13 +38,8 @@ Variable::Variable(
     throw std::runtime_error("PARSER-{Variable}: Invalid Expression");
   }
   
-  this->identifier = identifier;
   this->type = type;
   this->variable_kind = variable_kind;
-}
-
-std::string Variable::get_identifier() const {
-  return this->identifier;
 }
 
 const std::shared_ptr<Expression>& Variable::get_value() const {
@@ -60,9 +63,17 @@ bool Variable::equals(const std::shared_ptr<Statement> &candidate) const {
   }
 
   const Variable &variable = static_cast<const Variable&>(*candidate);
+  
+  if (this->get_variable_kind() == VARIABLE_KIND::PARAMETER) {
+    return 
+      this->get_identifier() == variable.get_identifier() and
+      this->get_type() == variable.get_type() and
+      this->variable_kind == variable.get_variable_kind();
+  }
+
   return
-    this->identifier == variable.get_identifier() &&
-    this->value->equals(variable.get_value()) && 
-    this->type == variable.get_type() &&
+    this->get_identifier() == variable.get_identifier() and
+    this->value->equals(variable.get_value()) and
+    this->type == variable.get_type() and
     this->variable_kind == variable.get_variable_kind();
 }

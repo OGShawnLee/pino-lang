@@ -11,6 +11,8 @@ class Test {
 
   bool each(std::vector<bool> cases);
 
+  bool expect(const std::string &expected, const std::string &actual);
+
   void run(const std::string &name, const std::function<bool()> &test);
 
   void test_identifier();
@@ -26,6 +28,8 @@ class Test {
   void test_constant();
 
   void test_function_call();
+
+  void test_function();
 
   void test_variable();
 

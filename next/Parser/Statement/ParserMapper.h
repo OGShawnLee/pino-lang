@@ -12,8 +12,10 @@ enum class BUILT_IN_TYPE {
 };
 
 enum class STATEMENT_TYPE {
+  BLOCK,
   CONSTANT_DECLARATION,
   EXPRESSION,
+  FUNCTION_DECLARATION,
   PROGRAM,
   VARIABLE_DECLARATION,
 };
@@ -27,6 +29,7 @@ enum class EXPRESSION_TYPE {
 enum class VARIABLE_KIND {
   CONSTANT,
   VARIABLE,
+  PARAMETER,
 };
 
 class ParserMapper {

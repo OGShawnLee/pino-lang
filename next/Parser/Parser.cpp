@@ -1,11 +1,12 @@
 #include <stdexcept>
 #include "Parser.h"
+#include "Common.h"
 #include "Statement/Variable.h"
 #include "Statement/Expression/Value.h"
-#include "Lexer/Token/Keyword.h"
-#include "Lexer/Token/Literal.h"
-#include "Lexer/Token/Marker.h"
-#include "Lexer/Token/Operator.h"
+#include "Token/Keyword.h"
+#include "Token/Literal.h"
+#include "Token/Marker.h"
+#include "Token/Operator.h"
 
 std::shared_ptr<Expression> Parser::consume_assignment(Stream &stream) {
   if (Operator::from_base(stream.consume())->get_marker_type() != OPERATOR_TYPE::ASSIGNMENT) {
@@ -46,6 +47,51 @@ KEYWORD_TYPE Parser::consume_keyword(Stream &stream) {
   return dynamic_cast<Keyword*>(current.get())->get_keyword();
 }
 
+std::shared_ptr<Variable> Parser::consume_parameter(Stream &stream) {
+  std::shared_ptr<Identifier> identifier = parse_identifier(stream);
+  return std::make_shared<Variable>(identifier->get_name(), consume_typing(stream), VARIABLE_KIND::PARAMETER);
+}
+
+std::vector<std::shared_ptr<Variable>> Parser::consume_parameters(Stream &stream) {
+  std::vector<std::shared_ptr<Variable>> parameters;
+
+  if (Marker::is_target_marker_type(stream.current(), MARKER_TYPE::BLOCK_BEGIN)) {
+    return parameters;
+  }
+  
+  if (not Marker::is_target_marker_type(stream.consume(), MARKER_TYPE::PARENTHESIS_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Open Parenthesis");
+  }
+  
+  if (Marker::is_target_marker_type(stream.current(), MARKER_TYPE::PARENTHESIS_END)) {
+    stream.increase_index();
+    return parameters;
+  }
+  
+  while (true) {
+    if (Marker::is_target_marker_type(stream.current(), MARKER_TYPE::PARENTHESIS_END)) {
+      stream.increase_index();
+      return parameters;
+    }
+    
+    parameters.push_back(consume_parameter(stream));
+    
+    if (Marker::is_target_marker_type(stream.current(), MARKER_TYPE::COMMA)) {
+      stream.increase_index();
+    }
+  }
+}
+
+std::string Parser::consume_typing(Stream &stream) {
+  const std::shared_ptr<Token> &current = stream.consume();
+
+  if (not current->is_given_type(TOKEN_TYPE::IDENTIFIER)) {
+    throw std::runtime_error("PARSER: Expected Typing");
+  }
+
+  return current->get_data();
+}
+
 bool Parser::is_expression(Stream &stream) {
   return 
     stream.current()->is_given_type(TOKEN_TYPE::IDENTIFIER, TOKEN_TYPE::LITERAL) or
@@ -58,6 +104,62 @@ bool Parser::is_function_call(Stream &stream) {
       token->is_given_type(TOKEN_TYPE::MARKER) and 
       Marker::from_base(token)->is_given_marker_type(MARKER_TYPE::PARENTHESIS_BEGIN);
   });
+}
+
+
+std::shared_ptr<Statement> Parser::parse_block(Stream &stream) {
+  if (not Marker::is_target_marker_type(stream.consume(), MARKER_TYPE::BLOCK_BEGIN)) {
+    throw std::runtime_error("PARSER: Expected Open Brace");
+  }
+  
+  std::shared_ptr<Statement> block = std::make_shared<Statement>(STATEMENT_TYPE::BLOCK);
+  
+  while (stream.has_next()) {
+    if (Marker::is_target_marker_type(stream.current(), MARKER_TYPE::BLOCK_END)) {
+      stream.increase_index();
+      return block;
+    }
+
+    const std::shared_ptr<Token> &token = stream.current();
+
+    switch (token->get_type()) {
+      case TOKEN_TYPE::KEYWORD:
+        switch (Keyword::from_base(token)->get_keyword()) {
+          case KEYWORD_TYPE::CONSTANT:
+          case KEYWORD_TYPE::VARIABLE:
+            block->push(parse_variable(stream));
+            continue;
+          case KEYWORD_TYPE::FUNCTION:
+            block->push(parse_function(stream));
+            continue;
+        }
+        break;
+      case TOKEN_TYPE::IDENTIFIER:
+      case TOKEN_TYPE::LITERAL:
+        block->push(std::move(parse_expression(stream)));
+        continue;
+      case TOKEN_TYPE::ILLEGAL:
+        println("Illegal Token");
+        token->print();
+        break;
+    }
+
+    stream.increase_index();
+  }
+
+  throw std::runtime_error("PARSER: Expected Close Brace");
+}
+
+std::shared_ptr<Function> Parser::parse_function(Stream &stream) {
+  if (consume_keyword(stream) != KEYWORD_TYPE::FUNCTION) {
+    throw std::runtime_error("PARSER: Expected Function Keyword");
+  }
+
+  std::shared_ptr<Identifier> identifier = parse_identifier(stream);
+  std::vector<std::shared_ptr<Variable>> parameters = consume_parameters(stream);  
+  std::shared_ptr<Statement> block = parse_block(stream);
+
+  return std::make_shared<Function>(identifier->get_name(), parameters, block->get_children());
 }
 
 std::shared_ptr<FunctionCall> Parser::parse_function_call(Stream &stream) {
@@ -125,6 +227,8 @@ std::shared_ptr<Statement> Parser::parse_line(const std::string &line) {
           case KEYWORD_TYPE::CONSTANT:
           case KEYWORD_TYPE::VARIABLE:
             return parse_variable(stream);
+          case KEYWORD_TYPE::FUNCTION:
+            return parse_function(stream);
         }
       case TOKEN_TYPE::LITERAL:
       case TOKEN_TYPE::IDENTIFIER:

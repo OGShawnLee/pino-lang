@@ -34,19 +34,23 @@ set(SOURCES
     next/Lexer/Test.cpp
     next/Lexer/Test.h
     next/Parser/Statement/Expression/Expression.cpp
-    next/Parser/Statement/Expression/Expression.h  
+    next/Parser/Statement/Expression/Expression.h
     next/Parser/Statement/Expression/FunctionCall.cpp
-    next/Parser/Statement/Expression/FunctionCall.h  
+    next/Parser/Statement/Expression/FunctionCall.h 
     next/Parser/Statement/Expression/Identifier.cpp
     next/Parser/Statement/Expression/Identifier.h
     next/Parser/Statement/Expression/Value.cpp
     next/Parser/Statement/Expression/Value.h
     next/Parser/Statement/ParserMapper.cpp
     next/Parser/Statement/ParserMapper.h
+    next/Parser/Statement/Declaration.cpp
+    next/Parser/Statement/Declaration.h
+    next/Parser/Statement/Function.cpp
+    next/Parser/Statement/Function.h
     next/Parser/Statement/Statement.cpp
     next/Parser/Statement/Statement.h
     next/Parser/Statement/Variable.cpp
-    next/Parser/Statement/Variable.h    
+    next/Parser/Statement/Variable.h
     next/Parser/Parser.cpp
     next/Parser/Parser.h
     next/Transpiler/Transpiler.cpp
