@@ -101,25 +101,15 @@ std::string Transpiler::transpile_statement(const std::shared_ptr<Statement> sta
   return output;
 }
 
-void Transpiler::transpile_program_to_file(const std::shared_ptr<Statement> statement, const std::string &output_file_name) {
-  if (statement->get_type() != STATEMENT_TYPE::PROGRAM) {
-    throw std::runtime_error("Transpiler::transpile: Expected a Program");
+void Transpiler::transpile_file(const std::string &file_name, const std::string &output_file_name) {
+  std::ofstream output_file(output_file_name);
+  if (output_file.is_open()) {
+    std::shared_ptr<Statement> program = Parser::parse_file(file_name);
+    for (const std::shared_ptr<Statement> &statement : program->get_children()) {
+      output_file << transpile_statement(statement) << "\n";
+    }
+    output_file.close();
+  } else {
+    throw std::runtime_error("Unable to open output file");
   }
-
-  std::string output;
-
-  for (const std::shared_ptr<Statement> child : statement->get_children()) {
-    output += transpile_statement(child) + ";\n";
-  }
-
-  std::ofstream file;
-  file.open(output_file_name);
-  file << output;
-  file.close();
-
-  // call python
-  std::string command = "python " + output_file_name;
-  system(command.c_str());
-
-  std::remove(output_file_name.c_str());
 }

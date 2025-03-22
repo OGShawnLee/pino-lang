@@ -64,5 +64,11 @@ include_directories(${CMAKE_SOURCE_DIR}/next/Lexer)
 include_directories(${CMAKE_SOURCE_DIR}/next/Parser)
 include_directories(${CMAKE_SOURCE_DIR}/next/Transpiler)
 
+add_custom_target(add_pino_to_path ALL
+    COMMAND ${CMAKE_COMMAND} -E env bash ${CMAKE_SOURCE_DIR}/add_pino_to_path.sh
+    DEPENDS pino
+    COMMENT "Adding pino executable to PATH"
+)
+
 # Create the executable
 add_executable(pino ${SOURCES})

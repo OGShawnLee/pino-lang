@@ -16,5 +16,9 @@ class Lexer {
   static void handle_buffer(std::vector<std::shared_ptr<Token>> &collection,std::string &buffer);  
   
   public:
+    static void lex_line_to_collection(const std::string &line, std::vector<std::shared_ptr<Token>> &collection);
+
     static Stream lex_line(const std::string &line);
+
+    static Stream lex_file(const std::string &file_name);
 };

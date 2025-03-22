@@ -31,6 +31,8 @@
 *.out
 *.app
 main
+main.pino
+main.py
 
 build
 CMakeFiles

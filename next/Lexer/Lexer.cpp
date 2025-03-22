@@ -110,8 +110,7 @@ void Lexer::handle_buffer(std::vector<std::shared_ptr<Token>> &collection, std::
   buffer = "";
 }
 
-Stream Lexer::lex_line(const std::string &line) {
-  std::vector<std::shared_ptr<Token>> collection;
+void Lexer::lex_line_to_collection(const std::string &line, std::vector<std::shared_ptr<Token>> &collection) {
   std::string final_line = line + " ";
   std::string buffer = "";
 
@@ -129,7 +128,7 @@ Stream Lexer::lex_line(const std::string &line) {
       MARKER_TYPE marker_type = Mapper::get_marker_enum_from_char(character);
       switch (marker_type) {
         case MARKER_TYPE::COMMENT:
-          return Stream(collection);
+          return;
         case MARKER_TYPE::STR_QUOTE:
           collection.push_back(build_str_literal(final_line, i));
           break;
@@ -150,6 +149,20 @@ Stream Lexer::lex_line(const std::string &line) {
 
     buffer += character;
   }
+}
+
+Stream Lexer::lex_line(const std::string &line) {
+  std::vector<std::shared_ptr<Token>> collection;
+  lex_line_to_collection(line, collection);
+  return Stream(collection);
+}
+
+Stream Lexer::lex_file(const std::string &file_name) {
+  std::vector<std::shared_ptr<Token>> collection;
+  
+  each_line(file_name, [&](const std::string &line) {
+    lex_line_to_collection(line, collection);
+  });
 
   return Stream(collection);
 }

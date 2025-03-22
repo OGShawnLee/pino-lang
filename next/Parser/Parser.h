@@ -38,4 +38,6 @@ class Parser {
 
   public:
     static std::shared_ptr<Statement> parse_line(const std::string &line);
+
+    static std::shared_ptr<Statement> parse_file(const std::string &file_name);
 };

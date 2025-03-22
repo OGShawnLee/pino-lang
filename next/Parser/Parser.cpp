@@ -238,3 +238,36 @@ std::shared_ptr<Statement> Parser::parse_line(const std::string &line) {
 
   return nullptr;
 }
+
+std::shared_ptr<Statement> Parser::parse_file(const std::string &file_name) {
+  Stream stream = Lexer::lex_file(file_name);
+  std::shared_ptr<Statement> program = std::make_shared<Statement>(STATEMENT_TYPE::PROGRAM);
+
+  while (stream.has_next()) {
+    const std::shared_ptr<Token> &current = stream.current();
+    switch (current->get_type()) {
+      case TOKEN_TYPE::KEYWORD:
+        switch (Keyword::from_base(current)->get_keyword()) {
+          case KEYWORD_TYPE::CONSTANT:
+          case KEYWORD_TYPE::VARIABLE:
+            program->push(parse_variable(stream));
+            continue;
+          case KEYWORD_TYPE::FUNCTION:
+            program->push(parse_function(stream));
+            continue;
+          default:
+            stream.increase_index();
+            continue;
+        }
+      case TOKEN_TYPE::LITERAL:
+      case TOKEN_TYPE::IDENTIFIER:
+        program->push(parse_expression(stream));
+        continue;
+      default:
+        stream.increase_index();
+        continue;
+    }
+  }
+  
+  return program;
+}
