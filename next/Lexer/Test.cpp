@@ -377,11 +377,11 @@ void Test::test_constant() {
   });
   run("Transpiler::Should transpile a constant declaration with a literal", [this]() {
     return each({
-      Transpiler::transpile_line("val budget = 1_000.001") == "budget = 1_000.001",
-      Transpiler::transpile_line("val budget = 1_000") == "budget = 1_000",
-      Transpiler::transpile_line("val is_married = false") == "is_married = false",
-      Transpiler::transpile_line("val is_married = true") == "is_married = true",
-      Transpiler::transpile_line("val name = \"Shawn Lee\"") == "is_married = \"Shawn Lee\"",
+      expect(Transpiler::transpile_line("val budget = 1_000.001"), "budget = 1_000.001"),
+      expect(Transpiler::transpile_line("val budget = 1_000"), "budget = 1_000"),
+      expect(Transpiler::transpile_line("val is_married = false"), "is_married = False"),
+      expect(Transpiler::transpile_line("val is_married = true"), "is_married = True"),
+      expect(Transpiler::transpile_line("val name = \"Shawn Lee\""), "name = \"Shawn Lee\""),
     });
   });
 }
@@ -442,27 +442,27 @@ void Test::test_function_call() {
         std::make_shared<Value>(Literal(LITERAL_TYPE::INTEGER, "25")),
       }).equals(Parser::parse_line("print(\"Hello, World!\" 25)"));
   });
-  run("Transpiler::Should transpile a function call with no arguments", []() {
-    return Transpiler::transpile_line("print()") == "print()";
+  run("Transpiler::Should transpile a function call with no arguments", [this]() {
+    return expect(Transpiler::transpile_line("print()"), "print()");
   });
-  run("Transpiler::Should transpile a function call with one argument", []() {
-    return Transpiler::transpile_line("print(12)") == "print(12)";
+  run("Transpiler::Should transpile a function call with one argument", [this]() {
+    return expect(Transpiler::transpile_line("print(12)"), "print(12)");
   });
   run("Transpiler::Should transpile a function call with multiple arguments", [this]() {
     return each({
-      Transpiler::transpile_line("print(12, false)") == "print(12, false)",
-      Transpiler::transpile_line("print(12, false, 1.001)") == "print(12, false, 1.001)",
+      expect(Transpiler::transpile_line("print(12, false)"), "print(12, False)"),
+      expect(Transpiler::transpile_line("print(12, false, 1.001)"), "print(12, False, 1.001)"),
     });
   });
-  run("Transpiler::Should transpile a function call with multiple arguments and no commas", []() {
-    return Transpiler::transpile_line("print(12 false 1.245)") == "print(12, false, 1.245)";
+  run("Transpiler::Should transpile a function call with multiple arguments and no commas", [this]() {
+    return expect(Transpiler::transpile_line("print(12 false 1.245)"), "print(12, False, 1.245)");
   });
   run("Transpiler::Should transpile a function call with multiple references an no commas", [this]() {
     return each({
-      Transpiler::transpile_line("print(name)") == "print(name)",
-      Transpiler::transpile_line("print(name, budget)") == "print(name, budget)",
-      Transpiler::transpile_line("print(name, budget, country)") == "print(name, budget, country)",
-      Transpiler::transpile_line("print(name budget country)") == "print(name, budget, country)",
+      expect(Transpiler::transpile_line("print(name)"), "print(name)"),
+      expect(Transpiler::transpile_line("print(name, budget)"), "print(name, budget)"),
+      expect(Transpiler::transpile_line("print(name, budget, country)"), "print(name, budget, country)"),
+      expect(Transpiler::transpile_line("print(name budget country)"), "print(name, budget, country)"),
     });
   });
 }
@@ -529,13 +529,13 @@ void Test::test_variable() {
   run("Parser::Should parse a variable declaration with a reference", [this]{
     return Variable("full_name", "name", "PENDING").equals(Parser::parse_line("var full_name = name"));
   });
-  run("Transpiler::Should transpile a variable declaration with a literal", [this]() {
+  run("Transpiler::Should transpile a constant declaration with a literal", [this]() {
     return each({
-      Transpiler::transpile_line("var budget = 1_000.001") == "budget = 1_000.001",
-      Transpiler::transpile_line("var budget = 1_000") == "budget = 1_000",
-      Transpiler::transpile_line("var is_married = false") == "is_married = false",
-      Transpiler::transpile_line("var is_married = true") == "is_married = true",
-      Transpiler::transpile_line("var name = \"Shawn Lee\"") == "is_married = \"Shawn Lee\"",
+      expect(Transpiler::transpile_line("val budget = 1_000.001"), "budget = 1_000.001"),
+      expect(Transpiler::transpile_line("val budget = 1_000"), "budget = 1_000"),
+      expect(Transpiler::transpile_line("val is_married = false"), "is_married = False"),
+      expect(Transpiler::transpile_line("val is_married = true"), "is_married = True"),
+      expect(Transpiler::transpile_line("val name = \"Shawn Lee\""), "name = \"Shawn Lee\""),
     });
   });
 }

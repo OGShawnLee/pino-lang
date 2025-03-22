@@ -11,9 +11,17 @@ std::string Transpiler::handle_expression(const Expression &expression) {
     case EXPRESSION_TYPE::IDENTIFIER:
       output = static_cast<const Identifier&>(expression).get_name();
       break;
-    case EXPRESSION_TYPE::LITERAL:
-      output = static_cast<const Value&>(expression).get_value();
+    case EXPRESSION_TYPE::LITERAL: {
+      const Value& value = static_cast<const Value&>(expression);
+      if (value.get_literal_type() == LITERAL_TYPE::STRING) {
+        output = "\"" + value.get_value() + "\"";
+      } else if (value.get_literal_type() == LITERAL_TYPE::BOOLEAN) {
+        output = value.get_value() == "true" ? "True" : "False";
+      } else {
+        output = value.get_value();
+      }
       break;
+    }
     case EXPRESSION_TYPE::FUNCTION_CALL:
       const FunctionCall& function_call = static_cast<const FunctionCall&>(expression);
       output = function_call.get_callee() + "(";
