@@ -6,12 +6,15 @@
 #include "Token/Literal.h"
 
 class Value : public Expression {
+  std::vector<std::string> injections;
   LITERAL_TYPE literal_type;
   std::string typing;
   std::string value;
 
 public:
   Value(Literal literal);
+
+  const std::vector<std::string> &get_injections() const;
 
   LITERAL_TYPE get_literal_type() const;
 

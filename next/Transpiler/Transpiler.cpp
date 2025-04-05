@@ -4,6 +4,35 @@
 #include "Statement/Expression/Value.h"
 #include "Statement/Expression/FunctionCall.h"
 
+std::string Transpiler::replace(std::string str, std::string from, std::string to) {
+  size_t start_pos = 0;
+  while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+    str.replace(start_pos, from.length(), to);
+    start_pos += to.length();
+  }
+  return str;
+}
+
+ std::string Transpiler::get_str_value(const Value &value) {
+    if (not (value.get_literal_type() == LITERAL_TYPE::STRING)) {
+      throw std::runtime_error("DEV: Not a String Literal");
+    }
+  
+    const std::vector<std::string> &injections = value.get_injections();
+    
+    if (injections.size() == 0) {
+      return "\"" + value.get_value() + "\"";
+    }
+
+    std::string str_value = "f\"" + value.get_value() + "\"";
+
+    for (const std::string &injection : value.get_injections()) {
+      str_value = replace(str_value, "#" + injection, "{" + injection + "}");
+    }
+
+    return str_value;
+  }
+
 std::string Transpiler::handle_expression(const Expression &expression) {
   std::string output;
 
@@ -14,7 +43,7 @@ std::string Transpiler::handle_expression(const Expression &expression) {
     case EXPRESSION_TYPE::LITERAL: {
       const Value& value = static_cast<const Value&>(expression);
       if (value.get_literal_type() == LITERAL_TYPE::STRING) {
-        output = "\"" + value.get_value() + "\"";
+        output = get_str_value(value);
       } else if (value.get_literal_type() == LITERAL_TYPE::BOOLEAN) {
         output = value.get_value() == "true" ? "True" : "False";
       } else {

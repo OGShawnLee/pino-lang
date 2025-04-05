@@ -1,8 +1,13 @@
 #pragma once
 
 #include "Parser.h"
+#include "Parser/Statement/Expression/Value.h"
 
 class Transpiler {
+  static std::string replace(std::string str, std::string from, std::string to);
+  
+  static std::string get_str_value(const Value &value);
+
   static std::string handle_expression(const Expression &expression);
   
   static std::string handle_function(const Function &function);

@@ -55,6 +55,8 @@
     "*.def": "cpp",
     "condition_variable": "cpp",
     "regex": "cpp",
-    "shared_mutex": "cpp"
+    "shared_mutex": "cpp",
+    "codecvt": "cpp",
+    "iomanip": "cpp"
   }
 }

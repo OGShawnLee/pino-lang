@@ -275,10 +275,10 @@ void Test::test_literal() {
   });
   run("Transpiler::Should transpile a string literal with string injections", [this]() {
     return each({
-      Transpiler::transpile_line("\"Shawn $last_name\"") == "f\"Shawn {last_name}\"",
-      Transpiler::transpile_line("\"China$\"") == "\"China$\"",
-      Transpiler::transpile_line("\"$China\"") == "\"$China\"",
-      Transpiler::transpile_line("\"$full_name lives in $country\"") == "f\"{full_name} lives in {country}\"",
+      Transpiler::transpile_line("\"Shawn #last_name\"") == "f\"Shawn {last_name}\"",
+      Transpiler::transpile_line("\"China#\"") == "\"China#\"",
+      Transpiler::transpile_line("\"#China\"") == "f\"{China}\"",
+      Transpiler::transpile_line("\"#full_name lives in #country\"") == "f\"{full_name} lives in {country}\"",
     });
   });
 }

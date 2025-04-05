@@ -1,9 +1,14 @@
 #include "Value.h"
 
 Value::Value(Literal literal) : Expression(EXPRESSION_TYPE::LITERAL) {
+  this->injections = literal.get_injections();
   this->literal_type = literal.get_literal_type();
   this->typing = literal.get_name();
   this->value = literal.get_data();
+}
+
+const std::vector<std::string>& Value::get_injections() const {
+  return this->injections;
 }
 
 LITERAL_TYPE Value::get_literal_type() const {
