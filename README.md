@@ -1,702 +1,191 @@
-# Pino
-Simple and aesthetic programming language built with C++ that intends to turn programming a joyful experience.
+# Pino Lang 🌲
 
-## Why?
+A modern, simple, and highly aesthetic programming language designed to make writing code a joyful experience. Pino brings together the best syntactic elements of **Vlang**, **Go**, **Kotlin**, and **Ruby** into a single, cohesive, and expressive system.
 
-All the programming languages I've used have something I like and dislike, so I decided to make one that takes the good from all those languages; a language tailored to my taste. I am studying Software Engineering and I thought this project would help me test what I've learnt and become a better programmer by not only doing Web Development but some Systems Programming with a gigachad language such as C++ as well.
+Pino is built with a standalone tree-walk interpreter in **C# (.NET 10)** featuring a robust lexical analyzer, a precedence-climbing parser, and a fully scoped runtime environment.
 
-## Features
-- [X] Constant and Variable Declaration
-- [X] Function Declaration
-  - [X] Parameter Declaration
-  - [X] Optional Parameter List (no parenthesis)
-  - [X] Parameter List
-    - [X] Optional Commas
-  - [X] Return Statement 
-  - [ ] Return Typing
-- [X] Struct Declaration
-  - [X] Attribute Declaration
-  - [X] Method Declaration
-- [X] Enum Declaration
-- [X] Expression
-  - [X] Binary Expression
-    - [X] Enum Member Access
-    - [X] Struct Attribute / Method Access
-    - [ ] Order of Precedence
-    - [ ] Parenthesis
-  - [X] Ternary Expression
-  - [X] Identifier
-  - [X] Literal
-    - [X] Boolean
-    - [X] Float
-    - [X] Integer
-    - [X] String
-      - [X] String Injection
-    - [X] Function Lambda
-      - [X] Parameter Declaration
-      - [X] Optional Parameter List (no parenthesis)
-      - [X] Parameter List (no parenthesis)
-        - [X] Optional Commas
-      - [X] Return Statement
-      - [ ] Return Typing
-  - [X] Function Call
-  - [X] Loop Statement
-    - [X] For In Loop (``for i in <iterable> {}``)
-    - [X] For Times Loop (``for i in <integer> {}``)
-    - [ ] Loop Keywords (continue, break)
-  - [X] Struct Instance
-    - [X] Property Accessing
-    - [ ] Shorthand Syntax 
-  - [X] Vector
-    - [X] Initial Elements
-    - [X] Init Block
-- [X] Conditional
-  - [X] If Statement
-    - [X] Else If Statement
-  - [X] Else Statement
-  - [X] Match Statement
-    - [X] When Statement
-      - [X] Multiple Expressions
-    - [X] Default Statement (Else Statement)
+---
 
-## Syntax
+## 🎨 Key Inspirations & Design Goals
+* **Kotlin-style Variables**: Clear distinction between mutable (`var`) and immutable (`val`) values.
+* **Ruby-style String Injections**: Interpolate variables directly in strings using simple `#variable` syntax.
+* **Go & Vlang-style Loops**: Easing block structures by using `for` as the unified keyword for loops (including infinite loops).
+* **Flexible Syntactic Commas**: Commas are optional in vectors, struct properties, and parameter lists—meaning you write cleaner layouts.
+* **No Unnecessary Parentheses**: Clean control blocks (`if`, `match`, and loop conditions) do not require parentheses around their conditions.
 
-The syntax is heavily inspired by the programming language that has the best one in my opinion, Vlang (and Golang I guess). There are also bits inspired by other languages like Kotlin and Ruby.
+---
 
-### Variables
+## 🚀 Key Features & Implementation Status
 
-Constants are declared using the **val** keyword and variables with the **var** keyword. Variables must be assigned a value. (This syntax comes from Kotlin).
+| Feature Category | Feature Description | Status |
+| :--- | :--- | :---: |
+| **Variables** | Constant (`val`) & Mutable (`var`) declarations | `[X]` |
+| **Strings** | Lexical interpolation/injection (`#var`) | `[X]` |
+| **Control Flow** | Unified `for` loop (infinite, range, iterator) | `[X]` |
+| | Control escape keywords (`break`, `continue`) | `[X]` |
+| | Conditionals (`if`, `else if`, `else`) | `[X]` |
+| | Case routing (`match`, `when` multi-conditions) | `[X]` |
+| **Functions** | Declarations (`fn`), parameters, and returns | `[X]` |
+| | High-order closures & Anonymous lambdas | `[X]` |
+| **Data Structs** | Custom `struct` & method declarations | `[X]` |
+| | Enums (`enum`) & member resolution (`::`) | `[X]` |
+| | Dynamic arrays (`vector`) with `len`/`init` blocks | `[X]` |
+| **Compiler Engine**| Precedence-climbing parser (binary precedence) | `[X]` |
+| | Scoped parent-linked execution Environment | `[X]` |
+| | Comprehensive xUnit verification suite | `[X]` |
 
-```
-var name = "Shawn Lee"
-var country = "China"
-var children = 0
-var budget = 12.5 # In terms of money, I have none :yikes:
-var is_married = false
+---
 
+## 📖 Syntax Showcase
+
+### Variables & Constants
+Constants are declared using `val` and variables with `var`.
+```pino
 val planet = "Earth"
 val pi = 3.1416
+
+var age = 24
+age = 25 # Reassignment allowed on var
 ```
 
-### String Injection
-
-Variables can be easily interpolated inside of strings by writting their name preceded by a **#** character. (This syntax comes from Ruby).
-
-```
+### String Interpolation
+Variables are interpolated directly inside double quotes via a `#` prefix.
+```pino
 val name = "Augustus"
 val empire = "Roman"
 
-println("#name was the first emperor of the #empire Empire")
-
-val planet = "Earth"
-val diameter = 12714
-val message = "#planet has a diameter of #diameter kilometres"
+println("#name was the first emperor of the #empire Empire.")
 ```
 
-### Functions
-Functions are declared with the **fn** keyword followed by their name and their parameters.
-
-* Parenthesis are optional if the function does not have any parameters.
-* Commas are optional to separate parameters, it is recommeded to add them when the parameters are written in a single line otherwise omit them.
-* When calling a function, commas are optional to separate its arguments.
-
-```
-fn print {
-  println("This is a random print, doesn't do much but it's honest work.")
+### Functions & Lambdas
+Functions are declared using `fn`. Parentheses are optional if a function has no parameters, and parameters do not require commas.
+```pino
+fn greet(name string, city string) {
+  println("Hello #name from #city!")
 }
 
-fn greet(name str, from str) {
-  println("Greetings from #from, #name.")
-}
-
-fn get_message(
-  name str
-  country str
-  budget float
-) {
-  return "#name lives in #country and has a budget of #budget"
-}
-
-fn get_screaming_message(message str) {
-  return message:uppercase()
-}
-
-fn double_it(amount int) {
-  return amount * 2
-}
-
-fn get_str(prompt str) {
-  return readline(prompt)
-}
-
-fn get_float(prompt str) {
-  return float(get_str(prompt))
-}
-
-val final_message = get_message(
-  get_str("What is your name?")
-  get_str("What country do you live in?")
-  get_float("What is your budget?")
-)
-
-println("Message: #final_message")
-```
-
-### Ternary Expression
-
-Since Pino does not have a ternary operator like C-like languages, the `if` keyword can be used to create what I call a **Ternary Expression**. A ternary expression is declared with the `if` keyword followed by a condition, the `then` keyword followed by an expression and ended with an `else` followed by an expression (`if <condition> then <expression> else <expression>`). 
-
-```
-fn get_message(name str, country str, is_married bool) {
-  return if is_married
-    then "#name lives in #country and is_married"
-    else "#name lives in #country and is not married"
-}
-
-fn max(a int, b int) {
-  return if a > b then a else b
-}
-
-fn min(a int, b int) {
-  return if a < b then a else b
-}
-
-val has_taxes = false
-var budget = 10
-val amount = if has_taxes then 40 * 0.7 else 40
-val nested = if true
-  then if true 
-      then "Do not" 
-      else "use"
-  else "nested ternary expressions"
-```
-
-### Function Lambdas
-
-Lambdas are anonymous functions that are treated as expressions. They are declared with the **fn** keyword and evidently they don't have a name, and they benefit from the syntax of normal functions: optional commas and parenthesis.
-
-```
-val first_name = "Shawn"
-val last_name = "Lee"
-
-val get_full_name = fn (first_name str, last_name str) {
-  return "#first_name #last_name"
-}
-
-val greet = fn {
-  val full_name = get_full_name(first_name, last_name)
-  println("Hello from the creator of Pinolang, #full_name")
-}
-
-val print_person = fn (
-  first_name str 
-  last_name str
-  country str
-) {
-  val full_name = get_full_name(first_name, last_name)
-  println("#full_name lives in #country")
-}
-
-greet()
-print_person("John", "China", "China")
-```
-
-### Structs
-
-Structs are declared with the **struct** keyword followed by their name and their body declaration. Attributes are declared with their name followed by their type.
-
-* Commas are optional to separate attributes. It is recommended to keep them if the struct declaration is written in a single line, otherwise omit them.
-
-```
-struct Country { name str, continent str }
-struct Person {
-  name str
-  country Country
-  children int
-  height float
-  is_married bool
-}
-```
-
-### Struct Instances
-
-To initialise a struct instance declare the name of the struct followed by the definition of its body composed by properties. Properties are defined by their **identifier**, a **colon**, and their **value** which must be an expression (``name: "Shawn"``).
-
-* Commas are optional to separate properties, it is recommended to keep them when multiple properties are declared on a single line, otherwise omit them.
-* Accessing an struct instance is done with the member access operator ``:``.
-
-```
-struct Country { name str, continent str }
-struct Person {
-  name str
-  country Country # Nested Struct
-  children int
-  height float
-  is_married bool
-  country Country
-}
-
-val person = Person {
-  name: "Shawn Lee"
-  country: Country { name: "China", "Asia" } # Nested Struct Instance
-  children: 0
-  height: 1.74
-  is_married: false
-}
-
-println(person:name + "lives in " + country:name) # Accesing a Property
-```
-
-### Vectors
-
-A vector is a dynamic array of elements of the same type.
-
-* Use ``[<element-1>, <element-2>, <element-n>]`` for initialising a vector with literal elements, its type will be infered from the first element.
-  * Commas are optional to separate members, it is recommended to keep them when multiple elements are declared on the same line, otherwise omit them.
-* Use ``[]<type>`` for initialising an empty vector that will be filled with elements of the given type.
-* Use ``[]<type> { len: <integer>, init: <expression> }`` for quickly declaring an array with a given length and filling each index with the result of an expression. Both ``len`` and ``init`` must be declared.
-  * ``len``: is the length of the vector and the number of times the init expression will be evaluated.
-  * ``init``: is an expression that will be called at each index of the vector and its value will be assigned at that position. This expression has access to a context variable called ``it`` that represents the current index. A lambda can be used if multiple stataments are needed for computing a value, or for renaming ``it``.
-
-```
-val countries = [
-  "Portugal"
-  "Spain"
-  "France"
-  "Italy"
-  "England"
-  "Scotland"
-  "Ireland"
-]
-
-for country in countries {
-  println("#country is in Europe.")
-}
-
-val scores = []float
-val integers = []int {
-  len: 30
-  init: it * 1
-}
-
-# '[]int' as a type is not supported yet
-val matrix = [][]int {
-  len: 3
-  init: fn (row int) {
-    return []int {
-      len: 3
-      init: fn (col int) {
-        for {
-          val integer = int(readline("Enter a cero or positive integer for position (#row, #col): "))
-          # Conditional Statements are not supported yet
-          if integer < 0 { 
-            println("Negative numbers are not allowed, please enter a number number")
-          }
-          return integer
-        }
-      }
-    }
+# High-order function returning a lambda closure
+fn multiplier(factor int) {
+  return fn (val int) {
+    return val * factor
   }
 }
+
+val double_it = multiplier(2)
+println(double_it(5)) # Outputs 10
 ```
 
-### Enums
+### Structs & Instances
+Define object structures with typed attributes and methods. Access attributes or methods using the `:` member operator.
+```pino
+struct Vector2 {
+  x int
+  y int
 
-Enums are declared with the **enum** keyword followed by their name and their members. Members are just identifiers and I recommend following the SCREMING_SNAKE_CASE naming convention... not sure if I should enforce it.
+  fn magnitude_sq() {
+    return x * x + y * y
+  }
+}
 
-* Commas are optional to separate members, it is recommended to keep them when multiple members are declared on the same line, otherwise omit them.
-* Accessing an enum member value is done with the ``::`` operator.
-
+val pos = Vector2 { x: 3, y: 4 }
+val mag = pos:magnitude_sq()
+println("Magnitude Squared: #mag")
 ```
-enum Planet {
-  MERCURY, VENUS, EARTH, MARS
-  JUPITER, SATURN, URANUS, NEPTUNE
-}
 
-val planet = Planet::EARTH
-```
-
-### Loop Statement
-
-Loops can only be declared with the **for** keyword, there is no while nor do keyword.
-
-* Use ``for <it> in <iterable> {}`` for iterating over an iterable expression such as a vector or an string.
-* Use ``for <index> in <integer> {}`` for executing a set of instructions a certain number of times while keeping a reference to the current iteration index.
-* Use ``for <integer> {}`` for executing a set of instructions a certain number of times.
-* Use ``for <condition> {}`` for executing a "while" kind of loop. Break out of the loop with keywords (**break, continue, return**).
-* Use ``for {}`` for executing infinite loop, Break out of the loop with keywords.
- 
-```
-val characters = [
-  "Marcus"
-  "Dominic"
-  "Baird"
-  "Cole"
-]
-
-for character in characters {
-  println("#character is an awesome Gears of War character!")
-}
-
-for time in 100 {
-  println("This has run for the #time time for a total of 100 times")
-}
-
-for 100 {
-  println("This will run a hundred times")
-}
-
-var is_sleeping = true
-for is_sleeping {
-  println("Pablo is sleeping...")
-  is_sleeping = false
-}
-
-println("Pablo is no longer sleeping!")
-
+### Loops
+Pino simplifies loop structures down to a single keyword: `for`.
+```pino
+# 1. Infinite Loop (breaks out via 'break')
 for {
-  println("This will run forever!")
-  break # not really
+  val choice = readline("Enter 'q' to quit: ")
+  if choice == "q" {
+    break
+  }
+}
+
+# 2. For In Loop (Iterating collections)
+val heroes = ["Marcus", "Dominic", "Baird", "Cole"]
+for hero in heroes {
+  println("Hero: #hero")
+}
+
+# 3. For Times Loop (Iterating over a range limit)
+for time in 5 {
+  println("Iteration #time")
 }
 ```
 
-### Conditional Statements
-
-Conditional statements are straightforward and there is not much to say about them, the condition for all of them doesn't require parenthesis.
-
-* `if`: an if statement is declared with the `if` keyword followed by a condition and its block body.
-* `else if`: an else if statement is declared with the keywords `else if` followed by a condition and its block body.
-* `else`: an else statement is declared with the keyword `else` followed by its block body.
-* `match`: a match statement is declared with the `match` keyword followed by a condition and `when` statements or a default `else` branch.
-* `when`: a when statements acts as a branch for a `match` statement, it is declared with the `when` keyword followed by one or multiple expressions.
-
-```
-if true {
-  println("This if statement will always run")
-}
-
-if false {
-  println("This if statement will never run")
-} else {
-  println("This else statement will always run")
-}
-
-val budget = 12.5
-
+### Conditionals & Pattern Matching
+Use `if-else` blocks or compile-time `match-when` switches to route decisions.
+```pino
+# If-Else Chain
+val budget = 12500
 if budget > 10000 {
   println("Damn, you a G!")
 } else if budget > 5000 {
-  println("Ight, not bad!")
-} else if budget > 3000 {
-  println("Almost decent, common get you shit together!")
+  println("Not bad!")
 } else {
-  println("Damn, you a brokie!")
+  println("Brokie status.")
 }
 
-match readline("Enter a planet of the solar system to teleport: ")
-when "Earth" {
-  println("You are alive")
-}
-when "Sun" {
-  println("The sun is not a planet! You dead anyways")
-}
-else {
-  println("You dead")
-}
-
-match readline("Enter a planet of the solar system: ") {
-  when 
-  "Mercury"
-  "Venus"
-  "Earth"
-  "Mars" {
-    println("Rocky Planet")
+# Match-When pattern routing
+match readline("Teleport planet: ") {
+  when "Earth" {
+    println("Status: Alive")
   }
-  when "Jupiter", "Saturn" {
-    println("Gas Giant")
-  }
-  when "Uranus", "Neptune" {
-    println("Ice Giant")
-  }
-  when "Sun" {
-    println("The sun is a star not a planet!")
+  when "Mars", "Venus" {
+    println("Status: Wearing space suit")
   }
   else {
-    println("Not a planet I know of")
+    println("Status: Dead")
   }
 }
 ```
 
-<!-- # Pino
+---
 
-Simple and aesthetic programming language built with C++ that intends to turn programming a joyful experience.
+## 🛠️ Standalone Compiler & Interpreter
 
-All the programming languages I've used have something I like and dislike, so I decided to make one based on the language I like the most, the V programming language.
-I am studying Software Enginnering and C++ is the language I am being taught, so that is the language used in the project. 
-Pino is transpiled to JavaScript because it is the language I know the best and I don't know how to compile it to a lower level.
+Pino's core compiler and runtime are implemented in C#. It features a fully self-contained runtime environment that executes `.pino` source files natively without any third-party dependencies.
 
-REWRITE: PINO WILL BE REWRITTEN FROM THE GROUND UP BUT THERE WILL NOT BE MANY CHANGES TO THE SYNTAX 
+### Getting Started
 
-## Why Pino?
-Every cool name I thought of was already used and at that moment I was thinking about **Ergo Proxy**, *my all time favourite anime*. Since **Pino** is a little adorable character from that anime and it is a short name as well... **Pino! Pino! Pino!**
+#### Prerequisites
+* **.NET 10 SDK** (Installed on your system)
 
-## Comments
-
-Multi Line Comments are not yet supported but the intended syntax is shown right below.
-
-```
-# Single Line Comment
-###
-  Multi
-  Line
-  Comment
-###
+#### 1. Build the Project
+Navigate to the compiler source folder and compile the project:
+```bash
+cd pino-csharp
+dotnet build
 ```
 
-## Variables
-
-```
-# Variable
-var name = "Shawn Lee"
-# Constant
-val country = "China"
-# Reassignment
-name = "John China"
-# To Variable
-var people = name
+#### 2. Run a Pino Script
+To run a `.pino` script directly:
+```bash
+dotnet run run main.pino
 ```
 
-## String Injection
-
-```
-val name = "Shawn Lee"
-val country = "China"
-val budget = 0
-val weight = 64.5
-var message = "$name lives in $country, has a budget of $budget and weighs $weight kg"
+#### 3. Interactive REPL
+To start the interactive REPL shell:
+```bash
+dotnet run repl
 ```
 
-## Vectors
-
-```
-fn get_str(it int) {
-  return "$it: What is going on fella!"
-}
-
-var arr_int = []int { len: 6, init: it * 2 }
-var arr_str = []str { len: 9, init: get_str(it) }
-
-println(arr_int, arr_str)
-
-struct Game {
-  name str
-  characters arr
-}
-
-println(Game {
-  name: "Gears of War"
-  characters: ["Marcus", "Dominic", "Baird", "Cole"]
-})
-
-val game = Game {
-  name: "Halo"
-  characters: ["Master Chief", "Cortana", "Captain Keyes", "Sergeant Johnson", "343 Guilty Spark"]
-}
-
-fn print_game_characters(game Game) {
-  val len = game:characters:length
-  println("$game:name Characters $len")
-  for i in len {
-    val char = game:characters[i]
-    println("  Character $i: $char")
-  }
-}
-
-print_game_characters(game)
-
-val languages = ["Vlang", "Swift"]
-val vlang = languages[0]
-
-println("Languages:", languages, vlang)
+#### 4. Run the Test Suite
+To execute the compiler verification tests:
+```bash
+cd pino-csharp.tests
+dotnet test
 ```
 
-## Functions
+---
 
+## 🎮 Interactive Demo Program
+We have included a full text-based RPG game called **PinoQuest: The Compiler Core** inside [main.pino](./pino-csharp/main.pino) to showcase all the language features working together (scoping, conditional chains, infinite loops, struct-methods, and custom Linear Congruential Generator randomizers).
+
+Run the game directly with:
+```bash
+cd pino-csharp
+dotnet run run main.pino
 ```
-fn get_full_name(name str, last_name str) {
-  return "$name $last_name"
-}
-
-var full_name = get_full_name("Shawn", "Lee")
-
-println(full_name)
-
-fn to_ruble(dollar int) {
-  return dollar * 91
-}
-
-fn to_yen(dollar int) {
-  return dollar * 150
-}
-
-val dollar = 10
-val rubble = to_rubble(dollar)
-val yen = to_yen(dollar)
-
-println("$dollar dollars are $rubble rubbles and $yen yens")
-```
-
-## Control Flow
-
-```
-var has_girlfriend = false
-
-if has_girlfriend {
-  println("Shawn Lee has a girlfriend!")
-} else {
-  println("Shawn Lee is still single after all these years!")
-}
-```
-
-## Loop Statement
-
-```
-# Times Loop
-for 10 {
-  println("This loop has run for 10 times")
-}
-
-# In Loop
-var times = 10
-for i in times {
-  println("This has run for the $i time a total of $times")
-}
-```
-
-## Structs
-
-```
-struct Phone {
-  brand str
-  name str
-}
-
-struct Person {
-  full_name str
-  is_married bool
-  budget int
-  phone Phone
-}
-
-fn create_phone(brand str, name str) {
-  return Phone { brand, name }
-  # or Phone { brand name } (commas are optional)
-  # or Phone { brand: brand, name: name } (with no prop shortcut)
-}
-
-val person = Person {
-  full_name: "Shawn Lee"
-  is_married: 50 < 10
-  budget: 1000 - 950
-  phone: create_phone("Apple", "15 Pro Max")
-}
-
-val name = person:full_name
-val phone_name = person:phone:name
-
-println(person)
-println("$name owns a $phone_name")
-println("$person:full_name has a budget of $person:budget $")
-```
-
-## Functional Programming
-
-```
-# Higher Order Function
-fn get_multiplier_fn(multiplier int) {
-  return fn (num int) {
-    return num * multiplier
-  }
-}
-
-val double_it = get_multiplier_fn(2)
-
-fn times_ten(num int) {
-  return num * 10
-}
-
-fn map(array arr, fun function) {
-  return []any { len: array:length, init: fun(array[it]) }
-}
-
-val arr_int = []int { len: 4, init: times_ten(it) }
-val arr_double = map(arr_int, double_it)
-val arr_triple = map(arr_int, get_multiplier_fn(3))
-
-println("Array Integers x 1:", arr_int)
-println("Array Integers x 2:", arr_double)
-println("Array Integers x 3:", arr_triple)
-
-fn fold(array arr, initial any, fun function) {
-  var acc = initial
-
-  for i in array:length {
-    acc = fun(array[i], acc)
-  }
-
-  return acc
-}
-
-var total = fold(arr_int, 0, fn (current int, acc int) {
-  return acc + current
-})
-
-println("Total of [$arr_int] = $total")
-
-# Assigning a Lambda to a Constant
-val add = fn (a int, b int) {
-  return a + b
-}
-
-total = fold(arr_double, 0, add) 
-println("Total of [$arr_double] = $total")
-
-total = fold(arr_triple, 0, add) 
-println("Total of [$arr_double] = $total")
-```
-
-## Missing Features
-- [X] Binary Expressions
-  - [X] Dual Character Bool Operators (==, !=, >=, <=)
-  - [ ] Order of Precedence (JavaScript handles it once it is transpiled but it is not built in Pino)
-  - [ ] Parenthesis
-- [ ] Checker (Parser output is transpiled without validation)
-- [ ] Comments
-  - [X] Single Line Comment
-  - [ ] Multi Line Comment
-- [ ] Descriptive Parser and Lexer Errors
-- [X] Floats
-- [ ] Functions
-  - [ ] Default Parameter Value
-  - [ ] Function Return Typing
-  - [X] Lambda (Anonymous Function)
-  - [X] Return Statement Vector Initialisation Support
-- [ ] Else If Statement
-- [ ] Match Statement
-- [ ] Modules and Import Statements
-- [X] Strings
-  - [X] Struct Property Access Injection Support ("$struct:property")
-- [ ] Structs
-  - [X] Struct Definition
-  - [X] Struct Initialisation
-  - [ ] Struct Operations (delete, read, set)
-  - [X] Struct Type for fn parameters
-  - [X] Optional Commas
-  - [X] Property Shortcut
-- [ ] Vectors
-  - [X] Vector Accesing
-  - [X] Vector Initialisation
-  - [X] Vector Literal (["Marcus", "Dominic", "Baird", "Cole"])
-  - [ ] Vector Operations (pop, prepend, push, shift)
-  - [ ] Vector Type for fn parameters
-- [ ] Yield Statement -->
