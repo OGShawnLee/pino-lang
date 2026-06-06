@@ -1,0 +1,685 @@
+using System;
+using System.Collections.Generic;
+
+namespace Pino;
+
+public class TokenStream {
+  private readonly List<Token> _tokens;
+  private int _index = 0;
+
+  public TokenStream(List<Token> tokens) {
+    _tokens = tokens;
+  }
+
+  public Token Current => _index < _tokens.Count ? _tokens[_index] : new Token(TokenType.Illegal, "");
+
+  public Token Consume() {
+    var token = Current;
+    _index++;
+    return token;
+  }
+
+  public void Next() {
+    _index++;
+  }
+
+  public bool HasNext => _index < _tokens.Count;
+
+  public bool IsNext(Func<Token, bool> predicate) {
+    if (_index + 1 >= _tokens.Count) return false;
+    return predicate(_tokens[_index + 1]);
+  }
+
+  public Token Peek(int offset) {
+    var idx = _index + offset;
+    if (idx < 0 || idx >= _tokens.Count) return new Token(TokenType.Illegal, "");
+    return _tokens[idx];
+  }
+}
+
+public class Parser {
+  public static ProgramStatement ParseFile(string filePath) {
+    var tokens = Lexer.LexFile(filePath);
+    var stream = new TokenStream(tokens);
+    return ParseProgram(stream);
+  }
+
+  public static Statement ParseString(string input) {
+    var tokens = Lexer.LexLine(input);
+    var stream = new TokenStream(tokens);
+    return ParseStatement(stream);
+  }
+
+  private static ProgramStatement ParseProgram(TokenStream stream) {
+    var statements = new List<Statement>();
+    while (stream.HasNext) {
+      var stmt = ParseStatement(stream);
+      if (stmt != null) {
+        statements.Add(stmt);
+      }
+    }
+    return new ProgramStatement(statements);
+  }
+
+  private static Statement ParseStatement(TokenStream stream) {
+    var current = stream.Current;
+
+    if (current.Type == TokenType.Keyword) {
+      switch (current.Keyword) {
+        case KeywordType.Variable:
+        case KeywordType.Constant:
+          return ParseVariableDeclaration(stream);
+        case KeywordType.Function:
+          return ParseFunctionDeclaration(stream);
+        case KeywordType.Struct:
+          return ParseStructDeclaration(stream);
+        case KeywordType.Enum:
+          return ParseEnumDeclaration(stream);
+        case KeywordType.Return:
+          return ParseReturnStatement(stream);
+        case KeywordType.Loop:
+          return ParseLoopStatement(stream);
+        case KeywordType.If:
+          return ParseIfStatement(stream);
+        case KeywordType.Break:
+          stream.Consume();
+          return new IdentifierExpression("break");
+        case KeywordType.Continue:
+          stream.Consume();
+          return new IdentifierExpression("continue");
+        case KeywordType.Match:
+          return ParseMatchStatement(stream);
+        case KeywordType.Else:
+          throw new Exception("PARSER: Else statement without corresponding If");
+        case KeywordType.When:
+          throw new Exception("PARSER: When branch outside of Match statement");
+      }
+    }
+
+    if (current.Type == TokenType.Identifier || current.Type == TokenType.Literal || current.Type == TokenType.Marker) {
+      if (IsExpression(stream)) {
+        return ParseExpression(stream);
+      }
+    }
+
+    stream.Consume(); // skip unknown/illegal
+    return null!;
+  }
+
+  private static bool IsExpression(TokenStream stream) {
+    var current = stream.Current;
+    return IsFunctionLambda(stream) ||
+           IsVector(stream) ||
+           current.IsKeyword(KeywordType.If) ||
+           current.IsType(TokenType.Identifier, TokenType.Literal);
+  }
+
+  private static bool IsFunctionCall(TokenStream stream) {
+    return stream.Current.IsType(TokenType.Identifier) && stream.IsNext(t => t.IsMarker(MarkerType.ParenthesisBegin));
+  }
+
+  private static bool IsFunctionLambda(TokenStream stream) {
+    return stream.Current.IsKeyword(KeywordType.Function) && stream.IsNext(t => t.IsMarker(MarkerType.ParenthesisBegin) || t.IsMarker(MarkerType.BlockBegin));
+  }
+
+  private static bool IsStructInstance(TokenStream stream) {
+    var current = stream.Current;
+    if (!current.IsType(TokenType.Identifier) || !char.IsUpper(current.Data[0])) {
+      return false;
+    }
+    if (!stream.Peek(1).IsMarker(MarkerType.BlockBegin)) {
+      return false;
+    }
+    if (stream.Peek(2).IsMarker(MarkerType.BlockEnd)) {
+      return true;
+    }
+    return stream.Peek(2).IsType(TokenType.Identifier) && stream.Peek(3).IsOperator(OperatorType.MemberAccess);
+  }
+
+  private static bool IsVector(TokenStream stream) {
+    return stream.Current.IsMarker(MarkerType.BracketBegin);
+  }
+
+  private static VariableDeclaration ParseVariableDeclaration(TokenStream stream) {
+    var keywordToken = stream.Consume();
+    var kind = keywordToken.Keyword == KeywordType.Constant ? VariableKind.Constant : VariableKind.Variable;
+
+    var identifier = ConsumeIdentifier(stream);
+    ConsumeAssignment(stream);
+    var value = ParseExpression(stream);
+
+    return new VariableDeclaration(kind, identifier, value);
+  }
+
+  private static FunctionDeclaration ParseFunctionDeclaration(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Function)) {
+      throw new Exception("PARSER: Expected 'fn' keyword");
+    }
+
+    var identifier = ConsumeIdentifier(stream);
+    var parameters = ConsumeParameters(stream);
+    var body = ParseBlock(stream);
+
+    return new FunctionDeclaration(identifier, parameters, body);
+  }
+
+  private static StructDeclaration ParseStructDeclaration(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Struct)) {
+      throw new Exception("PARSER: Expected 'struct' keyword");
+    }
+
+    var identifier = ConsumeIdentifier(stream);
+    var fields = new List<VariableDeclaration>();
+    var methods = new List<FunctionDeclaration>();
+
+    ConsumeAttributesAndMethods(stream, fields, methods);
+
+    return new StructDeclaration(identifier, fields, methods);
+  }
+
+  private static EnumDeclaration ParseEnumDeclaration(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Enum)) {
+      throw new Exception("PARSER: Expected 'enum' keyword");
+    }
+
+    var identifier = ConsumeIdentifier(stream);
+    var members = ConsumeEnumMembers(stream);
+
+    return new EnumDeclaration(identifier, members);
+  }
+
+  private static ReturnStatement ParseReturnStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Return)) {
+      throw new Exception("PARSER: Expected 'return' keyword");
+    }
+
+    Expression? arg = null;
+    if (IsExpression(stream)) {
+      arg = ParseExpression(stream);
+    }
+
+    return new ReturnStatement(arg);
+  }
+
+  private static LoopStatement ParseLoopStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Loop)) {
+      throw new Exception("PARSER: Expected 'for' keyword");
+    }
+
+    // Infinite loop: for { ... }
+    if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
+      var body = ParseBlock(stream);
+      return new LoopStatement(LoopKind.Infinite, null, null, body);
+    }
+
+    var begin = ParseExpression(stream);
+
+    // For times loop: for 10 { ... }
+    if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
+      var body = ParseBlock(stream);
+      return new LoopStatement(LoopKind.ForTimes, begin, null, body);
+    }
+
+    // For In loop: for i in collection { ... }
+    if (!stream.Consume().IsKeyword(KeywordType.In)) {
+      throw new Exception("PARSER: Expected 'in' in loop declaration");
+    }
+
+    var end = ParseExpression(stream);
+    var inBody = ParseBlock(stream);
+
+    return new LoopStatement(LoopKind.ForIn, begin, end, inBody);
+  }
+
+  private static IfStatement ParseIfStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.If)) {
+      throw new Exception("PARSER: Expected 'if' keyword");
+    }
+
+    var condition = ParseExpression(stream);
+    var body = ParseBlock(stream);
+    Statement? alternate = null;
+
+    if (stream.Current.IsKeyword(KeywordType.Else)) {
+      if (stream.IsNext(t => t.IsKeyword(KeywordType.If))) {
+        stream.Consume(); // consume 'else'
+        alternate = ParseIfStatement(stream);
+      } else {
+        alternate = ParseElseStatement(stream);
+      }
+    }
+
+    return new IfStatement(condition, body, alternate);
+  }
+
+  private static ElseStatement ParseElseStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Else)) {
+      throw new Exception("PARSER: Expected 'else' keyword");
+    }
+
+    var body = ParseBlock(stream);
+    return new ElseStatement(body);
+  }
+
+  private static MatchStatement ParseMatchStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Match)) {
+      throw new Exception("PARSER: Expected 'match' keyword");
+    }
+
+    var condition = ParseExpression(stream);
+
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{' after match expression");
+    }
+
+    var branches = new List<WhenStatement>();
+    ElseStatement? alternate = null;
+
+    while (stream.HasNext) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume(); // consume '}'
+        break;
+      }
+
+      if (stream.Current.IsKeyword(KeywordType.Else)) {
+        alternate = ParseElseStatement(stream);
+        // Consume closing brace if alternate finishes before Match block finishes
+        if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+          stream.Consume();
+        }
+        break;
+      }
+
+      if (stream.Current.IsKeyword(KeywordType.When)) {
+        branches.Add(ParseWhenStatement(stream));
+        continue;
+      }
+
+      throw new Exception("PARSER: Expected 'when' or 'else' in match statement");
+    }
+
+    return new MatchStatement(condition, branches, alternate);
+  }
+
+  private static WhenStatement ParseWhenStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.When)) {
+      throw new Exception("PARSER: Expected 'when' keyword");
+    }
+
+    var conditions = new List<Expression>();
+    while (stream.HasNext) {
+      conditions.Add(ParseExpression(stream));
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+        continue;
+      }
+
+      if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
+        break;
+      }
+    }
+
+    var body = ParseBlock(stream);
+    return new WhenStatement(conditions, body);
+  }
+
+  private static BlockStatement ParseBlock(TokenStream stream) {
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{'");
+    }
+
+    var statements = new List<Statement>();
+
+    while (stream.HasNext) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume(); // consume '}'
+        return new BlockStatement(statements);
+      }
+
+      var stmt = ParseStatement(stream);
+      if (stmt != null) {
+        statements.Add(stmt);
+      }
+    }
+
+    throw new Exception("PARSER: Expected '}'");
+  }
+
+  private static Expression ParseExpression(TokenStream stream) {
+    return ParseExpressionWithPrecedence(stream, 0);
+  }
+
+  private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence) {
+    var expression = ParsePrimaryExpression(stream);
+
+    while (stream.HasNext && stream.Current.Type == TokenType.Operator) {
+      var opToken = stream.Current;
+      var opType = opToken.Operator!.Value;
+      var precedence = GetOperatorPrecedence(opType);
+
+      if (precedence < minPrecedence) {
+        break;
+      }
+
+      stream.Consume(); // consume operator
+
+      var nextMinPrecedence = IsRightAssociative(opType) ? precedence : precedence + 1;
+      var right = ParseExpressionWithPrecedence(stream, nextMinPrecedence);
+      expression = new BinaryExpression(expression, opType, right);
+    }
+
+    return expression;
+  }
+
+  private static Expression ParsePrimaryExpression(TokenStream stream) {
+    if (IsFunctionCall(stream)) {
+      return ParseFunctionCall(stream);
+    }
+    if (IsFunctionLambda(stream)) {
+      return ParseFunctionLambda(stream);
+    }
+    if (IsVector(stream)) {
+      return ParseVector(stream);
+    }
+    if (IsStructInstance(stream)) {
+      return ParseStructInstance(stream);
+    }
+    if (stream.Current.IsKeyword(KeywordType.If)) {
+      return ParseTernaryExpression(stream);
+    }
+    if (stream.Current.Type == TokenType.Identifier) {
+      return new IdentifierExpression(stream.Consume().Data);
+    }
+    if (stream.Current.Type == TokenType.Literal) {
+      var t = stream.Consume();
+      return new LiteralExpression(t.Data, t.Literal!.Value, t.Injections);
+    }
+
+    throw new Exception($"PARSER: Expected expression, got {stream.Current}");
+  }
+
+  private static int GetOperatorPrecedence(OperatorType op) {
+    return op switch {
+      OperatorType.Assignment => 1,
+      OperatorType.AdditionAssignment => 1,
+      OperatorType.SubtractionAssignment => 1,
+      OperatorType.MultiplicationAssignment => 1,
+      OperatorType.DivisionAssignment => 1,
+      OperatorType.ModulusAssignment => 1,
+
+      OperatorType.Or => 2,
+      OperatorType.And => 3,
+
+      OperatorType.Equal => 4,
+      OperatorType.NotEqual => 4,
+
+      OperatorType.LessThan => 5,
+      OperatorType.LessThanEqual => 5,
+      OperatorType.GreaterThan => 5,
+      OperatorType.GreaterThanEqual => 5,
+
+      OperatorType.Addition => 6,
+      OperatorType.Subtraction => 6,
+
+      OperatorType.Multiplication => 7,
+      OperatorType.Division => 7,
+      OperatorType.Modulus => 7,
+
+      OperatorType.MemberAccess => 8,
+      OperatorType.StaticMemberAccess => 8,
+
+      _ => 0
+    };
+  }
+
+  private static bool IsRightAssociative(OperatorType op) {
+    return op == OperatorType.Assignment ||
+           op == OperatorType.AdditionAssignment ||
+           op == OperatorType.SubtractionAssignment ||
+           op == OperatorType.MultiplicationAssignment ||
+           op == OperatorType.DivisionAssignment ||
+           op == OperatorType.ModulusAssignment;
+  }
+
+  private static FunctionCallExpression ParseFunctionCall(TokenStream stream) {
+    var callee = ConsumeIdentifier(stream);
+    var args = ConsumeArguments(stream);
+    return new FunctionCallExpression(callee, args);
+  }
+
+  private static FunctionLambdaExpression ParseFunctionLambda(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Function)) {
+      throw new Exception("PARSER: Expected 'fn' keyword for lambda");
+    }
+
+    var parameters = ConsumeParameters(stream);
+    var body = ParseBlock(stream);
+
+    return new FunctionLambdaExpression(parameters, body);
+  }
+
+  private static VectorExpression ParseVector(TokenStream stream) {
+    if (!stream.Consume().IsMarker(MarkerType.BracketBegin)) {
+      throw new Exception("PARSER: Expected '[' for vector");
+    }
+
+    // Empty vector `[]type` or vector init block `[]type { len: limit, init: expr }`
+    if (stream.Current.IsMarker(MarkerType.BracketEnd)) {
+      stream.Consume(); // consume ']'
+      var typing = ConsumeTyping(stream);
+
+      if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
+        var props = ConsumeProperties(stream);
+        VariableDeclaration? len = props.Find(p => p.Identifier == "len");
+        VariableDeclaration? init = props.Find(p => p.Identifier == "init");
+
+        if (len == null || init == null) {
+          throw new Exception("PARSER: Empty or invalid vector init block properties");
+        }
+
+        return new VectorExpression(null, len.Value, init.Value, typing);
+      }
+
+      return new VectorExpression(null, Typing: typing);
+    }
+
+    // Literal elements: `[1, 2, 3]`
+    var elements = new List<Expression>();
+    while (stream.HasNext) {
+      if (stream.Current.IsMarker(MarkerType.BracketEnd)) {
+        stream.Consume(); // consume ']'
+        return new VectorExpression(elements);
+      }
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+        continue;
+      }
+
+      elements.Add(ParseExpression(stream));
+    }
+
+    throw new Exception("PARSER: Expected ']'");
+  }
+
+  private static StructInstanceExpression ParseStructInstance(TokenStream stream) {
+    var structName = ConsumeIdentifier(stream);
+    var props = ConsumeProperties(stream);
+    return new StructInstanceExpression(structName, props);
+  }
+
+  private static TernaryExpression ParseTernaryExpression(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.If)) {
+      throw new Exception("PARSER: Expected 'if' in ternary expression");
+    }
+
+    var condition = ParseExpression(stream);
+
+    if (!stream.Consume().IsKeyword(KeywordType.Then)) {
+      throw new Exception("PARSER: Expected 'then' in ternary expression");
+    }
+
+    var consequent = ParseExpression(stream);
+
+    if (!stream.Consume().IsKeyword(KeywordType.Else)) {
+      throw new Exception("PARSER: Expected 'else' in ternary expression");
+    }
+
+    var alternate = ParseExpression(stream);
+
+    return new TernaryExpression(condition, consequent, alternate);
+  }
+
+  // Helper consumers
+  private static string ConsumeIdentifier(TokenStream stream) {
+    var t = stream.Consume();
+    if (t.Type != TokenType.Identifier) {
+      throw new Exception($"PARSER: Expected Identifier, got {t}");
+    }
+    return t.Data;
+  }
+
+  private static string ConsumeTyping(TokenStream stream) {
+    var t = stream.Consume();
+    if (t.Type != TokenType.Identifier) {
+      throw new Exception($"PARSER: Expected Typing, got {t}");
+    }
+    return t.Data;
+  }
+
+  private static void ConsumeAssignment(TokenStream stream) {
+    var t = stream.Consume();
+    if (!t.IsOperator(OperatorType.Assignment)) {
+      throw new Exception($"PARSER: Expected '=', got {t}");
+    }
+  }
+
+  private static List<Expression> ConsumeArguments(TokenStream stream) {
+    if (!stream.Consume().IsMarker(MarkerType.ParenthesisBegin)) {
+      throw new Exception("PARSER: Expected '('");
+    }
+
+    var arguments = new List<Expression>();
+    while (true) {
+      if (stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+        stream.Consume();
+        return arguments;
+      }
+
+      arguments.Add(ParseExpression(stream));
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+      }
+    }
+  }
+
+  private static List<VariableDeclaration> ConsumeParameters(TokenStream stream) {
+    var parameters = new List<VariableDeclaration>();
+
+    if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
+      return parameters;
+    }
+
+    if (!stream.Consume().IsMarker(MarkerType.ParenthesisBegin)) {
+      throw new Exception("PARSER: Expected '('");
+    }
+
+    if (stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+      stream.Consume();
+      return parameters;
+    }
+
+    while (true) {
+      if (stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+        stream.Consume();
+        return parameters;
+      }
+
+      var identifier = ConsumeIdentifier(stream);
+      var typing = ConsumeTyping(stream);
+      parameters.Add(new VariableDeclaration(VariableKind.Parameter, identifier, null, typing));
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+      }
+    }
+  }
+
+  private static void ConsumeAttributesAndMethods(
+      TokenStream stream,
+      List<VariableDeclaration> attributes,
+      List<FunctionDeclaration> methods) {
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{'");
+    }
+
+    while (true) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume();
+        break;
+      }
+
+      if (stream.Current.IsKeyword(KeywordType.Function)) {
+        methods.Add(ParseFunctionDeclaration(stream));
+      } else {
+        var identifier = ConsumeIdentifier(stream);
+        var typing = ConsumeTyping(stream);
+        attributes.Add(new VariableDeclaration(VariableKind.Variable, identifier, null, typing));
+      }
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+      }
+    }
+  }
+
+  private static List<string> ConsumeEnumMembers(TokenStream stream) {
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{'");
+    }
+
+    var members = new List<string>();
+    while (true) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume();
+        return members;
+      }
+
+      members.Add(ConsumeIdentifier(stream));
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+      }
+    }
+  }
+
+  private static List<VariableDeclaration> ConsumeProperties(TokenStream stream) {
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{'");
+    }
+
+    var properties = new List<VariableDeclaration>();
+    while (stream.HasNext) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume();
+        return properties;
+      }
+
+      var identifier = ConsumeIdentifier(stream);
+      if (!stream.Consume().IsOperator(OperatorType.MemberAccess)) {
+        throw new Exception("PARSER: Expected ':'");
+      }
+      var val = ParseExpression(stream);
+
+      properties.Add(new VariableDeclaration(VariableKind.Property, identifier, val));
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+      }
+    }
+
+    throw new Exception("PARSER: Expected '}'");
+  }
+}
