@@ -39,6 +39,16 @@ class Program {
         RunFile(filePath);
         break;
 
+      case "watch":
+        var watchFileName = args.Length > 1 ? args[1] : "main.pino";
+        var watchFilePath = Path.Combine(System.Environment.CurrentDirectory, watchFileName);
+        if (!File.Exists(watchFilePath)) {
+          Console.WriteLine($"Error: File '{watchFileName}' not found.");
+          System.Environment.Exit(1);
+        }
+        WatchFile(watchFilePath);
+        break;
+
       case "v":
       case "version":
         Console.WriteLine("Pino version: 0.1.0 (.NET 10)");
@@ -56,6 +66,7 @@ class Program {
     Console.WriteLine("  help, h             : Display this help message");
     Console.WriteLine("  repl                : Start the Pino interactive REPL");
     Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
+    Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
     Console.WriteLine("  version, v          : Show Pino version information");
     Console.WriteLine("  <empty>             : Run main.pino in current directory if exists");
   }
@@ -67,6 +78,81 @@ class Program {
       evaluator.Execute(program);
     } catch (Exception ex) {
       Console.WriteLine(ex.ToString());
+    }
+  }
+
+  static void SafeClearConsole() {
+    try {
+      if (!Console.IsOutputRedirected) {
+        Console.Clear();
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  static void WatchFile(string path) {
+    var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+    if (string.IsNullOrEmpty(exePath)) {
+      throw new Exception("RUNTIME ERROR: Could not locate pino-csharp executable path.");
+    }
+
+    var directory = Path.GetDirectoryName(path);
+    if (string.IsNullOrEmpty(directory)) {
+      directory = System.Environment.CurrentDirectory;
+    }
+
+    object processLock = new object();
+    System.Diagnostics.Process? childProcess = null;
+
+    void StartChild() {
+      lock (processLock) {
+        if (childProcess != null && !childProcess.HasExited) {
+          try {
+            childProcess.Kill(true);
+            childProcess.WaitForExit();
+          } catch {
+            // Ignore
+          }
+        }
+
+        SafeClearConsole();
+        Console.WriteLine($"[Pino Watcher] Monitoring '{Path.GetFileName(path)}'... Press Ctrl+C to stop.\n");
+
+        var startInfo = new System.Diagnostics.ProcessStartInfo {
+          FileName = exePath,
+          Arguments = $"run \"{path}\"",
+          UseShellExecute = false
+        };
+
+        try {
+          childProcess = System.Diagnostics.Process.Start(startInfo);
+        } catch (Exception ex) {
+          Console.WriteLine($"[Pino Watcher] Error starting process: {ex.Message}");
+        }
+      }
+    }
+
+    // Initial run
+    StartChild();
+
+    using var watcher = new FileSystemWatcher(directory, Path.GetFileName(path));
+    watcher.NotifyFilter = NotifyFilters.LastWrite;
+
+    DateTime lastRead = DateTime.MinValue;
+
+    watcher.Changed += (sender, e) => {
+      if (DateTime.UtcNow - lastRead < TimeSpan.FromMilliseconds(200)) return;
+      lastRead = DateTime.UtcNow;
+
+      System.Threading.Thread.Sleep(50);
+      StartChild();
+    };
+
+    watcher.EnableRaisingEvents = true;
+
+    while (true) {
+      System.Threading.Thread.Sleep(1000);
     }
   }
 
