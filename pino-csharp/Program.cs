@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Net.Http;
+using System.Text.Json;
 
 using Pino;
 
@@ -55,6 +58,10 @@ class Program {
         Console.WriteLine($"Pino version: {version} (.NET 10)");
         break;
 
+      case "update":
+        RunUpdate();
+        break;
+
       default:
         Console.WriteLine("Invalid command. Type 'help' for usage.");
         break;
@@ -69,7 +76,154 @@ class Program {
     Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
     Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
     Console.WriteLine("  version, v          : Show Pino version information");
+    Console.WriteLine("  update              : Check for and install compiler updates");
     Console.WriteLine("  <empty>             : Run main.pino in current directory if exists");
+  }
+
+  static void RunUpdate() {
+    Console.WriteLine("🌲 Checking for updates...");
+    var currentVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 2, 0);
+
+    try {
+      using var client = new HttpClient();
+      client.DefaultRequestHeaders.UserAgent.ParseAdd("PinoCompiler-Updater");
+      var responseStr = client.GetStringAsync("https://api.github.com/repos/OGShawnLee/pino-lang/releases/latest").Result;
+
+      using var doc = System.Text.Json.JsonDocument.Parse(responseStr);
+      var root = doc.RootElement;
+      var tagName = root.GetProperty("tag_name").GetString();
+
+      if (tagName == null || !tagName.StartsWith("v")) {
+        Console.WriteLine("Error: Could not retrieve a valid version tag from GitHub.");
+        return;
+      }
+
+      var cleanTagName = tagName.Substring(1);
+      if (!Version.TryParse(cleanTagName, out var latestVersion)) {
+        Console.WriteLine($"Error: Could not parse latest version tag '{tagName}'.");
+        return;
+      }
+
+      if (latestVersion <= currentVersion) {
+        Console.WriteLine($"Pino is already up to date (current version: {currentVersion.ToString(3)}).");
+        return;
+      }
+
+      Console.WriteLine($"A new version of Pino is available: {tagName} (current version: {currentVersion.ToString(3)}).");
+      Console.Write("Do you want to update? (y/n): ");
+      var input = Console.ReadLine()?.Trim().ToLower();
+      if (input != "y" && input != "yes") {
+        Console.WriteLine("Update cancelled.");
+        return;
+      }
+
+      // Detect OS and locate corresponding asset
+      var isWindows = OperatingSystem.IsWindows();
+      var isMac = OperatingSystem.IsMacOS();
+      var isLinux = OperatingSystem.IsLinux();
+
+      string? downloadUrl = null;
+      string? assetName = null;
+
+      foreach (var asset in root.GetProperty("assets").EnumerateArray()) {
+        var name = asset.GetProperty("name").GetString() ?? "";
+        if (isWindows && name.Contains("windows") && name.EndsWith(".zip")) {
+          downloadUrl = asset.GetProperty("browser_download_url").GetString();
+          assetName = name;
+          break;
+        } else if (isMac && name.Contains("macos") && name.EndsWith(".tar.gz")) {
+          downloadUrl = asset.GetProperty("browser_download_url").GetString();
+          assetName = name;
+          break;
+        } else if (isLinux && name.Contains("linux") && name.EndsWith(".tar.gz")) {
+          downloadUrl = asset.GetProperty("browser_download_url").GetString();
+          assetName = name;
+          break;
+        }
+      }
+
+      if (string.IsNullOrEmpty(downloadUrl) || string.IsNullOrEmpty(assetName)) {
+        Console.WriteLine("Error: No precompiled binaries found for your operating system.");
+        return;
+      }
+
+      var tempPath = Path.Combine(Path.GetTempPath(), assetName);
+      Console.WriteLine($"Downloading update from {downloadUrl}...");
+      
+      var bytes = client.GetByteArrayAsync(downloadUrl).Result;
+      File.WriteAllBytes(tempPath, bytes);
+
+      var tempExtractDir = Path.Combine(Path.GetTempPath(), "pino-update-extract");
+      if (Directory.Exists(tempExtractDir)) {
+        Directory.Delete(tempExtractDir, true);
+      }
+      Directory.CreateDirectory(tempExtractDir);
+
+      Console.WriteLine("Extracting files...");
+      if (assetName.EndsWith(".zip")) {
+        System.IO.Compression.ZipFile.ExtractToDirectory(tempPath, tempExtractDir);
+      } else if (assetName.EndsWith(".tar.gz")) {
+        using var fs = File.OpenRead(tempPath);
+        using var gzip = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress);
+        System.Formats.Tar.TarFile.ExtractToDirectory(gzip, tempExtractDir, overwriteFiles: true);
+      }
+
+      // Locate new executable inside extraction folder
+      var searchPattern = isWindows ? "pino.exe" : "pino";
+      var extractedFiles = Directory.GetFiles(tempExtractDir, searchPattern, SearchOption.AllDirectories);
+      if (extractedFiles.Length == 0) {
+        // Fallback
+        extractedFiles = Directory.GetFiles(tempExtractDir, isWindows ? "pino*.exe" : "pino*", SearchOption.AllDirectories);
+      }
+
+      if (extractedFiles.Length == 0) {
+        Console.WriteLine("Error: Could not find the new pino executable inside the downloaded archive.");
+        return;
+      }
+
+      var newBinPath = extractedFiles[0];
+      var currentExePath = System.Environment.ProcessPath;
+      if (string.IsNullOrEmpty(currentExePath)) {
+        Console.WriteLine("Error: Could not locate the path of the currently executing process.");
+        return;
+      }
+
+      Console.WriteLine("Replacing executable...");
+      if (isWindows) {
+        var oldExePath = currentExePath + ".old";
+        if (File.Exists(oldExePath)) {
+          try { File.Delete(oldExePath); } catch { /* Ignore */ }
+        }
+        File.Move(currentExePath, oldExePath);
+        File.Copy(newBinPath, currentExePath, true);
+      } else {
+        File.Delete(currentExePath);
+        File.Copy(newBinPath, currentExePath, true);
+
+        // Chmod +x on Unix
+        try {
+          var chmodInfo = new System.Diagnostics.ProcessStartInfo("chmod", $"+x \"{currentExePath}\"") {
+            CreateNoWindow = true,
+            UseShellExecute = false
+          };
+          System.Diagnostics.Process.Start(chmodInfo)?.WaitForExit();
+        } catch {
+          // Ignore
+        }
+      }
+
+      // Cleanup
+      try {
+        File.Delete(tempPath);
+        Directory.Delete(tempExtractDir, true);
+      } catch {
+        // Ignore cleanup failures
+      }
+
+      Console.WriteLine($"🌲 Success! Pino has been updated to version {tagName}.");
+    } catch (Exception ex) {
+      Console.WriteLine($"Error occurred during update: {ex.Message}");
+    }
   }
 
   static void RunFile(string path) {
