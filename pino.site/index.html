@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pino Lang 🌲 | Beautiful, Simple, Aesthetic Programming Language</title>
-  <meta name="description" content="Pino is a modern, simple, and highly aesthetic programming language combining syntax from Vlang, Go, Kotlin, and Ruby. Write code in the playground today!">
+  <meta name="description"
+    content="Pino is a modern, simple, and highly aesthetic programming language combining syntax from Vlang, Go, Kotlin, and Ruby. Write code in the playground today!">
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
   <!-- Background Ambient Glows -->
@@ -26,9 +29,11 @@
           <li><a href="#install">Getting Started</a></li>
         </ul>
       </nav>
-      <a href="https://github.com" target="_blank" class="btn-github">
+      <a href="https://github.com/OGShawnLee/pino-lang" target="_blank" class="btn-github">
         <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor">
-          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+          <path
+            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
+          </path>
         </svg>
         GitHub
       </a>
@@ -40,7 +45,8 @@
     <span class="hero-tag">Active Development 🌲</span>
     <h1>The programming language <br>made to feel <span>natural & premium</span></h1>
     <p class="hero-subtitle">
-      Pino merges the clean flow of Vlang and Go, variables and interpolations of Kotlin, and semantic flexibility of Ruby. Clean block layouts without unnecessary tokens.
+      Pino merges the clean flow of Vlang and Go, variables and interpolations of Kotlin, and semantic flexibility of
+      Ruby. Clean block layouts without unnecessary tokens.
     </p>
     <div class="hero-ctas">
       <a href="#playground" class="btn-primary">Launch Live Playground</a>
@@ -51,7 +57,7 @@
   <!-- Playground Section -->
   <section id="playground" class="playground-container">
     <div class="playground-card">
-      
+
       <!-- Toolbar -->
       <div class="playground-toolbar">
         <div class="toolbar-left">
@@ -70,7 +76,8 @@
             </select>
           </div>
           <button id="copy-btn" class="btn-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
@@ -84,7 +91,7 @@
         <div class="editor-panel">
           <textarea id="code-editor" class="code-textarea" spellcheck="false" aria-label="Pino code editor"></textarea>
         </div>
-        
+
         <div class="terminal-panel">
           <div class="terminal-header">
             <span class="terminal-tab">Pino Compiler CLI</span>
@@ -125,19 +132,21 @@
     </div>
 
     <!-- Tab Contents -->
-    
+
     <!-- Variables Tab -->
     <div id="tab-variables" class="tab-content active">
       <div class="tab-info">
         <h3>Constants vs. Mutables</h3>
-        <p>Distinguish cleanly between constant and mutable variables. Constant mutability checks are evaluated at parse-time to guarantee runtime immutability.</p>
+        <p>Distinguish cleanly between constant and mutable variables. Constant mutability checks are evaluated at
+          parse-time to guarantee runtime immutability.</p>
         <ul>
           <li>Use <code class="keyword">val</code> for immutable properties.</li>
           <li>Use <code class="keyword">var</code> for values that can change.</li>
           <li>Parser enforces compile-time warnings against reassignment.</li>
         </ul>
       </div>
-      <pre class="tab-code"><code><span class="comment"># Define a constant value</span>
+      <pre
+        class="tab-code"><code><span class="comment"># Define a constant value</span>
 <span class="keyword">val</span> gravity = <span class="number">9.81</span>
 
 <span class="comment"># Define a mutable tracker</span>
@@ -149,7 +158,8 @@ velocity = velocity + <span class="number">10</span> <span class="comment"># Rea
     <div id="tab-strings" class="tab-content">
       <div class="tab-info">
         <h3>First-Class Interpolation</h3>
-        <p>Interpolate variables directly inside double quotes using a simple $ symbol, or write full evaluations inside $(expr) tags. Interpolated blocks desegment into addition trees automatically.</p>
+        <p>Interpolate variables directly inside double quotes using a simple $ symbol, or write full evaluations inside
+          $(expr) tags. Interpolated blocks desegment into addition trees automatically.</p>
         <ul>
           <li>Variable injection via <code>$varName</code>.</li>
           <li>Expression interpolation via <code>$(expression)</code>.</li>
@@ -166,7 +176,8 @@ println(<span class="string">"Next year: $(age + 1)"</span>)</code></pre>
     <div id="tab-functions" class="tab-content">
       <div class="tab-info">
         <h3>Higher-Order Closures</h3>
-        <p>Functions support optional parameter lists and zero commas. Pino lambdas generate local scopes carrying references to their parent environments, supporting closures.</p>
+        <p>Functions support optional parameter lists and zero commas. Pino lambdas generate local scopes carrying
+          references to their parent environments, supporting closures.</p>
         <ul>
           <li>Declare functions using <code class="keyword">fn</code>.</li>
           <li>Return lambdas dynamically to build functional closures.</li>
@@ -188,7 +199,8 @@ println(double_it(<span class="number">5</span>)) <span class="comment"># Prints
     <div id="tab-structs" class="tab-content">
       <div class="tab-info">
         <h3>Structs & Nested Methods</h3>
-        <p>Declare custom structured data with attributes and methods. Access members and invoke methods using the colon (<code>:</code>) operator, modifying attributes in-place.</p>
+        <p>Declare custom structured data with attributes and methods. Access members and invoke methods using the colon
+          (<code>:</code>) operator, modifying attributes in-place.</p>
         <ul>
           <li>Access fields using <code>instance:field</code>.</li>
           <li>Invoke methods using <code>instance:method()</code>.</li>
@@ -213,7 +225,8 @@ println(<span class="string">"Position: $(p:x), $(p:y)"</span>) <span class="com
     <div id="tab-loops" class="tab-content">
       <div class="tab-info">
         <h3>Unified Loop Structures</h3>
-        <p>Looping is simplified down to a single keyword: <code>for</code>. Pino supports infinite loops, fixed integer ranges, and iterator collections.</p>
+        <p>Looping is simplified down to a single keyword: <code>for</code>. Pino supports infinite loops, fixed integer
+          ranges, and iterator collections.</p>
         <ul>
           <li>Infinite loops with <code>for { ... }</code>.</li>
           <li>Range iterations with <code>for index in 10 { ... }</code>.</li>
@@ -236,7 +249,8 @@ println(<span class="string">"Position: $(p:x), $(p:y)"</span>) <span class="com
     <div id="tab-conditionals" class="tab-content">
       <div class="tab-info">
         <h3>Match-When Switches</h3>
-        <p>Perform precise checks with standard if-else statement logic or implement high-performance, readable case switches via the match-when block.</p>
+        <p>Perform precise checks with standard if-else statement logic or implement high-performance, readable case
+          switches via the match-when block.</p>
         <ul>
           <li>Omit parenthesis in condition checks.</li>
           <li>Supports multi-value matching: <code>when "Mars", "Venus"</code>.</li>
@@ -268,12 +282,13 @@ println(<span class="string">"Position: $(p:x), $(p:y)"</span>) <span class="com
       </div>
 
       <div class="setup-grid">
-        
+
         <!-- Step 1 -->
         <div class="setup-card">
           <div class="setup-number">1</div>
           <h3>Build compiler CLI</h3>
-          <p>Clone the repository and build the C# compiler. Ensure you have the .NET 10 SDK installed on your system.</p>
+          <p>Clone the repository and build the C# compiler. Ensure you have the .NET 10 SDK installed on your system.
+          </p>
           <div class="code-snippet">
             <code>cd pino-csharp && dotnet build</code>
             <button class="btn-copy-small" onclick="copySnippet(this, 'cd pino-csharp && dotnet build')">Copy</button>
@@ -284,7 +299,8 @@ println(<span class="string">"Position: $(p:x), $(p:y)"</span>) <span class="com
         <div class="setup-card">
           <div class="setup-number">2</div>
           <h3>Run your first script</h3>
-          <p>Execute your pino source code file using the run command. Or use the watch command to enable hot-module reloading.</p>
+          <p>Execute your pino source code file using the run command. Or use the watch command to enable hot-module
+            reloading.</p>
           <div class="code-snippet">
             <code>dotnet run run main.pino</code>
             <button class="btn-copy-small" onclick="copySnippet(this, 'dotnet run run main.pino')">Copy</button>
@@ -333,4 +349,5 @@ println(<span class="string">"Position: $(p:x), $(p:y)"</span>) <span class="com
     }
   </script>
 </body>
+
 </html>
