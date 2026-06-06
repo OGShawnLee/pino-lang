@@ -320,12 +320,26 @@ public class Evaluator {
 
         // Handle assignment (=)
         if (bin.Operator == OperatorType.Assignment) {
-          if (bin.Left is not IdentifierExpression id) {
-            throw new Exception("RUNTIME ERROR: Left side of assignment must be an identifier.");
-          }
           var val = Evaluate(bin.Right, env);
-          env.Assign(id.Name, val);
-          return val;
+
+          if (bin.Left is IdentifierExpression id) {
+            env.Assign(id.Name, val);
+            return val;
+          }
+
+          if (bin.Left is BinaryExpression memberAccess && memberAccess.Operator == OperatorType.MemberAccess) {
+            var target = Evaluate(memberAccess.Left, env);
+            if (target is PinoStructInstance targetInstance) {
+              if (memberAccess.Right is not IdentifierExpression propId) {
+                throw new Exception("RUNTIME ERROR: Left side of member assignment must end with a property name.");
+              }
+              targetInstance.Fields[propId.Name] = val;
+              return val;
+            }
+            throw new Exception("RUNTIME ERROR: Cannot assign to property of non-struct object.");
+          }
+
+          throw new Exception("RUNTIME ERROR: Left side of assignment must be an identifier or member access.");
         }
 
         // Handle compound assignments (+=, -=, *=, /=, %=)
@@ -334,10 +348,6 @@ public class Evaluator {
             bin.Operator == OperatorType.MultiplicationAssignment ||
             bin.Operator == OperatorType.DivisionAssignment ||
             bin.Operator == OperatorType.ModulusAssignment) {
-          if (bin.Left is not IdentifierExpression id) {
-            throw new Exception("RUNTIME ERROR: Left side of compound assignment must be an identifier.");
-          }
-          var currentVal = env.Get(id.Name);
           var delta = Evaluate(bin.Right, env);
           var baseOp = bin.Operator switch {
             OperatorType.AdditionAssignment => OperatorType.Addition,
@@ -347,9 +357,29 @@ public class Evaluator {
             OperatorType.ModulusAssignment => OperatorType.Modulus,
             _ => throw new NotImplementedException()
           };
-          var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
-          env.Assign(id.Name, newVal);
-          return newVal;
+
+          if (bin.Left is IdentifierExpression id) {
+            var currentVal = env.Get(id.Name);
+            var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
+            env.Assign(id.Name, newVal);
+            return newVal;
+          }
+
+          if (bin.Left is BinaryExpression memberAccess && memberAccess.Operator == OperatorType.MemberAccess) {
+            var target = Evaluate(memberAccess.Left, env);
+            if (target is PinoStructInstance targetInstance) {
+              if (memberAccess.Right is not IdentifierExpression propId) {
+                throw new Exception("RUNTIME ERROR: Left side of compound member assignment must end with a property name.");
+              }
+              var currentVal = targetInstance.Fields[propId.Name];
+              var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
+              targetInstance.Fields[propId.Name] = newVal;
+              return newVal;
+            }
+            throw new Exception("RUNTIME ERROR: Cannot assign to property of non-struct object.");
+          }
+
+          throw new Exception("RUNTIME ERROR: Left side of compound assignment must be an identifier or member access.");
         }
 
         var left = Evaluate(bin.Left, env);
