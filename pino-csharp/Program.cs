@@ -51,7 +51,8 @@ class Program {
 
       case "v":
       case "version":
-        Console.WriteLine("Pino version: 0.1.0 (.NET 10)");
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.2.0";
+        Console.WriteLine($"Pino version: {version} (.NET 10)");
         break;
 
       default:
