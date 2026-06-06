@@ -26,7 +26,7 @@ class Lexer {
     this.line = 1;
     this.tokens = [];
     this.keywords = new Set([
-      'var', 'val', 'fn', 'struct', 'enum', 'if', 'else', 'match', 'when', 'for', 'in', 'break', 'continue', 'return', 'true', 'false'
+      'var', 'val', 'fn', 'struct', 'enum', 'if', 'else', 'match', 'when', 'for', 'in', 'break', 'continue', 'return', 'true', 'false', 'then'
     ]);
   }
 
@@ -737,6 +737,15 @@ class Parser {
     if (this.match(TokenType.KEYWORD, 'false')) return new LiteralExpr(false, 'BOOLEAN');
     if (this.match(TokenType.KEYWORD, 'null')) return new LiteralExpr(null, 'NULL');
 
+    if (this.match(TokenType.KEYWORD, 'if')) {
+      const condition = this.expression();
+      this.consume(TokenType.KEYWORD, "Expect 'then' in ternary expression", 'then');
+      const consequent = this.expression();
+      this.consume(TokenType.KEYWORD, "Expect 'else' in ternary expression", 'else');
+      const alternate = this.expression();
+      return new TernaryExpr(condition, consequent, alternate);
+    }
+
     if (this.match(TokenType.NUMBER)) {
       const val = this.previous().value;
       return new LiteralExpr(val.includes('.') ? parseFloat(val) : parseInt(val, 10), 'NUMBER');
@@ -1098,6 +1107,15 @@ class Interpreter {
       if (expr.operator === '!') return !this.isTruthy(right);
       if (expr.operator === '-') return -right;
       return null;
+    }
+
+    if (expr instanceof TernaryExpr) {
+      const cond = this.evaluateExpression(expr.condition, env);
+      if (this.isTruthy(cond)) {
+        return this.evaluateExpression(expr.consequent, env);
+      } else {
+        return this.evaluateExpression(expr.alternate, env);
+      }
     }
 
     if (expr instanceof BinaryExpr) {
