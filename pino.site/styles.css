@@ -42,7 +42,7 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: 
+  background-image:
     radial-gradient(var(--border-color) 1px, transparent 1px);
   background-size: 24px 24px;
   opacity: 0.4;
@@ -77,9 +77,17 @@ body::before {
 }
 
 @keyframes float-blob {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(40px, -60px) scale(1.1); }
-  100% { transform: translate(-30px, 40px) scale(0.95); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(40px, -60px) scale(1.1);
+  }
+
+  100% {
+    transform: translate(-30px, 40px) scale(0.95);
+  }
 }
 
 /* Scrollbar Styles */
@@ -87,13 +95,16 @@ body::before {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-primary);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
 }
@@ -138,8 +149,15 @@ header {
 }
 
 @keyframes sway-tree {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(8deg); }
+
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(8deg);
+  }
 }
 
 nav ul {
@@ -190,8 +208,15 @@ nav a:hover {
 }
 
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hero-tag {
@@ -306,9 +331,18 @@ nav a:hover {
   height: 12px;
   border-radius: 50%;
 }
-.dot-red { background-color: #ef4444; }
-.dot-yellow { background-color: #f59e0b; }
-.dot-green { background-color: #10b981; }
+
+.dot-red {
+  background-color: #ef4444;
+}
+
+.dot-yellow {
+  background-color: #f59e0b;
+}
+
+.dot-green {
+  background-color: #10b981;
+}
 
 .playground-title {
   margin-left: 0.5rem;
@@ -396,6 +430,10 @@ nav a:hover {
     border-bottom: 1px solid var(--border-color);
     height: 350px;
   }
+}
+
+code {
+  font-family: var(--font-mono);
 }
 
 .code-textarea {
@@ -566,8 +604,15 @@ nav a:hover {
 }
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .tab-info h3 {
@@ -612,11 +657,26 @@ nav a:hover {
   color: #e5e7eb;
 }
 
-.tab-code span.keyword { color: var(--accent-cyan); }
-.tab-code span.string { color: #f59e0b; }
-.tab-code span.comment { color: #6b7280; font-style: italic; }
-.tab-code span.number { color: #f43f5e; }
-.tab-code span.type { color: #3b82f6; }
+.tab-code span.keyword {
+  color: var(--accent-cyan);
+}
+
+.tab-code span.string {
+  color: #f59e0b;
+}
+
+.tab-code span.comment {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.tab-code span.number {
+  color: #f43f5e;
+}
+
+.tab-code span.type {
+  color: #3b82f6;
+}
 
 /* Install and Setup section */
 .setup-section {
