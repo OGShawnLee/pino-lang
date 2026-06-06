@@ -386,6 +386,14 @@ class VectorExpr extends Expr {
   }
 }
 
+class FunctionLambdaExpression extends Expr {
+  constructor(parameters, body) {
+    super();
+    this.parameters = parameters; // array of {name, type}
+    this.body = body; // Block
+  }
+}
+
 // Precedence-Climbing Parser
 class Parser {
   constructor(tokens) {
@@ -744,6 +752,23 @@ class Parser {
       this.consume(TokenType.KEYWORD, "Expect 'else' in ternary expression", 'else');
       const alternate = this.expression();
       return new TernaryExpr(condition, consequent, alternate);
+    }
+
+    if (this.match(TokenType.KEYWORD, 'fn')) {
+      let parameters = [];
+      if (this.match(TokenType.DELIMITER, '(')) {
+        if (!this.check(TokenType.DELIMITER, ')')) {
+          do {
+            const paramName = this.consume(TokenType.IDENTIFIER, "Expect parameter name").value;
+            const paramType = this.consume(TokenType.IDENTIFIER, "Expect parameter type").value;
+            parameters.push({ name: paramName, type: paramType });
+          } while (this.match(TokenType.DELIMITER, ',') || this.check(TokenType.IDENTIFIER));
+        }
+        this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
+      }
+      this.consume(TokenType.DELIMITER, "Expect '{' before function lambda body", '{');
+      const body = this.block();
+      return new FunctionLambdaExpression(parameters, body);
     }
 
     if (this.match(TokenType.NUMBER)) {
@@ -1209,6 +1234,10 @@ class Interpreter {
       const left = this.evaluateExpression(expr.left, env);
       const right = this.evaluateExpression(expr.right, env);
       return this.evalOp(left, expr.operator, right);
+    }
+
+    if (expr instanceof FunctionLambdaExpression) {
+      return new PinoCallable({ params: expr.parameters, body: expr.body }, env);
     }
 
     if (expr instanceof StructInstanceExpr) {
