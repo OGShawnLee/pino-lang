@@ -1,0 +1,65 @@
+name: Release compiler binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            artifact_name: pino-windows-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact_name: pino-linux-x64
+          - os: macos-latest
+            rid: osx-x64
+            artifact_name: pino-macos-x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish binary
+        run: dotnet publish pino-csharp/pino-csharp.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./publish
+
+      - name: Rename and compress binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd publish
+          Rename-Item -Path "pino-csharp.exe" -NewName "pino.exe"
+          Compress-Archive -Path "pino.exe" -DestinationPath "../${{ matrix.artifact_name }}.zip"
+        shell: pwsh
+
+      - name: Rename and compress binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd publish
+          mv pino-csharp pino
+          chmod +x pino
+          tar -czf ../${{ matrix.artifact_name }}.tar.gz pino
+        shell: bash
+
+      - name: Upload binaries to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.zip
+            *.tar.gz
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
