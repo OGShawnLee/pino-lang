@@ -40,3 +40,21 @@ CMakeCache.txt
 cmake_install.cmake
 cmake-build-debug
 Makefile
+
+# .NET / C# Build Artifacts
+**/[Bb]in/
+**/[Oo]bj/
+*.user
+*.suo
+*.sln.docstates
+project.assets.json
+*.nuget.dgspec.json
+project.nuget.cache
+
+# User specific IDE directories
+.vs/
+.idea/
+.vscode/
+
+# Shared ZIP Package
+pino-quest.zip
