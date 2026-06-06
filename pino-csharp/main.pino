@@ -40,22 +40,6 @@ struct Enemy {
   }
 }
 
-# --- Pseudo-Random Number Generator (LCG) ---
-var lcg_state = 1337
-
-fn rand(limit int) {
-  var a = 1103515245
-  var c = 12345
-  var m = 2147483648
-  var temp = a * lcg_state
-  temp = temp + c
-  lcg_state = temp % m
-  var res = lcg_state % limit
-  var neg_res = 0 - res
-  var final_res = if res < 0 then neg_res else res
-  return final_res
-}
-
 # --- Combat Logic ---
 fn battle_round(p Player, e Enemy, action string) {
   match action {
