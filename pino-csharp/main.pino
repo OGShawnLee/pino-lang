@@ -2,8 +2,8 @@
 # A functional-style CLI Dungeon Crawler in Pino Lang
 
 enum Stage {
-  LexerStage,
-  ParserStage,
+  LexerStage
+  ParserStage
   EvaluatorStage
 }
 
@@ -74,7 +74,7 @@ struct Enemy {
 }
 
 struct BattleResult {
-  p Player,
+  p Player
   e Enemy
 }
 
@@ -287,11 +287,37 @@ fn main() {
   println("Defeat them to successfully build the executable.")
   println("")
 
-  var hero_name = readline("> Enter your developer name: ")
-  if hero_name == "" {
-    hero_name = "Dev"
+  val get_hero_name = fn {
+    for {
+      var hero_name = readline("> Enter your developer name: ")
+      if hero_name == "" {
+        println("Please enter your name!")
+        continue
+      }
+      return hero_name
+    }
   }
 
+  var hero_name = get_hero_name()
+
+  val get_difficulty = fn {
+    for {
+      println("Select Difficulty:")
+      println("  1. Easy (Fácil)")
+      println("  2. Medium (Media)")
+      println("  3. Hard (Difícil)")
+      println("  4. Infinite (Infinita)")
+      var choice = readline("> Choose [1-4]: ")
+      if choice == "1" { return "easy" }
+      if choice == "2" { return "medium" }
+      if choice == "3" { return "hard" }
+      if choice == "4" { return "infinite" }
+      println("Invalid choice, try again.")
+      println("")
+    }
+  }
+
+  var difficulty = get_difficulty()
   var player = Player {
     name: hero_name
     hp: 80
@@ -302,55 +328,141 @@ fn main() {
     coffee: 1
   }
 
-  var bugs = [
-    Enemy { name: "Lexer::InfiniteString", hp: 30, attack: 5, reward_coffee: 1, reward_ram: 15 }
-    Enemy { name: "Parser::OperatorPrecedenceChaos", hp: 60, attack: 10, reward_coffee: 1, reward_ram: 25 }
-    Enemy { name: "Evaluator::StackOverflow", hp: 95, attack: 16, reward_coffee: 2, reward_ram: 35 }
-  ]
+  if difficulty == "medium" {
+    player:hp = 70
+    player:max_hp = 70
+    player:attack = 9
+    player:ram = 30
+  }
+  if difficulty == "hard" {
+    player:hp = 60
+    player:max_hp = 60
+    player:attack = 8
+    player:ram = 20
+    player:coffee = 0
+  }
 
-  var current_stage = Stage::LexerStage
-  var stage_num = 1
+  if difficulty == "infinite" {
+    var bugs_defeated = 0
+    for {
+      var p_hp = player:hp
+      if p_hp <= 0 {
+        break
+      }
+      var level = bugs_defeated + 1
+      var bug_hp = 20 + level * 12
+      var bug_atk = 3 + level * 3
+      var reward_coffee = if level % 3 == 0 then 1 else 0
+      var reward_ram = 10 + level * 2
+      var bug = Enemy {
+        name: "Bug::ThreadStack_$level"
+        hp: bug_hp
+        attack: bug_atk
+        reward_coffee: reward_coffee
+        reward_ram: reward_ram
+      }
 
-  for bug in bugs {
-    var p_hp = player:hp
-    if p_hp > 0 {
-      var bug_name = bug:name
       println("")
       println("----------------------------------------------")
-      println("STAGE $stage_num: Fighting $bug_name")
+      println("BUG LEVEL $level: Fighting $(bug:name)")
       println("----------------------------------------------")
-      
+
       player = fight(player, bug)
 
       var check_hp = player:hp
       if check_hp > 0 {
-        stage_num = stage_num + 1
+        bugs_defeated = level
+        var reward_gold = 10 + level * 3
         println("")
-        println("Compiling successful for Stage!")
-        println("You earned 15 cycles (gold) for code review.")
-        player = player:add_gold(15)
+        println("Bug Level $level successfully resolved!")
+        println("You earned $reward_gold cycles (gold) for code review.")
+        player = player:add_gold(reward_gold)
         player = compiler_shop(player)
       }
     }
-  }
 
-  var final_hp = player:hp
-  if final_hp > 0 {
     println("")
     println("==============================================")
-    println("   CONGRATULATIONS! CODE BUILD SUCCESSFUL!   ")
+    println("              GAME OVER (INFINITE)            ")
     println("==============================================")
-    var p_atk = player:attack
-    var p_ram = player:ram
-    var p_coff = player:coffee
-    println("Final stats for Developer $hero_name:")
-    println("  - Base Attack: $p_atk")
-    println("  - Available RAM: $p_ram MB")
-    println("  - Coffee stash: $p_coff cups")
+    println("Developer $hero_name survived up to Level $bugs_defeated!")
+    println("Final stats:")
+    println("  - Base Attack: $(player:attack)")
+    println("  - Available RAM: $(player:ram) MB")
+    println("  - Coffee stash: $(player:coffee) cups")
     println("Thank you for playing Pino Quest!")
+
   } else {
-    println("")
-    println("Compilation Failed. Check logs/errors.txt.")
+    # Finite stages
+    var bug1_hp = 30
+    var bug1_atk = 5
+    var bug2_hp = 60
+    var bug2_atk = 10
+    var bug3_hp = 95
+    var bug3_atk = 16
+
+    if difficulty == "medium" {
+      bug1_hp = 45
+      bug1_atk = 7
+      bug2_hp = 85
+      bug2_atk = 14
+      bug3_hp = 130
+      bug3_atk = 22
+    }
+    if difficulty == "hard" {
+      bug1_hp = 60
+      bug1_atk = 10
+      bug2_hp = 110
+      bug2_atk = 18
+      bug3_hp = 170
+      bug3_atk = 30
+    }
+
+    var bugs = [
+      Enemy { name: "Lexer::InfiniteString", hp: bug1_hp, attack: bug1_atk, reward_coffee: 1, reward_ram: 15 }
+      Enemy { name: "Parser::OperatorPrecedenceChaos", hp: bug2_hp, attack: bug2_atk, reward_coffee: 1, reward_ram: 25 }
+      Enemy { name: "Evaluator::StackOverflow", hp: bug3_hp, attack: bug3_atk, reward_coffee: 2, reward_ram: 35 }
+    ]
+
+    var stage_num = 1
+    for bug in bugs {
+      var p_hp = player:hp
+      if p_hp > 0 {
+        var bug_name = bug:name
+        println("")
+        println("----------------------------------------------")
+        println("STAGE $stage_num: Fighting $bug_name")
+        println("----------------------------------------------")
+        
+        player = fight(player, bug)
+
+        var check_hp = player:hp
+        if check_hp > 0 {
+          stage_num = stage_num + 1
+          println("")
+          println("Compiling successful for Stage!")
+          println("You earned 15 cycles (gold) for code review.")
+          player = player:add_gold(15)
+          player = compiler_shop(player)
+        }
+      }
+    }
+
+    var final_hp = player:hp
+    if final_hp > 0 {
+      println("")
+      println("==============================================")
+      println("   CONGRATULATIONS! CODE BUILD SUCCESSFUL!   ")
+      println("==============================================")
+      println("Final stats for Developer $hero_name:")
+      println("  - Base Attack: $(player:attack)")
+      println("  - Available RAM: $(player:ram) MB")
+      println("  - Coffee stash: $(player:coffee) cups")
+      println("Thank you for playing Pino Quest!")
+    } else {
+      println("")
+      println("Compilation Failed. Check logs/errors.txt.")
+    }
   }
 }
 

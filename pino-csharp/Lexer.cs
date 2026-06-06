@@ -95,7 +95,7 @@ public class Lexer {
 
       // 3. String Quote (String Literals with Potential Injections)
       if (c == '"') {
-        tokens.Add(BuildStringLiteral(line, ref index));
+        LexStringLiteral(line, ref index, tokens);
         continue;
       }
 
@@ -151,10 +151,9 @@ public class Lexer {
     return tokens;
   }
 
-  private static Token BuildStringLiteral(string line, ref int index) {
+  private static void LexStringLiteral(string line, ref int index, List<Token> tokens) {
     var buffer = new StringBuilder();
-    var injections = new List<string>();
-    var startIndex = index;
+    bool hasAddedInitialString = false;
     index++; // Skip opening quote
 
     while (index < line.Length) {
@@ -163,31 +162,83 @@ public class Lexer {
       // Check for closing quote, ignoring escaped quotes \"
       if (c == '"' && (index == 0 || line[index - 1] != '\\')) {
         index++; // Skip closing quote
-        return new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String, Injections: injections);
+        if (!hasAddedInitialString) {
+          tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+        } else if (buffer.Length > 0) {
+          tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
+          tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+        }
+        return;
       }
 
-      // Check for string injection $varName, ignoring escaped injections \$
-      if (c == '$' && (index == 0 || line[index - 1] != '\\') && index + 1 < line.Length && IsIdentifierStart(line[index + 1]) && !char.IsDigit(line[index + 1])) {
-        var injection = ConsumeStringInjection(line, ref index);
-        injections.Add(injection);
-        buffer.Append("$").Append(injection);
-        continue;
+      // Check for string injection $(expr) or $varName, ignoring escaped \$
+      if (c == '$' && (index == 0 || line[index - 1] != '\\') && index + 1 < line.Length) {
+        if (line[index + 1] == '(') {
+          // Complex interpolation $(expr)
+          if (!hasAddedInitialString) {
+            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+            hasAddedInitialString = true;
+          } else if (buffer.Length > 0) {
+            tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
+            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+          }
+          buffer.Clear();
+
+          tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
+          index += 2; // skip "$("
+          
+          int depth = 1;
+          int startExpr = index;
+          while (index < line.Length && depth > 0) {
+            char ec = line[index];
+            if (ec == '"') {
+              index++; // skip opening quote
+              while (index < line.Length) {
+                if (line[index] == '"' && line[index - 1] != '\\') {
+                  break;
+                }
+                index++;
+              }
+            } else if (ec == '(') {
+              depth++;
+            } else if (ec == ')') {
+              depth--;
+            }
+            index++;
+          }
+
+          string exprStr = line.Substring(startExpr, index - 1 - startExpr);
+          var exprTokens = LexLine(exprStr);
+          tokens.AddRange(exprTokens);
+          continue;
+        } else if (IsIdentifierStart(line[index + 1]) && !char.IsDigit(line[index + 1])) {
+          // Simple interpolation $varName
+          if (!hasAddedInitialString) {
+            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+            hasAddedInitialString = true;
+          } else if (buffer.Length > 0) {
+            tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
+            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+          }
+          buffer.Clear();
+
+          tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
+          index++; // skip '$'
+          int startIdent = index;
+          while (index < line.Length && IsIdentifierChar(line[index])) {
+            index++;
+          }
+          string identStr = line.Substring(startIdent, index - startIdent);
+          tokens.Add(new Token(TokenType.Identifier, identStr));
+          continue;
+        }
       }
 
       buffer.Append(c);
       index++;
     }
 
-    throw new Exception($"Unterminated string literal at line index {startIndex}");
-  }
-
-  private static string ConsumeStringInjection(string line, ref int index) {
-    index++; // Skip '#'
-    var start = index;
-    while (index < line.Length && IsIdentifierChar(line[index])) {
-      index++;
-    }
-    return line.Substring(start, index - start);
+    throw new Exception($"Unterminated string literal at line index {index}");
   }
 
   private static Token GetTokenFromBuffer(string buffer) {

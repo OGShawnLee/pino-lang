@@ -119,15 +119,49 @@ public class LexerTests {
     var input = "\"hello $name inside $room\"";
     var tokens = Lexer.LexLine(input);
 
-    Assert.Single(tokens);
-    var strToken = tokens[0];
-    Assert.Equal(TokenType.Literal, strToken.Type);
-    Assert.Equal(LiteralType.String, strToken.Literal);
-    Assert.Equal("hello $name inside $room", strToken.Data);
-    Assert.NotNull(strToken.Injections);
-    Assert.Equal(2, strToken.Injections.Count);
-    Assert.Contains("name", strToken.Injections);
-    Assert.Contains("room", strToken.Injections);
+    Assert.Equal(7, tokens.Count);
+    
+    Assert.Equal(TokenType.Literal, tokens[0].Type);
+    Assert.Equal(LiteralType.String, tokens[0].Literal);
+    Assert.Equal("hello ", tokens[0].Data);
+
+    Assert.True(tokens[1].IsOperator(OperatorType.Addition));
+
+    Assert.Equal(TokenType.Identifier, tokens[2].Type);
+    Assert.Equal("name", tokens[2].Data);
+
+    Assert.True(tokens[3].IsOperator(OperatorType.Addition));
+
+    Assert.Equal(TokenType.Literal, tokens[4].Type);
+    Assert.Equal(LiteralType.String, tokens[4].Literal);
+    Assert.Equal(" inside ", tokens[4].Data);
+
+    Assert.True(tokens[5].IsOperator(OperatorType.Addition));
+
+    Assert.Equal(TokenType.Identifier, tokens[6].Type);
+    Assert.Equal("room", tokens[6].Data);
+  }
+
+  [Fact]
+  public void TestComplexStringInterpolation() {
+    var input = "\"Base Attack: $(player:attack)\"";
+    var tokens = Lexer.LexLine(input);
+
+    Assert.Equal(5, tokens.Count);
+
+    Assert.Equal(TokenType.Literal, tokens[0].Type);
+    Assert.Equal(LiteralType.String, tokens[0].Literal);
+    Assert.Equal("Base Attack: ", tokens[0].Data);
+
+    Assert.True(tokens[1].IsOperator(OperatorType.Addition));
+
+    Assert.Equal(TokenType.Identifier, tokens[2].Type);
+    Assert.Equal("player", tokens[2].Data);
+
+    Assert.True(tokens[3].IsOperator(OperatorType.MemberAccess));
+
+    Assert.Equal(TokenType.Identifier, tokens[4].Type);
+    Assert.Equal("attack", tokens[4].Data);
   }
 
   [Fact]
