@@ -73,6 +73,7 @@
               <option value="fibonacci">Fibonacci Sequence</option>
               <option value="structs">Structs & Mutations</option>
               <option value="match">Match-When Cases</option>
+              <option value="vectors">Vectors & Functional APIs</option>
             </select>
           </div>
           <button id="copy-btn" class="btn-icon">
@@ -127,6 +128,7 @@
       <button class="tab-btn" onclick="switchTab(event, 'tab-strings')">String Interpolation</button>
       <button class="tab-btn" onclick="switchTab(event, 'tab-functions')">Functions & Lambdas</button>
       <button class="tab-btn" onclick="switchTab(event, 'tab-structs')">Structs & Instances</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-vectors')">Vectors & Functional APIs</button>
       <button class="tab-btn" onclick="switchTab(event, 'tab-loops')">Simplified Loops</button>
       <button class="tab-btn" onclick="switchTab(event, 'tab-conditionals')">Decision Control</button>
     </div>
@@ -175,23 +177,19 @@ println(<span class="string">"Next year: $(age + 1)"</span>)</code></pre>
     <!-- Functions Tab -->
     <div id="tab-functions" class="tab-content">
       <div class="tab-info">
-        <h3>Higher-Order Closures</h3>
+        <h3>Higher-Order Closures & Lambdas</h3>
         <p>Functions support optional parameter lists and zero commas. Pino lambdas generate local scopes carrying
-          references to their parent environments, supporting closures.</p>
+          references to their parent environments, supporting closures. You can also write quick arrow lambdas (`=>`) for single-line expressions.</p>
         <ul>
           <li>Declare functions using <code class="keyword">fn</code>.</li>
           <li>Return lambdas dynamically to build functional closures.</li>
-          <li>Parameters do not require comma separators for faster layout.</li>
+          <li>Use <code class="keyword">=></code> for concise single-line expressions.</li>
         </ul>
       </div>
-      <pre class="tab-code"><code><span class="comment"># Higher-order function returning a multiplier closure</span>
-<span class="keyword">fn</span> multiplier(factor <span class="type">int</span>) {
-  <span class="keyword">return</span> <span class="keyword">fn</span> (val <span class="type">int</span>) {
-    <span class="keyword">return</span> val * factor
-  }
-}
+      <pre class="tab-code"><code><span class="comment"># Arrow lambda syntax (single-line expressions)</span>
+<span class="keyword">val</span> get_times_it_fn = <span class="keyword">fn</span> (multiplier <span class="type">int</span>) => <span class="keyword">fn</span> (it <span class="type">int</span>) => it * multiplier
 
-<span class="keyword">val</span> double_it = multiplier(<span class="number">2</span>)
+<span class="keyword">val</span> double_it = get_times_it_fn(<span class="number">2</span>)
 println(double_it(<span class="number">5</span>)) <span class="comment"># Prints 10</span></code></pre>
     </div>
 
@@ -219,6 +217,27 @@ println(double_it(<span class="number">5</span>)) <span class="comment"># Prints
 <span class="keyword">var</span> p = Point { x: <span class="number">5</span>, y: <span class="number">10</span> }
 p:move(<span class="number">2</span>, <span class="number">5</span>)
 println(<span class="string">"Position: $(p:x), $(p:y)"</span>) <span class="comment"># 7, 15</span></code></pre>
+    </div>
+
+    <!-- Vectors Tab -->
+    <div id="tab-vectors" class="tab-content">
+      <div class="tab-info">
+        <h3>Vectors & Functional APIs</h3>
+        <p>Pino provides native support for dynamic vectors (`[]type`). Initialize them dynamically using initializers and use functional methods to transform collection data.</p>
+        <ul>
+          <li>Create vectors using <code>[]type { len: X, init: expr }</code>.</li>
+          <li>Implicit index <code>it</code> is available in the initializer block.</li>
+          <li>Built-in chainable methods: <code>:len()</code>, <code>:map()</code>, <code>:filter()</code>, <code>:each()</code>, <code>:push()</code>, <code>:pop()</code>.</li>
+        </ul>
+      </div>
+      <pre class="tab-code"><code><span class="comment"># Initialize vector with length 6 (it starts at 0, so it+1 gives 1..6)</span>
+<span class="keyword">val</span> numbers = []<span class="type">int</span> { len: <span class="number">6</span>, init: it + <span class="number">1</span> }
+
+<span class="comment"># Map vector using a curried arrow function</span>
+<span class="keyword">val</span> get_times_it_fn = <span class="keyword">fn</span> (mult <span class="type">int</span>) => <span class="keyword">fn</span> (it <span class="type">int</span>) => it * mult
+<span class="keyword">val</span> doubled = numbers:map(get_times_it_fn(<span class="number">3</span>))
+
+println(doubled) <span class="comment"># [3, 6, 9, 12, 15, 18]</span></code></pre>
     </div>
 
     <!-- Loops Tab -->

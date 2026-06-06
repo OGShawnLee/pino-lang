@@ -58,8 +58,10 @@ println("$name was the first emperor of the $empire Empire.")
 ```
 
 ### Functions & Lambdas
-Functions are declared using `fn`. Parentheses are optional if a function has no parameters, and parameters do not require commas.
+Functions are declared using `fn`. Parentheses are optional if a function has no parameters, and parameters do not require commas. Pino supports standard function blocks, nested closures, and a concise single-line arrow syntax (`=>`).
+
 ```pino
+# Standard function
 fn greet(name string, city string) {
   println("Hello $name from $city!")
 }
@@ -71,7 +73,10 @@ fn multiplier(factor int) {
   }
 }
 
-val double_it = multiplier(2)
+# Single-line arrow syntax (=>) with currying
+val get_times_it_fn = fn (multiplier int) => fn (it int) => it * multiplier
+
+val double_it = get_times_it_fn(2)
 println(double_it(5)) # Outputs 10
 ```
 
@@ -91,6 +96,32 @@ val pos = Vector2 { x: 3, y: 4 }
 val mag = pos:magnitude_sq()
 println("Magnitude Squared: $mag")
 ```
+
+### Vectors & Arrays (with Functional Utilities)
+Pino supports dynamic arrays called vectors. You can declare vectors with explicit type signatures like `[]int` or `[]string`, initialize them dynamically using initializers (with `it` as the implicit index parameter), and apply functional methods.
+
+```pino
+# 1. Initialization with length and generator expression (using 'it')
+val numbers = []int { len: 6, init: it + 1 }
+println(numbers) # [1, 2, 3, 4, 5, 6]
+
+# 2. Add or remove elements
+var list = []string {}
+list:push("first")
+list:push("second")
+println(list:len()) # Outputs 2
+val popped = list:pop()
+println(popped) # "second"
+
+# 3. Functional utilities: map, filter, and each
+val get_times_it_fn = fn (multiplier int) => fn (it int) => it * multiplier
+val doubled = numbers:map(get_times_it_fn(2))
+println(doubled) # [2, 4, 6, 8, 10, 12]
+
+val evens = numbers:filter(fn (it int) => it % 2 == 0)
+println(evens) # [2, 4, 6]
+```
+
 
 ### Loops
 Pino simplifies loop structures down to a single keyword: `for`.

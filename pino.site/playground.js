@@ -77,6 +77,17 @@ match planet {
     println("Status: Fatal - Atmosphere incompatible")
   }
 }
+`,
+
+  vectors: `# PinoQuest: Vectors & Functional APIs
+val get_times_it_fn = fn (multiplier int) => fn (it int) => it * multiplier
+val numbers = []int { len: 6, init: it + 1 }
+
+println("Original numbers:")
+println(numbers)
+
+println("Doubled numbers (using currying + map):")
+println(numbers:map(get_times_it_fn(2)))
 `
 };
 
