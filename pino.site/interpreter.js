@@ -1389,7 +1389,14 @@ class Interpreter {
         for (let i = 0; i < length; i++) {
           const initEnv = new Environment(env);
           initEnv.define('it', i, true);
-          result.push(this.evaluateExpression(expr.initExpr, initEnv));
+          const val = this.evaluateExpression(expr.initExpr, initEnv);
+          if (typeof val === 'function') {
+            result.push(val([i]));
+          } else if (val instanceof PinoCallable) {
+            result.push(val.call(this, [i]));
+          } else {
+            result.push(val);
+          }
         }
         return result;
       }

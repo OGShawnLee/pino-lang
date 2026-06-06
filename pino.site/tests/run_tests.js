@@ -117,6 +117,15 @@ const tests = [
       evens:each(println)
     `,
     expectedOutput: "2\n4\n6\n8\n2\n4\n"
+  },
+  {
+    name: "Vector initialization with callable reference",
+    code: `
+      val addone = fn (it number) => it + 1
+      val numbers = []number { len: 5, init: addone }
+      numbers:each(println)
+    `,
+    expectedOutput: "1\n2\n3\n4\n5\n"
   }
 ];
 

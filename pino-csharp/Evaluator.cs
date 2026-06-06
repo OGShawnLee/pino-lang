@@ -410,12 +410,11 @@ public class Evaluator {
             var initEnv = new Environment(env);
             initEnv.Define("it", i, true);
 
-            // If init is lambda or lambda call, handle it, else evaluate
-            if (vec.Init is FunctionLambdaExpression lambda) {
-              var lambdaCallable = new PinoLambda(lambda, env);
-              initList.Add(lambdaCallable.Call(this, new List<object?> { i }));
+            var val = Evaluate(vec.Init!, initEnv);
+            if (val is IPinoCallable initCallable) {
+              initList.Add(initCallable.Call(this, new List<object?> { i }));
             } else {
-              initList.Add(Evaluate(vec.Init!, initEnv));
+              initList.Add(val);
             }
           }
           return initList;
