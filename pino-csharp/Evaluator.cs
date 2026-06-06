@@ -604,6 +604,8 @@ public class Evaluator {
     return new PinoEnumValue(enumName, memberName);
   }
 
+    bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;
+
   private object EvaluateBinaryOperation(object? left, OperatorType op, object? right) {
     // Handle String Concatenation
     if (op == OperatorType.Addition && (left is string || right is string)) {
@@ -638,8 +640,14 @@ public class Evaluator {
         return isFloat ? GetDouble(left) >= GetDouble(right) : GetLong(left) >= GetLong(right);
 
       case OperatorType.Equal:
+        if (IsNumeric(left) && IsNumeric(right)) {
+          return GetDouble(left) == GetDouble(right);
+        }
         return Equals(left, right);
       case OperatorType.NotEqual:
+        if (IsNumeric(left) && IsNumeric(right)) {
+          return GetDouble(left) != GetDouble(right);
+        }
         return !Equals(left, right);
 
       case OperatorType.And:
