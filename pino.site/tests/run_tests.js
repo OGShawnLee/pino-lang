@@ -126,6 +126,57 @@ const tests = [
       numbers:each(println)
     `,
     expectedOutput: "1\n2\n3\n4\n5\n"
+  },
+  {
+    name: "Standard library global functions (type, str, rand, time)",
+    code: `
+      println(type(10))
+      println(type(3.14))
+      println(type("hello"))
+      println(type(true))
+      println(type([1, 2]))
+      
+      struct User { name string }
+      var u = User { name: "Test" }
+      println(type(u))
+      println(str(u))
+      
+      var t = time()
+      println(type(t))
+      
+      var r = rand()
+      println(type(r))
+      
+      var rInt = rand(100)
+      println(type(rInt))
+      
+      sleep(10)
+      println("Awake")
+    `,
+    expectedOutput: "int\nfloat\nstring\nbool\nvector\nstruct\nUser { name: Test }\nint\nfloat\nint\nAwake\n"
+  },
+  {
+    name: "String native properties and methods",
+    code: `
+      var s = "  Hello Pino Lang!  "
+      println(s:len)
+      println(s:length)
+      
+      var trimmed = s:trim()
+      println(trimmed)
+      println(trimmed:lower())
+      println(trimmed:upper())
+      
+      println(trimmed:contains("Pino"))
+      println(trimmed:contains("other"))
+      
+      var parts = trimmed:split(" ")
+      parts:each(println)
+      
+      var replaced = trimmed:replace("Hello", "Goodbye")
+      println(replaced)
+    `,
+    expectedOutput: "20\n20\nHello Pino Lang!\nhello pino lang!\nHELLO PINO LANG!\ntrue\nfalse\nHello\nPino\nLang!\nGoodbye Pino Lang!\n"
   }
 ];
 

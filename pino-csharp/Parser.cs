@@ -50,6 +50,16 @@ public class Parser {
     return ParseStatement(stream);
   }
 
+  public static ProgramStatement ParseProgramString(string input) {
+    var tokens = new List<Token>();
+    var lines = input.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+    foreach (var line in lines) {
+      tokens.AddRange(Lexer.LexLine(line));
+    }
+    var stream = new TokenStream(tokens);
+    return ParseProgram(stream);
+  }
+
   private static ProgramStatement ParseProgram(TokenStream stream) {
     var statements = new List<Statement>();
     while (stream.HasNext) {

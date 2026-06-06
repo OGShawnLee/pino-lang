@@ -129,6 +129,11 @@ public class Evaluator {
     _globals.Define("readline", new ReadlineFunction(), true);
     _globals.Define("int", new IntFunction(), true);
     _globals.Define("float", new FloatFunction(), true);
+    _globals.Define("rand", new RandFunction(), true);
+    _globals.Define("time", new TimeFunction(), true);
+    _globals.Define("sleep", new SleepFunction(), true);
+    _globals.Define("type", new TypeFunction(), true);
+    _globals.Define("str", new StrFunction(), true);
   }
 
   public void Execute(Statement statement) {
@@ -582,6 +587,50 @@ public class Evaluator {
 
         throw new Exception($"RUNTIME ERROR: Vector has no method '{methodName}'.");
       }
+    } else if (leftVal is string str) {
+      if (rightExpr is IdentifierExpression propId) {
+        if (propId.Name == "len" || propId.Name == "length") {
+          return (long)str.Length;
+        }
+        throw new Exception($"RUNTIME ERROR: String has no property '{propId.Name}'.");
+      }
+
+      if (rightExpr is FunctionCallExpression methodCall) {
+        var methodName = methodCall.Callee;
+        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+
+        if (methodName == "lower") {
+          if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: lower() expects 0 arguments.");
+          return str.ToLowerInvariant();
+        }
+        if (methodName == "upper") {
+          if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: upper() expects 0 arguments.");
+          return str.ToUpperInvariant();
+        }
+        if (methodName == "trim") {
+          if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: trim() expects 0 arguments.");
+          return str.Trim();
+        }
+        if (methodName == "contains") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string sub) {
+            throw new Exception("RUNTIME ERROR: contains() expects 1 string argument.");
+          }
+          return str.Contains(sub);
+        }
+        if (methodName == "split") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string sep) {
+            throw new Exception("RUNTIME ERROR: split() expects 1 string argument.");
+          }
+          return str.Split(new[] { sep }, StringSplitOptions.None).Cast<object?>().ToList();
+        }
+        if (methodName == "replace") {
+          if (methodArgs.Count != 2 || methodArgs[0] is not string oldStr || methodArgs[1] is not string newStr) {
+            throw new Exception("RUNTIME ERROR: replace() expects 2 string arguments.");
+          }
+          return str.Replace(oldStr, newStr);
+        }
+        throw new Exception($"RUNTIME ERROR: String has no method '{methodName}'.");
+      }
     }
 
     throw new Exception($"RUNTIME ERROR: Invalid member access target.");
@@ -659,6 +708,13 @@ public class Evaluator {
     }
   }
 
+  public string FormatVal(object? arg) {
+    if (arg is List<object?> list) {
+      return "[" + string.Join(", ", list.Select(FormatVal)) + "]";
+    }
+    return arg?.ToString() ?? "null";
+  }
+
   private bool IsTruthy(object? value) {
     if (value == null) return false;
     if (value is bool b) return b;
@@ -669,15 +725,8 @@ public class Evaluator {
   private class PrintlnFunction : IPinoCallable {
     public int Arity => -1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
-      Console.WriteLine(string.Join(" ", arguments.Select(FormatOutput)));
+      Console.WriteLine(string.Join(" ", arguments.Select(evaluator.FormatVal)));
       return null;
-    }
-
-    private string FormatOutput(object? arg) {
-      if (arg is List<object?> list) {
-        return "[" + string.Join(", ", list.Select(FormatOutput)) + "]";
-      }
-      return arg?.ToString() ?? "null";
     }
   }
 
@@ -704,6 +753,60 @@ public class Evaluator {
     public int Arity => 1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
       return double.Parse(arguments[0]?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+    }
+  }
+
+  private class RandFunction : IPinoCallable {
+    private readonly Random _rand = new();
+    public int Arity => -1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      if (arguments.Count == 0) {
+        return _rand.NextDouble();
+      }
+      var maxVal = arguments[0];
+      long max = maxVal is long l ? l : Convert.ToInt64(maxVal);
+      return (long)_rand.Next(0, (int)max);
+    }
+  }
+
+  private class TimeFunction : IPinoCallable {
+    public int Arity => 0;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    }
+  }
+
+  private class SleepFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      var msVal = arguments[0];
+      long ms = msVal is long l ? l : Convert.ToInt64(msVal);
+      System.Threading.Thread.Sleep((int)ms);
+      return null;
+    }
+  }
+
+  private class TypeFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      var val = arguments[0];
+      if (val == null) return "null";
+      if (val is bool) return "bool";
+      if (val is long) return "int";
+      if (val is double) return "float";
+      if (val is string) return "string";
+      if (val is List<object?>) return "vector";
+      if (val is PinoStructInstance) return "struct";
+      if (val is IPinoCallable) return "function";
+      if (val is PinoEnumValue) return "enum";
+      return val.GetType().Name.ToLower();
+    }
+  }
+
+  private class StrFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      return evaluator.FormatVal(arguments[0]);
     }
   }
 }

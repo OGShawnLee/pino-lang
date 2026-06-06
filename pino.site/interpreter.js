@@ -1008,12 +1008,12 @@ class Interpreter {
 
   initGlobals() {
     this.globalEnv.define('print', (args) => {
-      this.outputCallback(args.join(' '));
+      this.outputCallback(args.map(arg => this.formatVal(arg)).join(' '));
       return null;
     }, true);
 
     this.globalEnv.define('println', (args) => {
-      this.outputCallback(args.join(' ') + '\n');
+      this.outputCallback(args.map(arg => this.formatVal(arg)).join(' ') + '\n');
       return null;
     }, true);
 
@@ -1024,6 +1024,83 @@ class Interpreter {
       const val = this.inputCallback();
       return val;
     }, true);
+
+    this.globalEnv.define('int', (args) => {
+      const val = args[0];
+      if (typeof val === 'number') return Math.floor(val);
+      return parseInt(val, 10);
+    }, true);
+
+    this.globalEnv.define('float', (args) => {
+      const val = args[0];
+      if (typeof val === 'number') return val;
+      return parseFloat(val);
+    }, true);
+
+    this.globalEnv.define('rand', (args) => {
+      if (args.length === 0) {
+        return Math.random();
+      }
+      const max = args[0];
+      return Math.floor(Math.random() * max);
+    }, true);
+
+    this.globalEnv.define('time', (args) => {
+      return Date.now();
+    }, true);
+
+    this.globalEnv.define('sleep', (args) => {
+      const ms = args[0];
+      const start = Date.now();
+      while (Date.now() - start < ms) {
+        // Busy wait
+      }
+      return null;
+    }, true);
+
+    this.globalEnv.define('type', (args) => {
+      const val = args[0];
+      if (val === null || val === undefined) return 'null';
+      if (typeof val === 'boolean') return 'bool';
+      if (typeof val === 'number') {
+        return Number.isInteger(val) ? 'int' : 'float';
+      }
+      if (typeof val === 'string') {
+        const parts = val.split('::');
+        if (parts.length === 2 && this.enums.has(parts[0])) {
+          const members = this.enums.get(parts[0]);
+          if (members.includes(parts[1])) {
+            return 'enum';
+          }
+        }
+        return 'string';
+      }
+      if (Array.isArray(val)) return 'vector';
+      if (val instanceof StructInstance) return 'struct';
+      if (val instanceof PinoCallable || typeof val === 'function') return 'function';
+      return typeof val;
+    }, true);
+
+    this.globalEnv.define('str', (args) => {
+      return this.formatVal(args[0]);
+    }, true);
+  }
+
+  formatVal(val) {
+    if (val === null || val === undefined) return 'null';
+    if (Array.isArray(val)) {
+      return '[' + val.map(v => this.formatVal(v)).join(', ') + ']';
+    }
+    if (val instanceof StructInstance) {
+      const fieldsStr = Object.entries(val.fields)
+        .map(([k, v]) => `${k}: ${this.formatVal(v)}`)
+        .join(', ');
+      return `${val.structName} { ${fieldsStr} }`;
+    }
+    if (val instanceof PinoCallable) {
+      return `fn(${val.fnDecl.params.map(p => p.name).join(', ')})`;
+    }
+    return val.toString();
   }
 
   execute(statements) {
@@ -1297,6 +1374,48 @@ class Interpreter {
             }
 
             throw new Error(`RUNTIME ERROR: Vector has no method '${methodName}'.`);
+          }
+        } else if (typeof target === 'string') {
+          const right = expr.right;
+          if (right instanceof IdentifierExpr && (right.name === 'length' || right.name === 'len')) {
+            return target.length;
+          }
+
+          if (right instanceof CallExpr && right.callee instanceof IdentifierExpr) {
+            const methodName = right.callee.name;
+            const methodArgs = right.args.map(a => this.evaluateExpression(a, env));
+
+            if (methodName === 'lower') {
+              if (methodArgs.length !== 0) throw new Error("RUNTIME ERROR: lower() expects 0 arguments.");
+              return target.toLowerCase();
+            }
+            if (methodName === 'upper') {
+              if (methodArgs.length !== 0) throw new Error("RUNTIME ERROR: upper() expects 0 arguments.");
+              return target.toUpperCase();
+            }
+            if (methodName === 'trim') {
+              if (methodArgs.length !== 0) throw new Error("RUNTIME ERROR: trim() expects 0 arguments.");
+              return target.trim();
+            }
+            if (methodName === 'contains') {
+              if (methodArgs.length !== 1 || typeof methodArgs[0] !== 'string') {
+                throw new Error("RUNTIME ERROR: contains() expects 1 string argument.");
+              }
+              return target.includes(methodArgs[0]);
+            }
+            if (methodName === 'split') {
+              if (methodArgs.length !== 1 || typeof methodArgs[0] !== 'string') {
+                throw new Error("RUNTIME ERROR: split() expects 1 string argument.");
+              }
+              return target.split(methodArgs[0]);
+            }
+            if (methodName === 'replace') {
+              if (methodArgs.length !== 2 || typeof methodArgs[0] !== 'string' || typeof methodArgs[1] !== 'string') {
+                throw new Error("RUNTIME ERROR: replace() expects 2 string arguments.");
+              }
+              return target.split(methodArgs[0]).join(methodArgs[1]);
+            }
+            throw new Error(`RUNTIME ERROR: String has no method '${methodName}'.`);
           }
         }
         throw new Error(`RUNTIME ERROR: Invalid member access.`);
