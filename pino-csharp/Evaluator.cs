@@ -334,6 +334,9 @@ public class Evaluator {
                 throw new Exception("RUNTIME ERROR: Left side of member assignment must end with a property name.");
               }
               targetInstance.Fields[propId.Name] = val;
+              if (env.Exists(propId.Name)) {
+                env.Assign(propId.Name, val);
+              }
               return val;
             }
             throw new Exception("RUNTIME ERROR: Cannot assign to property of non-struct object.");
@@ -374,6 +377,9 @@ public class Evaluator {
               var currentVal = targetInstance.Fields[propId.Name];
               var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
               targetInstance.Fields[propId.Name] = newVal;
+              if (env.Exists(propId.Name)) {
+                env.Assign(propId.Name, newVal);
+              }
               return newVal;
             }
             throw new Exception("RUNTIME ERROR: Cannot assign to property of non-struct object.");
@@ -471,7 +477,14 @@ public class Evaluator {
 
         var callable = new PinoFunction(methodDecl, methodEnv);
         var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
-        return callable.Call(this, methodArgs);
+        var result = callable.Call(this, methodArgs);
+
+        // Copy back modified fields to struct instance
+        foreach (var fieldKey in instance.Fields.Keys.ToList()) {
+          instance.Fields[fieldKey] = methodEnv.Get(fieldKey);
+        }
+
+        return result;
       }
 
       // Case 2: instance:property where right is IdentifierExpression
