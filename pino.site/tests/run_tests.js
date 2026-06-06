@@ -79,6 +79,33 @@ const tests = [
       println("Type signatures parsed successfully!")
     `,
     expectedOutput: "Type signatures parsed successfully!\n"
+  },
+  {
+    name: "Array/Vector utility methods (len, each, map, filter, push, pop)",
+    code: `
+      var arr = [1, 2, 3]
+      println(arr:len)
+      
+      arr:push(4)
+      println(arr:length)
+
+      arr:each(println)
+      
+      var doubleArr = arr:map(fn (it number) {
+        return it * 2
+      })
+      doubleArr:each(println)
+      
+      var filtered = arr:filter(fn (it number) {
+        return it > 2
+      })
+      filtered:each(println)
+      
+      var popped = arr:pop()
+      println(popped)
+      println(arr:len)
+    `,
+    expectedOutput: "3\n4\n1\n2\n3\n4\n2\n4\n6\n8\n3\n4\n4\n3\n"
   }
 ];
 

@@ -495,9 +495,93 @@ public class Evaluator {
         throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no property '{propId.Name}'.");
       }
     } else if (leftVal is List<object?> list) {
-      // Case 3: vector:length or list operations
-      if (rightExpr is IdentifierExpression listId && listId.Name == "length") {
+      // Case 3: vector:len or vector:length
+      if (rightExpr is IdentifierExpression listId && (listId.Name == "length" || listId.Name == "len")) {
         return (long)list.Count;
+      }
+
+      // Case 4: vector method calls
+      if (rightExpr is FunctionCallExpression methodCall) {
+        var methodName = methodCall.Callee;
+        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+
+        if (methodName == "each") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: each() expects a callable argument.");
+          }
+          for (int i = 0; i < list.Count; i++) {
+            var args = new List<object?>();
+            if (func.Arity == 1) {
+              args.Add(list[i]);
+            } else if (func.Arity == 2) {
+              args.Add(list[i]);
+              args.Add((long)i);
+            } else {
+              args.Add(list[i]);
+            }
+            func.Call(this, args);
+          }
+          return null;
+        }
+
+        if (methodName == "map") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: map() expects a callable argument.");
+          }
+          var mappedList = new List<object?>();
+          for (int i = 0; i < list.Count; i++) {
+            var args = new List<object?>();
+            if (func.Arity == 1) {
+              args.Add(list[i]);
+            } else if (func.Arity == 2) {
+              args.Add(list[i]);
+              args.Add((long)i);
+            } else {
+              args.Add(list[i]);
+            }
+            mappedList.Add(func.Call(this, args));
+          }
+          return mappedList;
+        }
+
+        if (methodName == "filter") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: filter() expects a callable argument.");
+          }
+          var filteredList = new List<object?>();
+          for (int i = 0; i < list.Count; i++) {
+            var args = new List<object?>();
+            if (func.Arity == 1) {
+              args.Add(list[i]);
+            } else if (func.Arity == 2) {
+              args.Add(list[i]);
+              args.Add((long)i);
+            } else {
+              args.Add(list[i]);
+            }
+            if (IsTruthy(func.Call(this, args))) {
+              filteredList.Add(list[i]);
+            }
+          }
+          return filteredList;
+        }
+
+        if (methodName == "push" || methodName == "add") {
+          if (methodArgs.Count < 1) {
+            throw new Exception("RUNTIME ERROR: push() expects an item to add.");
+          }
+          list.Add(methodArgs[0]);
+          return list;
+        }
+
+        if (methodName == "pop") {
+          if (list.Count == 0) return null;
+          var last = list[list.Count - 1];
+          list.RemoveAt(list.Count - 1);
+          return last;
+        }
+
+        throw new Exception($"RUNTIME ERROR: Vector has no method '{methodName}'.");
       }
     }
 

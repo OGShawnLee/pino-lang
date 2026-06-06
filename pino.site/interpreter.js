@@ -1214,8 +1214,84 @@ class Interpreter {
         } else if (Array.isArray(target)) {
           // List operations
           const right = expr.right;
-          if (right instanceof IdentifierExpr && right.name === 'length') {
+          if (right instanceof IdentifierExpr && (right.name === 'length' || right.name === 'len')) {
             return target.length;
+          }
+
+          if (right instanceof CallExpr && right.callee instanceof IdentifierExpr) {
+            const methodName = right.callee.name;
+            const methodArgs = right.args.map(a => this.evaluateExpression(a, env));
+
+            if (methodName === 'each') {
+              const func = methodArgs[0];
+              if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
+                throw new Error("RUNTIME ERROR: each() expects a callable argument.");
+              }
+              for (let i = 0; i < target.length; i++) {
+                const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+                const args = arity === 2 ? [target[i], i] : [target[i]];
+                if (typeof func === 'function') {
+                  func(args);
+                } else {
+                  func.call(this, args);
+                }
+              }
+              return null;
+            }
+
+            if (methodName === 'map') {
+              const func = methodArgs[0];
+              if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
+                throw new Error("RUNTIME ERROR: map() expects a callable argument.");
+              }
+              const mapped = [];
+              for (let i = 0; i < target.length; i++) {
+                const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+                const args = arity === 2 ? [target[i], i] : [target[i]];
+                if (typeof func === 'function') {
+                  mapped.push(func(args));
+                } else {
+                  mapped.push(func.call(this, args));
+                }
+              }
+              return mapped;
+            }
+
+            if (methodName === 'filter') {
+              const func = methodArgs[0];
+              if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
+                throw new Error("RUNTIME ERROR: filter() expects a callable argument.");
+              }
+              const filtered = [];
+              for (let i = 0; i < target.length; i++) {
+                const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+                const args = arity === 2 ? [target[i], i] : [target[i]];
+                let res;
+                if (typeof func === 'function') {
+                  res = func(args);
+                } else {
+                  res = func.call(this, args);
+                }
+                if (this.isTruthy(res)) {
+                  filtered.push(target[i]);
+                }
+              }
+              return filtered;
+            }
+
+            if (methodName === 'push' || methodName === 'add') {
+              if (methodArgs.length < 1) {
+                throw new Error("RUNTIME ERROR: push() expects an item to add.");
+              }
+              target.push(methodArgs[0]);
+              return target;
+            }
+
+            if (methodName === 'pop') {
+              return target.pop();
+            }
+
+            throw new Error(`RUNTIME ERROR: Vector has no method '${methodName}'.`);
           }
         }
         throw new Error(`RUNTIME ERROR: Invalid member access.`);
