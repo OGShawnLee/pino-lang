@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "shawn-lee",
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.40.0"
   },
   "categories": [
     "Programming Languages"
