@@ -727,7 +727,7 @@ class Parser {
 
     while (true) {
       if (this.match(TokenType.OPERATOR, ':')) {
-        const right = this.expression(); // can be method call or identifier
+        const right = this.primary(); // can be method call or identifier
         expr = new BinaryExpr(expr, ':', right);
       } else if (this.match(TokenType.OPERATOR, '::')) {
         const right = this.primary();
