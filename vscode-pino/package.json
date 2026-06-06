@@ -1,0 +1,35 @@
+{
+  "name": "pino-lang",
+  "displayName": "Pino Language Support",
+  "description": "Syntax highlighting and language support for Pino Lang (.pino)",
+  "version": "0.1.0",
+  "publisher": "shawn-lee",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "pino",
+        "aliases": [
+          "Pino",
+          "pino"
+        ],
+        "extensions": [
+          ".pino"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pino",
+        "scopeName": "source.pino",
+        "path": "./syntaxes/pino.tmLanguage.json"
+      }
+    ]
+  }
+}
