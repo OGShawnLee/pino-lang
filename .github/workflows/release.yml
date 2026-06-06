@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and Release
+  build:
+    name: Build Binary
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -18,12 +18,15 @@ jobs:
           - os: windows-latest
             rid: win-x64
             artifact_name: pino-windows-x64
+            file_name: pino-windows-x64.zip
           - os: ubuntu-latest
             rid: linux-x64
             artifact_name: pino-linux-x64
+            file_name: pino-linux-x64.tar.gz
           - os: macos-latest
             rid: osx-x64
             artifact_name: pino-macos-x64
+            file_name: pino-macos-x64.tar.gz
 
     steps:
       - name: Checkout repository
@@ -42,7 +45,7 @@ jobs:
         run: |
           cd publish
           Rename-Item -Path "pino-csharp.exe" -NewName "pino.exe"
-          Compress-Archive -Path "pino.exe" -DestinationPath "../${{ matrix.artifact_name }}.zip"
+          Compress-Archive -Path "pino.exe" -DestinationPath "../${{ matrix.file_name }}"
         shell: pwsh
 
       - name: Rename and compress binary (Unix)
@@ -51,15 +54,34 @@ jobs:
           cd publish
           mv pino-csharp pino
           chmod +x pino
-          tar -czf ../${{ matrix.artifact_name }}.tar.gz pino
+          tar -czf ../${{ matrix.file_name }} pino
         shell: bash
 
-      - name: Upload binaries to Release
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.file_name }}
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            *.zip
-            *.tar.gz
-          fail_on_unmatched_files: false
+            ./artifacts/*.zip
+            ./artifacts/*.tar.gz
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
