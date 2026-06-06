@@ -295,7 +295,7 @@ public class Evaluator {
             if (lit.Injections != null) {
               foreach (var inj in lit.Injections) {
                 var val = env.Get(inj);
-                str = str.Replace("#" + inj, val?.ToString() ?? "");
+                str = str.Replace("$" + inj, val?.ToString() ?? "");
               }
             }
             return str;

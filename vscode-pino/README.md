@@ -3,7 +3,7 @@
 This extension provides syntax highlighting, bracket matching, and auto-closing configurations for **Pino Lang** files (`.pino`).
 
 ## Features
-* **Syntax Highlighting**: Supports keywords, types, number underscores, strings, string variable injections (`#variable`), operators, booleans, and single-line comments.
+* **Syntax Highlighting**: Supports keywords, types, number underscores, strings, string variable injections (`$variable`), operators, booleans, and single-line comments.
 * **Auto-closing Pairs**: Automatically inserts matching quotes `"`, parenthesis `()`, braces `{}`, and brackets `[]`.
 * **Bracket Matching**: Highlights and matches structural braces and brackets.
 * **Line Comments**: Toggles commenting for lines via the standard `#` character using the default comment commands.

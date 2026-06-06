@@ -166,11 +166,11 @@ public class Lexer {
         return new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String, Injections: injections);
       }
 
-      // Check for string injection #varName, ignoring escaped injections \#
-      if (c == '#' && (index == 0 || line[index - 1] != '\\') && index + 1 < line.Length && IsIdentifierStart(line[index + 1]) && !char.IsDigit(line[index + 1])) {
+      // Check for string injection $varName, ignoring escaped injections \$
+      if (c == '$' && (index == 0 || line[index - 1] != '\\') && index + 1 < line.Length && IsIdentifierStart(line[index + 1]) && !char.IsDigit(line[index + 1])) {
         var injection = ConsumeStringInjection(line, ref index);
         injections.Add(injection);
-        buffer.Append("#").Append(injection);
+        buffer.Append("$").Append(injection);
         continue;
       }
 

@@ -116,14 +116,14 @@ public class LexerTests {
 
   [Fact]
   public void TestStringInterpolation() {
-    var input = "\"hello #name inside #room\"";
+    var input = "\"hello $name inside $room\"";
     var tokens = Lexer.LexLine(input);
 
     Assert.Single(tokens);
     var strToken = tokens[0];
     Assert.Equal(TokenType.Literal, strToken.Type);
     Assert.Equal(LiteralType.String, strToken.Literal);
-    Assert.Equal("hello #name inside #room", strToken.Data);
+    Assert.Equal("hello $name inside $room", strToken.Data);
     Assert.NotNull(strToken.Injections);
     Assert.Equal(2, strToken.Injections.Count);
     Assert.Contains("name", strToken.Injections);

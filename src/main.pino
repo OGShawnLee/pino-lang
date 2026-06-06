@@ -22,17 +22,17 @@ struct Person {
 
   fn get_message {
     return if is_married
-      then "#name lives in #country and a budget of #budget dollars and is married!"
-      else "#name lives in #country and a budget of #budget dollars and is not married"
+      then "$name lives in $country and a budget of $budget dollars and is married!"
+      else "$name lives in $country and a budget of $budget dollars and is not married"
   }
 
   fn greet {
-    println("Hello, #name")
+    println("Hello, $name")
   }
 
   fn marry(spouse str) {
     is_married = true
-    println("#name is now married to #spouse!")
+    println("$name is now married to $spouse!")
   }
 }
 
@@ -42,7 +42,7 @@ var children = 0
 var country = "China"
 var is_married = false
 val planet = Planet::EARTH
-var message = "#name lives in #country and has a budget of #budget"
+var message = "$name lives in $country and has a budget of $budget"
 val person = Person {
   name: name
   budget: budget
@@ -70,7 +70,7 @@ val jumpscare = fn {
 }
 
 val print_budget = fn (budget float) {
-  println("Your budget is #budget")
+  println("Your budget is $budget")
 }
 
 val call = fn (fun function) {
@@ -94,7 +94,7 @@ fn get_message(
   country str
   budget float
 ) {
-  return "#name lives in #country and has a budget of #budget"
+  return "$name lives in $country and has a budget of $budget"
 }
 
 fn get_str(prompt str) {
@@ -112,7 +112,7 @@ val final_message = get_message(
   get_float("What is your budget?")
 )
 
-println("Message: #final_message")
+println("Message: $final_message")
 
 val pair = [1, 2]
 val collection = [
@@ -123,7 +123,7 @@ val collection = [
 ]
 
 for character in collection {
-  println("#character is an awesome Gears of War character")
+  println("$character is an awesome Gears of War character")
 }
 
 for 12 {

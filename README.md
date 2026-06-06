@@ -8,7 +8,7 @@ Pino is built with a standalone tree-walk interpreter in **C# (.NET 10)** featur
 
 ## 🎨 Key Inspirations & Design Goals
 * **Kotlin-style Variables**: Clear distinction between mutable (`var`) and immutable (`val`) values.
-* **Ruby-style String Injections**: Interpolate variables directly in strings using simple `#variable` syntax.
+* **Kotlin/JS-style String Injections**: Interpolate variables directly in strings using simple `$variable` syntax.
 * **Go & Vlang-style Loops**: Easing block structures by using `for` as the unified keyword for loops (including infinite loops).
 * **Flexible Syntactic Commas**: Commas are optional in vectors, struct properties, and parameter lists—meaning you write cleaner layouts.
 * **No Unnecessary Parentheses**: Clean control blocks (`if`, `match`, and loop conditions) do not require parentheses around their conditions.
@@ -20,7 +20,7 @@ Pino is built with a standalone tree-walk interpreter in **C# (.NET 10)** featur
 | Feature Category | Feature Description | Status |
 | :--- | :--- | :---: |
 | **Variables** | Constant (`val`) & Mutable (`var`) declarations | `[X]` |
-| **Strings** | Lexical interpolation/injection (`#var`) | `[X]` |
+| **Strings** | Lexical interpolation/injection (`$var`) | `[X]` |
 | **Control Flow** | Unified `for` loop (infinite, range, iterator) | `[X]` |
 | | Control escape keywords (`break`, `continue`) | `[X]` |
 | | Conditionals (`if`, `else if`, `else`) | `[X]` |
@@ -49,19 +49,19 @@ age = 25 # Reassignment allowed on var
 ```
 
 ### String Interpolation
-Variables are interpolated directly inside double quotes via a `#` prefix.
+Variables are interpolated directly inside double quotes via a `$` prefix.
 ```pino
 val name = "Augustus"
 val empire = "Roman"
 
-println("#name was the first emperor of the #empire Empire.")
+println("$name was the first emperor of the $empire Empire.")
 ```
 
 ### Functions & Lambdas
 Functions are declared using `fn`. Parentheses are optional if a function has no parameters, and parameters do not require commas.
 ```pino
 fn greet(name string, city string) {
-  println("Hello #name from #city!")
+  println("Hello $name from $city!")
 }
 
 # High-order function returning a lambda closure
@@ -89,7 +89,7 @@ struct Vector2 {
 
 val pos = Vector2 { x: 3, y: 4 }
 val mag = pos:magnitude_sq()
-println("Magnitude Squared: #mag")
+println("Magnitude Squared: $mag")
 ```
 
 ### Loops
@@ -106,12 +106,12 @@ for {
 # 2. For In Loop (Iterating collections)
 val heroes = ["Marcus", "Dominic", "Baird", "Cole"]
 for hero in heroes {
-  println("Hero: #hero")
+  println("Hero: $hero")
 }
 
 # 3. For Times Loop (Iterating over a range limit)
 for time in 5 {
-  println("Iteration #time")
+  println("Iteration $time")
 }
 ```
 
