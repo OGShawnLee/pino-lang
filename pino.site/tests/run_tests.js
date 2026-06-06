@@ -64,6 +64,21 @@ const tests = [
       }
     `,
     expectedOutput: "0\n1\n2\n"
+  },
+  {
+    name: "Complex type signatures (arrays and function parameters)",
+    code: `
+      struct Mock {
+        data []int
+      }
+      fn each(arr []int, fun fn (int) int) {
+        for it in arr {
+          fun(it)
+        }
+      }
+      println("Type signatures parsed successfully!")
+    `,
+    expectedOutput: "Type signatures parsed successfully!\n"
   }
 ];
 

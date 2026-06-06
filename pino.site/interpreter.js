@@ -439,6 +439,36 @@ class Parser {
     throw new Error(`Parse Error: ${message} (Line ${this.peek().line}, found '${this.peek().value}')`);
   }
 
+  consumeTyping() {
+    if (this.match(TokenType.DELIMITER, '[')) {
+      this.consume(TokenType.DELIMITER, "Expect ']' for array type", ']');
+      const elemType = this.consumeTyping();
+      return "[]" + elemType;
+    }
+
+    if (this.match(TokenType.KEYWORD, 'fn')) {
+      this.consume(TokenType.DELIMITER, "Expect '(' for function type", '(');
+      const paramTypes = [];
+      while (!this.check(TokenType.DELIMITER, ')') && !this.isAtEnd()) {
+        paramTypes.push(this.consumeTyping());
+        this.match(TokenType.DELIMITER, ',');
+      }
+      this.consume(TokenType.DELIMITER, "Expect ')' after function type parameters", ')');
+      
+      let returnType = "";
+      if (this.check(TokenType.DELIMITER, '[') || 
+          this.check(TokenType.KEYWORD, 'fn') || 
+          this.check(TokenType.IDENTIFIER)) {
+        returnType = " " + this.consumeTyping();
+      }
+      
+      return `fn(${paramTypes.join(', ')})${returnType}`;
+    }
+
+    const typeToken = this.consume(TokenType.IDENTIFIER, "Expect type identifier");
+    return typeToken.value;
+  }
+
   parse() {
     const statements = [];
     while (!this.isAtEnd()) {
@@ -565,8 +595,8 @@ class Parser {
         methods.push(this.fnDeclaration());
       } else {
         const fieldNameToken = this.consume(TokenType.IDENTIFIER, "Expect field name");
-        const fieldTypeToken = this.consume(TokenType.IDENTIFIER, "Expect field type");
-        fields.push({ name: fieldNameToken.value, type: fieldTypeToken.value });
+        const fieldType = this.consumeTyping();
+        fields.push({ name: fieldNameToken.value, type: fieldType });
         // Optional commas between fields
         this.match(TokenType.DELIMITER, ',');
       }
@@ -600,7 +630,7 @@ class Parser {
     if (!this.check(TokenType.DELIMITER, ')')) {
       do {
         const paramName = this.consume(TokenType.IDENTIFIER, "Expect parameter name").value;
-        const paramType = this.consume(TokenType.IDENTIFIER, "Expect parameter type").value;
+        const paramType = this.consumeTyping();
         params.push({ name: paramName, type: paramType });
       } while (this.match(TokenType.DELIMITER, ',') || this.check(TokenType.IDENTIFIER));
     }
@@ -760,7 +790,7 @@ class Parser {
         if (!this.check(TokenType.DELIMITER, ')')) {
           do {
             const paramName = this.consume(TokenType.IDENTIFIER, "Expect parameter name").value;
-            const paramType = this.consume(TokenType.IDENTIFIER, "Expect parameter type").value;
+            const paramType = this.consumeTyping();
             parameters.push({ name: paramName, type: paramType });
           } while (this.match(TokenType.DELIMITER, ',') || this.check(TokenType.IDENTIFIER));
         }
