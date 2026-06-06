@@ -76,9 +76,8 @@ class Lexer {
         continue;
       }
 
-      // Multi-character operators and single characters
       if (this.matchAhead('+=') || this.matchAhead('-=') || this.matchAhead('*=') || this.matchAhead('/=') || this.matchAhead('%=') ||
-          this.matchAhead('==') || this.matchAhead('!=') || this.matchAhead('<=') || this.matchAhead('>=') || this.matchAhead('::')) {
+          this.matchAhead('==') || this.matchAhead('!=') || this.matchAhead('<=') || this.matchAhead('>=') || this.matchAhead('::') || this.matchAhead('=>')) {
         const op = this.source.slice(this.index, this.index + 2);
         this.tokens.push(new Token(TokenType.OPERATOR, op, this.line));
         this.index += 2;
@@ -796,8 +795,14 @@ class Parser {
         }
         this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
       }
-      this.consume(TokenType.DELIMITER, "Expect '{' before function lambda body", '{');
-      const body = this.block();
+      let body;
+      if (this.match(TokenType.OPERATOR, '=>')) {
+        const expr = this.expression();
+        body = new Block([new ReturnStmt(expr)]);
+      } else {
+        this.consume(TokenType.DELIMITER, "Expect '{' before function lambda body", '{');
+        body = this.block();
+      }
       return new FunctionLambdaExpression(parameters, body);
     }
 

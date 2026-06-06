@@ -26,7 +26,7 @@ public enum MarkerType {
 public enum OperatorType {
   Assignment, Addition, AdditionAssignment, Subtraction, SubtractionAssignment,
   Multiplication, MultiplicationAssignment, Division, DivisionAssignment, Modulus, ModulusAssignment,
-  LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, Equal, NotEqual, And, Or, Not, MemberAccess, StaticMemberAccess
+  LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, Equal, NotEqual, And, Or, Not, MemberAccess, StaticMemberAccess, Arrow
 }
 
 public record Token(

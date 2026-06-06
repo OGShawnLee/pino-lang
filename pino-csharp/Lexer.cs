@@ -67,6 +67,7 @@ public class Lexer {
         { "or", OperatorType.Or },
         { "not", OperatorType.Not },
         { ":", OperatorType.MemberAccess },
+        { "=>", OperatorType.Arrow },
         { "::", OperatorType.StaticMemberAccess }
     };
 

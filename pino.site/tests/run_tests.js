@@ -106,6 +106,17 @@ const tests = [
       println(arr:len)
     `,
     expectedOutput: "3\n4\n1\n2\n3\n4\n2\n4\n6\n8\n3\n4\n4\n3\n"
+  },
+  {
+    name: "Single-line arrow lambda syntax (=> desugaring)",
+    code: `
+      var numbers = [1, 2, 3, 4]
+      var doubles = numbers:map(fn (it number) => it * 2)
+      doubles:each(println)
+      var evens = numbers:filter(fn (it number) => it % 2 == 0)
+      evens:each(println)
+    `,
+    expectedOutput: "2\n4\n6\n8\n2\n4\n"
   }
 ];
 

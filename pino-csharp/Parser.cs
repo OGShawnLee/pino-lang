@@ -454,7 +454,15 @@ public class Parser {
     }
 
     var parameters = ConsumeParameters(stream);
-    var body = ParseBlock(stream);
+    
+    Statement body;
+    if (stream.Current.IsOperator(OperatorType.Arrow)) {
+      stream.Consume(); // consume '=>'
+      var expr = ParseExpression(stream);
+      body = new BlockStatement(new List<Statement> { new ReturnStatement(expr) });
+    } else {
+      body = ParseBlock(stream);
+    }
 
     return new FunctionLambdaExpression(parameters, body);
   }
