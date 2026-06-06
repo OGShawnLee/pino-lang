@@ -19,43 +19,11 @@ struct Player {
   fn take_damage(dmg int) {
     var new_hp = hp - dmg
     hp = if new_hp < 0 then 0 else new_hp
-    return self
   }
 
   fn heal(amt int) {
     var new_hp = hp + amt
     hp = if new_hp > max_hp then max_hp else new_hp
-    return self
-  }
-
-  fn use_ram(amt int) {
-    ram = ram - amt
-    return self
-  }
-
-  fn add_ram(amt int) {
-    ram = ram + amt
-    return self
-  }
-
-  fn use_coffee(amt int) {
-    coffee = coffee - amt
-    return self
-  }
-
-  fn add_coffee(amt int) {
-    coffee = coffee + amt
-    return self
-  }
-
-  fn add_gold(amt int) {
-    gold = gold + amt
-    return self
-  }
-
-  fn buff_attack(amt int) {
-    attack = attack + amt
-    return self
   }
 }
 
@@ -69,13 +37,7 @@ struct Enemy {
   fn take_damage(dmg int) {
     var new_hp = hp - dmg
     hp = if new_hp < 0 then 0 else new_hp
-    return self
   }
-}
-
-struct BattleResult {
-  p Player
-  e Enemy
 }
 
 # --- Pseudo-Random Number Generator (LCG) ---
@@ -96,36 +58,28 @@ fn rand(limit int) {
 
 # --- Combat Logic ---
 fn battle_round(p Player, e Enemy, action string) {
-  var next_p = p
-  var next_e = e
-
-  var p_atk = p:attack
-  var e_name = e:name
-  var p_ram = p:ram
-  var p_coffee = p:coffee
-
   match action {
     when "1" {
       # Calculate hit (with a little random modifier)
       var roll = rand(5)
-      var total_dmg = p_atk + roll
-      println(">>> You cast CompileAction! Dealing $total_dmg damage to $e_name.")
-      next_e = e:take_damage(total_dmg)
+      var total_dmg = p:attack + roll
+      println(">>> You cast CompileAction! Dealing $total_dmg damage to $(e:name).")
+      e:take_damage(total_dmg)
     }
     when "2" {
-      if p_ram >= 20 {
+      if p:ram >= 20 {
         println(">>> You run Garbage Collect! Sweeping memory leaks restores 30 HP.")
-        next_p = p:heal(30)
-        next_p = next_p:use_ram(20)
+        p:heal(30)
+        p:ram -= 20
       } else {
         println(">>> Not enough RAM! Garbage Collection requires 20 MB RAM.")
       }
     }
     when "3" {
-      if p_coffee > 0 {
+      if p:coffee > 0 {
         println(">>> You drink a hot cup of coffee! Restoring 55 HP.")
-        next_p = p:heal(55)
-        next_p = next_p:use_coffee(1)
+        p:heal(55)
+        p:coffee -= 1
       } else {
         println(">>> Out of Coffee! You need to buy more at the compiler shop.")
       }
@@ -136,95 +90,65 @@ fn battle_round(p Player, e Enemy, action string) {
   }
 
   # Enemy attacks back if still alive
-  if next_e:hp > 0 {
-    var e_atk = next_e:attack
+  if e:hp > 0 {
     var roll = rand(4)
-    var final_enemy_dmg = e_atk + roll
-    println("<<< $e_name attacks back, causing $final_enemy_dmg damage!")
-    next_p = next_p:take_damage(final_enemy_dmg)
+    var final_enemy_dmg = e:attack + roll
+    println("<<< $(e:name) attacks back, causing $final_enemy_dmg damage!")
+    p:take_damage(final_enemy_dmg)
   }
-
-  return BattleResult { p: next_p, e: next_e }
 }
 
 fn fight(p Player, e Enemy) {
-  var current_p = p
-  var current_e = e
-
-  var ename = e:name
-  var ehp = e:hp
-  var eatk = e:attack
-
   println("")
   println("==============================================")
-  println("WARNING: A wild bug [$ename] is blocking compiling!")
-  println("Bug Stats - HP: $ehp | Base Attack: $eatk")
+  println("WARNING: A wild bug [$(e:name)] is blocking compiling!")
+  println("Bug Stats - HP: $(e:hp) | Base Attack: $(e:attack)")
   println("==============================================")
 
   for {
-    var p_hp = current_p:hp
-    if p_hp <= 0 {
+    if p:hp <= 0 {
       break
     }
-    var e_hp = current_e:hp
-    if e_hp <= 0 {
+    if e:hp <= 0 {
       break
     }
-
-    # Print round status
-    var p_name = current_p:name
-    var p_max = current_p:max_hp
-    var p_ram = current_p:ram
-    var p_coff = current_p:coffee
-    var patk = current_p:attack
 
     println("")
     println("--- Active Process Status ---")
-    println("Hero $p_name: HP $p_hp/$p_max | RAM $p_ram MB | Coffee $p_coff")
-    println("Bug $ename  : HP $e_hp")
+    println("Hero $(p:name): HP $(p:hp)/$(p:max_hp) | RAM $(p:ram) MB | Coffee $(p:coffee)")
+    println("Bug $(e:name)  : HP $(e:hp)")
     println("-----------------------------")
     println("Actions:")
-    println("  1. CompileAction (Attack for ~$patk dmg)")
+    println("  1. CompileAction (Attack for ~$(p:attack) dmg)")
     println("  2. Garbage Collect (+30 HP, costs 20 RAM)")
     println("  3. Drink Coffee (+55 HP, costs 1 Coffee)")
     println("  4. Do Nothing")
 
     var choice = readline("> Enter action code: ")
-    var result = battle_round(current_p, current_e, choice)
-    current_p = result:p
-    current_e = result:e
+    battle_round(p, e, choice)
   }
 
-  var final_p_hp = current_p:hp
+  var final_p_hp = p:hp
   if final_p_hp <= 0 {
     println("")
     println("FATAL ERROR: Compilation Crashed! Process terminated with status 1.")
-    return current_p
+    return
   }
 
-  var r_coff = current_e:reward_coffee
-  var r_ram = current_e:reward_ram
   println("")
-  println("SUCCESS: Resolved bug [$ename]!")
-  println("System Rewards: +$r_coff Coffee, +$r_ram MB of RAM")
+  println("SUCCESS: Resolved bug [$(e:name)]!")
+  println("System Rewards: +$(e:reward_coffee) Coffee, +$(e:reward_ram) MB of RAM")
 
-  current_p = current_p:add_coffee(r_coff)
-  current_p = current_p:add_ram(r_ram)
-  return current_p
+  p:coffee += e:reward_coffee
+  p:ram += e:reward_ram
 }
 
 # --- Upgrades Shop ---
 fn compiler_shop(p Player) {
-  var current_p = p
   for {
     println("")
     println("===== COMPILER CAFE & UPGRADE CENTER =====")
-    var gold_val = current_p:gold
-    var coffee_val = current_p:coffee
-    var ram_val = current_p:ram
-    var attack_val = current_p:attack
-
-    println("Available Cycles (Gold): $gold_val")
+    println("Available Cycles (Gold): $(p:gold)")
     println("1. Upgrade CPU (Attack +5)      - Cost: 10 cycles")
     println("2. Buy Coffee (Coffee +1)       - Cost: 5 cycles")
     println("3. Expand RAM (RAM +25 MB)      - Cost: 8 cycles")
@@ -234,34 +158,28 @@ fn compiler_shop(p Player) {
     var choice = readline("> Choose option: ")
     match choice {
       when "1" {
-        if gold_val >= 10 {
-          current_p = current_p:buff_attack(5)
-          var cost = 0 - 10
-          current_p = current_p:add_gold(cost)
-          var new_atk = current_p:attack
-          println("CPU Upgraded! Base attack is now $new_atk.")
+        if p:gold >= 10 {
+          p:attack += 5
+          p:gold -= 10
+          println("CPU Upgraded! Base attack is now $(p:attack).")
         } else {
           println("Insufficient cycles for CPU upgrade.")
         }
       }
       when "2" {
-        if gold_val >= 5 {
-          current_p = current_p:add_coffee(1)
-          var cost = 0 - 5
-          current_p = current_p:add_gold(cost)
-          var new_coff = current_p:coffee
-          println("Coffee added! You now have $new_coff cups.")
+        if p:gold >= 5 {
+          p:coffee += 1
+          p:gold -= 5
+          println("Coffee added! You now have $(p:coffee) cups.")
         } else {
           println("Insufficient cycles to buy coffee.")
         }
       }
       when "3" {
-        if gold_val >= 8 {
-          current_p = current_p:add_ram(25)
-          var cost = 0 - 8
-          current_p = current_p:add_gold(cost)
-          var new_ram = current_p:ram
-          println("RAM Expanded! Total RAM capacity is now $new_ram MB.")
+        if p:gold >= 8 {
+          p:ram += 25
+          p:gold -= 8
+          println("RAM Expanded! Total RAM capacity is now $(p:ram) MB.")
         } else {
           println("Insufficient cycles to expand RAM.")
         }
@@ -274,7 +192,6 @@ fn compiler_shop(p Player) {
       }
     }
   }
-  return current_p
 }
 
 # --- Main Game Entry Point ---
@@ -367,7 +284,7 @@ fn main() {
       println("BUG LEVEL $level: Fighting $(bug:name)")
       println("----------------------------------------------")
 
-      player = fight(player, bug)
+      fight(player, bug)
 
       var check_hp = player:hp
       if check_hp > 0 {
@@ -376,8 +293,8 @@ fn main() {
         println("")
         println("Bug Level $level successfully resolved!")
         println("You earned $reward_gold cycles (gold) for code review.")
-        player = player:add_gold(reward_gold)
-        player = compiler_shop(player)
+        player:gold += reward_gold
+        compiler_shop(player)
       }
     }
 
@@ -426,24 +343,21 @@ fn main() {
 
     var stage_num = 1
     for bug in bugs {
-      var p_hp = player:hp
-      if p_hp > 0 {
-        var bug_name = bug:name
+      if player:hp > 0 {
         println("")
         println("----------------------------------------------")
-        println("STAGE $stage_num: Fighting $bug_name")
+        println("STAGE $stage_num: Fighting $(bug:name)")
         println("----------------------------------------------")
         
-        player = fight(player, bug)
+        fight(player, bug)
 
-        var check_hp = player:hp
-        if check_hp > 0 {
+        if player:hp > 0 {
           stage_num = stage_num + 1
           println("")
           println("Compiling successful for Stage!")
           println("You earned 15 cycles (gold) for code review.")
-          player = player:add_gold(15)
-          player = compiler_shop(player)
+          player:gold += 15
+          compiler_shop(player)
         }
       }
     }
