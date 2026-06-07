@@ -140,6 +140,7 @@ public class Evaluator {
     _globals.Define("sleep", new SleepFunction(), true);
     _globals.Define("type", new TypeFunction(), true);
     _globals.Define("str", new StrFunction(), true);
+    _globals.Define("clear", new ClearFunction(), true);
   }
 
   public void Execute(Statement statement) {
@@ -813,6 +814,20 @@ public class Evaluator {
     public int Arity => 1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
       return evaluator.FormatVal(arguments[0]);
+    }
+  }
+
+  private class ClearFunction : IPinoCallable {
+    public int Arity => 0;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      try {
+        if (!Console.IsOutputRedirected) {
+          Console.Clear();
+        }
+      } catch {
+        // Ignore
+      }
+      return null;
     }
   }
 }

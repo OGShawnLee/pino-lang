@@ -1184,6 +1184,11 @@ class Interpreter {
     this.globalEnv.define('str', (args) => {
       return this.formatVal(args[0]);
     }, true);
+
+    this.globalEnv.define('clear', (args) => {
+      this.outputCallback('\f');
+      return null;
+    }, true);
   }
 
   formatVal(val) {

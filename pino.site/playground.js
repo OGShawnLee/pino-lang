@@ -119,7 +119,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Capture standard output
     const onOutput = (text) => {
-      appendOutput(text);
+      if (text === '\f') {
+        clearConsole();
+      } else {
+        appendOutput(text);
+      }
     };
 
     // Capture standard input using prompt
