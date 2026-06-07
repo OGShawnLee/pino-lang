@@ -210,7 +210,9 @@ public class Lexer {
 
           string exprStr = line.Substring(startExpr, index - 1 - startExpr);
           var exprTokens = LexLine(exprStr);
+          tokens.Add(new Token(TokenType.Marker, "(", Marker: MarkerType.ParenthesisBegin));
           tokens.AddRange(exprTokens);
+          tokens.Add(new Token(TokenType.Marker, ")", Marker: MarkerType.ParenthesisEnd));
           continue;
         } else if (IsIdentifierStart(line[index + 1]) && !char.IsDigit(line[index + 1])) {
           // Simple interpolation $varName

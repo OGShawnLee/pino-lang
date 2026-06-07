@@ -8,10 +8,16 @@ namespace Pino;
 public class PinoReturnException : Exception {
   public object? Value { get; }
   public PinoReturnException(object? value) => Value = value;
+  public override string StackTrace => string.Empty;
 }
 
-public class PinoBreakException : Exception { }
-public class PinoContinueException : Exception { }
+public class PinoBreakException : Exception {
+  public override string StackTrace => string.Empty;
+}
+
+public class PinoContinueException : Exception {
+  public override string StackTrace => string.Empty;
+}
 
 // Callables Interface
 public interface IPinoCallable {

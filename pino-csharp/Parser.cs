@@ -383,6 +383,15 @@ public class Parser {
   }
 
   private static Expression ParsePrimaryExpression(TokenStream stream) {
+    if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+      stream.Consume();
+      var expr = ParseExpression(stream);
+      if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
+        throw new Exception("PARSER: Expected ')' to close grouped expression");
+      }
+      return expr;
+    }
+
     if (IsFunctionCall(stream)) {
       return ParseFunctionCall(stream);
     }
