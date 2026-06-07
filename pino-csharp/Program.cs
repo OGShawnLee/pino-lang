@@ -62,6 +62,10 @@ class Program {
         RunUpdate();
         break;
 
+      case "play":
+        PlayGame(args.Length > 1 ? args[1] : null);
+        break;
+
       default:
         Console.WriteLine("Invalid command. Type 'help' for usage.");
         break;
@@ -75,6 +79,8 @@ class Program {
     Console.WriteLine("  repl                : Start the Pino interactive REPL");
     Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
     Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
+    Console.WriteLine("  play [game-name]    : Launch an interactive console game from the pino.games directory");
+    Console.WriteLine("  play update         : Download or update the official Pino games library from GitHub");
     Console.WriteLine("  version, v          : Show Pino version information");
     Console.WriteLine("  update              : Check for and install compiler updates");
     Console.WriteLine("  <empty>             : Run main.pino in current directory if exists");
@@ -344,5 +350,107 @@ class Program {
       return "[" + string.Join(", ", list.Select(FormatVal)) + "]";
     }
     return arg?.ToString() ?? "null";
+  }
+
+  static void PlayGame(string? gameName) {
+    var gamesDir = Path.Combine(System.Environment.CurrentDirectory, "pino.games");
+    if (!Directory.Exists(gamesDir)) {
+      gamesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pino.games");
+    }
+
+    if (gameName == "--update" || gameName == "update") {
+      DownloadGames(gamesDir);
+      return;
+    }
+
+    if (!Directory.Exists(gamesDir)) {
+      Console.WriteLine("pino.games directory not found locally.");
+      Console.Write("Would you like to download and install the official Pino games? (y/n): ");
+      var ans = Console.ReadLine()?.Trim().ToLower();
+      if (ans == "y" || ans == "yes") {
+        gamesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pino.games");
+        DownloadGames(gamesDir);
+      } else {
+        Console.WriteLine("Play command aborted.");
+        return;
+      }
+    }
+
+    if (!Directory.Exists(gamesDir)) {
+      Console.WriteLine("Error: Games directory does not exist.");
+      return;
+    }
+
+    if (!string.IsNullOrEmpty(gameName)) {
+      if (!gameName.EndsWith(".pino")) {
+        gameName += ".pino";
+      }
+      var gamePath = Path.Combine(gamesDir, gameName);
+      if (!File.Exists(gamePath)) {
+        Console.WriteLine($"Error: Game '{gameName}' not found in '{gamesDir}'.");
+        return;
+      }
+      RunFile(gamePath);
+      return;
+    }
+
+    var files = Directory.GetFiles(gamesDir, "*.pino");
+    if (files.Length == 0) {
+      Console.WriteLine($"Error: No .pino games found in '{gamesDir}'.");
+      return;
+    }
+
+    Console.WriteLine("================================================");
+    Console.WriteLine("          🎮 PINO GAMES STATION 🎮             ");
+    Console.WriteLine("================================================");
+    Console.WriteLine("Select a game to play:");
+    for (int i = 0; i < files.Length; i++) {
+      Console.WriteLine($" {i + 1}. {Path.GetFileNameWithoutExtension(files[i])}");
+    }
+    Console.WriteLine("================================================");
+    
+    while (true) {
+      Console.Write($"Choose game (1-{files.Length}) or '.exit': ");
+      var input = Console.ReadLine()?.Trim();
+      if (input == ".exit") {
+        break;
+      }
+      if (int.TryParse(input, out var idx) && idx >= 1 && idx <= files.Length) {
+        var selectedGame = files[idx - 1];
+        SafeClearConsole();
+        RunFile(selectedGame);
+        break;
+      }
+      Console.WriteLine("Invalid selection. Please try again.");
+    }
+  }
+
+  static void DownloadGames(string targetDir) {
+    Console.WriteLine("🌲 Downloading Pino games repository...");
+    try {
+      using var client = new HttpClient();
+      client.DefaultRequestHeaders.UserAgent.ParseAdd("PinoCompiler-GamesDownloader");
+      
+      var zipBytes = client.GetByteArrayAsync("https://github.com/OGShawnLee/pino-lang/archive/refs/heads/main.zip").Result;
+      
+      using var ms = new MemoryStream(zipBytes);
+      using var archive = new ZipArchive(ms);
+      
+      Directory.CreateDirectory(targetDir);
+      
+      int count = 0;
+      foreach (var entry in archive.Entries) {
+        var parts = entry.FullName.Split('/');
+        if (parts.Length > 2 && parts[1] == "pino.games" && !string.IsNullOrEmpty(parts[2])) {
+          var destPath = Path.Combine(targetDir, parts[2]);
+          entry.ExtractToFile(destPath, overwrite: true);
+          count++;
+        }
+      }
+      
+      Console.WriteLine($"🌲 Success! Downloaded and installed {count} games in '{targetDir}'.");
+    } catch (Exception ex) {
+      Console.WriteLine($"Error downloading games: {ex.Message}");
+    }
   }
 }
