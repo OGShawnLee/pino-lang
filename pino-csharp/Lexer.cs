@@ -22,6 +22,7 @@ public class Lexer {
         { "in", KeywordType.In },
         { "for", KeywordType.Loop },
         { "match", KeywordType.Match },
+        { "module", KeywordType.Module },
         { "pub", KeywordType.Pub },
         { "return", KeywordType.Return },
         { "static", KeywordType.Static },

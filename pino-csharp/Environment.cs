@@ -6,6 +6,7 @@ namespace Pino;
 public class Environment {
   private readonly Dictionary<string, (object? Value, bool IsConstant, string Typing)> _values = new();
   private readonly Environment? _parent;
+  public HashSet<string> PublicExports { get; } = new();
 
   public Environment(Environment? parent = null) {
     _parent = parent;

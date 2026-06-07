@@ -131,10 +131,15 @@ public class Parser {
   private static ProgramStatement ParseProgram(TokenStream stream) {
     PushScope(stream);
     var statements = new List<Statement>();
+    bool first = true;
     while (stream.HasNext) {
       var stmt = ParseStatement(stream);
       if (stmt != null) {
+        if (stmt is ModuleDeclaration && !first) {
+          throw new Exception("PARSER: 'module' declaration must be the first statement in the file");
+        }
         statements.Add(stmt);
+        first = false;
       }
     }
     PopScope(stream);
@@ -143,37 +148,63 @@ public class Parser {
 
   private static Statement ParseStatement(TokenStream stream) {
     var current = stream.Current;
+    bool isPublic = false;
+
+    if (current.IsKeyword(KeywordType.Pub)) {
+      stream.Consume(); // consume 'pub'
+      isPublic = true;
+      current = stream.Current;
+    }
 
     if (current.Type == TokenType.Keyword) {
       switch (current.Keyword) {
         case KeywordType.Variable:
         case KeywordType.Constant:
-          return ParseVariableDeclaration(stream);
+          return ParseVariableDeclaration(stream, isPublic);
         case KeywordType.Function:
-          return ParseFunctionDeclaration(stream);
+          return ParseFunctionDeclaration(stream, isPublic);
         case KeywordType.Struct:
-          return ParseStructDeclaration(stream);
+          return ParseStructDeclaration(stream, isPublic);
         case KeywordType.Enum:
-          return ParseEnumDeclaration(stream);
+          return ParseEnumDeclaration(stream, isPublic);
+        case KeywordType.Module:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'module' declaration");
+          return ParseModuleDeclaration(stream);
+        case KeywordType.Import:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'import' statement");
+          return ParseImportStatement(stream);
+        case KeywordType.From:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'from ... import' statement");
+          return ParseFromImportStatement(stream);
         case KeywordType.Return:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'return' statement");
           return ParseReturnStatement(stream);
         case KeywordType.Loop:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'for' loop");
           return ParseLoopStatement(stream);
         case KeywordType.If:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'if' statement");
           return ParseIfStatement(stream);
         case KeywordType.Break:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'break'");
           stream.Consume();
           return new IdentifierExpression("break");
         case KeywordType.Continue:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'continue'");
           stream.Consume();
           return new IdentifierExpression("continue");
         case KeywordType.Match:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'match' statement");
           return ParseMatchStatement(stream);
         case KeywordType.Else:
           throw new Exception("PARSER: Else statement without corresponding If");
         case KeywordType.When:
           throw new Exception("PARSER: When branch outside of Match statement");
       }
+    }
+
+    if (isPublic) {
+      throw new Exception("PARSER: 'pub' can only prefix declarations (var, val, fn, struct, enum)");
     }
 
     if (current.Type == TokenType.Identifier || current.Type == TokenType.Literal || current.Type == TokenType.Marker) {
@@ -184,6 +215,46 @@ public class Parser {
 
     stream.Consume(); // skip unknown/illegal
     return null!;
+  }
+
+  private static ModuleDeclaration ParseModuleDeclaration(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Module)) {
+      throw new Exception("PARSER: Expected 'module' keyword");
+    }
+    var identifier = ConsumeIdentifier(stream);
+    return new ModuleDeclaration(identifier);
+  }
+
+  private static ImportStatement ParseImportStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Import)) {
+      throw new Exception("PARSER: Expected 'import' keyword");
+    }
+    var moduleName = ConsumeIdentifier(stream);
+    DeclareVariable(stream, moduleName);
+    return new ImportStatement(moduleName);
+  }
+
+  private static FromImportStatement ParseFromImportStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.From)) {
+      throw new Exception("PARSER: Expected 'from' keyword");
+    }
+    var moduleName = ConsumeIdentifier(stream);
+    if (!stream.Consume().IsKeyword(KeywordType.Import)) {
+      throw new Exception("PARSER: Expected 'import' keyword after from <ModuleName>");
+    }
+    
+    var imports = new List<string>();
+    while (true) {
+      var importedName = ConsumeIdentifier(stream);
+      imports.Add(importedName);
+      DeclareVariable(stream, importedName);
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+        continue;
+      }
+      break;
+    }
+    return new FromImportStatement(moduleName, imports);
   }
 
   private static bool IsExpression(TokenStream stream) {
@@ -224,7 +295,7 @@ public class Parser {
     return stream.Current.IsMarker(MarkerType.BracketBegin);
   }
 
-  private static VariableDeclaration ParseVariableDeclaration(TokenStream stream) {
+  private static VariableDeclaration ParseVariableDeclaration(TokenStream stream, bool isPublic = false) {
     var keywordToken = stream.Consume();
     var kind = keywordToken.Keyword == KeywordType.Constant ? VariableKind.Constant : VariableKind.Variable;
 
@@ -233,10 +304,10 @@ public class Parser {
     var value = ParseExpression(stream);
 
     DeclareVariable(stream, identifier);
-    return new VariableDeclaration(kind, identifier, value);
+    return new VariableDeclaration(kind, identifier, value, IsPublic: isPublic);
   }
 
-  private static FunctionDeclaration ParseFunctionDeclaration(TokenStream stream) {
+  private static FunctionDeclaration ParseFunctionDeclaration(TokenStream stream, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Function)) {
       throw new Exception("PARSER: Expected 'fn' keyword");
     }
@@ -254,10 +325,10 @@ public class Parser {
 
     DeclareVariable(stream, identifier);
 
-    return new FunctionDeclaration(identifier, parameters, body);
+    return new FunctionDeclaration(identifier, parameters, body, IsPublic: isPublic);
   }
 
-  private static StructDeclaration ParseStructDeclaration(TokenStream stream) {
+  private static StructDeclaration ParseStructDeclaration(TokenStream stream, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Struct)) {
       throw new Exception("PARSER: Expected 'struct' keyword");
     }
@@ -268,10 +339,10 @@ public class Parser {
 
     ConsumeAttributesAndMethods(stream, fields, methods);
 
-    return new StructDeclaration(identifier, fields, methods);
+    return new StructDeclaration(identifier, fields, methods, IsPublic: isPublic);
   }
 
-  private static EnumDeclaration ParseEnumDeclaration(TokenStream stream) {
+  private static EnumDeclaration ParseEnumDeclaration(TokenStream stream, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Enum)) {
       throw new Exception("PARSER: Expected 'enum' keyword");
     }
@@ -279,7 +350,7 @@ public class Parser {
     var identifier = ConsumeIdentifier(stream);
     var members = ConsumeEnumMembers(stream);
 
-    return new EnumDeclaration(identifier, members);
+    return new EnumDeclaration(identifier, members, IsPublic: isPublic);
   }
 
   private static ReturnStatement ParseReturnStatement(TokenStream stream) {

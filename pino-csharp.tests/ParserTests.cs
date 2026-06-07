@@ -180,4 +180,31 @@ public class ParserTests {
     var body = Assert.IsType<BlockStatement>(ifStmt.Consequent);
     Assert.Empty(body.Statements);
   }
+
+  [Fact]
+  public void TestParseModuleAndImports() {
+    var inputModule = "module Math";
+    var stmtModule = Parser.ParseString(inputModule);
+    var modDecl = Assert.IsType<ModuleDeclaration>(stmtModule);
+    Assert.Equal("Math", modDecl.Identifier);
+
+    var inputImport = "import Combat";
+    var stmtImport = Parser.ParseString(inputImport);
+    var impStmt = Assert.IsType<ImportStatement>(stmtImport);
+    Assert.Equal("Combat", impStmt.ModuleName);
+
+    var inputFrom = "from Entities import Person, Pet";
+    var stmtFrom = Parser.ParseString(inputFrom);
+    var fromStmt = Assert.IsType<FromImportStatement>(stmtFrom);
+    Assert.Equal("Entities", fromStmt.ModuleName);
+    Assert.Equal(2, fromStmt.Imports.Count);
+    Assert.Equal("Person", fromStmt.Imports[0]);
+    Assert.Equal("Pet", fromStmt.Imports[1]);
+
+    var inputPub = "pub fn add(a int) {}";
+    var stmtPub = Parser.ParseString(inputPub);
+    var fnDecl = Assert.IsType<FunctionDeclaration>(stmtPub);
+    Assert.True(fnDecl.IsPublic);
+  }
 }
+

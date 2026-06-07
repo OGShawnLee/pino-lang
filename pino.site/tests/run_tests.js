@@ -212,8 +212,41 @@ const tests = [
       println(n)
     `,
     expectedOutput: "true\n"
+  },
+  {
+    name: "Module Namespace Imports (import Combat)",
+    code: `
+      import Combat
+      Combat::execute_strike(150)
+    `,
+    expectedOutput: "Strike executed with power: 150\n"
+  },
+  {
+    name: "Module Destructured Imports (from Entities import Hero, max_level)",
+    code: `
+      from Entities import Hero, max_level
+      val h = Hero { name: "Marcus" }
+      println("Hero name: $(h:name), Max Level: $max_level")
+    `,
+    expectedOutput: "Hero name: Marcus, Max Level: 99\n"
   }
 ];
+
+globalThis.pinoModules = {
+  combat: `
+    module Combat
+    pub fn execute_strike(power int) {
+      println("Strike executed with power: $power")
+    }
+  `,
+  entities: `
+    module Entities
+    pub struct Hero {
+      name string
+    }
+    pub val max_level = 99
+  `
+};
 
 let failed = 0;
 

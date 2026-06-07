@@ -31,7 +31,7 @@ public record WhenStatement(List<Expression> Conditions, Statement Body) : State
 public record MatchStatement(Expression Condition, List<WhenStatement> Branches, ElseStatement? Alternate) : Statement;
 
 // --- DECLARATIONS ---
-public abstract record Declaration(string Identifier) : Statement;
+public abstract record Declaration(string Identifier, bool IsPublic = false) : Statement;
 
 public enum VariableKind {
   Constant,
@@ -40,13 +40,19 @@ public enum VariableKind {
   Property
 }
 
-public record VariableDeclaration(VariableKind Kind, string Identifier, Expression? Value, string Typing = "") : Declaration(Identifier);
+public record VariableDeclaration(VariableKind Kind, string Identifier, Expression? Value, string Typing = "", bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement Body) : Declaration(Identifier);
+public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement Body, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods) : Declaration(Identifier);
+public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record EnumDeclaration(string Identifier, List<string> Members) : Declaration(Identifier);
+public record EnumDeclaration(string Identifier, List<string> Members, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+
+public record ModuleDeclaration(string Identifier) : Statement;
+
+public record ImportStatement(string ModuleName) : Statement;
+
+public record FromImportStatement(string ModuleName, List<string> Imports) : Statement;
 
 // --- EXPRESSIONS ---
 public abstract record Expression : Statement;

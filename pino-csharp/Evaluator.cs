@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace Pino;
@@ -125,9 +126,24 @@ public record PinoEnumValue(string EnumName, string Member) {
   public override string ToString() => $"{EnumName}::{Member}";
 }
 
+// Module representation
+public class PinoModule {
+  public string Name { get; }
+  public Environment Environment { get; }
+  public HashSet<string> PublicExports { get; }
+
+  public PinoModule(string name, Environment environment, HashSet<string> publicExports) {
+    Name = name;
+    Environment = environment;
+    PublicExports = publicExports;
+  }
+}
+
 // Evaluator / Interpreter
 public class Evaluator {
   private readonly Environment _globals = new();
+  private readonly Dictionary<string, PinoModule> _moduleCache = new();
+  private readonly HashSet<string> _currentlyLoadingModules = new();
 
   public Evaluator() {
     // Define built-in functions
@@ -188,22 +204,53 @@ public class Evaluator {
         if (varDecl.Kind == VariableKind.Constant || varDecl.Kind == VariableKind.Variable) {
           var val = varDecl.Value != null ? Evaluate(varDecl.Value, env) : null;
           env.Define(varDecl.Identifier, val, varDecl.Kind == VariableKind.Constant);
+          if (varDecl.IsPublic) {
+            env.PublicExports.Add(varDecl.Identifier);
+          }
         }
         break;
 
       case FunctionDeclaration fnDecl:
         var fn = new PinoFunction(fnDecl, env);
         env.Define(fnDecl.Identifier, fn, true);
+        if (fnDecl.IsPublic) {
+          env.PublicExports.Add(fnDecl.Identifier);
+        }
         break;
 
       case StructDeclaration structDecl:
         var @struct = new PinoStruct(structDecl.Identifier, structDecl.Fields, structDecl.Methods);
         env.Define(structDecl.Identifier, @struct, true);
+        if (structDecl.IsPublic) {
+          env.PublicExports.Add(structDecl.Identifier);
+        }
         break;
 
       case EnumDeclaration enumDecl:
         var @enum = new PinoEnum(enumDecl.Identifier, enumDecl.Members);
         env.Define(enumDecl.Identifier, @enum, true);
+        if (enumDecl.IsPublic) {
+          env.PublicExports.Add(enumDecl.Identifier);
+        }
+        break;
+
+      case ModuleDeclaration:
+        // Handled during load/resolution, ignored during sequential execution.
+        break;
+
+      case ImportStatement impStmt:
+        var module = ResolveAndLoadModule(impStmt.ModuleName);
+        env.Define(impStmt.ModuleName, module, true);
+        break;
+
+      case FromImportStatement fromImpStmt:
+        var fromModule = ResolveAndLoadModule(fromImpStmt.ModuleName);
+        foreach (var name in fromImpStmt.Imports) {
+          if (!fromModule.PublicExports.Contains(name)) {
+            throw new Exception($"RUNTIME ERROR: Module '{fromImpStmt.ModuleName}' does not export '{name}' (or it is private).");
+          }
+          env.Define(name, fromModule.Environment.Get(name), true);
+        }
         break;
 
       case Expression expr:
@@ -644,19 +691,51 @@ public class Evaluator {
   }
 
   private object? EvaluateStaticMemberAccess(Expression leftExpr, Expression rightExpr, Environment env) {
+    if (leftExpr is IdentifierExpression id) {
+      if (env.Exists(id.Name)) {
+        var leftVal = env.Get(id.Name);
+        if (leftVal is PinoModule module) {
+          // Case 1: module::method(...)
+          if (rightExpr is FunctionCallExpression methodCall) {
+            var memberName = methodCall.Callee;
+            if (!module.PublicExports.Contains(memberName)) {
+              throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
+            }
+            var callableObj = module.Environment.Get(memberName);
+            if (callableObj is not IPinoCallable callable) {
+              throw new Exception($"RUNTIME ERROR: '{memberName}' is not callable.");
+            }
+            var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+            return callable.Call(this, methodArgs);
+          }
+
+          // Case 2: module::member reference
+          if (rightExpr is IdentifierExpression memberId) {
+            var memberName = memberId.Name;
+            if (!module.PublicExports.Contains(memberName)) {
+              throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
+            }
+            return module.Environment.Get(memberName);
+          }
+          
+          throw new Exception("RUNTIME ERROR: Right side of '::' must be a member name or function call.");
+        }
+      }
+    }
+
     var enumName = (leftExpr as IdentifierExpression)?.Name ?? throw new Exception("RUNTIME ERROR: Left side of '::' must be an enum name.");
-    var memberName = (rightExpr as IdentifierExpression)?.Name ?? throw new Exception("RUNTIME ERROR: Right side of '::' must be an enum member.");
+    var memberNameEnum = (rightExpr as IdentifierExpression)?.Name ?? throw new Exception("RUNTIME ERROR: Right side of '::' must be an enum member.");
 
     var enumObj = env.Get(enumName);
     if (enumObj is not PinoEnum pinoEnum) {
-      throw new Exception($"RUNTIME ERROR: Enum '{enumName}' is not defined.");
+      throw new Exception($"RUNTIME ERROR: Target '{enumName}' is neither a module nor an enum.");
     }
 
-    if (!pinoEnum.Members.Contains(memberName)) {
-      throw new Exception($"RUNTIME ERROR: Enum '{enumName}' has no member '{memberName}'.");
+    if (!pinoEnum.Members.Contains(memberNameEnum)) {
+      throw new Exception($"RUNTIME ERROR: Enum '{enumName}' has no member '{memberNameEnum}'.");
     }
 
-    return new PinoEnumValue(enumName, memberName);
+    return new PinoEnumValue(enumName, memberNameEnum);
   }
 
     bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;
@@ -830,4 +909,50 @@ public class Evaluator {
       return null;
     }
   }
+
+  private PinoModule ResolveAndLoadModule(string moduleName) {
+    if (_moduleCache.TryGetValue(moduleName, out var cachedModule)) {
+      return cachedModule;
+    }
+
+    var filename = moduleName.ToLower() + ".pino";
+    var modulesDir = Path.Combine(System.Environment.CurrentDirectory, "modules");
+    var filePath = Path.Combine(modulesDir, filename);
+
+    if (!File.Exists(filePath)) {
+      throw new Exception($"RUNTIME ERROR: Module '{moduleName}' not found. Expected file at '{filePath}'.");
+    }
+
+    ProgramStatement program;
+    try {
+      program = Parser.ParseFile(filePath);
+    } catch (Exception ex) {
+      throw new Exception($"RUNTIME ERROR: Failed to parse module '{moduleName}': {ex.Message}");
+    }
+
+    if (_currentlyLoadingModules.Contains(moduleName)) {
+      throw new Exception($"RUNTIME ERROR: Circular dependency detected while importing module '{moduleName}'.");
+    }
+    _currentlyLoadingModules.Add(moduleName);
+
+    try {
+      var moduleEnv = new Environment(_globals);
+      foreach (var stmt in program.Statements) {
+        if (stmt is ModuleDeclaration modDecl) {
+          if (modDecl.Identifier != moduleName) {
+            throw new Exception($"RUNTIME ERROR: Module name mismatch. Declared '{modDecl.Identifier}' in file, but imported as '{moduleName}'.");
+          }
+          continue;
+        }
+        Execute(stmt, moduleEnv);
+      }
+
+      var pinoModule = new PinoModule(moduleName, moduleEnv, moduleEnv.PublicExports);
+      _moduleCache[moduleName] = pinoModule;
+      return pinoModule;
+    } finally {
+      _currentlyLoadingModules.Remove(moduleName);
+    }
+  }
 }
+

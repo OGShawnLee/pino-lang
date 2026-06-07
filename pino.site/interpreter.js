@@ -26,7 +26,8 @@ class Lexer {
     this.line = 1;
     this.tokens = [];
     this.keywords = new Set([
-      'var', 'val', 'fn', 'struct', 'enum', 'if', 'else', 'match', 'when', 'for', 'in', 'break', 'continue', 'return', 'true', 'false', 'then'
+      'var', 'val', 'fn', 'struct', 'enum', 'if', 'else', 'match', 'when', 'for', 'in', 'break', 'continue', 'return', 'true', 'false', 'then',
+      'module', 'import', 'from', 'pub'
     ]);
   }
 
@@ -227,11 +228,12 @@ class Stmt {}
 class Expr {}
 
 class VarDecl extends Stmt {
-  constructor(name, valueExpr, isConstant) {
+  constructor(name, valueExpr, isConstant, isPublic = false) {
     super();
     this.name = name;
     this.valueExpr = valueExpr;
     this.isConstant = isConstant;
+    this.isPublic = isPublic;
   }
 }
 
@@ -272,28 +274,53 @@ class MatchStmt extends Stmt {
 }
 
 class StructDecl extends Stmt {
-  constructor(name, fields, methods) {
+  constructor(name, fields, methods, isPublic = false) {
     super();
     this.name = name;
     this.fields = fields; // array of {name, type}
     this.methods = methods; // array of FnDecl
+    this.isPublic = isPublic;
   }
 }
 
 class EnumDecl extends Stmt {
-  constructor(name, members) {
+  constructor(name, members, isPublic = false) {
     super();
     this.name = name;
     this.members = members; // array of string names
+    this.isPublic = isPublic;
   }
 }
 
 class FnDecl extends Stmt {
-  constructor(name, params, body) {
+  constructor(name, params, body, isPublic = false) {
     super();
     this.name = name;
     this.params = params; // array of {name, type}
     this.body = body;
+    this.isPublic = isPublic;
+  }
+}
+
+class ModuleDecl extends Stmt {
+  constructor(name) {
+    super();
+    this.name = name;
+  }
+}
+
+class ImportStmt extends Stmt {
+  constructor(moduleName) {
+    super();
+    this.moduleName = moduleName;
+  }
+}
+
+class FromImportStmt extends Stmt {
+  constructor(moduleName, imports) {
+    super();
+    this.moduleName = moduleName;
+    this.imports = imports;
   }
 }
 
@@ -539,9 +566,17 @@ class Parser {
   parse() {
     this.pushScope();
     const statements = [];
+    let first = true;
     while (!this.isAtEnd()) {
       try {
-        statements.push(this.statement());
+        const stmt = this.statement();
+        if (stmt) {
+          if (stmt instanceof ModuleDecl && !first) {
+            throw new Error("Parse Error: 'module' declaration must be the first statement in the file");
+          }
+          statements.push(stmt);
+          first = false;
+        }
       } catch (err) {
         this.popScope();
         throw err;
@@ -552,14 +587,49 @@ class Parser {
   }
 
   statement() {
-    if (this.match(TokenType.KEYWORD, 'val')) return this.varDeclaration(true);
-    if (this.match(TokenType.KEYWORD, 'var')) return this.varDeclaration(false);
+    let isPublic = false;
+    if (this.match(TokenType.KEYWORD, 'pub')) {
+      isPublic = true;
+    }
+
+    if (this.match(TokenType.KEYWORD, 'val')) return this.varDeclaration(true, isPublic);
+    if (this.match(TokenType.KEYWORD, 'var')) return this.varDeclaration(false, isPublic);
+    if (this.match(TokenType.KEYWORD, 'struct')) return this.structDeclaration(isPublic);
+    if (this.match(TokenType.KEYWORD, 'enum')) return this.enumDeclaration(isPublic);
+    if (this.match(TokenType.KEYWORD, 'fn')) return this.fnDeclaration(isPublic);
+
+    if (isPublic) {
+      throw new Error("Parse Error: 'pub' can only prefix declarations (var, val, fn, struct, enum)");
+    }
+
+    if (this.match(TokenType.KEYWORD, 'module')) {
+      const nameToken = this.consume(TokenType.IDENTIFIER, "Expect module name");
+      return new ModuleDecl(nameToken.value);
+    }
+    if (this.match(TokenType.KEYWORD, 'import')) {
+      const nameToken = this.consume(TokenType.IDENTIFIER, "Expect module name");
+      this.declareVariable(nameToken.value);
+      return new ImportStmt(nameToken.value);
+    }
+    if (this.match(TokenType.KEYWORD, 'from')) {
+      const moduleToken = this.consume(TokenType.IDENTIFIER, "Expect module name");
+      this.consume(TokenType.KEYWORD, "Expect 'import' after module name", 'import');
+      const imports = [];
+      while (true) {
+        const impToken = this.consume(TokenType.IDENTIFIER, "Expect imported member name");
+        imports.push(impToken.value);
+        this.declareVariable(impToken.value);
+        if (this.match(TokenType.DELIMITER, ',')) {
+          continue;
+        }
+        break;
+      }
+      return new FromImportStmt(moduleToken.value, imports);
+    }
+
     if (this.match(TokenType.KEYWORD, 'if')) return this.ifStatement();
     if (this.match(TokenType.KEYWORD, 'for')) return this.forStatement();
     if (this.match(TokenType.KEYWORD, 'match')) return this.matchStatement();
-    if (this.match(TokenType.KEYWORD, 'struct')) return this.structDeclaration();
-    if (this.match(TokenType.KEYWORD, 'enum')) return this.enumDeclaration();
-    if (this.match(TokenType.KEYWORD, 'fn')) return this.fnDeclaration();
     if (this.match(TokenType.KEYWORD, 'return')) return this.returnStatement();
     if (this.match(TokenType.KEYWORD, 'break')) return new BreakStmt();
     if (this.match(TokenType.KEYWORD, 'continue')) return new ContinueStmt();
@@ -567,12 +637,12 @@ class Parser {
     return this.expressionStatement();
   }
 
-  varDeclaration(isConstant) {
+  varDeclaration(isConstant, isPublic = false) {
     const nameToken = this.consume(TokenType.IDENTIFIER, "Expect variable name");
     this.consume(TokenType.OPERATOR, "Expect '=' after variable name", '=');
     const valueExpr = this.expression();
     this.declareVariable(nameToken.value);
-    return new VarDecl(nameToken.value, valueExpr, isConstant);
+    return new VarDecl(nameToken.value, valueExpr, isConstant, isPublic);
   }
 
   ifStatement() {
@@ -659,7 +729,7 @@ class Parser {
     return new MatchStmt(condition, branches, alternate);
   }
 
-  structDeclaration() {
+  structDeclaration(isPublic = false) {
     const nameToken = this.consume(TokenType.IDENTIFIER, "Expect struct name");
     this.consume(TokenType.DELIMITER, "Expect '{' after struct name", '{');
     
@@ -679,10 +749,10 @@ class Parser {
     }
 
     this.consume(TokenType.DELIMITER, "Expect '}' to close struct declaration", '}');
-    return new StructDecl(nameToken.value, fields, methods);
+    return new StructDecl(nameToken.value, fields, methods, isPublic);
   }
 
-  enumDeclaration() {
+  enumDeclaration(isPublic = false) {
     const nameToken = this.consume(TokenType.IDENTIFIER, "Expect enum name");
     this.consume(TokenType.DELIMITER, "Expect '{' after enum name", '{');
     const members = [];
@@ -694,10 +764,10 @@ class Parser {
     }
 
     this.consume(TokenType.DELIMITER, "Expect '}' to close enum declaration", '}');
-    return new EnumDecl(nameToken.value, members);
+    return new EnumDecl(nameToken.value, members, isPublic);
   }
 
-  fnDeclaration() {
+  fnDeclaration(isPublic = false) {
     const nameToken = this.consume(TokenType.IDENTIFIER, "Expect function name");
     
     // Parameters are in parentheses
@@ -722,7 +792,7 @@ class Parser {
 
     this.declareVariable(nameToken.value);
 
-    return new FnDecl(nameToken.value, params, body);
+    return new FnDecl(nameToken.value, params, body, isPublic);
   }
 
   returnStatement() {
@@ -1023,6 +1093,7 @@ class Environment {
     this.parent = parent;
     this.records = new Map();
     this.constants = new Set();
+    this.publicExports = new Set();
   }
 
   define(name, value, isConstant = false) {
@@ -1095,6 +1166,14 @@ class PinoCallable {
   }
 }
 
+class PinoModule {
+  constructor(name, environment, publicExports) {
+    this.name = name;
+    this.environment = environment;
+    this.publicExports = publicExports; // Set
+  }
+}
+
 // Tree-Walk Interpreter
 class Interpreter {
   constructor(outputCallback = console.log, inputCallback = () => '') {
@@ -1103,6 +1182,8 @@ class Interpreter {
     this.globalEnv = new Environment();
     this.structs = new Map();
     this.enums = new Map();
+    this.moduleCache = new Map();
+    this.currentlyLoadingModules = new Set();
     this.initGlobals();
   }
 
@@ -1218,6 +1299,9 @@ class Interpreter {
     if (stmt instanceof VarDecl) {
       const val = stmt.valueExpr ? this.evaluateExpression(stmt.valueExpr, env) : null;
       env.define(stmt.name, val, stmt.isConstant);
+      if (stmt.isPublic) {
+        env.publicExports.add(stmt.name);
+      }
     } else if (stmt instanceof Block) {
       this.executeBlock(stmt.statements, new Environment(env));
     } else if (stmt instanceof IfStmt) {
@@ -1244,14 +1328,35 @@ class Interpreter {
       this.executeMatch(stmt, env);
     } else if (stmt instanceof StructDecl) {
       this.structs.set(stmt.name, stmt);
-      // Also register struct constructor in env
       env.define(stmt.name, stmt, true);
+      if (stmt.isPublic) {
+        env.publicExports.add(stmt.name);
+      }
     } else if (stmt instanceof EnumDecl) {
       this.enums.set(stmt.name, stmt.members);
       env.define(stmt.name, stmt, true);
+      if (stmt.isPublic) {
+        env.publicExports.add(stmt.name);
+      }
     } else if (stmt instanceof FnDecl) {
       const callable = new PinoCallable(stmt, env);
       env.define(stmt.name, callable, true);
+      if (stmt.isPublic) {
+        env.publicExports.add(stmt.name);
+      }
+    } else if (stmt instanceof ModuleDecl) {
+      // Handled during load/resolution, ignored during sequential execution.
+    } else if (stmt instanceof ImportStmt) {
+      const module = this.resolveAndLoadModule(stmt.moduleName);
+      env.define(stmt.moduleName, module, true);
+    } else if (stmt instanceof FromImportStmt) {
+      const fromModule = this.resolveAndLoadModule(stmt.moduleName);
+      for (const name of stmt.imports) {
+        if (!fromModule.publicExports.has(name)) {
+          throw new Error(`RUNTIME ERROR: Module '${stmt.moduleName}' does not export '${name}' (or it is private).`);
+        }
+        env.define(name, fromModule.environment.get(name), true);
+      }
     } else if (stmt instanceof ExprStmt) {
       this.evaluateExpression(stmt.expression, env);
     } else if (stmt instanceof ReturnStmt) {
@@ -1333,6 +1438,58 @@ class Interpreter {
     if (!matched && stmt.alternate) {
       this.evaluateStatement(stmt.alternate, env);
     }
+  }
+
+  resolveAndLoadModule(moduleName) {
+    if (this.moduleCache.has(moduleName)) {
+      return this.moduleCache.get(moduleName);
+    }
+
+    const source = this.getModuleSource(moduleName);
+    if (!source) {
+      throw new Error(`Runtime Error: Module '${moduleName}' not found.`);
+    }
+
+    if (this.currentlyLoadingModules.has(moduleName)) {
+      throw new Error(`Runtime Error: Circular dependency detected while importing module '${moduleName}'.`);
+    }
+    this.currentlyLoadingModules.add(moduleName);
+
+    try {
+      const lexer = new Lexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const statements = parser.parse();
+
+      const moduleEnv = new Environment(this.globalEnv);
+
+      for (const stmt of statements) {
+        if (stmt instanceof ModuleDecl) {
+          if (stmt.name !== moduleName) {
+            throw new Error(`Runtime Error: Module name mismatch. Declared '${stmt.name}' in file, but imported as '${moduleName}'.`);
+          }
+          continue;
+        }
+        this.evaluateStatement(stmt, moduleEnv);
+      }
+
+      const pinoModule = new PinoModule(moduleName, moduleEnv, moduleEnv.publicExports);
+      this.moduleCache.set(moduleName, pinoModule);
+      return pinoModule;
+    } finally {
+      this.currentlyLoadingModules.delete(moduleName);
+    }
+  }
+
+  getModuleSource(moduleName) {
+    if (this.getModuleSourceCallback) {
+      return this.getModuleSourceCallback(moduleName);
+    }
+    const lowerName = moduleName.toLowerCase();
+    if (globalThis.pinoModules) {
+      return globalThis.pinoModules[lowerName] || globalThis.pinoModules[moduleName];
+    }
+    return null;
   }
 
   evaluateExpression(expr, env) {
@@ -1526,8 +1683,37 @@ class Interpreter {
         throw new Error(`RUNTIME ERROR: Invalid member access.`);
       }
 
-      // Static member access Enum::Member
+      // Static member access Enum::Member or Module::Member
       if (expr.operator === '::') {
+        if (expr.left instanceof IdentifierExpr && env.exists(expr.left.name)) {
+          const leftVal = env.get(expr.left.name);
+          if (leftVal instanceof PinoModule) {
+            const right = expr.right;
+            if (right instanceof CallExpr && right.callee instanceof IdentifierExpr) {
+              const memberName = right.callee.name;
+              if (!leftVal.publicExports.has(memberName)) {
+                throw new Error(`RUNTIME ERROR: Member '${memberName}' is not exported by module '${leftVal.name}' (or is private).`);
+              }
+              const fn = leftVal.environment.get(memberName);
+              const methodArgs = right.args.map(a => this.evaluateExpression(a, env));
+              if (typeof fn === 'function') {
+                return fn(methodArgs);
+              }
+              if (fn instanceof PinoCallable) {
+                return fn.call(this, methodArgs);
+              }
+              throw new Error(`RUNTIME ERROR: '${memberName}' is not callable.`);
+            } else if (right instanceof IdentifierExpr) {
+              const memberName = right.name;
+              if (!leftVal.publicExports.has(memberName)) {
+                throw new Error(`RUNTIME ERROR: Member '${memberName}' is not exported by module '${leftVal.name}' (or is private).`);
+              }
+              return leftVal.environment.get(memberName);
+            }
+            throw new Error("RUNTIME ERROR: Right side of '::' must be a member name or function call.");
+          }
+        }
+
         const enumName = expr.left.name;
         const memberName = expr.right.name;
         const members = this.enums.get(enumName);
@@ -1672,5 +1858,5 @@ function runPinoCode(sourceCode, onOutput, onInput) {
 
 // Export modules for node or browser usage
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Lexer, Parser, Interpreter, runPinoCode };
+  module.exports = { Lexer, Parser, Environment, PinoModule, Interpreter, runPinoCode };
 }
