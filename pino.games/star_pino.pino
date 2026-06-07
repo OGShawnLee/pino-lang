@@ -76,7 +76,7 @@ fn handle_military_encounter(ship Ship) {
   println("\"Outlaw detected! Prepare to be neutralized!\"")
   println("")
 
-  var mil_hp = 100
+  var mil_hp = 120
   var escaped = false
 
   for {
@@ -88,7 +88,7 @@ fn handle_military_encounter(ship Ship) {
     println("Choose Action:")
     println(" 1. Fire Lasers (Deals 15-25 damage, Cruiser attacks)")
     println(" 2. Overcharge Shield (+25 shields, Cruiser attacks)")
-    println(" 3. Flee (Consumes 20 fuel, 35% escape chance)")
+    println(" 3. Flee (Consumes 25 fuel, 25% escape chance)")
 
     val choice = readline("> ")
 
@@ -98,7 +98,7 @@ fn handle_military_encounter(ship Ship) {
       println("You deal $dmg damage to the Federation cruiser!")
       
       if mil_hp > 0 {
-        val p_dmg = 15 + rand(16)
+        val p_dmg = 18 + rand(20)
         println("The battlecruiser heavy turrets fire back dealing $p_dmg damage!")
         if ship:shield >= p_dmg {
           ship:shield = ship:shield - p_dmg
@@ -117,7 +117,7 @@ fn handle_military_encounter(ship Ship) {
       }
       println("Shields boosted to $(ship:shield)!")
       
-      val p_dmg = 15 + rand(16)
+      val p_dmg = 18 + rand(20)
       println("The battlecruiser heavy turrets fire back dealing $p_dmg damage!")
       if ship:shield >= p_dmg {
         ship:shield = ship:shield - p_dmg
@@ -129,15 +129,15 @@ fn handle_military_encounter(ship Ship) {
       readline("Press Enter to continue...")
       clear()
     } else if choice == "3" {
-      if ship:fuel >= 20 {
-        ship:fuel = ship:fuel - 20
+      if ship:fuel >= 25 {
+        ship:fuel = ship:fuel - 25
         val roll = rand(100)
-        if roll < 35 {
+        if roll < 25 {
           println("Escape successful! You warp away from the Federation.")
           escaped = true
         } else {
           println("Escape failed! The Federation jams your hyperspace drive and fires!")
-          val p_dmg = 20 + rand(11)
+          val p_dmg = 25 + rand(11)
           if ship:shield >= p_dmg {
             ship:shield = ship:shield - p_dmg
           } else {
@@ -153,7 +153,7 @@ fn handle_military_encounter(ship Ship) {
       clear()
     } else {
       println("Invalid action! You take heavy fire!")
-      val p_dmg = 15 + rand(11)
+      val p_dmg = 18 + rand(11)
       if ship:shield >= p_dmg {
         ship:shield = ship:shield - p_dmg
       } else {
@@ -287,10 +287,10 @@ fn handle_pirate_encounter(ship Ship) {
   println("          🚨 WARNING: PIRATES! 🚨")
   println("----------------------------------------")
   println("An outlaw cruiser drops out of warp!")
-  println("They demand 100 credits, or they will open fire!")
+  println("They demand 150 credits, or they will open fire!")
   println("")
 
-  var pirate_hp = 60
+  var pirate_hp = 80
   var escaped = false
 
   for {
@@ -302,8 +302,8 @@ fn handle_pirate_encounter(ship Ship) {
     println("Choose Action:")
     println(" 1. Fire Lasers (Deals 15-25 damage, Pirate attacks)")
     println(" 2. Overcharge Shield (+25 shields, Pirate attacks)")
-    println(" 3. Pay Ransom (100 credits)")
-    println(" 4. Flee (Consumes 15 fuel, 50% escape chance)")
+    println(" 3. Pay Ransom (150 credits)")
+    println(" 4. Flee (Consumes 15 fuel, 40% escape chance)")
 
     val choice = readline("> ")
 
@@ -313,7 +313,7 @@ fn handle_pirate_encounter(ship Ship) {
       println("You deal $dmg damage to the pirate cruiser!")
       
       if pirate_hp > 0 {
-        val p_dmg = 10 + rand(16)
+        val p_dmg = 12 + rand(18)
         println("The pirate fires back dealing $p_dmg damage!")
         if ship:shield >= p_dmg {
           ship:shield = ship:shield - p_dmg
@@ -332,7 +332,7 @@ fn handle_pirate_encounter(ship Ship) {
       }
       println("Shields boosted to $(ship:shield)!")
       
-      val p_dmg = 10 + rand(16)
+      val p_dmg = 12 + rand(18)
       println("The pirate attacks dealing $p_dmg damage!")
       if ship:shield >= p_dmg {
         ship:shield = ship:shield - p_dmg
@@ -344,13 +344,13 @@ fn handle_pirate_encounter(ship Ship) {
       readline("Press Enter to continue...")
       clear()
     } else if choice == "3" {
-      if ship:credits >= 100 {
-        ship:credits = ship:credits - 100
-        println("You transfer 100 credits. The pirates warp away.")
+      if ship:credits >= 150 {
+        ship:credits = ship:credits - 150
+        println("You transfer 150 credits. The pirates warp away.")
         escaped = true
       } else {
         println("You don't have enough credits! The pirates mock you and attack!")
-        val p_dmg = 15 + rand(11)
+        val p_dmg = 18 + rand(11)
         if ship:shield >= p_dmg {
           ship:shield = ship:shield - p_dmg
         } else {
@@ -365,12 +365,12 @@ fn handle_pirate_encounter(ship Ship) {
       if ship:fuel >= 15 {
         ship:fuel = ship:fuel - 15
         val roll = rand(100)
-        if roll < 50 {
+        if roll < 40 {
           println("Escape successful! You warp away from the pirates.")
           escaped = true
         } else {
           println("Escape failed! The pirates jam your warp drive and fire!")
-          val p_dmg = 15 + rand(16)
+          val p_dmg = 18 + rand(16)
           if ship:shield >= p_dmg {
             ship:shield = ship:shield - p_dmg
           } else {
@@ -386,7 +386,7 @@ fn handle_pirate_encounter(ship Ship) {
       clear()
     } else {
       println("Invalid input! You waste time and the pirates fire!")
-      val p_dmg = 10 + rand(11)
+      val p_dmg = 12 + rand(11)
       if ship:shield >= p_dmg {
         ship:shield = ship:shield - p_dmg
       } else {
@@ -430,7 +430,7 @@ fn travel_to_sector(sectors []Sector, state GameState, target_idx int) {
   }
 
   ship:fuel = ship:fuel - fuel_cost
-  println("Warping to $(target:name)... consumed $fuel_cost fuel.")
+  println("Micro-jumping to $(target:name)... consumed $fuel_cost fuel.")
   sleep(1500)
 
   val roll = rand(100)
@@ -455,7 +455,7 @@ fn travel_to_sector(sectors []Sector, state GameState, target_idx int) {
         println("Not enough fuel to go slow! You are forced to speed through.")
         val roll2 = rand(100)
         if roll2 < 30 {
-          val hull_loss = 15 + rand(16)
+          val hull_loss = 20 + rand(16)
           ship:hull = ship:hull - hull_loss
           println("💥 Ouch! An asteroid hit your ship, dealing $hull_loss hull damage.")
         } else {
@@ -465,7 +465,7 @@ fn travel_to_sector(sectors []Sector, state GameState, target_idx int) {
     } else {
       val roll2 = rand(100)
       if roll2 < 30 {
-        val hull_loss = 15 + rand(16)
+        val hull_loss = 20 + rand(16)
         ship:hull = ship:hull - hull_loss
         println("💥 Ouch! An asteroid hit your ship, dealing $hull_loss hull damage.")
       } else {
@@ -548,7 +548,7 @@ fn mine_sector(sectors []Sector, state GameState) {
 
   val trap_roll = rand(100)
   if trap_roll < risk {
-    val dmg = 10 + rand(16)
+    val dmg = 15 + rand(16)
     ship:hull = ship:hull - dmg
     println("💥 A pocket of volatile gas exploded! You take $dmg hull damage.")
   } else {
@@ -711,8 +711,8 @@ fn trade_menu(sectors []Sector, state GameState) {
     println(" 2. Sell All Ore")
     println(" 3. Sell All Water")
     println(" 4. Repair Hull (2 CR / point)")
-    println(" 5. Purchase Warp Core (800 CR - WINS GAME)")
-    println(" 6. Visit the Miners' Lounge (10 CR)")
+    println(" 5. Purchase Hyper-Warp Core (2000 CR - WINS GAME)")
+    println(" 6. Visit the Miners' Lounge (15 CR)")
     println(" 7. Leave Dock")
 
     val choice = readline("> ")
@@ -783,19 +783,23 @@ fn trade_menu(sectors []Sector, state GameState) {
       }
       readline("Press Enter to continue...")
     } else if choice == "5" {
-      if ship:credits >= 800 {
-        ship:credits = ship:credits - 800
-        ship:max_cargo = 999999
-        println("🎉 Warp Core purchased! Ready to make the jump to Earth!")
-        readline("Press Enter to continue...")
-        return GameState { ship: ship, current_sector_idx: state:current_sector_idx, special_sector_idx: special_idx, special_sector_boost: special_boost }
+      if sector:name != "Sol Station" {
+        println("❌ The Hyper-Warp Core is regulated military tech and is only sold at Sol Station!")
       } else {
-        println("❌ Insufficient credits! The Warp Core is the most premium technology in the sector.")
+        if ship:credits >= 2000 {
+          ship:credits = ship:credits - 2000
+          ship:max_cargo = 999999
+          println("🎉 Hyper-Warp Core purchased! Ready to make the jump to Earth!")
+          readline("Press Enter to continue...")
+          return GameState { ship: ship, current_sector_idx: state:current_sector_idx, special_sector_idx: special_idx, special_sector_boost: special_boost }
+        } else {
+          println("❌ Insufficient credits! The Hyper-Warp Core is the most premium technology in the sector.")
+        }
       }
       readline("Press Enter to continue...")
     } else if choice == "6" {
-      if ship:credits >= 10 {
-        ship:credits = ship:credits - 10
+      if ship:credits >= 15 {
+        ship:credits = ship:credits - 15
         
         clear()
         println("----------------------------------------")
@@ -803,8 +807,8 @@ fn trade_menu(sectors []Sector, state GameState) {
         println("----------------------------------------")
 
         val blackout_roll = rand(100)
-        if blackout_roll < 15 {
-          println("🍻 You buy a round of space beers for 10 CR.")
+        if blackout_roll < 25 {
+          println("🍻 You buy a round of space beers for 15 CR.")
           println("🥴 Oh no! You had one too many space beers and blacked out!")
           var loss = 20 + rand(31)
           if ship:credits < loss {
@@ -840,21 +844,23 @@ fn trade_menu(sectors []Sector, state GameState) {
             special_idx = r_idx
             special_boost = 2
             
-            println("🍻 You buy a round of space beers for 10 CR. The miners raise their glasses!")
+            println("🍻 You buy a round of space beers for 15 CR. The miners raise their glasses!")
             println("A weathered veteran pulls you aside:")
             println("\"Listen closely... We found an incredibly rich mineral vein in $s_name.")
             println("If you go there now, you'll mine DOUBLE the normal yields before it gets depleted!\"")
           } else {
-            println("🍻 You buy a round of space beers for 10 CR. The miners raise their glasses!")
-            val tip_roll = rand(4)
+            println("🍻 You buy a round of space beers for 15 CR. The miners raise their glasses!")
+            val tip_roll = rand(5)
             if tip_roll == 0 {
-              println("An old miner tells you: \"Sol Station doesn't allow mining, but Krypton Depths is great for Ore!\"")
+              println("An old miner tells you: \"We're all trapped in this Gliese red dwarf system. Sol Station, Krypton Depths, the Icefields... we all orbit the same dying dwarf star. Micro-jumps let us hop between planets, but we need a heavy Hyper-Warp Core to leap back to Earth.\"")
             } else if tip_roll == 1 {
-              println("A pilot whispers: \"Earth Federation cruisers patrol civilian areas. Don't raid civilians unless you're ready for military combat!\"")
+              println("A retired historian sighs: \"Sol Station was built by Earth pioneers 50 years ago. But when the jump gate collapsed, we were stranded here. Now the Syndicate controls the outer nebula, and the Federation hoards the only working Hyper-Warp Core blueprints.\"")
             } else if tip_roll == 2 {
-              println("A technician says: \"If you're an Outlaw, Sol Station demands 150 CR bribe to dock, but Pirate Nebula has zero bribe!\"")
+              println("A drunken technician whispers: \"You think you can just fly back to Earth? Ha! Normal engines only warp us locally inside this system's gravity wells. Only the 2,000 CR Hyper-Warp Core has the raw power to rip open a wormhole home.\"")
+            } else if tip_roll == 3 {
+              println("A smuggler warns you: \"Federation patrols treat this red dwarf system as their private colony. If you become an Outlaw, you can't dock at Sol Station without a hefty 500 CR bribe, but the Pirate Nebula station is free for Syndicate brothers.\"")
             } else {
-              println("A miner tips you: \"Upgrade your shields to survive asteroid swarm crossings and pirate ambushes!\"")
+              println("A seasoned navigator tips you: \"Gliese Icefield is full of water comets, while Krypton Depths is heavy ore. Mine them, build your fortune, but remember: danger increases as you go further from Sol Station's protective shield!\"")
             }
           }
           println("")
@@ -872,7 +878,7 @@ fn trade_menu(sectors []Sector, state GameState) {
           println("✨ LEVEL UP! Your Mining Skill increased to $(ship:mining_skill)!")
         }
       } else {
-        println("❌ You need at least 10 credits to buy a round of drinks!")
+        println("❌ You need at least 15 credits to buy a round of drinks!")
       }
       readline("Press Enter to continue...")
     } else if choice == "7" {
@@ -892,7 +898,7 @@ fn main {
   val sectors = [s1, s2, s3, s4]
 
   var ship = Ship {
-    credits: 150,
+    credits: 100,
     fuel: 60,
     max_fuel: 100,
     hull: 100,
@@ -914,11 +920,11 @@ fn main {
   
   clear()
   println("================================================")
-  println("          🚀 STARPINO ODYSSEY v1.2 🚀           ")
+  println("          🚀 STARPINO ODYSSEY v1.3 🚀           ")
   println("================================================")
   println("Your mission is to explore sectors, mine resources,")
   println("trade, survive pirate attacks, and purchase a")
-  println("Warp Core (800 CR) to return home to Earth.")
+  println("Hyper-Warp Core (2000 CR) to return home to Earth.")
   println("")
   println("NEW MECHANICS:")
   println(" - Intimidation & Syndicate: Recruit by pirates, raid civilian vessels.")
@@ -946,7 +952,7 @@ fn main {
       println("================================================")
       println("🎉 CONGRATULATIONS CAPTAIN! 🎉")
       println("================================================")
-      println("With the Warp Core installed, your ship makes")
+      println("With the Hyper-Warp Core installed, your ship makes")
       println("the jump to Earth. You successfully returned home!")
       println("================================================")
       break
@@ -1014,7 +1020,7 @@ fn main {
         if current_ship:is_pirate == 1 {
           var bribe = 50
           if sector:name == "Sol Station" {
-            bribe = 150
+            bribe = 500
           }
           if sector:name == "Pirate Nebula" {
             bribe = 0
