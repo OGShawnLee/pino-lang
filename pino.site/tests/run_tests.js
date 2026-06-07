@@ -177,6 +177,26 @@ const tests = [
       println(replaced)
     `,
     expectedOutput: "20\n20\nHello Pino Lang!\nhello pino lang!\nHELLO PINO LANG!\ntrue\nfalse\nHello\nPino\nLang!\nGoodbye Pino Lang!\n"
+  },
+  {
+    name: "Implicit lambda argument wrapping containing 'it'",
+    code: `
+      val numbers = [1, 2, 3, 4]
+      var tripled = numbers:map(it * 3)
+      tripled:each(println)
+    `,
+    expectedOutput: "3\n6\n9\n12\n"
+  },
+  {
+    name: "No implicit lambda wrapping when 'it' is declared",
+    code: `
+      val numbers = [1, 2, 3, 4]
+      fn process(it number) {
+        println(it * 3)
+      }
+      process(5)
+    `,
+    expectedOutput: "15\n"
   }
 ];
 

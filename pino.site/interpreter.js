@@ -398,6 +398,74 @@ class Parser {
   constructor(tokens) {
     this.tokens = tokens;
     this.index = 0;
+    this.scopes = [];
+  }
+
+  pushScope() {
+    this.scopes.push(new Set());
+  }
+
+  popScope() {
+    if (this.scopes.length > 0) {
+      this.scopes.pop();
+    }
+  }
+
+  declareVariable(name) {
+    if (this.scopes.length > 0) {
+      this.scopes[this.scopes.length - 1].add(name);
+    }
+  }
+
+  isDeclared(name) {
+    for (let i = this.scopes.length - 1; i >= 0; i--) {
+      if (this.scopes[i].has(name)) return true;
+    }
+    return false;
+  }
+
+  containsUndeclaredIt(expr) {
+    if (!expr) return false;
+    if (expr instanceof IdentifierExpr) {
+      return expr.name === 'it' && !this.isDeclared('it');
+    }
+    if (expr instanceof BinaryExpr) {
+      return this.containsUndeclaredIt(expr.left) || this.containsUndeclaredIt(expr.right);
+    }
+    if (expr instanceof UnaryExpr) {
+      return this.containsUndeclaredIt(expr.right);
+    }
+    if (expr instanceof TernaryExpr) {
+      return this.containsUndeclaredIt(expr.condition) || 
+             this.containsUndeclaredIt(expr.consequent) || 
+             this.containsUndeclaredIt(expr.alternate);
+    }
+    if (expr instanceof CallExpr) {
+      for (const arg of expr.args) {
+        if (this.containsUndeclaredIt(arg)) return true;
+      }
+      return false;
+    }
+    if (expr instanceof VectorExpr) {
+      if (expr.elements) {
+        for (const el of expr.elements) {
+          if (this.containsUndeclaredIt(el)) return true;
+        }
+      }
+      if (expr.lenExpr && this.containsUndeclaredIt(expr.lenExpr)) return true;
+      if (expr.initExpr && this.containsUndeclaredIt(expr.initExpr)) return true;
+      return false;
+    }
+    if (expr instanceof StructInstanceExpr) {
+      for (const key in expr.initializers) {
+        if (this.containsUndeclaredIt(expr.initializers[key])) return true;
+      }
+      return false;
+    }
+    if (expr instanceof FunctionLambdaExpression) {
+      return false;
+    }
+    return false;
   }
 
   peek() {
@@ -469,14 +537,17 @@ class Parser {
   }
 
   parse() {
+    this.pushScope();
     const statements = [];
     while (!this.isAtEnd()) {
       try {
         statements.push(this.statement());
       } catch (err) {
+        this.popScope();
         throw err;
       }
     }
+    this.popScope();
     return statements;
   }
 
@@ -500,6 +571,7 @@ class Parser {
     const nameToken = this.consume(TokenType.IDENTIFIER, "Expect variable name");
     this.consume(TokenType.OPERATOR, "Expect '=' after variable name", '=');
     const valueExpr = this.expression();
+    this.declareVariable(nameToken.value);
     return new VarDecl(nameToken.value, valueExpr, isConstant);
   }
 
@@ -529,11 +601,13 @@ class Parser {
   }
 
   block() {
+    this.pushScope();
     const statements = [];
     while (!this.check(TokenType.DELIMITER, '}') && !this.isAtEnd()) {
       statements.push(this.statement());
     }
     this.consume(TokenType.DELIMITER, "Expect '}' after block", '}');
+    this.popScope();
     return new Block(statements);
   }
 
@@ -549,8 +623,11 @@ class Parser {
     const varToken = this.consume(TokenType.IDENTIFIER, "Expect iterator variable name");
     this.consume(TokenType.KEYWORD, "Expect 'in' after iterator variable", 'in');
     const iterableExpr = this.expression();
+    this.pushScope();
+    this.declareVariable(varToken.value);
     this.consume(TokenType.DELIMITER, "Expect '{' before loop body", '{');
     const body = this.block();
+    this.popScope();
     return new ForStmt(varToken.value, iterableExpr, body, false);
   }
 
@@ -635,8 +712,15 @@ class Parser {
     }
     this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
 
+    this.pushScope();
+    for (const p of params) {
+      this.declareVariable(p.name);
+    }
     this.consume(TokenType.DELIMITER, "Expect '{' to open function body", '{');
     const body = this.block();
+    this.popScope();
+
+    this.declareVariable(nameToken.value);
 
     return new FnDecl(nameToken.value, params, body);
   }
@@ -795,6 +879,11 @@ class Parser {
         }
         this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
       }
+
+      this.pushScope();
+      for (const p of parameters) {
+        this.declareVariable(p.name);
+      }
       let body;
       if (this.match(TokenType.OPERATOR, '=>')) {
         const expr = this.expression();
@@ -803,6 +892,8 @@ class Parser {
         this.consume(TokenType.DELIMITER, "Expect '{' before function lambda body", '{');
         body = this.block();
       }
+      this.popScope();
+
       return new FunctionLambdaExpression(parameters, body);
     }
 
@@ -855,7 +946,11 @@ class Parser {
         const args = [];
         if (!this.check(TokenType.DELIMITER, ')')) {
           do {
-            args.push(this.expression());
+            let arg = this.expression();
+            if (this.containsUndeclaredIt(arg)) {
+              arg = new FunctionLambdaExpression([{ name: 'it', type: 'int' }], new Block([new ReturnStmt(arg)]));
+            }
+            args.push(arg);
           } while (this.match(TokenType.DELIMITER, ','));
         }
         this.consume(TokenType.DELIMITER, "Expect ')' after function arguments", ')');

@@ -6,6 +6,7 @@ namespace Pino;
 public class TokenStream {
   private readonly List<Token> _tokens;
   private int _index = 0;
+  public Stack<HashSet<string>> Scopes { get; } = new();
 
   public TokenStream(List<Token> tokens) {
     _tokens = tokens;
@@ -38,6 +39,73 @@ public class TokenStream {
 }
 
 public class Parser {
+  private static void PushScope(TokenStream stream) {
+    stream.Scopes.Push(new HashSet<string>());
+  }
+
+  private static void PopScope(TokenStream stream) {
+    if (stream.Scopes.Count > 0) {
+      stream.Scopes.Pop();
+    }
+  }
+
+  private static void DeclareVariable(TokenStream stream, string name) {
+    if (stream.Scopes.Count > 0) {
+      stream.Scopes.Peek().Add(name);
+    }
+  }
+
+  private static bool IsDeclared(TokenStream stream, string name) {
+    foreach (var scope in stream.Scopes) {
+      if (scope.Contains(name)) return true;
+    }
+    return false;
+  }
+
+  private static bool ContainsUndeclaredIt(Expression expr, TokenStream stream) {
+    if (expr == null) return false;
+    switch (expr) {
+      case IdentifierExpression id:
+        return id.Name == "it" && !IsDeclared(stream, "it");
+      
+      case BinaryExpression bin:
+        return ContainsUndeclaredIt(bin.Left, stream) || ContainsUndeclaredIt(bin.Right, stream);
+      
+      case TernaryExpression tern:
+        return ContainsUndeclaredIt(tern.Condition, stream) || 
+               ContainsUndeclaredIt(tern.Consequent, stream) || 
+               ContainsUndeclaredIt(tern.Alternate, stream);
+      
+      case VectorExpression vec:
+        if (vec.Elements != null) {
+          foreach (var el in vec.Elements) {
+            if (ContainsUndeclaredIt(el, stream)) return true;
+          }
+        }
+        if (vec.Len != null && ContainsUndeclaredIt(vec.Len, stream)) return true;
+        if (vec.Init != null && ContainsUndeclaredIt(vec.Init, stream)) return true;
+        return false;
+      
+      case StructInstanceExpression inst:
+        foreach (var prop in inst.Properties) {
+          if (ContainsUndeclaredIt(prop.Value, stream)) return true;
+        }
+        return false;
+      
+      case FunctionCallExpression call:
+        foreach (var arg in call.Arguments) {
+          if (ContainsUndeclaredIt(arg, stream)) return true;
+        }
+        return false;
+      
+      case FunctionLambdaExpression lambda:
+        return false;
+      
+      default:
+        return false;
+    }
+  }
+
   public static ProgramStatement ParseFile(string filePath) {
     var tokens = Lexer.LexFile(filePath);
     var stream = new TokenStream(tokens);
@@ -61,6 +129,7 @@ public class Parser {
   }
 
   private static ProgramStatement ParseProgram(TokenStream stream) {
+    PushScope(stream);
     var statements = new List<Statement>();
     while (stream.HasNext) {
       var stmt = ParseStatement(stream);
@@ -68,6 +137,7 @@ public class Parser {
         statements.Add(stmt);
       }
     }
+    PopScope(stream);
     return new ProgramStatement(statements);
   }
 
@@ -158,6 +228,7 @@ public class Parser {
     ConsumeAssignment(stream);
     var value = ParseExpression(stream);
 
+    DeclareVariable(stream, identifier);
     return new VariableDeclaration(kind, identifier, value);
   }
 
@@ -168,7 +239,16 @@ public class Parser {
 
     var identifier = ConsumeIdentifier(stream);
     var parameters = ConsumeParameters(stream);
+    
+    PushScope(stream);
+    foreach (var param in parameters) {
+      DeclareVariable(stream, param.Identifier);
+    }
+    
     var body = ParseBlock(stream);
+    PopScope(stream);
+
+    DeclareVariable(stream, identifier);
 
     return new FunctionDeclaration(identifier, parameters, body);
   }
@@ -236,7 +316,13 @@ public class Parser {
     }
 
     var end = ParseExpression(stream);
+    
+    PushScope(stream);
+    if (begin is IdentifierExpression id) {
+      DeclareVariable(stream, id.Name);
+    }
     var inBody = ParseBlock(stream);
+    PopScope(stream);
 
     return new LoopStatement(LoopKind.ForIn, begin, end, inBody);
   }
@@ -339,11 +425,13 @@ public class Parser {
       throw new Exception("PARSER: Expected '{'");
     }
 
+    PushScope(stream);
     var statements = new List<Statement>();
 
     while (stream.HasNext) {
       if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
         stream.Consume(); // consume '}'
+        PopScope(stream);
         return new BlockStatement(statements);
       }
 
@@ -474,6 +562,11 @@ public class Parser {
 
     var parameters = ConsumeParameters(stream);
     
+    PushScope(stream);
+    foreach (var param in parameters) {
+      DeclareVariable(stream, param.Identifier);
+    }
+
     Statement body;
     if (stream.Current.IsOperator(OperatorType.Arrow)) {
       stream.Consume(); // consume '=>'
@@ -482,6 +575,7 @@ public class Parser {
     } else {
       body = ParseBlock(stream);
     }
+    PopScope(stream);
 
     return new FunctionLambdaExpression(parameters, body);
   }
@@ -632,7 +726,13 @@ public class Parser {
         return arguments;
       }
 
-      arguments.Add(ParseExpression(stream));
+      var expr = ParseExpression(stream);
+      if (ContainsUndeclaredIt(expr, stream)) {
+        var param = new VariableDeclaration(VariableKind.Constant, "it", null, "int");
+        var lambdaBody = new BlockStatement(new List<Statement> { new ReturnStatement(expr) });
+        expr = new FunctionLambdaExpression(new List<VariableDeclaration> { param }, lambdaBody);
+      }
+      arguments.Add(expr);
 
       if (stream.Current.IsMarker(MarkerType.Comma)) {
         stream.Consume();

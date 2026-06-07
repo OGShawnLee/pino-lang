@@ -118,4 +118,46 @@ public class ParserTests {
     Assert.Equal("player", Assert.IsType<IdentifierExpression>(rightMember.Left).Name);
     Assert.Equal("attack", Assert.IsType<IdentifierExpression>(rightMember.Right).Name);
   }
+
+  [Fact]
+  public void TestImplicitLambdaArgumentWrapping() {
+    var input = "map(it * 3)";
+    var stmt = Parser.ParseString(input);
+
+    var call = Assert.IsType<FunctionCallExpression>(stmt);
+    Assert.Equal("map", call.Callee);
+    Assert.Single(call.Arguments);
+
+    var lambda = Assert.IsType<FunctionLambdaExpression>(call.Arguments[0]);
+    Assert.Single(lambda.Parameters);
+    Assert.Equal("it", lambda.Parameters[0].Identifier);
+
+    var block = Assert.IsType<BlockStatement>(lambda.Body);
+    Assert.Single(block.Statements);
+    var ret = Assert.IsType<ReturnStatement>(block.Statements[0]);
+    
+    var bin = Assert.IsType<BinaryExpression>(ret.Argument);
+    Assert.Equal(OperatorType.Multiplication, bin.Operator);
+    Assert.Equal("it", Assert.IsType<IdentifierExpression>(bin.Left).Name);
+    Assert.Equal("3", Assert.IsType<LiteralExpression>(bin.Right).Value);
+  }
+
+  [Fact]
+  public void TestNoImplicitLambdaWrappingWhenDeclared() {
+    var input = @"fn test(it int) {
+      map(it * 3)
+    }";
+    var stmt = Parser.ParseString(input);
+    var fn = Assert.IsType<FunctionDeclaration>(stmt);
+    var block = Assert.IsType<BlockStatement>(fn.Body);
+    Assert.Single(block.Statements);
+    
+    var call = Assert.IsType<FunctionCallExpression>(block.Statements[0]);
+    Assert.Equal("map", call.Callee);
+    Assert.Single(call.Arguments);
+    
+    var bin = Assert.IsType<BinaryExpression>(call.Arguments[0]);
+    Assert.Equal(OperatorType.Multiplication, bin.Operator);
+    Assert.Equal("it", Assert.IsType<IdentifierExpression>(bin.Left).Name);
+  }
 }
