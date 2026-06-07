@@ -229,6 +229,15 @@ const tests = [
       println("Hero name: $(h:name), Max Level: $max_level")
     `,
     expectedOutput: "Hero name: Marcus, Max Level: 99\n"
+  },
+  {
+    name: "Module Namespace Struct Initialization (Entities::Hero)",
+    code: `
+      import Entities
+      val h = Entities::Hero { name: "Marcus" }
+      println("Hero name: $(h:name)")
+    `,
+    expectedOutput: "Hero name: Marcus\n"
   }
 ];
 

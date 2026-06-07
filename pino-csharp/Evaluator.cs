@@ -717,8 +717,26 @@ public class Evaluator {
             }
             return module.Environment.Get(memberName);
           }
+
+          // Case 3: module::StructInstanceExpression
+          if (rightExpr is StructInstanceExpression structInst) {
+            var structName = structInst.StructName;
+            if (!module.PublicExports.Contains(structName)) {
+              throw new Exception($"RUNTIME ERROR: Member '{structName}' is not exported by module '{module.Name}' (or is private).");
+            }
+            var structDefObj = module.Environment.Get(structName);
+            if (structDefObj is not PinoStruct structDef) {
+              throw new Exception($"RUNTIME ERROR: '{structName}' is not a struct.");
+            }
+            var instance = new PinoStructInstance(structDef);
+            foreach (var prop in structInst.Properties) {
+              var val = prop.Value != null ? Evaluate(prop.Value, env) : null;
+              instance.Fields[prop.Identifier] = val;
+            }
+            return instance;
+          }
           
-          throw new Exception("RUNTIME ERROR: Right side of '::' must be a member name or function call.");
+          throw new Exception("RUNTIME ERROR: Right side of '::' must be a member name, function call, or struct instance.");
         }
       }
     }

@@ -273,22 +273,67 @@ public class Parser {
     return stream.Current.IsKeyword(KeywordType.Function) && stream.IsNext(t => t.IsMarker(MarkerType.ParenthesisBegin) || t.IsMarker(MarkerType.BlockBegin));
   }
 
+  private static bool IsStructBlock(TokenStream stream, int braceOffset) {
+    if (!stream.Peek(braceOffset).IsMarker(MarkerType.BlockBegin)) {
+      return false;
+    }
+
+    int nested = 0;
+    int offset = braceOffset;
+    while (true) {
+      var tok = stream.Peek(offset);
+      if (tok.Type == TokenType.Illegal) {
+        break;
+      }
+      if (tok.IsMarker(MarkerType.BlockBegin)) {
+        nested++;
+      } else if (tok.IsMarker(MarkerType.BlockEnd)) {
+        nested--;
+        if (nested == 0) {
+          break;
+        }
+      } else if (nested == 1) {
+        if (tok.Type == TokenType.Keyword) {
+          return false;
+        }
+        if (tok.Type == TokenType.Operator) {
+          var op = tok.Operator;
+          if (op == OperatorType.Assignment ||
+              op == OperatorType.AdditionAssignment ||
+              op == OperatorType.SubtractionAssignment ||
+              op == OperatorType.MultiplicationAssignment ||
+              op == OperatorType.DivisionAssignment ||
+              op == OperatorType.ModulusAssignment) {
+            return false;
+          }
+        }
+        if (tok.Type == TokenType.Identifier) {
+          var nextTok = stream.Peek(offset + 1);
+          if (nextTok.IsOperator(OperatorType.MemberAccess)) {
+            return true;
+          }
+        }
+      }
+      offset++;
+    }
+    return false;
+  }
+
   private static bool IsStructInstance(TokenStream stream) {
     var current = stream.Current;
     if (!current.IsType(TokenType.Identifier) || !char.IsUpper(current.Data[0])) {
-      return false;
-    }
-    // Cannot be preceded by StaticMemberAccess operator (::)
-    if (stream.Peek(-1).IsOperator(OperatorType.StaticMemberAccess)) {
       return false;
     }
     if (!stream.Peek(1).IsMarker(MarkerType.BlockBegin)) {
       return false;
     }
     if (stream.Peek(2).IsMarker(MarkerType.BlockEnd)) {
+      if (stream.Peek(-1).IsOperator(OperatorType.StaticMemberAccess)) {
+        return false;
+      }
       return true;
     }
-    return stream.Peek(2).IsType(TokenType.Identifier) && stream.Peek(3).IsOperator(OperatorType.MemberAccess);
+    return IsStructBlock(stream, 1);
   }
 
   private static bool IsVector(TokenStream stream) {

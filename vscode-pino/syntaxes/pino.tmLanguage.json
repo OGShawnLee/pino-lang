@@ -79,11 +79,15 @@
       "patterns": [
         {
           "name": "keyword.control.pino",
-          "match": "\\b(if|then|else|match|when|for|in|return|break|continue)\\b"
+          "match": "\\b(if|then|else|match|when|for|in|return|break|continue|module|import|from)\\b"
         },
         {
           "name": "storage.type.pino",
           "match": "\\b(fn|struct|enum|var|val)\\b"
+        },
+        {
+          "name": "storage.modifier.pino",
+          "match": "\\b(pub)\\b"
         }
       ]
     },

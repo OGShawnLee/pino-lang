@@ -428,6 +428,44 @@ class Parser {
     this.scopes = [];
   }
 
+  isStructBlock(startIndex) {
+    if (startIndex >= this.tokens.length) return false;
+    const braceToken = this.tokens[startIndex];
+    if (braceToken.type !== TokenType.DELIMITER || braceToken.value !== '{') return false;
+
+    let nested = 0;
+    let idx = startIndex;
+    while (idx < this.tokens.length) {
+      const tok = this.tokens[idx];
+      if (tok.type === TokenType.DELIMITER && tok.value === '{') {
+        nested++;
+      } else if (tok.type === TokenType.DELIMITER && tok.value === '}') {
+        nested--;
+        if (nested === 0) {
+          break;
+        }
+      } else if (nested === 1) {
+        if (tok.type === TokenType.KEYWORD) {
+          return false;
+        }
+        if (tok.type === TokenType.OPERATOR) {
+          const val = tok.value;
+          if (val === '=' || val === '+=' || val === '-=' || val === '*=' || val === '/=' || val === '%=') {
+            return false;
+          }
+        }
+        if (tok.type === TokenType.IDENTIFIER) {
+          const nextTok = this.tokens[idx + 1];
+          if (nextTok && nextTok.type === TokenType.OPERATOR && nextTok.value === ':') {
+            return true;
+          }
+        }
+      }
+      idx++;
+    }
+    return false;
+  }
+
   pushScope() {
     this.scopes.push(new Set());
   }
@@ -984,20 +1022,18 @@ class Parser {
       // In Pino: Point { x: 1, y: 2 }
       let isStruct = false;
       if (idName.length > 0 && idName[0] === idName[0].toUpperCase()) {
-        const prevToken = this.index - 2 >= 0 ? this.tokens[this.index - 2] : null;
-        const isPrecededByStaticMemberAccess = prevToken && prevToken.value === '::';
-        
-        if (!isPrecededByStaticMemberAccess) {
-          const next = this.peek();
-          if (next && next.type === TokenType.DELIMITER && next.value === '{') {
-            const nextNext = this.tokens[this.index + 1];
-            if (nextNext && nextNext.type === TokenType.DELIMITER && nextNext.value === '}') {
+        const next = this.peek();
+        if (next && next.type === TokenType.DELIMITER && next.value === '{') {
+          const nextNext = this.tokens[this.index + 1];
+          if (nextNext && nextNext.type === TokenType.DELIMITER && nextNext.value === '}') {
+            const prevToken = this.index - 2 >= 0 ? this.tokens[this.index - 2] : null;
+            const isPrecededByStaticMemberAccess = prevToken && prevToken.value === '::';
+            if (!isPrecededByStaticMemberAccess) {
               isStruct = true;
-            } else if (nextNext && nextNext.type === TokenType.IDENTIFIER) {
-              const nextNextNext = this.tokens[this.index + 2];
-              if (nextNextNext && nextNextNext.type === TokenType.OPERATOR && nextNextNext.value === ':') {
-                isStruct = true;
-              }
+            }
+          } else {
+            if (this.isStructBlock(this.index)) {
+              isStruct = true;
             }
           }
         }
@@ -1709,8 +1745,25 @@ class Interpreter {
                 throw new Error(`RUNTIME ERROR: Member '${memberName}' is not exported by module '${leftVal.name}' (or is private).`);
               }
               return leftVal.environment.get(memberName);
+            } else if (right instanceof StructInstanceExpr) {
+              const structName = right.structName;
+              if (!leftVal.publicExports.has(structName)) {
+                throw new Error(`RUNTIME ERROR: Member '${structName}' is not exported by module '${leftVal.name}' (or is private).`);
+              }
+              const structDecl = leftVal.environment.get(structName);
+              if (!structDecl || !(structDecl instanceof StructDecl)) {
+                throw new Error(`RUNTIME ERROR: '${structName}' is not a struct in module '${leftVal.name}'.`);
+              }
+              const fields = {};
+              for (const field of structDecl.fields) {
+                fields[field.name] = null;
+              }
+              for (const [key, valueExpr] of Object.entries(right.initializers)) {
+                fields[key] = this.evaluateExpression(valueExpr, env);
+              }
+              return new StructInstance(structName, fields);
             }
-            throw new Error("RUNTIME ERROR: Right side of '::' must be a member name or function call.");
+            throw new Error("RUNTIME ERROR: Right side of '::' must be a member name, function call, or struct instance.");
           }
         }
 

@@ -206,5 +206,23 @@ public class ParserTests {
     var fnDecl = Assert.IsType<FunctionDeclaration>(stmtPub);
     Assert.True(fnDecl.IsPublic);
   }
+
+  [Fact]
+  public void TestStaticMemberAccessStructInitialization() {
+    var input = "val person = Entities::Person { name: \"Shawn Lee\" }";
+    var stmt = Parser.ParseString(input);
+    var varDecl = Assert.IsType<VariableDeclaration>(stmt);
+    Assert.Equal("person", varDecl.Identifier);
+
+    var staticMember = Assert.IsType<BinaryExpression>(varDecl.Value);
+    Assert.Equal(OperatorType.StaticMemberAccess, staticMember.Operator);
+    Assert.Equal("Entities", Assert.IsType<IdentifierExpression>(staticMember.Left).Name);
+
+    var structInst = Assert.IsType<StructInstanceExpression>(staticMember.Right);
+    Assert.Equal("Person", structInst.StructName);
+    Assert.Single(structInst.Properties);
+    Assert.Equal("name", structInst.Properties[0].Identifier);
+    Assert.Equal("Shawn Lee", Assert.IsType<LiteralExpression>(structInst.Properties[0].Value).Value);
+  }
 }
 
