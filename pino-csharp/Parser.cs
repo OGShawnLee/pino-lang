@@ -207,6 +207,10 @@ public class Parser {
     if (!current.IsType(TokenType.Identifier) || !char.IsUpper(current.Data[0])) {
       return false;
     }
+    // Cannot be preceded by StaticMemberAccess operator (::)
+    if (stream.Peek(-1).IsOperator(OperatorType.StaticMemberAccess)) {
+      return false;
+    }
     if (!stream.Peek(1).IsMarker(MarkerType.BlockBegin)) {
       return false;
     }

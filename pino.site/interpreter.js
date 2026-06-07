@@ -914,15 +914,20 @@ class Parser {
       // In Pino: Point { x: 1, y: 2 }
       let isStruct = false;
       if (idName.length > 0 && idName[0] === idName[0].toUpperCase()) {
-        const next = this.peek();
-        if (next && next.type === TokenType.DELIMITER && next.value === '{') {
-          const nextNext = this.tokens[this.index + 1];
-          if (nextNext && nextNext.type === TokenType.DELIMITER && nextNext.value === '}') {
-            isStruct = true;
-          } else if (nextNext && nextNext.type === TokenType.IDENTIFIER) {
-            const nextNextNext = this.tokens[this.index + 2];
-            if (nextNextNext && nextNextNext.type === TokenType.OPERATOR && nextNextNext.value === ':') {
+        const prevToken = this.index - 2 >= 0 ? this.tokens[this.index - 2] : null;
+        const isPrecededByStaticMemberAccess = prevToken && prevToken.value === '::';
+        
+        if (!isPrecededByStaticMemberAccess) {
+          const next = this.peek();
+          if (next && next.type === TokenType.DELIMITER && next.value === '{') {
+            const nextNext = this.tokens[this.index + 1];
+            if (nextNext && nextNext.type === TokenType.DELIMITER && nextNext.value === '}') {
               isStruct = true;
+            } else if (nextNext && nextNext.type === TokenType.IDENTIFIER) {
+              const nextNextNext = this.tokens[this.index + 2];
+              if (nextNextNext && nextNextNext.type === TokenType.OPERATOR && nextNextNext.value === ':') {
+                isStruct = true;
+              }
             }
           }
         }

@@ -197,6 +197,21 @@ const tests = [
       process(5)
     `,
     expectedOutput: "15\n"
+  },
+  {
+    name: "Static member access vs empty block condition ambiguity",
+    code: `
+      enum Difficulty {
+        Medium
+      }
+      val difficulty = Difficulty::Medium
+      var n = true
+      if difficulty == Difficulty::Medium {
+        
+      }
+      println(n)
+    `,
+    expectedOutput: "true\n"
   }
 ];
 

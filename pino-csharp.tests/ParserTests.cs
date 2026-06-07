@@ -160,4 +160,24 @@ public class ParserTests {
     Assert.Equal(OperatorType.Multiplication, bin.Operator);
     Assert.Equal("it", Assert.IsType<IdentifierExpression>(bin.Left).Name);
   }
+
+  [Fact]
+  public void TestStaticMemberAccessVsStructInstanceAmbiguity() {
+    var input = @"if difficulty == Difficulty::Medium {
+      
+    }";
+    var stmt = Parser.ParseString(input);
+    var ifStmt = Assert.IsType<IfStatement>(stmt);
+    
+    var bin = Assert.IsType<BinaryExpression>(ifStmt.Condition);
+    Assert.Equal(OperatorType.Equal, bin.Operator);
+    
+    var rightBin = Assert.IsType<BinaryExpression>(bin.Right);
+    Assert.Equal(OperatorType.StaticMemberAccess, rightBin.Operator);
+    Assert.Equal("Difficulty", Assert.IsType<IdentifierExpression>(rightBin.Left).Name);
+    Assert.Equal("Medium", Assert.IsType<IdentifierExpression>(rightBin.Right).Name);
+    
+    var body = Assert.IsType<BlockStatement>(ifStmt.Consequent);
+    Assert.Empty(body.Statements);
+  }
 }
