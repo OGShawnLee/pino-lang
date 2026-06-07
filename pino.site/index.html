@@ -26,6 +26,7 @@
         <ul>
           <li><a href="#playground">Playground</a></li>
           <li><a href="#features">Features</a></li>
+          <li><a href="#games">Games</a></li>
           <li><a href="#install">Getting Started</a></li>
         </ul>
       </nav>
@@ -292,6 +293,80 @@ println(doubled) <span class="comment"># [3, 6, 9, 12, 15, 18]</span></code></pr
 
   </section>
 
+  <!-- Games Showcase Section -->
+  <section id="games" class="games-section">
+    <div class="section-header">
+      <h2>Terminal Gaming Station</h2>
+      <p>Pino is designed with excellent ergonomics for building rich, interactive CLI and terminal-based RPGs. Experience lightweight development with rapid watch-reloads.</p>
+    </div>
+
+    <div class="games-grid">
+      <!-- Game 1 -->
+      <div class="game-card">
+        <span class="game-badge">Dungeon Crawler</span>
+        <h3>PinoQuest: The Compiler Core</h3>
+        <p>A retro compiler crawler. Battle syntax bugs, compiler warnings, and memory leaks as you navigate the compiler depths in Easy, Medium, Hard, or Infinite crawler modes.</p>
+        <div class="game-command">
+          <code>pino run pino-csharp/main.pino</code>
+          <button class="btn-copy-small" onclick="copySnippet(this, 'pino run pino-csharp/main.pino')">Copy</button>
+        </div>
+      </div>
+
+      <!-- Game 2 -->
+      <div class="game-card">
+        <span class="game-badge">Simulation / Space RPG</span>
+        <h3>StarPino Odyssey</h3>
+        <p>Warp between star systems, mine rich asteroid fields, upgrade your ship, escape pirate interceptors, and buy the Sol Station Warp Core in a deep space simulator.</p>
+        <div class="game-command">
+          <code>pino play star_pino</code>
+          <button class="btn-copy-small" onclick="copySnippet(this, 'pino play star_pino')">Copy</button>
+        </div>
+      </div>
+
+      <!-- Game 3 -->
+      <div class="game-card">
+        <span class="game-badge">Turn-Based RPG</span>
+        <h3>Jade Temple: Path of the Spirit Fist</h3>
+        <p>A narrative martial arts RPG. Walk the Open Palm or Closed Fist alignment path, make reason/intimidate checks in a murder mystery, and wage strategic Chi battles.</p>
+        <div class="game-command">
+          <code>pino play jade_temple</code>
+          <button class="btn-copy-small" onclick="copySnippet(this, 'pino play jade_temple')">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Play / Installer Guide -->
+    <div class="quick-play-card">
+      <div class="quick-play-info">
+        <h3>How to Download & Play</h3>
+        <p>Start gaming on your terminal in seconds. The Pino compiler features an interactive games menu with an automatic cloud downloader.</p>
+      </div>
+      <div class="quick-play-steps">
+        <div class="step-item">
+          <span class="step-num">1</span>
+          <div>
+            <strong>Open Games Menu</strong>
+            <p>Run <code>pino play</code> in your terminal. If the games library isn't local, Pino prompts you to download it.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <span class="step-num">2</span>
+          <div>
+            <strong>Update Instantly</strong>
+            <p>Fetch the newest game updates and community levels anytime using the <code>pino play update</code> downloader command.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <span class="step-num">3</span>
+          <div>
+            <strong>Rapid Watch Iteration</strong>
+            <p>Make your own games! Run <code>pino watch [file]</code>. The daemon live-reloads the interpreter instantly on save.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Getting Started Section -->
   <section id="install" class="setup-section">
     <div class="setup-container">
@@ -391,6 +466,7 @@ println(doubled) <span class="comment"># [3, 6, 9, 12, 15, 18]</span></code></pr
     <div class="footer-links">
       <a href="#playground">Playground</a>
       <a href="#features">Features</a>
+      <a href="#games">Games</a>
       <a href="#install">Docs</a>
     </div>
   </footer>
