@@ -321,6 +321,40 @@ println(doubled) <span class="comment"># [3, 6, 9, 12, 15, 18]</span></code></pr
         </div>
       </div>
 
+      <div class="section-header" style="margin-top: 3rem; margin-bottom: 1.5rem;">
+        <h3>Terminal Quick Install</h3>
+        <p>Run these commands to instantly download and configure Pino globally in your PATH.</p>
+      </div>
+
+      <div class="setup-grid" style="margin-bottom: 3rem;">
+        <!-- Terminal Install Windows -->
+        <div class="setup-card">
+          <div class="setup-number">❖</div>
+          <h3>Windows (PowerShell)</h3>
+          <p>Download binary and configure User PATH automatically:</p>
+          <div class="code-snippet">
+            <code>irm https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.ps1 | iex</code>
+            <button class="btn-copy-small" onclick="copySnippet(this, 'irm https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.ps1 | iex')">Copy</button>
+          </div>
+        </div>
+
+        <!-- Terminal Install Unix -->
+        <div class="setup-card">
+          <div class="setup-number">🐧</div>
+          <h3>macOS & Linux (Bash/Zsh)</h3>
+          <p>Download, mark executable, and append to Shell profile path:</p>
+          <div class="code-snippet">
+            <code>curl -fsSL https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.sh | bash</code>
+            <button class="btn-copy-small" onclick="copySnippet(this, 'curl -fsSL https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.sh | bash')">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header" style="margin-bottom: 1.5rem;">
+        <h3>Build From Source</h3>
+        <p>Or clone the repository and compile using the .NET SDK manually.</p>
+      </div>
+
       <div class="setup-grid">
 
         <!-- Step 1 -->

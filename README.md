@@ -38,6 +38,22 @@ For a detailed breakdown of the compiler architecture, directory structure, and 
 
 ---
 
+## 📦 Installation
+
+To install the latest version of the Pino Lang compiler on your system, run the appropriate command in your terminal:
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.ps1 | iex
+```
+
+### macOS & Linux (Bash/Zsh)
+```bash
+curl -fsSL https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.sh | bash
+```
+
+---
+
 ## 📖 Syntax Showcase
 
 ### Variables & Constants
