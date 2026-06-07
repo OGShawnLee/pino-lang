@@ -43,13 +43,24 @@ class Program {
         break;
 
       case "watch":
-        var watchFileName = args.Length > 1 ? args[1] : "main.pino";
+        bool useTranspiler = false;
+        string watchFileName = "main.pino";
+
+        for (int i = 1; i < args.Length; i++) {
+          var arg = args[i];
+          if (arg == "-t" || arg == "--transpile" || arg == "--compile") {
+            useTranspiler = true;
+          } else {
+            watchFileName = arg;
+          }
+        }
+
         var watchFilePath = Path.Combine(System.Environment.CurrentDirectory, watchFileName);
         if (!File.Exists(watchFilePath)) {
           Console.WriteLine($"Error: File '{watchFileName}' not found.");
           System.Environment.Exit(1);
         }
-        WatchFile(watchFilePath);
+        WatchFile(watchFilePath, useTranspiler);
         break;
 
       case "v":
@@ -86,7 +97,7 @@ class Program {
     Console.WriteLine("  repl                : Start the Pino interactive REPL");
     Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
     Console.WriteLine("  compile [file] [out]: Compile and run the file, or output to binary if output path is provided");
-    Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
+    Console.WriteLine("  watch [file] [-t]   : Monitor and execute (or transpile with -t) the file in real-time on save");
     Console.WriteLine("  version, v          : Show Pino version information");
     Console.WriteLine("  update              : Check for and install compiler updates");
     Console.WriteLine("  <empty>             : Run main.pino in current directory if exists");
@@ -336,7 +347,7 @@ class Program {
     }
   }
 
-  static void WatchFile(string path) {
+  static void WatchFile(string path, bool useTranspiler) {
     var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
     if (string.IsNullOrEmpty(exePath)) {
       throw new Exception("RUNTIME ERROR: Could not locate pino-csharp executable path.");
@@ -362,11 +373,12 @@ class Program {
         }
 
         SafeClearConsole();
-        Console.WriteLine($"[Pino Watcher] Monitoring '{Path.GetFileName(path)}'... Press Ctrl+C to stop.\n");
+        string modeStr = useTranspiler ? "transpiled JIT" : "interpreted";
+        Console.WriteLine($"[Pino Watcher] Monitoring '{Path.GetFileName(path)}' ({modeStr} mode)... Press Ctrl+C to stop.\n");
 
         var startInfo = new System.Diagnostics.ProcessStartInfo {
           FileName = exePath,
-          Arguments = $"run \"{path}\"",
+          Arguments = useTranspiler ? $"compile \"{path}\"" : $"run \"{path}\"",
           UseShellExecute = false
         };
 
