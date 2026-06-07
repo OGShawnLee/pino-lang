@@ -16,11 +16,19 @@ struct Ship {
   ore int
   water int
   max_cargo int
+  pirates_destroyed int
+  is_pirate int
+  mining_skill int
+  mining_xp int
+  charisma_skill int
+  charisma_xp int
 }
 
 struct GameState {
   ship Ship
   current_sector_idx int
+  special_sector_idx int
+  special_sector_boost int
 }
 
 fn get_sector(sectors []Sector, idx int) {
@@ -48,11 +56,190 @@ fn show_status(ship Ship, current_sector_name string) {
   println(" Cargo Bay    : $cargo_size/$(ship:max_cargo) units")
   println("   - Ore      : $(ship:ore) units")
   println("   - Water    : $(ship:water) units")
+  if ship:is_pirate == 1 {
+    println(" Alignment    : OUTLAW (Syndicate Member)")
+  } else {
+    println(" Alignment    : LAWFUL CITIZEN")
+  }
+  println(" Intimidation : $(ship:pirates_destroyed) ships destroyed")
+  println(" Mining Skill : Lvl $(ship:mining_skill) ($(ship:mining_xp)/100 XP)")
+  println(" Charisma     : Lvl $(ship:charisma_skill) ($(ship:charisma_xp)/100 XP)")
   println("----------------------------------------")
+}
+
+fn handle_military_encounter(ship Ship) {
+  clear()
+  println("----------------------------------------")
+  println("          🚨 MILITARY INTERVENTION 🚨   ")
+  println("----------------------------------------")
+  println("An Earth Federation Battlecruiser locks onto you!")
+  println("\"Outlaw detected! Prepare to be neutralized!\"")
+  println("")
+
+  var mil_hp = 100
+  var escaped = false
+
+  for {
+    if mil_hp <= 0 or ship:hull <= 0 or escaped {
+      break
+    }
+
+    println("Military HP: $mil_hp HP | Your Hull: $(ship:hull) | Shield: $(ship:shield)")
+    println("Choose Action:")
+    println(" 1. Fire Lasers (Deals 15-25 damage, Cruiser attacks)")
+    println(" 2. Overcharge Shield (+25 shields, Cruiser attacks)")
+    println(" 3. Flee (Consumes 20 fuel, 35% escape chance)")
+
+    val choice = readline("> ")
+
+    if choice == "1" {
+      val dmg = 15 + rand(11)
+      mil_hp = mil_hp - dmg
+      println("You deal $dmg damage to the Federation cruiser!")
+      
+      if mil_hp > 0 {
+        val p_dmg = 15 + rand(16)
+        println("The battlecruiser heavy turrets fire back dealing $p_dmg damage!")
+        if ship:shield >= p_dmg {
+          ship:shield = ship:shield - p_dmg
+        } else {
+          val leak = p_dmg - ship:shield
+          ship:shield = 0
+          ship:hull = ship:hull - leak
+        }
+      }
+      readline("Press Enter to continue...")
+      clear()
+    } else if choice == "2" {
+      ship:shield = ship:shield + 25
+      if ship:shield > ship:max_shield {
+        ship:shield = ship:max_shield
+      }
+      println("Shields boosted to $(ship:shield)!")
+      
+      val p_dmg = 15 + rand(16)
+      println("The battlecruiser heavy turrets fire back dealing $p_dmg damage!")
+      if ship:shield >= p_dmg {
+        ship:shield = ship:shield - p_dmg
+      } else {
+        val leak = p_dmg - ship:shield
+        ship:shield = 0
+        ship:hull = ship:hull - leak
+      }
+      readline("Press Enter to continue...")
+      clear()
+    } else if choice == "3" {
+      if ship:fuel >= 20 {
+        ship:fuel = ship:fuel - 20
+        val roll = rand(100)
+        if roll < 35 {
+          println("Escape successful! You warp away from the Federation.")
+          escaped = true
+        } else {
+          println("Escape failed! The Federation jams your hyperspace drive and fires!")
+          val p_dmg = 20 + rand(11)
+          if ship:shield >= p_dmg {
+            ship:shield = ship:shield - p_dmg
+          } else {
+            val leak = p_dmg - ship:shield
+            ship:shield = 0
+            ship:hull = ship:hull - leak
+          }
+        }
+      } else {
+        println("Not enough fuel to jump!")
+      }
+      readline("Press Enter to continue...")
+      clear()
+    } else {
+      println("Invalid action! You take heavy fire!")
+      val p_dmg = 15 + rand(11)
+      if ship:shield >= p_dmg {
+        ship:shield = ship:shield - p_dmg
+      } else {
+        val leak = p_dmg - ship:shield
+        ship:shield = 0
+        ship:hull = ship:hull - leak
+      }
+      readline("Press Enter to continue...")
+      clear()
+    }
+  }
+
+  if mil_hp <= 0 {
+    println("💥 Incredible! You disabled the Federation Battlecruiser. You escape into deep space.")
+    readline("Press Enter to continue...")
+  }
+
+  return ship
 }
 
 fn handle_pirate_encounter(ship Ship) {
   clear()
+  
+  if ship:is_pirate == 1 {
+    println("----------------------------------------")
+    println("          🤝 PIRATE COMMUNION 🤝        ")
+    println("----------------------------------------")
+    println("A pirate frigate warps in, recognizes your outlaw beacon, and hails you.")
+    println("\"Greetings, brother! Need some supplies?\"")
+    println("Choose option:")
+    println(" 1. Buy black-market fuel (25 credits for +30 fuel)")
+    println(" 2. Exchange coordinates (gain 15 fuel for free)")
+    println(" 3. Wave them off")
+
+    val p_choice = readline("> ")
+    if p_choice == "1" {
+      if ship:credits >= 25 {
+        if ship:fuel + 30 <= ship:max_fuel {
+          ship:credits = ship:credits - 25
+          ship:fuel = ship:fuel + 30
+          println("Purchased 30 fuel for 25 CR.")
+        } else {
+          println("Not enough capacity in your fuel tanks.")
+        }
+      } else {
+        println("Not enough credits.")
+      }
+    } else if p_choice == "2" {
+      ship:fuel = ship:fuel + 15
+      if ship:fuel > ship:max_fuel {
+        ship:fuel = ship:max_fuel
+      }
+      println("They send you fuel coordinates. Fuel replenished (+15).")
+    } else {
+      println("You wave them off. They warp away wishing you good hunting.")
+    }
+    
+    readline("Press Enter to continue...")
+    return ship
+  }
+
+  if ship:pirates_destroyed >= 3 and ship:is_pirate == 0 {
+    println("----------------------------------------")
+    println("          👁️  THE SYNDICATE HAIL 👁️       ")
+    println("----------------------------------------")
+    println("An outlaw cruiser drops out of warp!")
+    println("Before charging weapons, their captain hails you:")
+    println("\"Wait... You are the pilot who destroyed $(ship:pirates_destroyed) of our ships!")
+    println("We respect power. Why waste your talent serving lawful society?")
+    println("Join the Pirate Syndicate! We will share civilian targets with you.\"")
+    println("")
+    println("Will you join the Syndicate? (y/n)")
+    val join_choice = readline("> ")
+
+    if join_choice == "y" or join_choice == "yes" {
+      ship:is_pirate = 1
+      println("🎉 You are now an OUTLAW! You can raid civilians, but you are barred from station docks.")
+      readline("Press Enter to continue...")
+      return ship
+    } else {
+      println("\"Too proud, huh? Then prepare to join your victims in the void!\"")
+      readline("Press Enter to prepare for combat...")
+      clear()
+    }
+  }
+
   println("----------------------------------------")
   println("          🚨 WARNING: PIRATES! 🚨")
   println("----------------------------------------")
@@ -172,7 +359,8 @@ fn handle_pirate_encounter(ship Ship) {
   if pirate_hp <= 0 {
     val reward = 50 + rand(51)
     ship:credits = ship:credits + reward
-    println("💥 The pirate ship explodes! You salvage $reward credits from the wreckage.")
+    ship:pirates_destroyed = ship:pirates_destroyed + 1
+    println("💥 The pirate ship explodes! You salvage $reward credits. Your intimidation grows!")
     readline("Press Enter to continue...")
   }
 
@@ -247,7 +435,7 @@ fn travel_to_sector(sectors []Sector, state GameState, target_idx int) {
     readline("Press Enter to continue...")
   }
 
-  return GameState { ship: ship, current_sector_idx: target_idx }
+  return GameState { ship: ship, current_sector_idx: target_idx, special_sector_idx: state:special_sector_idx, special_sector_boost: state:special_sector_boost }
 }
 
 fn mine_sector(sectors []Sector, state GameState) {
@@ -272,6 +460,19 @@ fn mine_sector(sectors []Sector, state GameState) {
     readline("Press Enter to continue...")
     return state
   }
+  # Check for pirate encounter while heading to mines
+  val encounter_roll = rand(100)
+  if encounter_roll < sector:danger * 10 {
+    println("🚨 WARNING: A pirate interceptor locks onto you while heading to the asteroid field!")
+    readline("Press Enter to prepare weapons...")
+    ship = handle_pirate_encounter(ship)
+    if ship:hull <= 0 {
+      return GameState { ship: ship, current_sector_idx: state:current_sector_idx, special_sector_idx: state:special_sector_idx, special_sector_boost: state:special_sector_boost }
+    }
+    clear()
+    println("With the pirates dealt with, you reach the asteroid coordinates.")
+    println("")
+  }
 
   ship:fuel = ship:fuel - 5
   println("Deploying mining drills in $(sector:name)...")
@@ -285,12 +486,21 @@ fn mine_sector(sectors []Sector, state GameState) {
 
   var risk = 10
   var max_yield = 2
+  var xp_gained = 15
   if depth == "2" {
     risk = 25
     max_yield = 4
+    xp_gained = 25
   } else if depth == "3" {
     risk = 50
     max_yield = 7
+    xp_gained = 40
+  }
+
+  # Apply mining skill risk reduction (minimum 5%)
+  risk = risk - (ship:mining_skill - 1) * 6
+  if risk < 5 {
+    risk = 5
   }
 
   val trap_roll = rand(100)
@@ -313,6 +523,25 @@ fn mine_sector(sectors []Sector, state GameState) {
       water_yield = rand(max_yield)
     }
 
+    # Apply mining skill yield bonus
+    var skill_bonus = rand(ship:mining_skill / 2 + 1)
+    if skill_bonus > 0 {
+      if ore_yield > 0 {
+        ore_yield = ore_yield + skill_bonus
+      }
+      if water_yield > 0 {
+        water_yield = water_yield + skill_bonus
+      }
+    }
+
+    # Apply special rich vein boost
+    var is_rich = 0
+    if state:special_sector_idx == state:current_sector_idx {
+      ore_yield = ore_yield * state:special_sector_boost
+      water_yield = water_yield * state:special_sector_boost
+      is_rich = 1
+    }
+
     var space_left = ship:max_cargo - (ship:ore + ship:water)
     if ore_yield + water_yield > space_left {
       if ore_yield > space_left {
@@ -327,18 +556,99 @@ fn mine_sector(sectors []Sector, state GameState) {
     ship:ore = ship:ore + ore_yield
     ship:water = ship:water + water_yield
 
+    if is_rich == 1 {
+      println("⛏️  You are mining in the RICH VEIN! Yields are doubled!")
+    }
     println("⛏️  Mining complete! You extracted:")
     println("  - Ore  : $ore_yield units")
     println("  - Water: $water_yield units")
   }
 
+  # Gain XP and handle Level Up
+  ship:mining_xp = ship:mining_xp + xp_gained
+  if ship:mining_xp >= 100 {
+    ship:mining_xp = ship:mining_xp - 100
+    ship:mining_skill = ship:mining_skill + 1
+    println("")
+    println("✨ LEVEL UP! Your Mining Skill increased to $(ship:mining_skill)!")
+  }
+
+  var special_idx = state:special_sector_idx
+  if state:special_sector_idx == state:current_sector_idx {
+    # Deplete rich vein
+    special_idx = 999
+  }
+
   readline("Press Enter to continue...")
-  return GameState { ship: ship, current_sector_idx: state:current_sector_idx }
+  return GameState {
+    ship: ship,
+    current_sector_idx: state:current_sector_idx,
+    special_sector_idx: special_idx,
+    special_sector_boost: state:special_sector_boost
+  }
+}
+
+fn raid_civilians(sectors []Sector, state GameState) {
+  var ship = state:ship
+  val sector = get_sector(sectors, state:current_sector_idx)
+
+  if sector:danger == 0 {
+    println("Sol Station Safe Zone is too heavily guarded to raid!")
+    readline("Press Enter to continue...")
+    return state
+  }
+
+  if ship:fuel < 10 {
+    println("❌ Not enough fuel to hunt civilian targets! Needs 10 fuel.")
+    readline("Press Enter to continue...")
+    return state
+  }
+
+  ship:fuel = ship:fuel - 10
+  println("Tracking civilian cargo vessels in $(sector:name)...")
+  sleep(1500)
+
+  val ambush_roll = rand(100)
+  if ambush_roll < 40 {
+    println("🚨 AMBUSH! A military patrol cruiser drops out of hyperspace to defend the civilians!")
+    readline("Press Enter to fight...")
+    ship = handle_military_encounter(ship)
+  } else {
+    val loot_credits = 150 + rand(151)
+    val loot_ore = 2 + rand(4)
+    val loot_water = 2 + rand(4)
+
+    var space_left = ship:max_cargo - (ship:ore + ship:water)
+    var active_ore = loot_ore
+    var active_water = loot_water
+    if active_ore + active_water > space_left {
+      if active_ore > space_left {
+        active_ore = space_left
+        active_water = 0
+      } else {
+        space_left = space_left - active_ore
+        active_water = space_left
+      }
+    }
+
+    ship:credits = ship:credits + loot_credits
+    ship:ore = ship:ore + active_ore
+    ship:water = ship:water + active_water
+
+    println("💰 SUCCESS! You raided a civilian cargo vessel!")
+    println("  Recovered: $loot_credits CR")
+    println("  Stole: $active_ore Ore, $active_water Water")
+    readline("Press Enter to continue...")
+  }
+
+  return GameState { ship: ship, current_sector_idx: state:current_sector_idx, special_sector_idx: state:special_sector_idx, special_sector_boost: state:special_sector_boost }
 }
 
 fn trade_menu(sectors []Sector, state GameState) {
   var ship = state:ship
   val sector = get_sector(sectors, state:current_sector_idx)
+  var special_idx = state:special_sector_idx
+  var special_boost = state:special_sector_boost
   
   for {
     clear()
@@ -359,7 +669,8 @@ fn trade_menu(sectors []Sector, state GameState) {
     println(" 3. Sell All Water")
     println(" 4. Repair Hull (2 CR / point)")
     println(" 5. Purchase Warp Core (800 CR - WINS GAME)")
-    println(" 6. Leave Dock")
+    println(" 6. Visit the Miners' Lounge (10 CR)")
+    println(" 7. Leave Dock")
 
     val choice = readline("> ")
 
@@ -434,17 +745,99 @@ fn trade_menu(sectors []Sector, state GameState) {
         ship:max_cargo = 999999
         println("🎉 Warp Core purchased! Ready to make the jump to Earth!")
         readline("Press Enter to continue...")
-        return GameState { ship: ship, current_sector_idx: state:current_sector_idx }
+        return GameState { ship: ship, current_sector_idx: state:current_sector_idx, special_sector_idx: special_idx, special_sector_boost: special_boost }
       } else {
         println("❌ Insufficient credits! The Warp Core is the most premium technology in the sector.")
       }
       readline("Press Enter to continue...")
     } else if choice == "6" {
+      if ship:credits >= 10 {
+        ship:credits = ship:credits - 10
+        
+        clear()
+        println("----------------------------------------")
+        println("          🍻 THE MINERS' LOUNGE 🍻      ")
+        println("----------------------------------------")
+
+        val blackout_roll = rand(100)
+        if blackout_roll < 15 {
+          println("🍻 You buy a round of space beers for 10 CR.")
+          println("🥴 Oh no! You had one too many space beers and blacked out!")
+          var loss = 20 + rand(31)
+          if ship:credits < loss {
+            loss = ship:credits
+          }
+          ship:credits = ship:credits - loss
+          println("You wake up with a massive headache and realize someone stole $loss credits from your pockets!")
+          
+          println("")
+          println("Gained +10 Charisma XP and +5 Mining XP!")
+          ship:charisma_xp = ship:charisma_xp + 10
+          ship:mining_xp = ship:mining_xp + 5
+        } else {
+          ship:charisma_xp = ship:charisma_xp + 20
+          ship:mining_xp = ship:mining_xp + 15
+
+          var chance = 20 + ship:charisma_skill * 15
+          if chance > 90 {
+            chance = 90
+          }
+          
+          val roll = rand(100)
+          if roll < chance {
+            val r_idx = 1 + rand(3)
+            var s_name = ""
+            if r_idx == 1 {
+              s_name = "Krypton Depths"
+            } else if r_idx == 2 {
+              s_name = "Pirate Nebula"
+            } else {
+              s_name = "Gliese Icefield"
+            }
+            special_idx = r_idx
+            special_boost = 2
+            
+            println("🍻 You buy a round of space beers for 10 CR. The miners raise their glasses!")
+            println("A weathered veteran pulls you aside:")
+            println("\"Listen closely... We found an incredibly rich mineral vein in $s_name.")
+            println("If you go there now, you'll mine DOUBLE the normal yields before it gets depleted!\"")
+          } else {
+            println("🍻 You buy a round of space beers for 10 CR. The miners raise their glasses!")
+            val tip_roll = rand(4)
+            if tip_roll == 0 {
+              println("An old miner tells you: \"Sol Station doesn't allow mining, but Krypton Depths is great for Ore!\"")
+            } else if tip_roll == 1 {
+              println("A pilot whispers: \"Earth Federation cruisers patrol civilian areas. Don't raid civilians unless you're ready for military combat!\"")
+            } else if tip_roll == 2 {
+              println("A technician says: \"If you're an Outlaw, Sol Station demands 150 CR bribe to dock, but Pirate Nebula has zero bribe!\"")
+            } else {
+              println("A miner tips you: \"Upgrade your shields to survive asteroid swarm crossings and pirate ambushes!\"")
+            }
+          }
+          println("")
+          println("Gained +20 Charisma XP and +15 Mining XP!")
+        }
+        
+        if ship:charisma_xp >= 100 {
+          ship:charisma_xp = ship:charisma_xp - 100
+          ship:charisma_skill = ship:charisma_skill + 1
+          println("✨ LEVEL UP! Your Charisma Skill increased to $(ship:charisma_skill)!")
+        }
+        if ship:mining_xp >= 100 {
+          ship:mining_xp = ship:mining_xp - 100
+          ship:mining_skill = ship:mining_skill + 1
+          println("✨ LEVEL UP! Your Mining Skill increased to $(ship:mining_skill)!")
+        }
+      } else {
+        println("❌ You need at least 10 credits to buy a round of drinks!")
+      }
+      readline("Press Enter to continue...")
+    } else if choice == "7" {
       break
     }
   }
 
-  return GameState { ship: ship, current_sector_idx: state:current_sector_idx }
+  return GameState { ship: ship, current_sector_idx: state:current_sector_idx, special_sector_idx: special_idx, special_sector_boost: special_boost }
 }
 
 fn main {
@@ -464,18 +857,29 @@ fn main {
     max_shield: 50,
     ore: 0,
     water: 0,
-    max_cargo: 10
+    max_cargo: 10,
+    pirates_destroyed: 0,
+    is_pirate: 0,
+    mining_skill: 1,
+    mining_xp: 0,
+    charisma_skill: 1,
+    charisma_xp: 0
   }
 
-  var state = GameState { ship: ship, current_sector_idx: 0 }
+  var state = GameState { ship: ship, current_sector_idx: 0, special_sector_idx: 999, special_sector_boost: 1 }
   
   clear()
   println("================================================")
-  println("          🚀 STARPINO ODYSSEY v1.0 🚀           ")
+  println("          🚀 STARPINO ODYSSEY v1.2 🚀           ")
   println("================================================")
   println("Your mission is to explore sectors, mine resources,")
   println("trade, survive pirate attacks, and purchase a")
   println("Warp Core (800 CR) to return home to Earth.")
+  println("")
+  println("NEW MECHANICS:")
+  println(" - Intimidation & Syndicate: Recruit by pirates, raid civilian vessels.")
+  println(" - Progression: Level up Mining & Charisma Skills to improve yields & tips.")
+  println(" - Lounge & Bribes: Buy drinks for tips and rich veins. Bribe space station guards.")
   println("================================================")
   println("")
   readline("Press Enter to begin...")
@@ -510,9 +914,14 @@ fn main {
     println("Main Menu:")
     println(" 1. Travel to another sector")
     println(" 2. Mine current sector")
-    println(" 3. Dock at Space Station")
-    println(" 4. Repair Shields (free, recharge +15, consumes 3 fuel)")
-    println(" 5. Quit Game")
+    if current_ship:is_pirate == 1 {
+      println(" 3. Dock at Space Station (Bribe required)")
+      println(" 4. Raid Civilian Cargo Ships (Outlaw option)")
+    } else {
+      println(" 3. Dock at Space Station")
+    }
+    println(" 5. Repair Shields (free, recharge +15, consumes 3 fuel)")
+    println(" 6. Quit Game")
 
     val menu_choice = readline("> ")
 
@@ -536,8 +945,73 @@ fn main {
       clear()
       state = mine_sector(sectors, state)
     } else if menu_choice == "3" {
-      state = trade_menu(sectors, state)
-    } else if menu_choice == "4" {
+      val sector = get_sector(sectors, state:current_sector_idx)
+      var allowed_dock = true
+      
+      # Check for pirate encounter while trying to dock
+      val dock_roll = rand(100)
+      if dock_roll < sector:danger * 8 {
+        println("🚨 ALERT: Pirates are patrolling near the space station docking gates!")
+        readline("Press Enter to prepare for combat...")
+        var active_ship = state:ship
+        active_ship = handle_pirate_encounter(active_ship)
+        state = GameState { ship: active_ship, current_sector_idx: state:current_sector_idx, special_sector_idx: state:special_sector_idx, special_sector_boost: state:special_sector_boost }
+        current_ship = active_ship
+        if active_ship:hull <= 0 {
+          allowed_dock = false
+        } else {
+          clear()
+          println("With the threat cleared, you approach the space station docks.")
+          readline("Press Enter to continue...")
+        }
+      }
+
+      if allowed_dock {
+        if current_ship:is_pirate == 1 {
+          var bribe = 50
+          if sector:name == "Sol Station" {
+            bribe = 150
+          }
+          if sector:name == "Pirate Nebula" {
+            bribe = 0
+          }
+
+          if bribe > 0 {
+            clear()
+            println("🚨 SECURITY ALERT! 🚨")
+            println("Outlaw ship detected. Spaceport guards have locked the docking bay.")
+            println("They demand a bribe of $bribe credits to let you dock.")
+            println("Choose option:")
+            println(" 1. Pay Bribe ($bribe CR)")
+            println(" 2. Turn back")
+
+            val doc_opt = readline("> ")
+            if doc_opt == "1" {
+              var active_ship = state:ship
+              if active_ship:credits >= bribe {
+                active_ship:credits = active_ship:credits - bribe
+                println("Bribe accepted! Docking bay open.")
+                state = GameState { ship: active_ship, current_sector_idx: state:current_sector_idx, special_sector_idx: state:special_sector_idx, special_sector_boost: state:special_sector_boost }
+                readline("Press Enter to dock...")
+              } else {
+                println("Insufficient credits to pay the bribe! The guards threaten you with automated turrets.")
+                allowed_dock = false
+                readline("Press Enter to retreat...")
+              }
+            } else {
+              allowed_dock = false
+            }
+          }
+        }
+
+        if allowed_dock {
+          state = trade_menu(sectors, state)
+        }
+      }
+    } else if menu_choice == "4" and current_ship:is_pirate == 1 {
+      clear()
+      state = raid_civilians(sectors, state)
+    } else if menu_choice == "5" {
       clear()
       var active_ship = state:ship
       if active_ship:fuel >= 3 {
@@ -547,12 +1021,12 @@ fn main {
           active_ship:shield = active_ship:max_shield
         }
         println("Shields recharged to $(active_ship:shield)!")
-        state = GameState { ship: active_ship, current_sector_idx: state:current_sector_idx }
+        state = GameState { ship: active_ship, current_sector_idx: state:current_sector_idx, special_sector_idx: state:special_sector_idx, special_sector_boost: state:special_sector_boost }
       } else {
         println("❌ Not enough fuel to recharge shields!")
       }
       readline("Press Enter to continue...")
-    } else if menu_choice == "5" {
+    } else if menu_choice == "6" {
       println("Abandoning mission... Goodbye Captain.")
       break
     } else {
