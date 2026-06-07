@@ -22,6 +22,7 @@ struct Ship {
   mining_xp int
   charisma_skill int
   charisma_xp int
+  emergency_siphons int
 }
 
 struct GameState {
@@ -52,8 +53,7 @@ fn show_status(ship Ship, current_sector_name string) {
   println(" Shield       : $(ship:shield)/$(ship:max_shield)")
   println(" Fuel         : $(ship:fuel)/$(ship:max_fuel)")
   println(" Credits      : $(ship:credits) CR")
-  var cargo_size = ship:ore + ship:water
-  println(" Cargo Bay    : $cargo_size/$(ship:max_cargo) units")
+  println(" Cargo Bay    : $(ship:ore + ship:water)/$(ship:max_cargo) units")
   println("   - Ore      : $(ship:ore) units")
   println("   - Water    : $(ship:water) units")
   if ship:is_pirate == 1 {
@@ -184,17 +184,18 @@ fn handle_pirate_encounter(ship Ship) {
     println("A pirate frigate warps in, recognizes your outlaw beacon, and hails you.")
     println("\"Greetings, brother! Need some supplies?\"")
     println("Choose option:")
-    println(" 1. Buy black-market fuel (25 credits for +30 fuel)")
-    println(" 2. Exchange coordinates (gain 15 fuel for free)")
-    println(" 3. Wave them off")
+    println(" 1. Buy black-market fuel (50 credits for +20 fuel)")
+    println(" 2. Barter resource (Trade 1 Ore/Water for +20 fuel)")
+    println(" 3. Request emergency fuel (+8 fuel, max 3 times)")
+    println(" 4. Wave them off")
 
     val p_choice = readline("> ")
     if p_choice == "1" {
-      if ship:credits >= 25 {
-        if ship:fuel + 30 <= ship:max_fuel {
-          ship:credits = ship:credits - 25
-          ship:fuel = ship:fuel + 30
-          println("Purchased 30 fuel for 25 CR.")
+      if ship:credits >= 50 {
+        if ship:fuel + 20 <= ship:max_fuel {
+          ship:credits = ship:credits - 50
+          ship:fuel = ship:fuel + 20
+          println("Purchased 20 fuel for 50 CR.")
         } else {
           println("Not enough capacity in your fuel tanks.")
         }
@@ -202,11 +203,53 @@ fn handle_pirate_encounter(ship Ship) {
         println("Not enough credits.")
       }
     } else if p_choice == "2" {
-      ship:fuel = ship:fuel + 15
-      if ship:fuel > ship:max_fuel {
-        ship:fuel = ship:max_fuel
+      var traded = false
+      if ship:ore > 0 {
+        ship:ore = ship:ore - 1
+        ship:fuel = ship:fuel + 20
+        if ship:fuel > ship:max_fuel {
+          ship:fuel = ship:max_fuel
+        }
+        println("Traded 1 Ore for 20 fuel.")
+        traded = true
+      } else if ship:water > 0 {
+        ship:water = ship:water - 1
+        ship:fuel = ship:fuel + 20
+        if ship:fuel > ship:max_fuel {
+          ship:fuel = ship:max_fuel
+        }
+        println("Traded 1 Water for 20 fuel.")
+        traded = true
+      } else {
+        println("❌ You have no Ore or Water cargo to barter!")
       }
-      println("They send you fuel coordinates. Fuel replenished (+15).")
+    } else if p_choice == "3" {
+      var eff_charisma = ship:charisma_skill
+      if eff_charisma > 4 {
+        eff_charisma = 4
+      }
+      val max_siphons = 2 + eff_charisma
+      val yield = 8 + eff_charisma * 2
+
+      if ship:emergency_siphons < max_siphons {
+        ship:emergency_siphons = ship:emergency_siphons + 1
+        ship:fuel = ship:fuel + yield
+        if ship:fuel > ship:max_fuel {
+          ship:fuel = ship:max_fuel
+        }
+        
+        if ship:charisma_skill == 1 {
+          println("\"Begging for fuel? Real pathetic. Siphoning $yield units of low-grade sludge into your tanks.\"")
+        } else if ship:charisma_skill < 4 {
+          println("\"You've got a way with words, brother. We'll spare $yield units of fuel. Don't abuse our goodwill.\"")
+        } else {
+          println("\"Your reputation precedes you, Captain! The Syndicate speaks highly of you.")
+          println("Take $yield units of fuel, but even your silver tongue has its limits!\"")
+        }
+        println("Siphons used: $(ship:emergency_siphons)/$max_siphons")
+      } else {
+        println("\"No more hand-outs, beggar! Keep asking for free fuel and we will ban you from the Syndicate!\"")
+      }
     } else {
       println("You wave them off. They warp away wishing you good hunting.")
     }
@@ -863,7 +906,8 @@ fn main {
     mining_skill: 1,
     mining_xp: 0,
     charisma_skill: 1,
-    charisma_xp: 0
+    charisma_xp: 0,
+    emergency_siphons: 0
   }
 
   var state = GameState { ship: ship, current_sector_idx: 0, special_sector_idx: 999, special_sector_boost: 1 }
