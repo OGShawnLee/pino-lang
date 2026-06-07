@@ -1,0 +1,529 @@
+struct Sector {
+  name string
+  danger int
+  price_ore int
+  price_fuel int
+  price_water int
+}
+
+struct Ship {
+  credits int
+  fuel int
+  max_fuel int
+  hull int
+  shield int
+  max_shield int
+  ore int
+  water int
+  max_cargo int
+}
+
+struct GameState {
+  ship Ship
+  current_sector_idx int
+}
+
+fn get_sector(sectors []Sector, idx int) {
+  var result = Sector { name: "", danger: 0, price_ore: 0, price_fuel: 0, price_water: 0 }
+  var current = 0
+  for s in sectors {
+    if current == idx {
+      result = s
+    }
+    current = current + 1
+  }
+  return result
+}
+
+fn show_status(ship Ship, current_sector_name string) {
+  println("----------------------------------------")
+  println("          🌌 SHIP STATUS SYSTEM 🌌")
+  println("----------------------------------------")
+  println(" Sector       : $current_sector_name")
+  println(" Hull         : $(ship:hull)/100")
+  println(" Shield       : $(ship:shield)/$(ship:max_shield)")
+  println(" Fuel         : $(ship:fuel)/$(ship:max_fuel)")
+  println(" Credits      : $(ship:credits) CR")
+  var cargo_size = ship:ore + ship:water
+  println(" Cargo Bay    : $cargo_size/$(ship:max_cargo) units")
+  println("   - Ore      : $(ship:ore) units")
+  println("   - Water    : $(ship:water) units")
+  println("----------------------------------------")
+}
+
+fn handle_pirate_encounter(ship Ship) {
+  println("----------------------------------------")
+  println("          🚨 WARNING: PIRATES! 🚨")
+  println("----------------------------------------")
+  println("An outlaw cruiser drops out of warp!")
+  println("They demand 100 credits, or they will open fire!")
+  println("")
+
+  var pirate_hp = 60
+  var escaped = false
+
+  for {
+    if pirate_hp <= 0 or ship:hull <= 0 or escaped {
+      break
+    }
+
+    println("Pirate Hull: $pirate_hp HP | Your Hull: $(ship:hull) | Shield: $(ship:shield)")
+    println("Choose Action:")
+    println(" 1. Fire Lasers (Deals 15-25 damage, Pirate attacks)")
+    println(" 2. Overcharge Shield (+25 shields, Pirate attacks)")
+    println(" 3. Pay Ransom (100 credits)")
+    println(" 4. Flee (Consumes 15 fuel, 50% escape chance)")
+
+    val choice = readline("> ")
+
+    if choice == "1" {
+      val dmg = 15 + rand(11)
+      pirate_hp = pirate_hp - dmg
+      println("You deal $dmg damage to the pirate cruiser!")
+      
+      if pirate_hp > 0 {
+        val p_dmg = 10 + rand(16)
+        println("The pirate fires back dealing $p_dmg damage!")
+        if ship:shield >= p_dmg {
+          ship:shield = ship:shield - p_dmg
+        } else {
+          val leak = p_dmg - ship:shield
+          ship:shield = 0
+          ship:hull = ship:hull - leak
+        }
+      }
+    } else if choice == "2" {
+      ship:shield = ship:shield + 25
+      if ship:shield > ship:max_shield {
+        ship:shield = ship:max_shield
+      }
+      println("Shields boosted to $(ship:shield)!")
+      
+      val p_dmg = 10 + rand(16)
+      println("The pirate attacks dealing $p_dmg damage!")
+      if ship:shield >= p_dmg {
+        ship:shield = ship:shield - p_dmg
+      } else {
+        val leak = p_dmg - ship:shield
+        ship:shield = 0
+        ship:hull = ship:hull - leak
+      }
+    } else if choice == "3" {
+      if ship:credits >= 100 {
+        ship:credits = ship:credits - 100
+        println("You transfer 100 credits. The pirates warp away.")
+        escaped = true
+      } else {
+        println("You don't have enough credits! The pirates mock you and attack!")
+        val p_dmg = 15 + rand(11)
+        if ship:shield >= p_dmg {
+          ship:shield = ship:shield - p_dmg
+        } else {
+          val leak = p_dmg - ship:shield
+          ship:shield = 0
+          ship:hull = ship:hull - leak
+        }
+      }
+    } else if choice == "4" {
+      if ship:fuel >= 15 {
+        ship:fuel = ship:fuel - 15
+        val roll = rand(100)
+        if roll < 50 {
+          println("Escape successful! You warp away from the pirates.")
+          escaped = true
+        } else {
+          println("Escape failed! The pirates jam your warp drive and fire!")
+          val p_dmg = 15 + rand(16)
+          if ship:shield >= p_dmg {
+            ship:shield = ship:shield - p_dmg
+          } else {
+            val leak = p_dmg - ship:shield
+            ship:shield = 0
+            ship:hull = ship:hull - leak
+          }
+        }
+      } else {
+        println("Not enough fuel to jump to hyperspace!")
+      }
+    } else {
+      println("Invalid input! You waste time and the pirates fire!")
+      val p_dmg = 10 + rand(11)
+      if ship:shield >= p_dmg {
+        ship:shield = ship:shield - p_dmg
+      } else {
+        val leak = p_dmg - ship:shield
+        ship:shield = 0
+        ship:hull = ship:hull - leak
+      }
+    }
+  }
+
+  if pirate_hp <= 0 {
+    val reward = 50 + rand(51)
+    ship:credits = ship:credits + reward
+    println("💥 The pirate ship explodes! You salvage $reward credits from the wreckage.")
+  }
+
+  return ship
+}
+
+fn travel_to_sector(sectors []Sector, state GameState, target_idx int) {
+  var ship = state:ship
+  var current_sector_idx = state:current_sector_idx
+
+  if current_sector_idx == target_idx {
+    println("You are already in that sector.")
+    return state
+  }
+
+  val target = get_sector(sectors, target_idx)
+  val fuel_cost = 10 + target:danger * 2
+
+  if ship:fuel < fuel_cost {
+    println("❌ Not enough fuel to travel to $(target:name)! Needs $fuel_cost fuel, you have $(ship:fuel).")
+    return state
+  }
+
+  ship:fuel = ship:fuel - fuel_cost
+  println("Warping to $(target:name)... consumed $fuel_cost fuel.")
+  sleep(1500)
+
+  val roll = rand(100)
+  if roll < target:danger * 15 {
+    ship = handle_pirate_encounter(ship)
+  } else if roll < target:danger * 15 + 20 {
+    val credits_found = 30 + rand(41)
+    ship:credits = ship:credits + credits_found
+    println("🛰️  You scan some drifting space junk and recover $credits_found credits!")
+  } else if roll < target:danger * 15 + 35 {
+    println("☄️  You enter a dense asteroid swarm!")
+    println("Choose navigation style:")
+    println(" 1. Go slow and careful (Consumes 5 extra fuel)")
+    println(" 2. Speed through (30% chance of hull damage)")
+    val ast_choice = readline("> ")
+    if ast_choice == "1" {
+      if ship:fuel >= 5 {
+        ship:fuel = ship:fuel - 5
+        println("You navigate safely but consumed 5 extra fuel.")
+      } else {
+        println("Not enough fuel to go slow! You are forced to speed through.")
+        val roll2 = rand(100)
+        if roll2 < 30 {
+          val hull_loss = 15 + rand(16)
+          ship:hull = ship:hull - hull_loss
+          println("💥 Ouch! An asteroid hit your ship, dealing $hull_loss hull damage.")
+        } else {
+          println("You got lucky and navigated through safely!")
+        }
+      }
+    } else {
+      val roll2 = rand(100)
+      if roll2 < 30 {
+        val hull_loss = 15 + rand(16)
+        ship:hull = ship:hull - hull_loss
+        println("💥 Ouch! An asteroid hit your ship, dealing $hull_loss hull damage.")
+      } else {
+        println("You got lucky and navigated through safely!")
+      }
+    }
+  } else {
+    println("The journey was calm. You arrived safely at $(target:name).")
+  }
+
+  return GameState { ship: ship, current_sector_idx: target_idx }
+}
+
+fn mine_sector(sectors []Sector, state GameState) {
+  var ship = state:ship
+  val sector = get_sector(sectors, state:current_sector_idx)
+  
+  if sector:danger == 0 {
+    println("Mining is prohibited in Sol Station's safe zone.")
+    return state
+  }
+
+  if ship:fuel < 5 {
+    println("❌ Not enough fuel to operate the mining drills! Needs 5 fuel.")
+    return state
+  }
+
+  var cargo_size = ship:ore + ship:water
+  if cargo_size >= ship:max_cargo {
+    println("❌ Cargo bay is full! Sell resources first.")
+    return state
+  }
+
+  ship:fuel = ship:fuel - 5
+  println("Deploying mining drills in $(sector:name)...")
+  sleep(1000)
+
+  println("Select drilling depth:")
+  println(" 1. Shallow (Safe, low yield)")
+  println(" 2. Medium (Medium risk, moderate yield)")
+  println(" 3. Deep (High risk of gas pockets, high yield)")
+  val depth = readline("> ")
+
+  var risk = 10
+  var max_yield = 2
+  if depth == "2" {
+    risk = 25
+    max_yield = 4
+  } else if depth == "3" {
+    risk = 50
+    max_yield = 7
+  }
+
+  val trap_roll = rand(100)
+  if trap_roll < risk {
+    val dmg = 10 + rand(16)
+    ship:hull = ship:hull - dmg
+    println("💥 A pocket of volatile gas exploded! You take $dmg hull damage.")
+  } else {
+    var ore_yield = 0
+    var water_yield = 0
+
+    if sector:name == "Krypton Depths" {
+      ore_yield = 1 + rand(max_yield)
+      water_yield = rand(2)
+    } else if sector:name == "Gliese Icefield" {
+      water_yield = 1 + rand(max_yield)
+      ore_yield = rand(2)
+    } else {
+      ore_yield = rand(max_yield)
+      water_yield = rand(max_yield)
+    }
+
+    var space_left = ship:max_cargo - (ship:ore + ship:water)
+    if ore_yield + water_yield > space_left {
+      if ore_yield > space_left {
+        ore_yield = space_left
+        water_yield = 0
+      } else {
+        space_left = space_left - ore_yield
+        water_yield = space_left
+      }
+    }
+
+    ship:ore = ship:ore + ore_yield
+    ship:water = ship:water + water_yield
+
+    println("⛏️  Mining complete! You extracted:")
+    println("  - Ore  : $ore_yield units")
+    println("  - Water: $water_yield units")
+  }
+
+  return GameState { ship: ship, current_sector_idx: state:current_sector_idx }
+}
+
+fn trade_menu(sectors []Sector, state GameState) {
+  var ship = state:ship
+  val sector = get_sector(sectors, state:current_sector_idx)
+  
+  for {
+    println("----------------------------------------")
+    println("          🏪 DOCKED AT STATION 🏪       ")
+    println("----------------------------------------")
+    println(" Credits : $(ship:credits) CR  |  Fuel: $(ship:fuel)/$(ship:max_fuel)")
+    println(" Ore     : $(ship:ore) units   |  Water: $(ship:water) units")
+    println("")
+    println(" Station Prices:")
+    println("  - Fuel : Buy for $(sector:price_fuel) CR / unit")
+    println("  - Ore  : Sell for $(sector:price_ore) CR / unit")
+    println("  - Water: Sell for $(sector:price_water) CR / unit")
+    println("----------------------------------------")
+    println("Choose Action:")
+    println(" 1. Buy Fuel (specify amount)")
+    println(" 2. Sell All Ore")
+    println(" 3. Sell All Water")
+    println(" 4. Repair Hull (2 CR / point)")
+    println(" 5. Purchase Warp Core (800 CR - WINS GAME)")
+    println(" 6. Leave Dock")
+
+    val choice = readline("> ")
+
+    if choice == "1" {
+      println("How much fuel do you want to buy? (Max capacity is $(ship:max_fuel - ship:fuel))")
+      val amt_str = readline("Amount: ")
+      val amt = int(amt_str)
+      if amt <= 0 {
+        println("Invalid amount.")
+      } else if ship:fuel + amt > ship:max_fuel {
+        println("Cannot buy more than ship capacity.")
+      } else {
+        val cost = amt * sector:price_fuel
+        if ship:credits >= cost {
+          ship:credits = ship:credits - cost
+          ship:fuel = ship:fuel + amt
+          println("Bought $amt fuel for $cost CR.")
+        } else {
+          println("Not enough credits! Needs $cost CR.")
+        }
+      }
+    } else if choice == "2" {
+      if ship:ore > 0 {
+        val gain = ship:ore * sector:price_ore
+        ship:credits = ship:credits + gain
+        println("Sold $(ship:ore) ore units for $gain CR.")
+        ship:ore = 0
+      } else {
+        println("No ore to sell.")
+      }
+    } else if choice == "3" {
+      if ship:water > 0 {
+        val gain = ship:water * sector:price_water
+        ship:credits = ship:credits + gain
+        println("Sold $(ship:water) water units for $gain CR.")
+        ship:water = 0
+      } else {
+        println("No water to sell.")
+      }
+    } else if choice == "4" {
+      if ship:hull >= 100 {
+        println("Hull is already at 100%.")
+      } else {
+        val needed = 100 - ship:hull
+        println("Hull needed: $needed points. Cost: $(needed * 2) CR. Repaired to full? (y/n)")
+        val yesno = readline("> ")
+        if yesno == "y" or yesno == "yes" {
+          val cost = needed * 2
+          if ship:credits >= cost {
+            ship:credits = ship:credits - cost
+            ship:hull = 100
+            println("Repaired hull to 100%.")
+          } else {
+            val afford = ship:credits / 2
+            if afford > 0 {
+              ship:credits = ship:credits - (afford * 2)
+              ship:hull = ship:hull + afford
+              println("Repaired $afford points of hull. Current hull: $(ship:hull)%.")
+            } else {
+              println("Cannot afford repairs.")
+            }
+          }
+        }
+      }
+    } else if choice == "5" {
+      if ship:credits >= 800 {
+        ship:credits = ship:credits - 800
+        ship:max_cargo = 999999
+        println("🎉 Warp Core purchased! Ready to make the jump to Earth!")
+        return GameState { ship: ship, current_sector_idx: state:current_sector_idx }
+      } else {
+        println("❌ Insufficient credits! The Warp Core is the most premium technology in the sector.")
+      }
+    } else if choice == "6" {
+      break;
+    }
+  }
+
+  return GameState { ship: ship, current_sector_idx: state:current_sector_idx }
+}
+
+fn main {
+  val s1 = Sector { name: "Sol Station", danger: 0, price_ore: 10, price_fuel: 5, price_water: 8 }
+  val s2 = Sector { name: "Krypton Depths", danger: 2, price_ore: 22, price_fuel: 8, price_water: 12 }
+  val s3 = Sector { name: "Pirate Nebula", danger: 4, price_ore: 38, price_fuel: 12, price_water: 25 }
+  val s4 = Sector { name: "Gliese Icefield", danger: 1, price_ore: 15, price_fuel: 6, price_water: 18 }
+
+  val sectors = [s1, s2, s3, s4]
+
+  var ship = Ship {
+    credits: 150,
+    fuel: 60,
+    max_fuel: 100,
+    hull: 100,
+    shield: 50,
+    max_shield: 50,
+    ore: 0,
+    water: 0,
+    max_cargo: 10
+  }
+
+  var state = GameState { ship: ship, current_sector_idx: 0 }
+  
+  println("================================================")
+  println("          🚀 STARPINO ODYSSEY v1.0 🚀           ")
+  println("================================================")
+  println("Your mission is to explore sectors, mine resources,")
+  println("trade, survive pirate attacks, and purchase a")
+  println("Warp Core (800 CR) to return home to Earth.")
+  println("================================================")
+  println("")
+
+  for {
+    var current_ship = state:ship
+    
+    if current_ship:hull <= 0 {
+      println("💥 CRITICAL DAMAGE: Your ship has been destroyed! Game Over.")
+      break
+    }
+
+    if current_ship:fuel <= 0 and current_ship:ore == 0 and current_ship:water == 0 and current_ship:credits < 5 {
+      println("🌌 DRIFTING IN DEEP SPACE: You are out of fuel, cargo, and credits. Game Over.")
+      break
+    }
+
+    if current_ship:max_cargo == 999999 {
+      println("================================================")
+      println("🎉 CONGRATULATIONS CAPTAIN! 🎉")
+      println("================================================")
+      println("With the Warp Core installed, your ship makes")
+      println("the jump to Earth. You successfully returned home!")
+      println("================================================")
+      break
+    }
+
+    val current_sector = get_sector(sectors, state:current_sector_idx)
+
+    println("")
+    show_status(current_ship, current_sector:name)
+    println("Main Menu:")
+    println(" 1. Travel to another sector")
+    println(" 2. Mine current sector")
+    println(" 3. Dock at Space Station")
+    println(" 4. Repair Shields (free, recharge +15, consumes 3 fuel)")
+    println(" 5. Quit Game")
+
+    val menu_choice = readline("> ")
+
+    if menu_choice == "1" {
+      println("Select destination sector:")
+      println(" 1. Sol Station (Danger: None)")
+      println(" 2. Krypton Depths (Danger: Medium)")
+      println(" 3. Pirate Nebula (Danger: High)")
+      println(" 4. Gliese Icefield (Danger: Low)")
+      val dest_choice = readline("Choice: ")
+      val target_idx = int(dest_choice) - 1
+
+      if target_idx < 0 or target_idx > 3 {
+        println("Invalid sector selection.")
+      } else {
+        state = travel_to_sector(sectors, state, target_idx)
+      }
+    } else if menu_choice == "2" {
+      state = mine_sector(sectors, state)
+    } else if menu_choice == "3" {
+      state = trade_menu(sectors, state)
+    } else if menu_choice == "4" {
+      var active_ship = state:ship
+      if active_ship:fuel >= 3 {
+        active_ship:fuel = active_ship:fuel - 3
+        active_ship:shield = active_ship:shield + 15
+        if active_ship:shield > active_ship:max_shield {
+          active_ship:shield = active_ship:max_shield
+        }
+        println("Shields recharged to $(active_ship:shield)!")
+        state = GameState { ship: active_ship, current_sector_idx: state:current_sector_idx }
+      } else {
+        println("❌ Not enough fuel to recharge shields!")
+      }
+    } else if menu_choice == "5" {
+      println("Abandoning mission... Goodbye Captain.")
+      break
+    } else {
+      println("Command not recognized.")
+    }
+  }
+}
+
+main()

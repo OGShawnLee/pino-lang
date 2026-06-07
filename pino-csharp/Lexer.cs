@@ -110,7 +110,7 @@ public class Lexer {
       // 5. Multi-character Operators (like ==, !=, +=, -=, ::, <=, >=)
       if (index + 1 < line.Length) {
         var dualOp = line.Substring(index, 2);
-        if (Operators.TryGetValue(dualOp, out var dualOpType)) {
+        if (Operators.TryGetValue(dualOp, out var dualOpType) && !char.IsLetter(dualOp[0])) {
           tokens.Add(new Token(TokenType.Operator, dualOp, Operator: dualOpType));
           index += 2;
           continue;
