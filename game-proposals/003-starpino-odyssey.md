@@ -1,18 +1,22 @@
-# 🌌 StarPino Odyssey: Visión de Juego y Futuras Líneas de Desarrollo
+# Game Proposal 003: StarPino Odyssey
 
-Este documento detalla la visión de diseño para el simulador de exploración espacial retro **StarPino Odyssey** y esboza las mecánicas e historias futuras propuestas para enriquecer el universo de juego.
+* **Estado**: Borrador (Draft)
+* **Autores**: Shawn Lee & Antigravity
+* **Fecha**: 2026-06-07
 
 ---
 
-## 🚀 1. Visión General
+## 1. Visión General (Overview)
+Este documento detalla la visión de diseño para el simulador de exploración espacial retro **StarPino Odyssey** y esboza las mecánicas e historias futuras propuestas para enriquecer el universo de juego.
+
 *StarPino Odyssey* es un juego de exploración, comercio y supervivencia en consola basado en texto, escrito en **Pino Lang**. La experiencia central combina la gestión de recursos (combustible, casco, escudo, créditos) con decisiones narrativas de alto riesgo, progresión de habilidades del piloto y combates tácticos espaciales.
 
 ---
 
-## 🛠️ 2. Estado Actual de las Mecánicas (v1.2)
+## 2. Estado Actual de las Mecánicas - v1.2 (Current Mechanics State)
 - **Vuelo e Hiperespacio**: Consumo de combustible dinámico entre sectores con riesgos de viajes (anomalías, tormentas de asteroides).
 - **Minería de Asteroides**: Sistema de extracción con tres niveles de profundidad. A mayor profundidad, mayor recompensa de minerales (Mina de Mena y Agua), pero con riesgos incrementados de bolsas de gas inflamables.
-- **Progression System**:
+- **System de Progresión (Progression System)**:
   - **Mining Skill**: Aumenta el rendimiento y reduce las probabilidades de daño por explosión en las minas.
   - **Charisma Skill**: Aumenta la probabilidad de obtener rumores sobre vetas ricas y coordenadas secretas de doble producción.
 - **Miners' Lounge**: Interacciones en tabernas espaciales que otorgan XP, pero con el peligro del *Blackout* (15% de probabilidad de desmayarse y sufrir robos de créditos).
@@ -23,7 +27,7 @@ Este documento detalla la visión de diseño para el simulador de exploración e
 
 ---
 
-## 🔮 3. Futuras Líneas de Desarrollo (Sidelined Events)
+## 3. Futuras Líneas de Desarrollo (Sidelined Events)
 
 ### A. Alistamiento en la Vanguardia (Historia Militar)
 * **Activación**: Derrotar a un interceptor pirata cerca de una estación espacial en un sector de bajo peligro (e.g. Sol Station o Gliese Icefield).
@@ -53,7 +57,7 @@ Este documento detalla la visión de diseño para el simulador de exploración e
 
 ---
 
-## 📈 4. Expansiones Generales de Sistema
+## 4. Expansiones Generales de Sistema (General System Expansions)
 1. **Personalización de la Nave**: Comprar componentes en el puerto comercial como *Escudos Deflectores de Iones*, *Láseres de Pulso Pesado* o *Tanques de Combustible Ampliados*.
 2. **Economía Dinámica**: Los precios de compra de mineral y agua fluctúan dependiendo de qué tan recientemente hayas explotado las minas de ese sector (simulando oferta y demanda).
 3. **Métricas de Facción**: Barra visual de reputación entre la Federación Terrestre y el Sindicato de Piratas que altera cómo te tratan los NPC a lo largo del mapa.
