@@ -34,7 +34,7 @@ struct Player {
     println(" Skills : Reason: Lvl $reason | Intimidation: Lvl $intimidation | Charm: Lvl $charm")
     val act_style = get_style(style_idx)
     println(" Style  : Active Style: $(act_style:name)")
-    if has_dire_viper == true {
+    if has_dire_viper {
       println(" Special: Prohibited style 'Dire Viper' unlocked!")
     }
     println("----------------------------------------")
@@ -218,7 +218,7 @@ fn combat_loop(player Player, enemy Enemy) {
       println(" 1. Iron Fist (Heavy physical - costs Focus)")
       println(" 2. Spirit Palm (Spiritual energy - costs Chi)")
       println(" 3. Tiger Claw (Fast - recovers Chi and Focus on hit)")
-      if player:has_dire_viper == 1 {
+      if player:has_dire_viper {
         println(" 4. Dire Viper (Prohibited poison style - drains Chi on hit)")
       }
       val st_choice = readline("> ")
@@ -228,7 +228,7 @@ fn combat_loop(player Player, enemy Enemy) {
         player:style_idx = 1
       } else if st_choice == "3" {
         player:style_idx = 2
-      } else if st_choice == "4" and player:has_dire_viper == true {
+      } else if st_choice == "4" and player:has_dire_viper {
         player:style_idx = 3
       } else {
         println("Invalid choice!")
