@@ -1,0 +1,12 @@
+fn fib(n int) {
+  if n < 2 {
+    return n
+  }
+  return fib(n - 1) + fib(n - 2)
+}
+
+val start = time()
+val result = fib(28)
+val end = time()
+println("Fibonacci(28) = $result")
+println("Time: $(end - start) ms")

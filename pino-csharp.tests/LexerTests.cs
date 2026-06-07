@@ -147,7 +147,7 @@ public class LexerTests {
     var input = "\"Base Attack: $(player:attack)\"";
     var tokens = Lexer.LexLine(input);
 
-    Assert.Equal(5, tokens.Count);
+    Assert.Equal(7, tokens.Count);
 
     Assert.Equal(TokenType.Literal, tokens[0].Type);
     Assert.Equal(LiteralType.String, tokens[0].Literal);
@@ -155,13 +155,17 @@ public class LexerTests {
 
     Assert.True(tokens[1].IsOperator(OperatorType.Addition));
 
-    Assert.Equal(TokenType.Identifier, tokens[2].Type);
-    Assert.Equal("player", tokens[2].Data);
+    Assert.True(tokens[2].IsMarker(MarkerType.ParenthesisBegin));
 
-    Assert.True(tokens[3].IsOperator(OperatorType.MemberAccess));
+    Assert.Equal(TokenType.Identifier, tokens[3].Type);
+    Assert.Equal("player", tokens[3].Data);
 
-    Assert.Equal(TokenType.Identifier, tokens[4].Type);
-    Assert.Equal("attack", tokens[4].Data);
+    Assert.True(tokens[4].IsOperator(OperatorType.MemberAccess));
+
+    Assert.Equal(TokenType.Identifier, tokens[5].Type);
+    Assert.Equal("attack", tokens[5].Data);
+
+    Assert.True(tokens[6].IsMarker(MarkerType.ParenthesisEnd));
   }
 
   [Fact]

@@ -62,6 +62,17 @@ class Program {
         RunUpdate();
         break;
 
+      case "compile":
+        var compileFileName = args.Length > 1 ? args[1] : "main.pino";
+        var compileFilePath = Path.Combine(System.Environment.CurrentDirectory, compileFileName);
+        if (!File.Exists(compileFilePath)) {
+          Console.WriteLine($"Error: File '{compileFileName}' not found.");
+          System.Environment.Exit(1);
+        }
+        var outputPath = args.Length > 2 ? args[2] : null;
+        CompileAndRun(compileFilePath, outputPath);
+        break;
+
       default:
         Console.WriteLine("Invalid command. Type 'help' for usage.");
         break;
@@ -74,6 +85,7 @@ class Program {
     Console.WriteLine("  help, h             : Display this help message");
     Console.WriteLine("  repl                : Start the Pino interactive REPL");
     Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
+    Console.WriteLine("  compile [file] [out]: Compile and run the file, or output to binary if output path is provided");
     Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
     Console.WriteLine("  version, v          : Show Pino version information");
     Console.WriteLine("  update              : Check for and install compiler updates");
@@ -231,6 +243,84 @@ class Program {
       var program = Parser.ParseFile(path);
       var evaluator = new Evaluator();
       evaluator.Execute(program);
+    } catch (Exception ex) {
+      Console.WriteLine(ex.ToString());
+    }
+  }
+
+  static void CompileAndRun(string path, string? outputPath) {
+    try {
+      var program = Parser.ParseFile(path);
+      var transpiledCode = Transpiler.Transpile(program);
+
+      var tempDir = Path.Combine(Path.GetTempPath(), "pino_transpile_" + Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(tempDir);
+
+      try {
+        var programCsPath = Path.Combine(tempDir, "Program.cs");
+        File.WriteAllText(programCsPath, transpiledCode);
+
+        var csprojContent = @"<Project Sdk=""Microsoft.NET.Sdk"">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+</Project>";
+        var csprojPath = Path.Combine(tempDir, "pino_temp.csproj");
+        File.WriteAllText(csprojPath, csprojContent);
+
+        if (string.IsNullOrEmpty(outputPath)) {
+          var startInfo = new System.Diagnostics.ProcessStartInfo {
+            FileName = "dotnet",
+            Arguments = $"run -c Release --project \"{csprojPath}\"",
+            UseShellExecute = false
+          };
+
+          using var process = System.Diagnostics.Process.Start(startInfo);
+          process?.WaitForExit();
+        } else {
+          var absOutputPath = Path.IsPathRooted(outputPath) 
+            ? outputPath 
+            : Path.Combine(System.Environment.CurrentDirectory, outputPath);
+
+          var outputDir = Path.Combine(tempDir, "bin_out");
+          var startInfo = new System.Diagnostics.ProcessStartInfo {
+            FileName = "dotnet",
+            Arguments = $"build -c Release -o \"{outputDir}\" --nologo \"{csprojPath}\"",
+            UseShellExecute = false
+          };
+
+          using var process = System.Diagnostics.Process.Start(startInfo);
+          process?.WaitForExit();
+
+          if (process?.ExitCode == 0) {
+            var ext = OperatingSystem.IsWindows() ? ".exe" : "";
+            var generatedExe = Path.Combine(outputDir, "pino_temp" + ext);
+
+            if (File.Exists(generatedExe)) {
+              var parentDir = Path.GetDirectoryName(absOutputPath);
+              if (!string.IsNullOrEmpty(parentDir)) {
+                Directory.CreateDirectory(parentDir);
+              }
+              File.Copy(generatedExe, absOutputPath, true);
+              Console.WriteLine($"🌲 Success! Compiled to {absOutputPath}");
+            } else {
+              Console.WriteLine("Error: Could not locate compiled executable.");
+            }
+          } else {
+            Console.WriteLine("Error: Compilation failed.");
+            File.WriteAllText(Path.Combine(System.Environment.CurrentDirectory, "../transpiled_debug.cs"), transpiledCode);
+          }
+        }
+      } finally {
+        try {
+          Directory.Delete(tempDir, true);
+        } catch {
+          // Ignore
+        }
+      }
     } catch (Exception ex) {
       Console.WriteLine(ex.ToString());
     }
