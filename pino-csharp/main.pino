@@ -178,6 +178,13 @@ fn compiler_shop(p Player) {
   }
 }
 
+enum Difficulty { 
+  Infinite 
+  Hard 
+  Medium
+  Easy
+}
+
 # --- Main Game Entry Point ---
 fn main() {
   println("==============================================")
@@ -209,10 +216,10 @@ fn main() {
       println("  3. Hard (Difícil)")
       println("  4. Infinite (Infinita)")
       var choice = readline("> Choose [1-4]: ")
-      if choice == "1" { return "easy" }
-      if choice == "2" { return "medium" }
-      if choice == "3" { return "hard" }
-      if choice == "4" { return "infinite" }
+      if choice == "1" { return Difficulty::Easy }
+      if choice == "2" { return Difficulty::Medium }
+      if choice == "3" { return Difficulty::Hard }
+      if choice == "4" { return Difficulty::Infinite }
       println("Invalid choice, try again.")
       println("")
     }
@@ -229,13 +236,13 @@ fn main() {
     coffee: 1
   }
 
-  if difficulty == "medium" {
+  if difficulty == Difficulty::Medium {
     player:hp = 70
     player:max_hp = 70
     player:attack = 9
     player:ram = 30
   }
-  if difficulty == "hard" {
+  if difficulty == Difficulty::Hard {
     player:hp = 60
     player:max_hp = 60
     player:attack = 8
@@ -243,7 +250,7 @@ fn main() {
     player:coffee = 0
   }
 
-  if difficulty == "infinite" {
+  if difficulty == Difficulty::Infinite {
     var bugs_defeated = 0
     for {
       var p_hp = player:hp
@@ -302,7 +309,7 @@ fn main() {
     var bug3_hp = 95
     var bug3_atk = 16
 
-    if difficulty == "medium" {
+    if difficulty == Difficulty::Medium {
       bug1_hp = 45
       bug1_atk = 7
       bug2_hp = 85
@@ -310,7 +317,7 @@ fn main() {
       bug3_hp = 130
       bug3_atk = 22
     }
-    if difficulty == "hard" {
+    if difficulty == Difficulty::Hard {
       bug1_hp = 60
       bug1_atk = 10
       bug2_hp = 110
