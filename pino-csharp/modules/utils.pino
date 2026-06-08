@@ -1,0 +1,32 @@
+module Utils
+
+from Entities import Difficulty
+
+pub val get_hero_name = fn {
+  for {
+    var hero_name = readline("> Enter your developer name: ")
+    if hero_name == "" {
+      println("Please enter your name!")
+      continue
+    }
+    return hero_name
+  }
+}
+
+
+pub val get_difficulty = fn {
+  for {
+    println("Select Difficulty:")
+    println("  1. Easy (Fácil)")
+    println("  2. Medium (Media)")
+    println("  3. Hard (Difícil)")
+    println("  4. Infinite (Infinita)")
+    var choice = readline("> Choose [1-4]: ")
+    if choice == "1" { return Difficulty::Easy }
+    if choice == "2" { return Difficulty::Medium }
+    if choice == "3" { return Difficulty::Hard }
+    if choice == "4" { return Difficulty::Infinite }
+    println("Invalid choice, try again.")
+    println("")
+  }
+}

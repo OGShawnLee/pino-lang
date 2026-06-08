@@ -1,0 +1,90 @@
+module Combat
+
+from Entities import Player, Enemy
+
+# --- Combat Logic ---
+pub fn battle_round(p Player, e Enemy, action string) {
+  match action {
+    when "1" {
+      # Calculate hit (with a little random modifier)
+      var roll = rand(5)
+      var total_dmg = p:attack + roll
+      println(">>> You cast CompileAction! Dealing $total_dmg damage to $(e:name).")
+      e:take_damage(total_dmg)
+    }
+    when "2" {
+      if p:ram >= 20 {
+        println(">>> You run Garbage Collect! Sweeping memory leaks restores 30 HP.")
+        p:heal(30)
+        p:ram -= 20
+      } else {
+        println(">>> Not enough RAM! Garbage Collection requires 20 MB RAM.")
+      }
+    }
+    when "3" {
+      if p:coffee > 0 {
+        println(">>> You drink a hot cup of coffee! Restoring 55 HP.")
+        p:heal(55)
+        p:coffee -= 1
+      } else {
+        println(">>> Out of Coffee! You need to buy more at the compiler shop.")
+      }
+    }
+    else {
+      println(">>> You skip your turn to analyze the stack trace.")
+    }
+  }
+
+  # Enemy attacks back if still alive
+  if e:hp > 0 {
+    var roll = rand(4)
+    var final_enemy_dmg = e:attack + roll
+    println("<<< $(e:name) attacks back, causing $final_enemy_dmg damage!")
+    p:take_damage(final_enemy_dmg)
+  }
+}
+
+pub fn fight(p Player, e Enemy) {
+  println("")
+  println("==============================================")
+  println("WARNING: A wild bug [$(e:name)] is blocking compiling!")
+  println("Bug Stats - HP: $(e:hp) | Base Attack: $(e:attack)")
+  println("==============================================")
+
+  for {
+    if p:hp <= 0 {
+      break
+    }
+    if e:hp <= 0 {
+      break
+    }
+
+    println("")
+    println("--- Active Process Status ---")
+    println("Hero $(p:name): HP $(p:hp)/$(p:max_hp) | RAM $(p:ram) MB | Coffee $(p:coffee)")
+    println("Bug $(e:name)  : HP $(e:hp)")
+    println("-----------------------------")
+    println("Actions:")
+    println("  1. CompileAction (Attack for ~$(p:attack) dmg)")
+    println("  2. Garbage Collect (+30 HP, costs 20 RAM)")
+    println("  3. Drink Coffee (+55 HP, costs 1 Coffee)")
+    println("  4. Do Nothing")
+
+    var choice = readline("> Enter action code: ")
+    battle_round(p, e, choice)
+  }
+
+  var final_p_hp = p:hp
+  if final_p_hp <= 0 {
+    println("")
+    println("FATAL ERROR: Compilation Crashed! Process terminated with status 1.")
+    return
+  }
+
+  println("")
+  println("SUCCESS: Resolved bug [$(e:name)]!")
+  println("System Rewards: +$(e:reward_coffee) Coffee, +$(e:reward_ram) MB of RAM")
+
+  p:coffee += e:reward_coffee
+  p:ram += e:reward_ram
+}

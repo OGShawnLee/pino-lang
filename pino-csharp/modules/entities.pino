@@ -1,0 +1,47 @@
+module Entities
+
+pub enum Difficulty { 
+  Infinite 
+  Hard 
+  Medium
+  Easy
+}
+
+pub enum Stage {
+  LexerStage
+  ParserStage
+  EvaluatorStage
+}
+
+pub struct Enemy {
+  name string
+  hp int
+  attack int
+  reward_coffee int
+  reward_ram int
+  
+  fn take_damage(dmg int) {
+    var new_hp = hp - dmg
+    hp = if new_hp < 0 then 0 else new_hp
+  }
+}
+
+pub struct Player {
+  name string
+  hp int
+  max_hp int
+  attack int
+  gold int
+  ram int
+  coffee int
+
+  fn take_damage(dmg int) {
+    var new_hp = hp - dmg
+    hp = if new_hp < 0 then 0 else new_hp
+  }
+
+  fn heal(amt int) {
+    var new_hp = hp + amt
+    hp = if new_hp > max_hp then max_hp else new_hp
+  }
+}
