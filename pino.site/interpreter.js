@@ -435,6 +435,8 @@ class Parser {
 
     let nested = 0;
     let idx = startIndex;
+    let hasPropInit = false;
+
     while (idx < this.tokens.length) {
       const tok = this.tokens[idx];
       if (tok.type === TokenType.DELIMITER && tok.value === '{') {
@@ -457,13 +459,13 @@ class Parser {
         if (tok.type === TokenType.IDENTIFIER) {
           const nextTok = this.tokens[idx + 1];
           if (nextTok && nextTok.type === TokenType.OPERATOR && nextTok.value === ':') {
-            return true;
+            hasPropInit = true;
           }
         }
       }
       idx++;
     }
-    return false;
+    return hasPropInit;
   }
 
   pushScope() {
@@ -685,7 +687,7 @@ class Parser {
 
   ifStatement() {
     // Condition (parentheses are optional in Pino)
-    const condition = this.expression();
+    const condition = this.expression(false);
     this.consume(TokenType.DELIMITER, "Expect '{' before then branch body", '{');
     const thenBranch = this.block();
 
@@ -694,7 +696,7 @@ class Parser {
 
     while (this.match(TokenType.KEYWORD, 'else')) {
       if (this.match(TokenType.KEYWORD, 'if')) {
-        const cond = this.expression();
+        const cond = this.expression(false);
         this.consume(TokenType.DELIMITER, "Expect '{' before else-if body", '{');
         const body = this.block();
         elseIfs.push({ cond, body });
@@ -730,7 +732,7 @@ class Parser {
     // Otherwise, it could be for time in 5 { ... } or for item in vector { ... }
     const varToken = this.consume(TokenType.IDENTIFIER, "Expect iterator variable name");
     this.consume(TokenType.KEYWORD, "Expect 'in' after iterator variable", 'in');
-    const iterableExpr = this.expression();
+    const iterableExpr = this.expression(false);
     this.pushScope();
     this.declareVariable(varToken.value);
     this.consume(TokenType.DELIMITER, "Expect '{' before loop body", '{');
@@ -740,7 +742,7 @@ class Parser {
   }
 
   matchStatement() {
-    const condition = this.expression();
+    const condition = this.expression(false);
     this.consume(TokenType.DELIMITER, "Expect '{' to open match statement", '{');
     const branches = [];
     let alternate = null;
@@ -749,7 +751,7 @@ class Parser {
       if (this.match(TokenType.KEYWORD, 'when')) {
         const conditions = [];
         do {
-          conditions.push(this.expression());
+          conditions.push(this.expression(false));
         } while (this.match(TokenType.DELIMITER, ','));
         
         this.consume(TokenType.DELIMITER, "Expect '{' after when conditions", '{');
@@ -846,22 +848,22 @@ class Parser {
     return new ExprStmt(expr);
   }
 
-  expression() {
-    return this.ternary();
+  expression(allowStruct = true) {
+    return this.ternary(allowStruct);
   }
 
-  ternary() {
-    return this.assignment();
+  ternary(allowStruct = true) {
+    return this.assignment(allowStruct);
   }
 
-  assignment() {
-    const expr = this.logicalOr();
+  assignment(allowStruct = true) {
+    const expr = this.logicalOr(allowStruct);
 
     if (this.match(TokenType.OPERATOR)) {
       const opToken = this.previous();
       const opValue = opToken.value;
       if (['=', '+=', '-=', '*=', '/=', '%='].includes(opValue)) {
-        const val = this.assignment();
+        const val = this.assignment(allowStruct);
         if (expr instanceof IdentifierExpr || expr instanceof BinaryExpr && expr.operator === ':') {
           return new BinaryExpr(expr, opValue, val);
         }
@@ -874,84 +876,84 @@ class Parser {
     return expr;
   }
 
-  logicalOr() {
-    let expr = this.logicalAnd();
+  logicalOr(allowStruct = true) {
+    let expr = this.logicalAnd(allowStruct);
     while (this.match(TokenType.OPERATOR, '||')) {
       const op = this.previous().value;
-      const right = this.logicalAnd();
+      const right = this.logicalAnd(allowStruct);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  logicalAnd() {
-    let expr = this.equality();
+  logicalAnd(allowStruct = true) {
+    let expr = this.equality(allowStruct);
     while (this.match(TokenType.OPERATOR, '&&')) {
       const op = this.previous().value;
-      const right = this.equality();
+      const right = this.equality(allowStruct);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  equality() {
-    let expr = this.comparison();
+  equality(allowStruct = true) {
+    let expr = this.comparison(allowStruct);
     while (this.match(TokenType.OPERATOR, '==') || this.match(TokenType.OPERATOR, '!=')) {
       const op = this.previous().value;
-      const right = this.comparison();
+      const right = this.comparison(allowStruct);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  comparison() {
-    let expr = this.addition();
+  comparison(allowStruct = true) {
+    let expr = this.addition(allowStruct);
     while (this.match(TokenType.OPERATOR, '<') || this.match(TokenType.OPERATOR, '<=') || this.match(TokenType.OPERATOR, '>') || this.match(TokenType.OPERATOR, '>=')) {
       const op = this.previous().value;
-      const right = this.addition();
+      const right = this.addition(allowStruct);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  addition() {
-    let expr = this.multiplication();
+  addition(allowStruct = true) {
+    let expr = this.multiplication(allowStruct);
     while (this.match(TokenType.OPERATOR, '+') || this.match(TokenType.OPERATOR, '-')) {
       const op = this.previous().value;
-      const right = this.multiplication();
+      const right = this.multiplication(allowStruct);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  multiplication() {
-    let expr = this.unary();
+  multiplication(allowStruct = true) {
+    let expr = this.unary(allowStruct);
     while (this.match(TokenType.OPERATOR, '*') || this.match(TokenType.OPERATOR, '/') || this.match(TokenType.OPERATOR, '%')) {
       const op = this.previous().value;
-      const right = this.unary();
+      const right = this.unary(allowStruct);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  unary() {
+  unary(allowStruct = true) {
     if (this.match(TokenType.OPERATOR, '!') || this.match(TokenType.OPERATOR, '-')) {
       const op = this.previous().value;
-      const right = this.unary();
+      const right = this.unary(allowStruct);
       return new UnaryExpr(op, right);
     }
-    return this.memberAccess();
+    return this.memberAccess(allowStruct);
   }
 
-  memberAccess() {
-    let expr = this.primary();
+  memberAccess(allowStruct = true) {
+    let expr = this.primary(allowStruct);
 
     while (true) {
       if (this.match(TokenType.OPERATOR, ':')) {
-        const right = this.primary(); // can be method call or identifier
+        const right = this.primary(allowStruct);
         expr = new BinaryExpr(expr, ':', right);
       } else if (this.match(TokenType.OPERATOR, '::')) {
-        const right = this.primary();
+        const right = this.primary(allowStruct);
         expr = new BinaryExpr(expr, '::', right);
       } else {
         break;
@@ -961,13 +963,13 @@ class Parser {
     return expr;
   }
 
-  primary() {
+  primary(allowStruct = true) {
     if (this.match(TokenType.KEYWORD, 'true')) return new LiteralExpr(true, 'BOOLEAN');
     if (this.match(TokenType.KEYWORD, 'false')) return new LiteralExpr(false, 'BOOLEAN');
     if (this.match(TokenType.KEYWORD, 'null')) return new LiteralExpr(null, 'NULL');
 
     if (this.match(TokenType.KEYWORD, 'if')) {
-      const condition = this.expression();
+      const condition = this.expression(false);
       this.consume(TokenType.KEYWORD, "Expect 'then' in ternary expression", 'then');
       const consequent = this.expression();
       this.consume(TokenType.KEYWORD, "Expect 'else' in ternary expression", 'else');

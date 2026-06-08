@@ -224,5 +224,24 @@ public class ParserTests {
     Assert.Equal("name", structInst.Properties[0].Identifier);
     Assert.Equal("Shawn Lee", Assert.IsType<LiteralExpression>(structInst.Properties[0].Value).Value);
   }
+
+  [Fact]
+  public void TestStaticMemberAccessVsMemberAssignmentAmbiguity() {
+    var input = @"if enum_value == Test::Easy {
+      person:name = ""Pedro""
+    }";
+    var stmt = Parser.ParseString(input);
+    var ifStmt = Assert.IsType<IfStatement>(stmt);
+    
+    var bin = Assert.IsType<BinaryExpression>(ifStmt.Condition);
+    Assert.Equal(OperatorType.Equal, bin.Operator);
+    
+    var rightBin = Assert.IsType<BinaryExpression>(bin.Right);
+    Assert.Equal(OperatorType.StaticMemberAccess, rightBin.Operator);
+    
+    var body = Assert.IsType<BlockStatement>(ifStmt.Consequent);
+    Assert.Single(body.Statements);
+    Assert.IsAssignableFrom<Expression>(body.Statements[0]);
+  }
 }
 

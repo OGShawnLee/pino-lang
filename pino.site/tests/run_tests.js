@@ -238,6 +238,24 @@ const tests = [
       println("Hero name: $(h:name)")
     `,
     expectedOutput: "Hero name: Marcus\n"
+  },
+  {
+    name: "Static member access vs member assignment ambiguity",
+    code: `
+      struct Person {
+        name string
+      }
+      enum Test {
+        Easy
+      }
+      val enum_value = Test::Easy
+      var person = Person { name: "James" }
+      if enum_value == Test::Easy {
+        person:name = "Pedro"
+      }
+      println(person:name)
+    `,
+    expectedOutput: "Pedro\n"
   }
 ];
 

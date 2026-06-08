@@ -280,6 +280,8 @@ public class Parser {
 
     int nested = 0;
     int offset = braceOffset;
+    bool hasPropInit = false;
+
     while (true) {
       var tok = stream.Peek(offset);
       if (tok.Type == TokenType.Illegal) {
@@ -310,13 +312,13 @@ public class Parser {
         if (tok.Type == TokenType.Identifier) {
           var nextTok = stream.Peek(offset + 1);
           if (nextTok.IsOperator(OperatorType.MemberAccess)) {
-            return true;
+            hasPropInit = true;
           }
         }
       }
       offset++;
     }
-    return false;
+    return hasPropInit;
   }
 
   private static bool IsStructInstance(TokenStream stream) {
@@ -422,7 +424,7 @@ public class Parser {
       return new LoopStatement(LoopKind.Infinite, null, null, body);
     }
 
-    var begin = ParseExpression(stream);
+    var begin = ParseExpression(stream, false);
 
     // For times loop: for 10 { ... }
     if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
@@ -435,7 +437,7 @@ public class Parser {
       throw new Exception("PARSER: Expected 'in' in loop declaration");
     }
 
-    var end = ParseExpression(stream);
+    var end = ParseExpression(stream, false);
     
     PushScope(stream);
     if (begin is IdentifierExpression id) {
@@ -452,7 +454,7 @@ public class Parser {
       throw new Exception("PARSER: Expected 'if' keyword");
     }
 
-    var condition = ParseExpression(stream);
+    var condition = ParseExpression(stream, false);
     var body = ParseBlock(stream);
     Statement? alternate = null;
 
@@ -482,7 +484,7 @@ public class Parser {
       throw new Exception("PARSER: Expected 'match' keyword");
     }
 
-    var condition = ParseExpression(stream);
+    var condition = ParseExpression(stream, false);
 
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
       throw new Exception("PARSER: Expected '{' after match expression");
@@ -524,7 +526,7 @@ public class Parser {
 
     var conditions = new List<Expression>();
     while (stream.HasNext) {
-      conditions.Add(ParseExpression(stream));
+      conditions.Add(ParseExpression(stream, false));
 
       if (stream.Current.IsMarker(MarkerType.Comma)) {
         stream.Consume();
@@ -564,12 +566,12 @@ public class Parser {
     throw new Exception("PARSER: Expected '}'");
   }
 
-  private static Expression ParseExpression(TokenStream stream) {
-    return ParseExpressionWithPrecedence(stream, 0);
+  private static Expression ParseExpression(TokenStream stream, bool allowStruct = true) {
+    return ParseExpressionWithPrecedence(stream, 0, allowStruct);
   }
 
-  private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence) {
-    var expression = ParsePrimaryExpression(stream);
+  private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence, bool allowStruct = true) {
+    var expression = ParsePrimaryExpression(stream, allowStruct);
 
     while (stream.HasNext && stream.Current.Type == TokenType.Operator) {
       var opToken = stream.Current;
@@ -583,17 +585,17 @@ public class Parser {
       stream.Consume(); // consume operator
 
       var nextMinPrecedence = IsRightAssociative(opType) ? precedence : precedence + 1;
-      var right = ParseExpressionWithPrecedence(stream, nextMinPrecedence);
+      var right = ParseExpressionWithPrecedence(stream, nextMinPrecedence, allowStruct);
       expression = new BinaryExpression(expression, opType, right);
     }
 
     return expression;
   }
 
-  private static Expression ParsePrimaryExpression(TokenStream stream) {
+  private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true) {
     if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
       stream.Consume();
-      var expr = ParseExpression(stream);
+      var expr = ParseExpression(stream, true);
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
         throw new Exception("PARSER: Expected ')' to close grouped expression");
       }
@@ -609,7 +611,7 @@ public class Parser {
     if (IsVector(stream)) {
       return ParseVector(stream);
     }
-    if (IsStructInstance(stream)) {
+    if (allowStruct && IsStructInstance(stream)) {
       return ParseStructInstance(stream);
     }
     if (stream.Current.IsKeyword(KeywordType.If)) {
