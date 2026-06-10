@@ -475,7 +475,7 @@ public class TypeChecker {
           return "[]" + firstType;
         }
         if (!string.IsNullOrEmpty(vec.Typing)) {
-          return vec.Typing;
+          return "[]" + vec.Typing;
         }
         return "[]any";
       
@@ -504,18 +504,79 @@ public class TypeChecker {
             }
           }
           if (leftType.StartsWith("[]")) {
+            string elemType = leftType.Substring(2);
             if (bin.Right is IdentifierExpression arrayId && (arrayId.Name == "len" || arrayId.Name == "length")) {
               return "int";
+            }
+            if (bin.Right is FunctionCallExpression methodCall) {
+              string callee = methodCall.Callee;
+              if (callee == "map") {
+                if (methodCall.Arguments.Count > 0) {
+                  string callbackType = InferType(methodCall.Arguments[0]);
+                  if (callbackType.StartsWith("fn(")) {
+                    int lastClose = callbackType.LastIndexOf(')');
+                    if (lastClose != -1 && lastClose < callbackType.Length - 1) {
+                      string retType = callbackType.Substring(lastClose + 1).Trim();
+                      return "[]" + retType;
+                    }
+                  }
+                }
+                return "[]any";
+              }
+              if (callee == "filter" || callee == "push" || callee == "add") {
+                return leftType;
+              }
+              if (callee == "pop" || callee == "find") {
+                return elemType;
+              }
+              if (callee == "find_index") {
+                return "int";
+              }
+              if (callee == "any" || callee == "all") {
+                return "bool";
+              }
+              if (callee == "each") {
+                return "any";
+              }
             }
           }
           if (leftType.StartsWith("map[")) {
             if (bin.Right is IdentifierExpression mapId && (mapId.Name == "len" || mapId.Name == "length")) {
               return "int";
             }
+            if (bin.Right is FunctionCallExpression methodCall) {
+              string callee = methodCall.Callee;
+              int commaIdx = leftType.IndexOf(',');
+              if (commaIdx != -1) {
+                string keyType = leftType.Substring(4, commaIdx - 4).Trim();
+                string valType = leftType.Substring(commaIdx + 1, leftType.Length - commaIdx - 2).Trim();
+                if (callee == "keys") {
+                  return "[]" + keyType;
+                }
+                if (callee == "values") {
+                  return "[]" + valType;
+                }
+                if (callee == "remove") {
+                  return valType;
+                }
+              }
+            }
           }
           if (leftType == "string") {
             if (bin.Right is IdentifierExpression strId && (strId.Name == "len" || strId.Name == "length")) {
               return "int";
+            }
+            if (bin.Right is FunctionCallExpression methodCall) {
+              string callee = methodCall.Callee;
+              if (callee == "lower" || callee == "upper" || callee == "trim" || callee == "replace") {
+                return "string";
+              }
+              if (callee == "contains") {
+                return "bool";
+              }
+              if (callee == "split") {
+                return "[]string";
+              }
             }
           }
           return "any";
@@ -540,6 +601,12 @@ public class TypeChecker {
             }
           }
           return "any";
+        }
+        
+        if (bin.Operator == OperatorType.Addition) {
+          if (InferType(bin.Left) == "string" || InferType(bin.Right) == "string") {
+            return "string";
+          }
         }
         
         if (bin.Operator == OperatorType.Equal || bin.Operator == OperatorType.NotEqual ||

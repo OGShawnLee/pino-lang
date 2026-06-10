@@ -416,6 +416,22 @@ public class ParserTests {
     
     Assert.ThrowsAny<Exception>(() => checker.Check(program));
   }
+
+  [Fact]
+  public void TestTypeCheckerVectorMapInferenceError() {
+    var input = @"
+      val list = []int { len: 3, init: it * 3 }
+      val list_str = list:map(""$it is a string"")
+
+      fn print_list(list []int) {}
+
+      print_list(list_str)
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    
+    Assert.ThrowsAny<Exception>(() => checker.Check(program));
+  }
 }
 
 

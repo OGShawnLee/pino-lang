@@ -375,6 +375,16 @@ const tests = [
       run_greet(u)
     `,
     expectedOutput: "[ERROR] TYPE CHECK ERROR: Argument 1 for function 'run_greet' expected type 'Greeter', but got 'User'.\n"
+  },
+  {
+    name: "TypeChecker - Vector map() returns typed array",
+    code: `
+      val list = []int { len: 3, init: it * 3 }
+      val list_str = list:map("$it is a string")
+      fn print_list(list []int) {}
+      print_list(list_str)
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Argument 1 for function 'print_list' expected type '[]int', but got '[]string'.\n"
   }
 ];
 

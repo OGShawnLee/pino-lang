@@ -413,11 +413,12 @@ class StructInstanceExpr extends Expr {
 }
 
 class VectorExpr extends Expr {
-  constructor(elements, lenExpr, initExpr) {
+  constructor(elements, lenExpr, initExpr, typing = "") {
     super();
     this.elements = elements; // array of Expr (or null)
     this.lenExpr = lenExpr;     // Expr for size (or null)
     this.initExpr = initExpr;   // Expr for values (or null)
+    this.typing = typing;
   }
 }
 
@@ -1264,7 +1265,7 @@ class Parser {
           this.match(TokenType.DELIMITER, ',');
         }
         this.consume(TokenType.DELIMITER, "Expect '}' after vector init parameters", '}');
-        return new VectorExpr(null, lenExpr, initExpr);
+        return new VectorExpr(null, lenExpr, initExpr, typeToken.value);
       }
 
       // List literal [1, 2, 3]
@@ -2695,6 +2696,9 @@ class TypeChecker {
         const firstType = this.inferType(expr.elements[0]);
         return "[]" + firstType;
       }
+      if (expr.typing) {
+        return "[]" + expr.typing;
+      }
       return "[]any";
     }
 
@@ -2729,18 +2733,79 @@ class TypeChecker {
           }
         }
         if (leftType.startsWith("[]")) {
+          const elemType = leftType.substring(2);
           if (expr.right instanceof IdentifierExpr && (expr.right.name === "len" || expr.right.name === "length")) {
             return "number";
+          }
+          if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+            const callee = expr.right.callee.name;
+            if (callee === "map") {
+              if (expr.right.args.length > 0) {
+                const callbackType = this.inferType(expr.right.args[0]);
+                if (callbackType.startsWith("fn(")) {
+                  const lastClose = callbackType.lastIndexOf(')');
+                  if (lastClose !== -1 && lastClose < callbackType.length - 1) {
+                    const retType = callbackType.substring(lastClose + 1).Trim ? callbackType.substring(lastClose + 1).Trim() : callbackType.substring(lastClose + 1).trim();
+                    return "[]" + retType;
+                  }
+                }
+              }
+              return "[]any";
+            }
+            if (callee === "filter" || callee === "push" || callee === "add") {
+              return leftType;
+            }
+            if (callee === "pop" || callee === "find") {
+              return elemType;
+            }
+            if (callee === "find_index") {
+              return "number";
+            }
+            if (callee === "any" || callee === "all") {
+              return "bool";
+            }
+            if (callee === "each") {
+              return "any";
+            }
           }
         }
         if (leftType.startsWith("map[")) {
           if (expr.right instanceof IdentifierExpr && (expr.right.name === "len" || expr.right.name === "length")) {
             return "number";
           }
+          if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+            const callee = expr.right.callee.name;
+            const commaIdx = leftType.indexOf(',');
+            if (commaIdx !== -1) {
+              const keyType = leftType.substring(4, commaIdx).trim();
+              const valType = leftType.substring(commaIdx + 1, leftType.length - 1).trim();
+              if (callee === "keys") {
+                return "[]" + keyType;
+              }
+              if (callee === "values") {
+                return "[]" + valType;
+              }
+              if (callee === "remove") {
+                return valType;
+              }
+            }
+          }
         }
         if (leftType === "string") {
           if (expr.right instanceof IdentifierExpr && (expr.right.name === "len" || expr.right.name === "length")) {
             return "number";
+          }
+          if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+            const callee = expr.right.callee.name;
+            if (callee === "lower" || callee === "upper" || callee === "trim" || callee === "replace") {
+              return "string";
+            }
+            if (callee === "contains") {
+              return "bool";
+            }
+            if (callee === "split") {
+              return "[]string";
+            }
           }
         }
         return "any";
@@ -2766,6 +2831,12 @@ class TypeChecker {
           }
         }
         return "any";
+      }
+
+      if (expr.operator === '+') {
+        if (this.inferType(expr.left) === "string" || this.inferType(expr.right) === "string") {
+          return "string";
+        }
       }
 
       if (['==', '!=', '<', '<=', '>', '>=', 'in'].includes(expr.operator)) {
