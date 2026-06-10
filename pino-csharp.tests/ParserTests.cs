@@ -563,6 +563,108 @@ public class ParserTests {
     Assert.Equal(200L, env.Get("valB"));
     Assert.Equal("world", env.Get("greeting"));
   }
+
+  [Fact]
+  public void TestParseStaticMethod() {
+    var input = @"
+      struct MyStruct {
+        static fn my_static() int {
+          return 42
+        }
+        fn my_instance() int {
+          return 7
+        }
+      }
+    ";
+    var program = Parser.ParseProgramString(input);
+    var structDecl = Assert.IsType<StructDeclaration>(program.Statements[0]);
+    Assert.Equal(2, structDecl.Methods.Count);
+    
+    var staticFn = structDecl.Methods[0];
+    Assert.Equal("my_static", staticFn.Identifier);
+    Assert.True(staticFn.IsStatic);
+
+    var instanceFn = structDecl.Methods[1];
+    Assert.Equal("my_instance", instanceFn.Identifier);
+    Assert.False(instanceFn.IsStatic);
+  }
+
+  [Fact]
+  public void TestStaticMethodTypeCheckingAndEvaluation() {
+    var input = @"
+      struct MathUtils {
+        factor int
+        static fn multiply(a int, b int) int {
+          return a * b
+        }
+        fn get_factor() int {
+          return factor
+        }
+      }
+      val res = MathUtils::multiply(6, 7)
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    checker.Check(program);
+
+    var evaluator = new Evaluator();
+    var env = new Pino.Environment();
+    evaluator.Execute(program, env);
+
+    Assert.Equal(42L, env.Get("res"));
+  }
+
+  [Fact]
+  public void TestStaticMethodTypeCheckingErrors() {
+    // 1. Trying to access 'this' from a static method should fail type check
+    var inputInvalidThis = @"
+      struct BadStruct {
+        x int
+        static fn bad() int {
+          return this:x
+        }
+      }
+    ";
+    var program1 = Parser.ParseProgramString(inputInvalidThis);
+    var checker1 = new TypeChecker();
+    Assert.ThrowsAny<Exception>(() => checker1.Check(program1));
+
+    // 2. Trying to access instance field directly from a static method should fail
+    var inputInvalidField = @"
+      struct BadStruct2 {
+        x int
+        static fn bad() int {
+          return x
+        }
+      }
+    ";
+    var program2 = Parser.ParseProgramString(inputInvalidField);
+    var checker2 = new TypeChecker();
+    Assert.ThrowsAny<Exception>(() => checker2.Check(program2));
+
+    // 3. Trying to call static method via instance member access ':' should fail
+    var inputInvalidInstanceCall = @"
+      struct Helper {
+        static fn helper_fn() int { return 1 }
+      }
+      val h = Helper {}
+      val res = h:helper_fn()
+    ";
+    var program3 = Parser.ParseProgramString(inputInvalidInstanceCall);
+    var checker3 = new TypeChecker();
+    Assert.ThrowsAny<Exception>(() => checker3.Check(program3));
+
+    // 4. Trying to call instance method via static member access '::' should fail
+    var inputInvalidStaticCall = @"
+      struct Helper2 {
+        fn helper_fn() int { return 1 }
+      }
+      val res = Helper2::helper_fn()
+    ";
+    var program4 = Parser.ParseProgramString(inputInvalidStaticCall);
+    var checker4 = new TypeChecker();
+    Assert.ThrowsAny<Exception>(() => checker4.Check(program4));
+  }
 }
 
 

@@ -637,9 +637,9 @@ public class Evaluator {
     if (leftVal is PinoStructInstance instance) {
       // Case 1: instance:method(...) where right is FunctionCallExpression
       if (rightExpr is FunctionCallExpression methodCall) {
-        var methodDecl = instance.Struct.Methods.Find(m => m.Identifier == methodCall.Callee);
+        var methodDecl = instance.Struct.Methods.Find(m => m.Identifier == methodCall.Callee && !m.IsStatic);
         if (methodDecl == null) {
-          throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no method '{methodCall.Callee}'.");
+          throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no instance method '{methodCall.Callee}'.");
         }
 
         // Create a method closure environment that has access to all struct instance fields directly
@@ -917,69 +917,84 @@ public class Evaluator {
   }
 
   private object? EvaluateStaticMemberAccess(Expression leftExpr, Expression rightExpr, Environment env) {
-    if (leftExpr is IdentifierExpression id) {
-      if (env.Exists(id.Name)) {
-        var leftVal = env.Get(id.Name);
-        if (leftVal is PinoModule module) {
-          // Case 1: module::method(...)
-          if (rightExpr is FunctionCallExpression methodCall) {
-            var memberName = methodCall.Callee;
-            if (!module.PublicExports.Contains(memberName)) {
-              throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
-            }
-            var callableObj = module.Environment.Get(memberName);
-            if (callableObj is not IPinoCallable callable) {
-              throw new Exception($"RUNTIME ERROR: '{memberName}' is not callable.");
-            }
-            var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
-            return callable.Call(this, methodArgs);
-          }
+    var leftVal = Evaluate(leftExpr, env);
 
-          // Case 2: module::member reference
-          if (rightExpr is IdentifierExpression memberId) {
-            var memberName = memberId.Name;
-            if (!module.PublicExports.Contains(memberName)) {
-              throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
-            }
-            return module.Environment.Get(memberName);
-          }
-
-          // Case 3: module::StructInstanceExpression
-          if (rightExpr is StructInstanceExpression structInst) {
-            var structName = structInst.StructName;
-            if (!module.PublicExports.Contains(structName)) {
-              throw new Exception($"RUNTIME ERROR: Member '{structName}' is not exported by module '{module.Name}' (or is private).");
-            }
-            var structDefObj = module.Environment.Get(structName);
-            if (structDefObj is not PinoStruct structDef) {
-              throw new Exception($"RUNTIME ERROR: '{structName}' is not a struct.");
-            }
-            var instance = new PinoStructInstance(structDef);
-            foreach (var prop in structInst.Properties) {
-              var val = prop.Value != null ? Evaluate(prop.Value, env) : null;
-              instance.Fields[prop.Identifier] = val;
-            }
-            return instance;
-          }
-          
-          throw new Exception("RUNTIME ERROR: Right side of '::' must be a member name, function call, or struct instance.");
+    if (leftVal is PinoModule module) {
+      // Case 1: module::method(...)
+      if (rightExpr is FunctionCallExpression methodCall) {
+        var memberName = methodCall.Callee;
+        if (!module.PublicExports.Contains(memberName)) {
+          throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
         }
+        var callableObj = module.Environment.Get(memberName);
+        if (callableObj is not IPinoCallable callable) {
+          throw new Exception($"RUNTIME ERROR: '{memberName}' is not callable.");
+        }
+        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+        return callable.Call(this, methodArgs);
       }
+
+      // Case 2: module::member reference
+      if (rightExpr is IdentifierExpression memberId) {
+        var memberName = memberId.Name;
+        if (!module.PublicExports.Contains(memberName)) {
+          throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
+        }
+        return module.Environment.Get(memberName);
+      }
+
+      // Case 3: module::StructInstanceExpression
+      if (rightExpr is StructInstanceExpression structInst) {
+        var structName = structInst.StructName;
+        if (!module.PublicExports.Contains(structName)) {
+          throw new Exception($"RUNTIME ERROR: Member '{structName}' is not exported by module '{module.Name}' (or is private).");
+        }
+        var structDefObj = module.Environment.Get(structName);
+        if (structDefObj is not PinoStruct moduleStructDef) {
+          throw new Exception($"RUNTIME ERROR: '{structName}' is not a struct.");
+        }
+        var instance = new PinoStructInstance(moduleStructDef);
+        foreach (var prop in structInst.Properties) {
+          var val = prop.Value != null ? Evaluate(prop.Value, env) : null;
+          instance.Fields[prop.Identifier] = val;
+        }
+        return instance;
+      }
+      
+      throw new Exception("RUNTIME ERROR: Right side of '::' must be a member name, function call, or struct instance.");
     }
 
-    var enumName = (leftExpr as IdentifierExpression)?.Name ?? throw new Exception("RUNTIME ERROR: Left side of '::' must be an enum name.");
-    var memberNameEnum = (rightExpr as IdentifierExpression)?.Name ?? throw new Exception("RUNTIME ERROR: Right side of '::' must be an enum member.");
+    if (leftVal is PinoStruct structDef) {
+      if (rightExpr is FunctionCallExpression methodCall) {
+        var methodDecl = structDef.Methods.Find(m => m.Identifier == methodCall.Callee && m.IsStatic);
+        if (methodDecl == null) {
+          throw new Exception($"RUNTIME ERROR: Struct '{structDef.Name}' has no static method '{methodCall.Callee}'.");
+        }
+        var callable = new PinoFunction(methodDecl, env);
+        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+        return callable.Call(this, methodArgs);
+      }
 
-    var enumObj = env.Get(enumName);
-    if (enumObj is not PinoEnum pinoEnum) {
-      throw new Exception($"RUNTIME ERROR: Target '{enumName}' is neither a module nor an enum.");
+      if (rightExpr is IdentifierExpression memberId) {
+        var methodDecl = structDef.Methods.Find(m => m.Identifier == memberId.Name && m.IsStatic);
+        if (methodDecl == null) {
+          throw new Exception($"RUNTIME ERROR: Struct '{structDef.Name}' has no static method '{memberId.Name}'.");
+        }
+        return new PinoFunction(methodDecl, env);
+      }
+
+      throw new Exception("RUNTIME ERROR: Right side of '::' for a struct must be a static method name or static method call.");
     }
 
-    if (!pinoEnum.Members.Contains(memberNameEnum)) {
-      throw new Exception($"RUNTIME ERROR: Enum '{enumName}' has no member '{memberNameEnum}'.");
+    if (leftVal is PinoEnum pinoEnum) {
+      var memberNameEnum = (rightExpr as IdentifierExpression)?.Name ?? throw new Exception("RUNTIME ERROR: Right side of '::' for an enum must be a member name.");
+      if (!pinoEnum.Members.Contains(memberNameEnum)) {
+        throw new Exception($"RUNTIME ERROR: Enum '{pinoEnum.Name}' has no member '{memberNameEnum}'.");
+      }
+      return new PinoEnumValue(pinoEnum.Name, memberNameEnum);
     }
 
-    return new PinoEnumValue(enumName, memberNameEnum);
+    throw new Exception($"RUNTIME ERROR: Target is neither a module, struct, nor an enum.");
   }
 
     bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;

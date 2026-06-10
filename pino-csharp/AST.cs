@@ -42,7 +42,7 @@ public enum VariableKind {
 
 public record VariableDeclaration(VariableKind Kind, string Identifier, Expression? Value, string Typing = "", bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
 public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 

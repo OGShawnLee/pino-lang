@@ -27,7 +27,7 @@ class Lexer {
     this.tokens = [];
     this.keywords = new Set([
       'var', 'val', 'fn', 'struct', 'interface', 'enum', 'if', 'else', 'match', 'when', 'for', 'in', 'break', 'continue', 'return', 'true', 'false', 'then',
-      'module', 'import', 'from', 'pub'
+      'module', 'import', 'from', 'pub', 'static'
     ]);
   }
 
@@ -309,6 +309,7 @@ class FnDecl extends Stmt {
     this.params = params; // array of {name, type}
     this.body = body;
     this.returnType = returnType;
+    this.isStatic = false;
     this.isPublic = isPublic;
   }
 }
@@ -685,6 +686,9 @@ class Parser {
     if (this.match(TokenType.KEYWORD, 'interface')) return this.interfaceDeclaration(isPublic);
     if (this.match(TokenType.KEYWORD, 'enum')) return this.enumDeclaration(isPublic);
     if (this.match(TokenType.KEYWORD, 'fn')) return this.fnDeclaration(isPublic);
+    if (this.match(TokenType.KEYWORD, 'static')) {
+      throw new Error("Parse Error: 'static' modifier is only valid inside struct definitions.");
+    }
 
     if (isPublic) {
       throw new Error("Parse Error: 'pub' can only prefix declarations (var, val, fn, struct, interface, enum)");
@@ -826,8 +830,18 @@ class Parser {
     const inheritedStructs = [];
 
     while (!this.check(TokenType.DELIMITER, '}') && !this.isAtEnd()) {
-      if (this.match(TokenType.KEYWORD, 'fn')) {
-        methods.push(this.fnDeclaration());
+      let isStatic = false;
+      if (this.match(TokenType.KEYWORD, 'static')) {
+        isStatic = true;
+        if (!this.match(TokenType.KEYWORD, 'fn')) {
+          throw new Error("Parse Error: 'static' keyword can only modify function declarations inside structs.");
+        }
+      }
+
+      if (isStatic || this.match(TokenType.KEYWORD, 'fn')) {
+        const fn = this.fnDeclaration();
+        fn.isStatic = isStatic;
+        methods.push(fn);
       } else {
         const fieldNameToken = this.consume(TokenType.IDENTIFIER, "Expect field name");
         const fieldName = fieldNameToken.value;
@@ -1797,8 +1811,8 @@ class Interpreter {
             // Struct method invocation
             const structDef = this.structs.get(target.structName);
             if (!structDef) throw new Error(`RUNTIME ERROR: Struct definition for '${target.structName}' not found.`);
-            const methodDecl = structDef.methods.find(m => m.name === right.callee.name);
-            if (!methodDecl) throw new Error(`RUNTIME ERROR: Method '${right.callee.name}' not found on Struct '${target.structName}'.`);
+            const methodDecl = structDef.methods.find(m => m.name === right.callee.name && !m.isStatic);
+            if (!methodDecl) throw new Error(`RUNTIME ERROR: Instance method '${right.callee.name}' not found on Struct '${target.structName}'.`);
 
             // Method closure binding
             const methodEnv = new Environment(env);
@@ -2082,60 +2096,85 @@ class Interpreter {
         throw new Error(`RUNTIME ERROR: Invalid member access.`);
       }
 
-      // Static member access Enum::Member or Module::Member
+      // Static member access Enum::Member, Module::Member, or Struct::StaticMethod
       if (expr.operator === '::') {
-        if (expr.left instanceof IdentifierExpr && env.exists(expr.left.name)) {
-          const leftVal = env.get(expr.left.name);
-          if (leftVal instanceof PinoModule) {
-            const right = expr.right;
-            if (right instanceof CallExpr && right.callee instanceof IdentifierExpr) {
-              const memberName = right.callee.name;
-              if (!leftVal.publicExports.has(memberName)) {
-                throw new Error(`RUNTIME ERROR: Member '${memberName}' is not exported by module '${leftVal.name}' (or is private).`);
-              }
-              const fn = leftVal.environment.get(memberName);
-              const methodArgs = right.args.map(a => this.evaluateExpression(a, env));
-              if (typeof fn === 'function') {
-                return fn(methodArgs);
-              }
-              if (fn instanceof PinoCallable) {
-                return fn.call(this, methodArgs);
-              }
-              throw new Error(`RUNTIME ERROR: '${memberName}' is not callable.`);
-            } else if (right instanceof IdentifierExpr) {
-              const memberName = right.name;
-              if (!leftVal.publicExports.has(memberName)) {
-                throw new Error(`RUNTIME ERROR: Member '${memberName}' is not exported by module '${leftVal.name}' (or is private).`);
-              }
-              return leftVal.environment.get(memberName);
-            } else if (right instanceof StructInstanceExpr) {
-              const structName = right.structName;
-              if (!leftVal.publicExports.has(structName)) {
-                throw new Error(`RUNTIME ERROR: Member '${structName}' is not exported by module '${leftVal.name}' (or is private).`);
-              }
-              const structDecl = leftVal.environment.get(structName);
-              if (!structDecl || !(structDecl instanceof StructDecl)) {
-                throw new Error(`RUNTIME ERROR: '${structName}' is not a struct in module '${leftVal.name}'.`);
-              }
-              const fields = {};
-              for (const field of structDecl.fields) {
-                fields[field.name] = null;
-              }
-              for (const [key, valueExpr] of Object.entries(right.initializers)) {
-                fields[key] = this.evaluateExpression(valueExpr, env);
-              }
-              return new StructInstance(structName, fields);
+        const leftVal = this.evaluateExpression(expr.left, env);
+
+        if (leftVal instanceof PinoModule) {
+          const right = expr.right;
+          if (right instanceof CallExpr && right.callee instanceof IdentifierExpr) {
+            const memberName = right.callee.name;
+            if (!leftVal.publicExports.has(memberName)) {
+              throw new Error(`RUNTIME ERROR: Member '${memberName}' is not exported by module '${leftVal.name}' (or is private).`);
             }
-            throw new Error("RUNTIME ERROR: Right side of '::' must be a member name, function call, or struct instance.");
+            const fn = leftVal.environment.get(memberName);
+            const methodArgs = right.args.map(a => this.evaluateExpression(a, env));
+            if (typeof fn === 'function') {
+              return fn(methodArgs);
+            }
+            if (fn instanceof PinoCallable) {
+              return fn.call(this, methodArgs);
+            }
+            throw new Error(`RUNTIME ERROR: '${memberName}' is not callable.`);
+          } else if (right instanceof IdentifierExpr) {
+            const memberName = right.name;
+            if (!leftVal.publicExports.has(memberName)) {
+              throw new Error(`RUNTIME ERROR: Member '${memberName}' is not exported by module '${leftVal.name}' (or is private).`);
+            }
+            return leftVal.environment.get(memberName);
+          } else if (right instanceof StructInstanceExpr) {
+            const structName = right.structName;
+            if (!leftVal.publicExports.has(structName)) {
+              throw new Error(`RUNTIME ERROR: Member '${structName}' is not exported by module '${leftVal.name}' (or is private).`);
+            }
+            const structDecl = leftVal.environment.get(structName);
+            if (!structDecl || !(structDecl instanceof StructDecl)) {
+              throw new Error(`RUNTIME ERROR: '${structName}' is not a struct in module '${leftVal.name}'.`);
+            }
+            const fields = {};
+            for (const field of structDecl.fields) {
+              fields[field.name] = null;
+            }
+            for (const [key, valueExpr] of Object.entries(right.initializers)) {
+              fields[key] = this.evaluateExpression(valueExpr, env);
+            }
+            return new StructInstance(structName, fields);
           }
+          throw new Error("RUNTIME ERROR: Right side of '::' must be a member name, function call, or struct instance.");
         }
 
-        const enumName = expr.left.name;
-        const memberName = expr.right.name;
-        const members = this.enums.get(enumName);
-        if (!members) throw new Error(`RUNTIME ERROR: Enum '${enumName}' not defined.`);
-        if (!members.includes(memberName)) throw new Error(`RUNTIME ERROR: Enum member '${memberName}' not found on Enum '${enumName}'.`);
-        return `${enumName}::${memberName}`;
+        if (leftVal instanceof StructDecl) {
+          const right = expr.right;
+          if (right instanceof CallExpr && right.callee instanceof IdentifierExpr) {
+            const calleeName = right.callee.name;
+            const methodDecl = leftVal.methods.find(m => m.name === calleeName && m.isStatic);
+            if (!methodDecl) {
+              throw new Error(`RUNTIME ERROR: Struct '${leftVal.name}' has no static method '${calleeName}'.`);
+            }
+            const methodArgs = right.args.map(a => this.evaluateExpression(a, env));
+            const callable = new PinoCallable(methodDecl, env);
+            return callable.call(this, methodArgs);
+          }
+          if (right instanceof IdentifierExpr) {
+            const methodName = right.name;
+            const methodDecl = leftVal.methods.find(m => m.name === methodName && m.isStatic);
+            if (!methodDecl) {
+              throw new Error(`RUNTIME ERROR: Struct '${leftVal.name}' has no static method '${methodName}'.`);
+            }
+            return new PinoCallable(methodDecl, env);
+          }
+          throw new Error("RUNTIME ERROR: Right side of '::' for a struct must be a static method name or static method call.");
+        }
+
+        if (leftVal instanceof EnumDecl) {
+          const memberName = expr.right.name;
+          if (!leftVal.members.includes(memberName)) {
+            throw new Error(`RUNTIME ERROR: Enum member '${memberName}' not found on Enum '${leftVal.name}'.`);
+          }
+          return `${leftVal.name}::${memberName}`;
+        }
+
+        throw new Error("RUNTIME ERROR: Left side of '::' must evaluate to a module, struct, or enum.");
       }
 
       // Assignment and compound assignments
@@ -2355,6 +2394,8 @@ class TypeChecker {
     this.scopes = [];
     this.moduleCheckers = new Map();
     this.currentlyCheckingModules = new Set();
+    this.currentStruct = null;
+    this.inStaticMethod = false;
     
     this.builtInFunctions = new Map([
       ["println", "fn(...)"],
@@ -2547,6 +2588,14 @@ class TypeChecker {
     } 
     else if (statement instanceof FnDecl) {
       this.pushScope();
+      if (this.currentStruct && !this.inStaticMethod) {
+        this.declareVariable("this", this.currentStruct.name);
+        this.declareVariable("self", this.currentStruct.name);
+        const { allFields } = this.resolveStructMembers(this.currentStruct.name);
+        for (const field of allFields) {
+          this.declareVariable(field.name, field.type);
+        }
+      }
       for (const param of statement.params) {
         this.declareVariable(param.name, param.type);
       }
@@ -2557,9 +2606,15 @@ class TypeChecker {
       this.inferFunctionReturnType(statement);
     } 
     else if (statement instanceof StructDecl) {
+      const oldStruct = this.currentStruct;
+      const oldStatic = this.inStaticMethod;
+      this.currentStruct = statement;
       for (const method of statement.methods) {
+        this.inStaticMethod = method.isStatic;
         this.checkStatement(method);
       }
+      this.currentStruct = oldStruct;
+      this.inStaticMethod = oldStatic;
     } 
     else if (statement instanceof InterfaceDecl) {
       // Checked globally, nothing to check inside
@@ -2642,6 +2697,27 @@ class TypeChecker {
   checkExpression(expr) {
     if (!expr) return;
 
+    if (expr instanceof IdentifierExpr) {
+      if (this.currentStruct && this.inStaticMethod) {
+        if (expr.name === "this" || expr.name === "self") {
+          throw new Error(`TYPE CHECK ERROR: Cannot access '${expr.name}' from static method in struct '${this.currentStruct.name}'.`);
+        }
+        let isLocal = false;
+        for (let i = this.scopes.length - 1; i >= 0; i--) {
+          if (this.scopes[i].has(expr.name)) {
+            isLocal = true;
+            break;
+          }
+        }
+        if (!isLocal) {
+          const { allFields } = this.resolveStructMembers(this.currentStruct.name);
+          if (allFields.some(f => f.name === expr.name)) {
+            throw new Error(`TYPE CHECK ERROR: Cannot access instance field '${expr.name}' from static method in struct '${this.currentStruct.name}'.`);
+          }
+        }
+      }
+    }
+
     if (expr instanceof BinaryExpr) {
       this.checkExpression(expr.left);
       this.checkExpression(expr.right);
@@ -2651,6 +2727,80 @@ class TypeChecker {
         const rightType = this.inferType(expr.right);
         if (!this.isCompatible(rightType, leftType)) {
           throw new Error(`TYPE CHECK ERROR: Cannot assign type '${rightType}' to target of type '${leftType}'.`);
+        }
+      }
+      else if (expr.operator === ':') {
+        const leftType = this.inferType(expr.left);
+        const structDecl = this.findStruct(leftType);
+        if (structDecl) {
+          const { allMethods } = this.resolveStructMembers(leftType);
+          if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+            const calleeName = expr.right.callee.name;
+            const method = allMethods.find(m => m.name === calleeName);
+            if (method) {
+              if (method.isStatic) {
+                throw new Error(`TYPE CHECK ERROR: Cannot call static method '${calleeName}' of struct '${leftType}' on an instance.`);
+              }
+              // Validate arguments
+              const argTypes = expr.right.args.map(a => this.inferType(a));
+              if (method.params.length !== argTypes.length) {
+                throw new Error(`TYPE CHECK ERROR: Method '${calleeName}' expected ${method.params.length} arguments, but got ${argTypes.length}.`);
+              }
+              for (let i = 0; i < method.params.length; i++) {
+                if (!this.isCompatible(argTypes[i], method.params[i].type)) {
+                  throw new Error(`TYPE CHECK ERROR: Argument ${i+1} for method '${calleeName}' expected type '${method.params[i].type}', but got '${argTypes[i]}'.`);
+                }
+              }
+            } else {
+              throw new Error(`TYPE CHECK ERROR: Struct '${leftType}' does not have method '${calleeName}'.`);
+            }
+          } else if (expr.right instanceof IdentifierExpr) {
+            const propName = expr.right.name;
+            const method = allMethods.find(m => m.name === propName);
+            if (method && method.isStatic) {
+              throw new Error(`TYPE CHECK ERROR: Cannot access static method '${propName}' as instance member.`);
+            }
+          }
+        }
+      }
+      else if (expr.operator === '::') {
+        if (expr.left instanceof IdentifierExpr) {
+          const structName = expr.left.name;
+          const structDecl = this.findStruct(structName);
+          if (structDecl) {
+            const { allMethods } = this.resolveStructMembers(structName);
+            if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+              const calleeName = expr.right.callee.name;
+              const method = allMethods.find(m => m.name === calleeName);
+              if (!method) {
+                throw new Error(`TYPE CHECK ERROR: Struct '${structName}' has no static method '${calleeName}'.`);
+              }
+              if (!method.isStatic) {
+                throw new Error(`TYPE CHECK ERROR: Method '${calleeName}' of struct '${structName}' is not static.`);
+              }
+              // Validate arguments
+              const argTypes = expr.right.args.map(a => this.inferType(a));
+              if (method.params.length !== argTypes.length) {
+                throw new Error(`TYPE CHECK ERROR: Static method '${calleeName}' expected ${method.params.length} arguments, but got ${argTypes.length}.`);
+              }
+              for (let i = 0; i < method.params.length; i++) {
+                if (!this.isCompatible(argTypes[i], method.params[i].type)) {
+                  throw new Error(`TYPE CHECK ERROR: Argument ${i+1} for static method '${calleeName}' expected type '${method.params[i].type}', but got '${argTypes[i]}'.`);
+                }
+              }
+            } else if (expr.right instanceof IdentifierExpr) {
+              const methodName = expr.right.name;
+              const method = allMethods.find(m => m.name === methodName);
+              if (!method) {
+                throw new Error(`TYPE CHECK ERROR: Struct '${structName}' has no static method '${methodName}'.`);
+              }
+              if (!method.isStatic) {
+                throw new Error(`TYPE CHECK ERROR: Method '${methodName}' of struct '${structName}' is not static.`);
+              }
+            } else {
+              throw new Error(`TYPE CHECK ERROR: Invalid static member access on struct '${structName}'.`);
+            }
+          }
         }
       }
     } 
@@ -2783,10 +2933,10 @@ class TypeChecker {
           if (expr.right instanceof IdentifierExpr) {
             const field = allFields.find(f => f.name === expr.right.name);
             if (field) return field.type;
-            const method = allMethods.find(m => m.name === expr.right.name);
+            const method = allMethods.find(m => m.name === expr.right.name && !m.isStatic);
             if (method) return this.getFunctionSignatureString(method);
           } else if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
-            const method = allMethods.find(m => m.name === expr.right.callee.name);
+            const method = allMethods.find(m => m.name === expr.right.callee.name && !m.isStatic);
             if (method) return this.inferFunctionReturnType(method);
           }
         }
@@ -2874,6 +3024,18 @@ class TypeChecker {
           const modName = expr.left.name;
           if (this.findEnum(modName)) {
             return modName;
+          }
+          const structDecl = this.findStruct(modName);
+          if (structDecl) {
+            const { allMethods } = this.resolveStructMembers(modName);
+            if (expr.right instanceof IdentifierExpr) {
+              const method = allMethods.find(m => m.name === expr.right.name && m.isStatic);
+              if (method) return this.getFunctionSignatureString(method);
+            } else if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+              const method = allMethods.find(m => m.name === expr.right.callee.name && m.isStatic);
+              if (method) return this.inferFunctionReturnType(method);
+            }
+            return "any";
           }
           const modChecker = this.moduleCheckers.get(modName);
           if (modChecker) {
@@ -3063,8 +3225,9 @@ class TypeChecker {
 
   implementsInterface(structDecl, interfaceDecl) {
     const { allMethods } = this.resolveStructMembers(structDecl.name);
+    const instanceMethods = allMethods.filter(m => !m.isStatic);
     for (const reqMethod of interfaceDecl.methods) {
-      const implMethod = allMethods.find(m => m.name === reqMethod.name);
+      const implMethod = instanceMethods.find(m => m.name === reqMethod.name);
       if (!implMethod) {
         return false;
       }

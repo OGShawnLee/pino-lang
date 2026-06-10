@@ -213,6 +213,8 @@ public class Parser {
           throw new Exception("PARSER: Else statement without corresponding If");
         case KeywordType.When:
           throw new Exception("PARSER: When branch outside of Match statement");
+        case KeywordType.Static:
+          throw new Exception("PARSER: 'static' modifier is only valid inside struct definitions.");
       }
     }
 
@@ -1048,9 +1050,25 @@ public class Parser {
         break;
       }
 
+      bool isStatic = false;
+      if (stream.Current.IsKeyword(KeywordType.Static)) {
+        stream.Consume(); // consume 'static'
+        isStatic = true;
+        if (!stream.Current.IsKeyword(KeywordType.Function)) {
+          throw new Exception("PARSER: 'static' keyword can only modify function declarations inside structs.");
+        }
+      }
+
       if (stream.Current.IsKeyword(KeywordType.Function)) {
-        methods.Add(ParseFunctionDeclaration(stream));
+        var fn = ParseFunctionDeclaration(stream);
+        if (isStatic) {
+          fn = fn with { IsStatic = true };
+        }
+        methods.Add(fn);
       } else {
+        if (isStatic) {
+          throw new Exception("PARSER: 'static' modifier cannot be applied to struct fields.");
+        }
         var identifier = ConsumeIdentifier(stream);
         if (char.IsUpper(identifier[0])) {
           inheritedStructs.Add(identifier);

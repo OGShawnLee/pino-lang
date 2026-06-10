@@ -478,6 +478,64 @@ const tests = [
       println(obj:hello())
     `,
     expectedOutput: "100\n200\nworld\n"
+  },
+  {
+    name: "Struct static method definition and call (Valid)",
+    code: `
+      struct MathUtils {
+        factor number
+        static fn multiply(a number, b number) number {
+          return a * b
+        }
+      }
+      println(MathUtils::multiply(6, 7))
+    `,
+    expectedOutput: "42\n"
+  },
+  {
+    name: "Struct static method accessing 'this' (Type Check Error)",
+    code: `
+      struct BadStruct {
+        x number
+        static fn bad() number {
+          return this:x
+        }
+      }
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Cannot access 'this' from static method in struct 'BadStruct'.\n"
+  },
+  {
+    name: "Struct static method accessing instance field directly (Type Check Error)",
+    code: `
+      struct BadStruct2 {
+        x number
+        static fn bad() number {
+          return x
+        }
+      }
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Cannot access instance field 'x' from static method in struct 'BadStruct2'.\n"
+  },
+  {
+    name: "Calling static method on instance (Type Check Error)",
+    code: `
+      struct Helper {
+        static fn helper_fn() number { return 1 }
+      }
+      val h = Helper {}
+      val res = h:helper_fn()
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Cannot call static method 'helper_fn' of struct 'Helper' on an instance.\n"
+  },
+  {
+    name: "Calling instance method via static resolution (Type Check Error)",
+    code: `
+      struct Helper2 {
+        fn helper_fn() number { return 1 }
+      }
+      val res = Helper2::helper_fn()
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Method 'helper_fn' of struct 'Helper2' is not static.\n"
   }
 ];
 

@@ -15,6 +15,10 @@ public class TypeChecker {
   // Environment/scopes for variable checking
   private readonly Stack<Dictionary<string, string>> _scopes = new();
   
+  // Context for current struct and method being checked
+  private StructDeclaration? _currentStruct = null;
+  private bool _inStaticMethod = false;
+  
   // Cache of checked modules to prevent double-checking
   private readonly Dictionary<string, TypeChecker> _moduleCheckers = new();
   private readonly HashSet<string> _currentlyCheckingModules = new();
@@ -250,6 +254,14 @@ public class TypeChecker {
         
       case FunctionDeclaration fnDecl:
         PushScope();
+        if (_currentStruct != null && !_inStaticMethod) {
+          DeclareVariable("this", _currentStruct.Identifier);
+          DeclareVariable("self", _currentStruct.Identifier);
+          ResolveStructMembers(_currentStruct.Identifier, out var fields, out var _);
+          foreach (var field in fields) {
+            DeclareVariable(field.Identifier, field.Typing);
+          }
+        }
         foreach (var param in fnDecl.Parameters) {
           DeclareVariable(param.Identifier, param.Typing);
         }
@@ -261,14 +273,20 @@ public class TypeChecker {
         break;
         
       case StructDeclaration structDecl:
+        var oldStruct = _currentStruct;
+        var oldStatic = _inStaticMethod;
+        _currentStruct = structDecl;
         foreach (var field in structDecl.Fields) {
           if (field.Value != null) {
             CheckExpression(field.Value);
           }
         }
         foreach (var method in structDecl.Methods) {
+          _inStaticMethod = method.IsStatic;
           CheckStatement(method);
         }
+        _currentStruct = oldStruct;
+        _inStaticMethod = oldStatic;
         break;
         
       case InterfaceDeclaration:
@@ -362,7 +380,28 @@ public class TypeChecker {
 
   private void CheckExpression(Expression expr) {
     switch (expr) {
-      case BinaryExpression bin:
+      case IdentifierExpression id:
+        if (_currentStruct != null && _inStaticMethod) {
+          if (id.Name == "this" || id.Name == "self") {
+            throw new Exception($"TYPE CHECK ERROR: Cannot access '{id.Name}' from static method in struct '{_currentStruct.Identifier}'.");
+          }
+          bool isLocal = false;
+          foreach (var scope in _scopes) {
+            if (scope.ContainsKey(id.Name)) {
+              isLocal = true;
+              break;
+            }
+          }
+          if (!isLocal) {
+            ResolveStructMembers(_currentStruct.Identifier, out var fields, out var _);
+            if (fields.Any(f => f.Identifier == id.Name)) {
+              throw new Exception($"TYPE CHECK ERROR: Cannot access instance field '{id.Name}' from static method in struct '{_currentStruct.Identifier}'.");
+            }
+          }
+        }
+        break;
+
+      case BinaryExpression bin: {
         CheckExpression(bin.Left);
         CheckExpression(bin.Right);
         
@@ -373,7 +412,78 @@ public class TypeChecker {
             throw new Exception($"TYPE CHECK ERROR: Cannot assign type '{rightType}' to target of type '{leftType}'.");
           }
         }
+        else if (bin.Operator == OperatorType.MemberAccess) {
+          string leftType = InferType(bin.Left);
+          var accessStructDecl = FindStruct(leftType);
+          if (accessStructDecl != null) {
+            ResolveStructMembers(leftType, out var _, out var allMethods);
+            if (bin.Right is FunctionCallExpression methodCall) {
+              var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
+              if (method != null) {
+                if (method.IsStatic) {
+                  throw new Exception($"TYPE CHECK ERROR: Cannot call static method '{method.Identifier}' of struct '{accessStructDecl.Identifier}' on an instance.");
+                }
+                // Validate arguments
+                var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                if (method.Parameters.Count != memberCallArgTypes.Count) {
+                  throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {memberCallArgTypes.Count}.");
+                }
+                for (int i = 0; i < method.Parameters.Count; i++) {
+                  if (!IsCompatible(memberCallArgTypes[i], method.Parameters[i].Typing)) {
+                    throw new Exception($"TYPE CHECK ERROR: Argument {i+1} for method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{memberCallArgTypes[i]}'.");
+                  }
+                }
+              } else {
+                throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have method '{methodCall.Callee}'.");
+              }
+            } else if (bin.Right is IdentifierExpression propId) {
+              var method = allMethods.Find(m => m.Identifier == propId.Name);
+              if (method != null && method.IsStatic) {
+                throw new Exception($"TYPE CHECK ERROR: Cannot access static method '{method.Identifier}' as instance member.");
+              }
+            }
+          }
+        }
+        else if (bin.Operator == OperatorType.StaticMemberAccess) {
+          if (bin.Left is IdentifierExpression structId) {
+            string structName = structId.Name;
+            var staticAccessStructDecl = FindStruct(structName);
+            if (staticAccessStructDecl != null) {
+              ResolveStructMembers(structName, out var _, out var allMethods);
+              if (bin.Right is FunctionCallExpression methodCall) {
+                var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
+                if (method == null) {
+                  throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodCall.Callee}'.");
+                }
+                if (!method.IsStatic) {
+                  throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                }
+                // Validate arguments
+                var staticCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                if (method.Parameters.Count != staticCallArgTypes.Count) {
+                  throw new Exception($"TYPE CHECK ERROR: Static method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {staticCallArgTypes.Count}.");
+                }
+                for (int i = 0; i < method.Parameters.Count; i++) {
+                  if (!IsCompatible(staticCallArgTypes[i], method.Parameters[i].Typing)) {
+                    throw new Exception($"TYPE CHECK ERROR: Argument {i+1} for static method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{staticCallArgTypes[i]}'.");
+                  }
+                }
+              } else if (bin.Right is IdentifierExpression methodId) {
+                var method = allMethods.Find(m => m.Identifier == methodId.Name);
+                if (method == null) {
+                  throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodId.Name}'.");
+                }
+                if (!method.IsStatic) {
+                  throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                }
+              } else {
+                throw new Exception($"TYPE CHECK ERROR: Invalid static member access on struct '{structName}'.");
+              }
+            }
+          }
+        }
         break;
+      }
         
       case TernaryExpression tern:
         CheckExpression(tern.Condition);
@@ -504,10 +614,10 @@ public class TypeChecker {
             if (bin.Right is IdentifierExpression propId) {
               var field = allFields.Find(f => f.Identifier == propId.Name);
               if (field != null) return field.Typing;
-              var method = allMethods.Find(m => m.Identifier == propId.Name);
+              var method = allMethods.Find(m => m.Identifier == propId.Name && !m.IsStatic);
               if (method != null) return GetFunctionSignatureString(method);
             } else if (bin.Right is FunctionCallExpression methodCall) {
-              var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
+              var method = allMethods.Find(m => m.Identifier == methodCall.Callee && !m.IsStatic);
               if (method != null) return InferFunctionReturnType(method);
             }
           }
@@ -595,6 +705,18 @@ public class TypeChecker {
             string modName = modId.Name;
             if (FindEnum(modName) != null) {
               return modName;
+            }
+            var structDecl = FindStruct(modName);
+            if (structDecl != null) {
+              ResolveStructMembers(modName, out var _, out var allMethods);
+              if (bin.Right is IdentifierExpression methodId) {
+                var method = allMethods.Find(m => m.Identifier == methodId.Name && m.IsStatic);
+                if (method != null) return GetFunctionSignatureString(method);
+              } else if (bin.Right is FunctionCallExpression methodCall) {
+                var method = allMethods.Find(m => m.Identifier == methodCall.Callee && m.IsStatic);
+                if (method != null) return InferFunctionReturnType(method);
+              }
+              return "any";
             }
             if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
               if (bin.Right is StructInstanceExpression modInst) {
@@ -753,8 +875,9 @@ public class TypeChecker {
   
   private bool ImplementsInterface(StructDeclaration structDecl, InterfaceDeclaration interfaceDecl) {
     ResolveStructMembers(structDecl.Identifier, out var _, out var allMethods);
+    var instanceMethods = allMethods.Where(m => !m.IsStatic).ToList();
     foreach (var reqMethod in interfaceDecl.Methods) {
-      var implMethod = allMethods.Find(m => m.Identifier == reqMethod.Identifier);
+      var implMethod = instanceMethods.Find(m => m.Identifier == reqMethod.Identifier);
       if (implMethod == null) {
         return false;
       }

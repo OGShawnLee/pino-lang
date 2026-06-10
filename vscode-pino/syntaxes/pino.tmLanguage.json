@@ -87,7 +87,7 @@
         },
         {
           "name": "storage.modifier.pino",
-          "match": "\\b(pub)\\b"
+          "match": "\\b(pub|static)\\b"
         }
       ]
     },
