@@ -386,6 +386,20 @@ public class Evaluator {
             return val;
           }
 
+          if (bin.Left is IndexAccessExpression indexAccess) {
+            var target = Evaluate(indexAccess.Target, env);
+            var assignIndexVal = Evaluate(indexAccess.Index, env);
+            if (target is List<object?> assignList) {
+              long assignIdx = assignIndexVal is long l ? l : Convert.ToInt64(assignIndexVal);
+              if (assignIdx < 0 || assignIdx >= assignList.Count) {
+                throw new Exception($"RUNTIME ERROR: Index {assignIdx} out of range for vector of size {assignList.Count}.");
+              }
+              assignList[(int)assignIdx] = val;
+              return val;
+            }
+            throw new Exception("RUNTIME ERROR: Cannot assign to index of non-vector object.");
+          }
+
           if (bin.Left is BinaryExpression memberAccess && memberAccess.Operator == OperatorType.MemberAccess) {
             var target = Evaluate(memberAccess.Left, env);
             if (target is PinoStructInstance targetInstance) {
@@ -425,6 +439,22 @@ public class Evaluator {
             var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
             env.Assign(id.Name, newVal);
             return newVal;
+          }
+
+          if (bin.Left is IndexAccessExpression indexAccess) {
+            var target = Evaluate(indexAccess.Target, env);
+            var compoundIndexVal = Evaluate(indexAccess.Index, env);
+            if (target is List<object?> compoundList) {
+              long compoundIdx = compoundIndexVal is long l ? l : Convert.ToInt64(compoundIndexVal);
+              if (compoundIdx < 0 || compoundIdx >= compoundList.Count) {
+                throw new Exception($"RUNTIME ERROR: Index {compoundIdx} out of range for vector of size {compoundList.Count}.");
+              }
+              var currentVal = compoundList[(int)compoundIdx];
+              var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
+              compoundList[(int)compoundIdx] = newVal;
+              return newVal;
+            }
+            throw new Exception("RUNTIME ERROR: Cannot assign to index of non-vector object.");
           }
 
           if (bin.Left is BinaryExpression memberAccess && memberAccess.Operator == OperatorType.MemberAccess) {
@@ -507,6 +537,26 @@ public class Evaluator {
 
       case FunctionLambdaExpression lambda:
         return new PinoLambda(lambda, env);
+
+      case IndexAccessExpression indexAccess:
+        var targetVal = Evaluate(indexAccess.Target, env);
+        var readIndexVal = Evaluate(indexAccess.Index, env);
+
+        if (targetVal is List<object?> readList) {
+          long readIdx = readIndexVal is long l ? l : Convert.ToInt64(readIndexVal);
+          if (readIdx < 0 || readIdx >= readList.Count) {
+            throw new Exception($"RUNTIME ERROR: Index {readIdx} out of range for vector of size {readList.Count}.");
+          }
+          return readList[(int)readIdx];
+        }
+        if (targetVal is string readStr) {
+          long readIdx = readIndexVal is long l ? l : Convert.ToInt64(readIndexVal);
+          if (readIdx < 0 || readIdx >= readStr.Length) {
+            throw new Exception($"RUNTIME ERROR: Index {readIdx} out of range for string of length {readStr.Length}.");
+          }
+          return readStr[(int)readIdx].ToString();
+        }
+        throw new Exception("RUNTIME ERROR: Cannot apply index access to non-vector and non-string object.");
 
       default:
         throw new Exception($"RUNTIME ERROR: Unknown expression type '{expression.GetType().Name}'.");
@@ -772,15 +822,20 @@ public class Evaluator {
 
     switch (op) {
       case OperatorType.Addition:
-        return isFloat ? GetDouble(left) + GetDouble(right) : GetLong(left) + GetLong(right);
+        if (isFloat) return GetDouble(left) + GetDouble(right);
+        return GetLong(left) + GetLong(right);
       case OperatorType.Subtraction:
-        return isFloat ? GetDouble(left) - GetDouble(right) : GetLong(left) - GetLong(right);
+        if (isFloat) return GetDouble(left) - GetDouble(right);
+        return GetLong(left) - GetLong(right);
       case OperatorType.Multiplication:
-        return isFloat ? GetDouble(left) * GetDouble(right) : GetLong(left) * GetLong(right);
+        if (isFloat) return GetDouble(left) * GetDouble(right);
+        return GetLong(left) * GetLong(right);
       case OperatorType.Division:
-        return isFloat ? GetDouble(left) / GetDouble(right) : GetLong(left) / GetLong(right);
+        if (isFloat) return GetDouble(left) / GetDouble(right);
+        return GetLong(left) / GetLong(right);
       case OperatorType.Modulus:
-        return isFloat ? GetDouble(left) % GetDouble(right) : GetLong(left) % GetLong(right);
+        if (isFloat) return GetDouble(left) % GetDouble(right);
+        return GetLong(left) % GetLong(right);
 
       case OperatorType.LessThan:
         return isFloat ? GetDouble(left) < GetDouble(right) : GetLong(left) < GetLong(right);

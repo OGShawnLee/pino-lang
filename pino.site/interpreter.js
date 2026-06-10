@@ -420,6 +420,14 @@ class FunctionLambdaExpression extends Expr {
   }
 }
 
+class IndexAccessExpr extends Expr {
+  constructor(target, index) {
+    super();
+    this.target = target;
+    this.index = index;
+  }
+}
+
 // Precedence-Climbing Parser
 class Parser {
   constructor(tokens) {
@@ -531,6 +539,9 @@ class Parser {
     }
     if (expr instanceof FunctionLambdaExpression) {
       return false;
+    }
+    if (expr instanceof IndexAccessExpr) {
+      return this.containsUndeclaredIt(expr.target) || this.containsUndeclaredIt(expr.index);
     }
     return false;
   }
@@ -864,7 +875,7 @@ class Parser {
       const opValue = opToken.value;
       if (['=', '+=', '-=', '*=', '/=', '%='].includes(opValue)) {
         const val = this.assignment(allowStruct);
-        if (expr instanceof IdentifierExpr || expr instanceof BinaryExpr && expr.operator === ':') {
+        if (expr instanceof IdentifierExpr || (expr instanceof BinaryExpr && expr.operator === ':') || expr instanceof IndexAccessExpr) {
           return new BinaryExpr(expr, opValue, val);
         }
         throw new Error(`Parse Error: Invalid assignment target at line ${opToken.line}`);
@@ -964,6 +975,16 @@ class Parser {
   }
 
   primary(allowStruct = true) {
+    let expr = this.basePrimary(allowStruct);
+    while (this.match(TokenType.DELIMITER, '[')) {
+      const indexExpr = this.expression();
+      this.consume(TokenType.DELIMITER, "Expect ']' to close index access", ']');
+      expr = new IndexAccessExpr(expr, indexExpr);
+    }
+    return expr;
+  }
+
+  basePrimary(allowStruct = true) {
     if (this.match(TokenType.KEYWORD, 'true')) return new LiteralExpr(true, 'BOOLEAN');
     if (this.match(TokenType.KEYWORD, 'false')) return new LiteralExpr(false, 'BOOLEAN');
     if (this.match(TokenType.KEYWORD, 'null')) return new LiteralExpr(null, 'NULL');
@@ -1804,6 +1825,24 @@ class Interpreter {
           structInstance.fields[propId] = targetVal;
           return targetVal;
         }
+
+        if (expr.left instanceof IndexAccessExpr) {
+          const target = this.evaluateExpression(expr.left.target, env);
+          const indexVal = this.evaluateExpression(expr.left.index, env);
+          if (!Array.isArray(target)) {
+            throw new Error("RUNTIME ERROR: Cannot assign to index of non-vector object.");
+          }
+          if (indexVal < 0 || indexVal >= target.length) {
+            throw new Error(`RUNTIME ERROR: Index ${indexVal} out of range for vector of size ${target.length}.`);
+          }
+          let targetVal = val;
+          if (expr.operator !== '=') {
+            const currentVal = target[indexVal];
+            targetVal = this.evalOp(currentVal, expr.operator.slice(0, -1), val);
+          }
+          target[indexVal] = targetVal;
+          return targetVal;
+        }
       }
 
       // Standard binary arithmetic and comparison operators
@@ -1814,6 +1853,24 @@ class Interpreter {
 
     if (expr instanceof FunctionLambdaExpression) {
       return new PinoCallable({ params: expr.parameters, body: expr.body }, env);
+    }
+
+    if (expr instanceof IndexAccessExpr) {
+      const targetVal = this.evaluateExpression(expr.target, env);
+      const indexVal = this.evaluateExpression(expr.index, env);
+      if (Array.isArray(targetVal)) {
+        if (indexVal < 0 || indexVal >= targetVal.length) {
+          throw new Error(`RUNTIME ERROR: Index ${indexVal} out of range for vector of size ${targetVal.length}.`);
+        }
+        return targetVal[indexVal];
+      }
+      if (typeof targetVal === 'string') {
+        if (indexVal < 0 || indexVal >= targetVal.length) {
+          throw new Error(`RUNTIME ERROR: Index ${indexVal} out of range for string of length ${targetVal.length}.`);
+        }
+        return targetVal[indexVal];
+      }
+      throw new Error("RUNTIME ERROR: Cannot apply index access to non-vector and non-string object.");
     }
 
     if (expr instanceof StructInstanceExpr) {

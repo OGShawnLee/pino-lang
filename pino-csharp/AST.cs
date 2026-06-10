@@ -72,3 +72,5 @@ public record StructInstanceExpression(string StructName, List<VariableDeclarati
 public record FunctionCallExpression(string Callee, List<Expression> Arguments) : Expression;
 
 public record FunctionLambdaExpression(List<VariableDeclaration> Parameters, Statement Body) : Expression;
+
+public record IndexAccessExpression(Expression Target, Expression Index) : Expression;

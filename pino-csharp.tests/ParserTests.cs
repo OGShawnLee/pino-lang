@@ -243,5 +243,44 @@ public class ParserTests {
     Assert.Single(body.Statements);
     Assert.IsAssignableFrom<Expression>(body.Statements[0]);
   }
+
+  [Fact]
+  public void TestIndexAccessParsingAndEvaluation() {
+    // 1. Test parsing styles[0]
+    var input = "styles[0]";
+    var stmt = Parser.ParseString(input);
+    var indexAccess = Assert.IsType<IndexAccessExpression>(stmt);
+    Assert.Equal("styles", Assert.IsType<IdentifierExpression>(indexAccess.Target).Name);
+    Assert.Equal("0", Assert.IsType<LiteralExpression>(indexAccess.Index).Value);
+
+    // 2. Test parsing and evaluation of list indexing
+    var programInput = @"
+      val arr = [10, 20, 30]
+      val first = arr[0]
+      val second = arr[1]
+      
+      var mutableArr = [1, 2]
+      mutableArr[1] = 99
+      val modified = mutableArr[1]
+      
+      var cArr = [10]
+      cArr[0] += 5
+      val compoundVal = cArr[0]
+
+      val text = ""Pino""
+      val charP = text[0]
+    ";
+    var program = Parser.ParseProgramString(programInput);
+    var evaluator = new Evaluator();
+    var env = new Pino.Environment();
+    evaluator.Execute(program, env);
+
+    Assert.Equal(10L, env.Get("first"));
+    Assert.Equal(20L, env.Get("second"));
+    Assert.Equal(99L, env.Get("modified"));
+    Assert.Equal(15L, env.Get("compoundVal"));
+    Assert.Equal("P", env.Get("charP"));
+  }
 }
+
 

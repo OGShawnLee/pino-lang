@@ -62,7 +62,7 @@ public class Parser {
     return false;
   }
 
-  private static bool ContainsUndeclaredIt(Expression expr, TokenStream stream) {
+  private static bool ContainsUndeclaredIt(Expression? expr, TokenStream stream) {
     if (expr == null) return false;
     switch (expr) {
       case IdentifierExpression id:
@@ -100,6 +100,9 @@ public class Parser {
       
       case FunctionLambdaExpression lambda:
         return false;
+      
+      case IndexAccessExpression idx:
+        return ContainsUndeclaredIt(idx.Target, stream) || ContainsUndeclaredIt(idx.Index, stream);
       
       default:
         return false;
@@ -593,39 +596,55 @@ public class Parser {
   }
 
   private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true) {
+    Expression expr;
+
     if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
       stream.Consume();
-      var expr = ParseExpression(stream, true);
+      expr = ParseExpression(stream, true);
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
         throw new Exception("PARSER: Expected ')' to close grouped expression");
       }
-      return expr;
     }
-
-    if (IsFunctionCall(stream)) {
-      return ParseFunctionCall(stream);
+    else if (IsFunctionCall(stream)) {
+      expr = ParseFunctionCall(stream);
     }
-    if (IsFunctionLambda(stream)) {
-      return ParseFunctionLambda(stream);
+    else if (IsFunctionLambda(stream)) {
+      expr = ParseFunctionLambda(stream);
     }
-    if (IsVector(stream)) {
-      return ParseVector(stream);
+    else if (IsVector(stream)) {
+      expr = ParseVector(stream);
     }
-    if (allowStruct && IsStructInstance(stream)) {
-      return ParseStructInstance(stream);
+    else if (allowStruct && IsStructInstance(stream)) {
+      expr = ParseStructInstance(stream);
     }
-    if (stream.Current.IsKeyword(KeywordType.If)) {
-      return ParseTernaryExpression(stream);
+    else if (stream.Current.IsKeyword(KeywordType.If)) {
+      expr = ParseTernaryExpression(stream);
     }
-    if (stream.Current.Type == TokenType.Identifier) {
-      return new IdentifierExpression(stream.Consume().Data);
+    else if (stream.Current.Type == TokenType.Identifier) {
+      expr = new IdentifierExpression(stream.Consume().Data);
     }
-    if (stream.Current.Type == TokenType.Literal) {
+    else if (stream.Current.Type == TokenType.Literal) {
       var t = stream.Consume();
-      return new LiteralExpression(t.Data, t.Literal!.Value, t.Injections);
+      expr = new LiteralExpression(t.Data, t.Literal!.Value, t.Injections);
+    }
+    else {
+      throw new Exception($"PARSER: Expected expression, got {stream.Current}");
     }
 
-    throw new Exception($"PARSER: Expected expression, got {stream.Current}");
+    while (stream.HasNext) {
+      if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
+        stream.Consume(); // consume '['
+        var indexExpr = ParseExpression(stream);
+        if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+          throw new Exception("PARSER: Expected ']' to close index access");
+        }
+        expr = new IndexAccessExpression(expr, indexExpr);
+      } else {
+        break;
+      }
+    }
+
+    return expr;
   }
 
   private static int GetOperatorPrecedence(OperatorType op) {

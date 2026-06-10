@@ -256,6 +256,26 @@ const tests = [
       println(person:name)
     `,
     expectedOutput: "Pedro\n"
+  },
+  {
+    name: "Vector and string index access and modification",
+    code: `
+      val arr = [10, 20, 30]
+      println(arr[0])
+      println(arr[1])
+      
+      var mutableArr = [1, 2]
+      mutableArr[1] = 99
+      println(mutableArr[1])
+      
+      var cArr = [10]
+      cArr[0] += 5
+      println(cArr[0])
+
+      val text = "Pino"
+      println(text[0])
+    `,
+    expectedOutput: "10\n20\n99\n15\nP\n"
   }
 ];
 
