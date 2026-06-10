@@ -26,7 +26,7 @@ class Lexer {
     this.line = 1;
     this.tokens = [];
     this.keywords = new Set([
-      'var', 'val', 'fn', 'struct', 'enum', 'if', 'else', 'match', 'when', 'for', 'in', 'break', 'continue', 'return', 'true', 'false', 'then',
+      'var', 'val', 'fn', 'struct', 'interface', 'enum', 'if', 'else', 'match', 'when', 'for', 'in', 'break', 'continue', 'return', 'true', 'false', 'then',
       'module', 'import', 'from', 'pub'
     ]);
   }
@@ -278,6 +278,15 @@ class StructDecl extends Stmt {
     super();
     this.name = name;
     this.fields = fields; // array of {name, type}
+    this.methods = methods; // array of FnDecl
+    this.isPublic = isPublic;
+  }
+}
+
+class InterfaceDecl extends Stmt {
+  constructor(name, methods, isPublic = false) {
+    super();
+    this.name = name;
     this.methods = methods; // array of FnDecl
     this.isPublic = isPublic;
   }
@@ -670,11 +679,12 @@ class Parser {
     if (this.match(TokenType.KEYWORD, 'val')) return this.varDeclaration(true, isPublic);
     if (this.match(TokenType.KEYWORD, 'var')) return this.varDeclaration(false, isPublic);
     if (this.match(TokenType.KEYWORD, 'struct')) return this.structDeclaration(isPublic);
+    if (this.match(TokenType.KEYWORD, 'interface')) return this.interfaceDeclaration(isPublic);
     if (this.match(TokenType.KEYWORD, 'enum')) return this.enumDeclaration(isPublic);
     if (this.match(TokenType.KEYWORD, 'fn')) return this.fnDeclaration(isPublic);
 
     if (isPublic) {
-      throw new Error("Parse Error: 'pub' can only prefix declarations (var, val, fn, struct, enum)");
+      throw new Error("Parse Error: 'pub' can only prefix declarations (var, val, fn, struct, interface, enum)");
     }
 
     if (this.match(TokenType.KEYWORD, 'module')) {
@@ -825,6 +835,39 @@ class Parser {
 
     this.consume(TokenType.DELIMITER, "Expect '}' to close struct declaration", '}');
     return new StructDecl(nameToken.value, fields, methods, isPublic);
+  }
+
+  interfaceDeclaration(isPublic = false) {
+    const nameToken = this.consume(TokenType.IDENTIFIER, "Expect interface name");
+    this.consume(TokenType.DELIMITER, "Expect '{' after interface name", '{');
+
+    const methods = [];
+    while (!this.check(TokenType.DELIMITER, '}') && !this.isAtEnd()) {
+      if (this.match(TokenType.KEYWORD, 'fn')) {
+        methods.push(this.interfaceMethodSignature());
+      } else {
+        throw new Error(`Parse Error: Expected method signature in interface body, found '${this.peek().value}'`);
+      }
+      this.match(TokenType.DELIMITER, ',');
+    }
+
+    this.consume(TokenType.DELIMITER, "Expect '}' to close interface declaration", '}');
+    return new InterfaceDecl(nameToken.value, methods, isPublic);
+  }
+
+  interfaceMethodSignature() {
+    const nameToken = this.consume(TokenType.IDENTIFIER, "Expect method name");
+    this.consume(TokenType.DELIMITER, "Expect '(' after method name", '(');
+    const params = [];
+    if (!this.check(TokenType.DELIMITER, ')')) {
+      do {
+        const paramName = this.consume(TokenType.IDENTIFIER, "Expect parameter name").value;
+        const paramType = this.consumeTyping();
+        params.push({ name: paramName, type: paramType });
+      } while (this.match(TokenType.DELIMITER, ',') || this.check(TokenType.IDENTIFIER));
+    }
+    this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
+    return new FnDecl(nameToken.value, params, null, false);
   }
 
   enumDeclaration(isPublic = false) {
@@ -2252,6 +2295,637 @@ class Interpreter {
   }
 }
 
+class TypeChecker {
+  constructor() {
+    this.structs = new Map();
+    this.interfaces = new Map();
+    this.enums = new Map();
+    this.functions = new Map();
+    this.scopes = [];
+    this.moduleCheckers = new Map();
+    this.currentlyCheckingModules = new Set();
+    
+    this.builtInFunctions = new Map([
+      ["println", "fn(...)"],
+      ["readline", "fn(...) string"],
+      ["int", "fn(...) int"],
+      ["float", "fn(...) float"],
+      ["rand", "fn(...) float"],
+      ["time", "fn() int"],
+      ["sleep", "fn(int)"],
+      ["type", "fn(any) string"],
+      ["str", "fn(any) string"],
+      ["clear", "fn()"]
+    ]);
+  }
+
+  findStruct(name) {
+    if (this.structs.has(name)) return this.structs.get(name);
+    for (const modChecker of this.moduleCheckers.values()) {
+      const s = modChecker.findStruct(name);
+      if (s && s.isPublic) return s;
+    }
+    return null;
+  }
+
+  findInterface(name) {
+    if (this.interfaces.has(name)) return this.interfaces.get(name);
+    for (const modChecker of this.moduleCheckers.values()) {
+      const i = modChecker.findInterface(name);
+      if (i && i.isPublic) return i;
+    }
+    return null;
+  }
+
+  findEnum(name) {
+    if (this.enums.has(name)) return this.enums.get(name);
+    for (const modChecker of this.moduleCheckers.values()) {
+      const e = modChecker.findEnum(name);
+      if (e && e.isPublic) return e;
+    }
+    return null;
+  }
+
+  check(statements) {
+    this.pushScope();
+
+    // Pass 1: Gather global symbols
+    for (const stmt of statements) {
+      if (stmt instanceof StructDecl) {
+        this.structs.set(stmt.name, stmt);
+      } else if (stmt instanceof InterfaceDecl) {
+        this.interfaces.set(stmt.name, stmt);
+      } else if (stmt instanceof EnumDecl) {
+        this.enums.set(stmt.name, stmt);
+      } else if (stmt instanceof FnDecl) {
+        this.functions.set(stmt.name, stmt);
+      }
+    }
+
+    // Pass 2: Check statements
+    for (const stmt of statements) {
+      this.checkStatement(stmt);
+    }
+
+    this.popScope();
+  }
+
+  resolveAndCheckModule(moduleName) {
+    if (this.moduleCheckers.has(moduleName)) return;
+
+    if (this.currentlyCheckingModules.has(moduleName)) {
+      throw new Error(`TYPE CHECK ERROR: Circular dependency detected while type checking module '${moduleName}'.`);
+    }
+    this.currentlyCheckingModules.add(moduleName);
+
+    try {
+      const source = globalThis.pinoModules?.[moduleName.toLowerCase()];
+      if (!source) {
+        throw new Error(`TYPE CHECK ERROR: Module '${moduleName}' source not found.`);
+      }
+
+      const lexer = new Lexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const statements = parser.parse();
+
+      const checker = new TypeChecker();
+      checker.check(statements);
+      this.moduleCheckers.set(moduleName, checker);
+    } finally {
+      this.currentlyCheckingModules.delete(moduleName);
+    }
+  }
+
+  pushScope() {
+    this.scopes.push(new Map());
+  }
+
+  popScope() {
+    if (this.scopes.length > 0) {
+      this.scopes.pop();
+    }
+  }
+
+  declareVariable(name, type) {
+    if (this.scopes.length > 0) {
+      this.scopes[this.scopes.length - 1].set(name, type);
+    }
+  }
+
+  resolveIdentifierType(name) {
+    for (let i = this.scopes.length - 1; i >= 0; i--) {
+      if (this.scopes[i].has(name)) {
+        return this.scopes[i].get(name);
+      }
+    }
+
+    if (this.functions.has(name)) {
+      return this.getFunctionSignatureString(this.functions.get(name));
+    }
+
+    if (this.builtInFunctions.has(name)) {
+      return this.builtInFunctions.get(name);
+    }
+
+    if (this.findStruct(name)) return name;
+    if (this.findInterface(name)) return name;
+
+    return "any";
+  }
+
+  resolveFunctionReturnType(callee) {
+    if (this.functions.has(callee)) {
+      return this.inferFunctionReturnType(this.functions.get(callee));
+    }
+
+    if (this.builtInFunctions.has(callee)) {
+      const sig = this.builtInFunctions.get(callee);
+      const lastSpace = sig.lastIndexOf(' ');
+      if (lastSpace !== -1) {
+        return sig.substring(lastSpace + 1);
+      }
+      return "any";
+    }
+
+    const idType = this.resolveIdentifierType(callee);
+    if (idType.startsWith("fn(")) {
+      const closingParen = idType.lastIndexOf(')');
+      if (closingParen !== -1 && closingParen < idType.length - 1) {
+        return idType.substring(closingParen + 1).trim();
+      }
+    }
+
+    return "any";
+  }
+
+  getFunctionSignatureString(fn = null, parameters = null, lambda = null) {
+    const paramTypes = [];
+    const paramsList = fn ? fn.params : (parameters || (lambda ? lambda.parameters : null));
+    if (paramsList) {
+      for (const p of paramsList) {
+        paramTypes.push(p.type || "any");
+      }
+    }
+    let retType = "any";
+    if (fn) {
+      retType = this.inferFunctionReturnType(fn);
+    } else if (lambda) {
+      const returns = this.findReturnStatements(lambda.body);
+      if (returns.length > 0) {
+        retType = returns[0].argument ? this.inferType(returns[0].argument) : "any";
+      }
+    }
+    return `fn(${paramTypes.join(', ')}) ${retType}`;
+  }
+
+  checkStatement(statement) {
+    if (!statement) return;
+
+    if (statement instanceof VarDecl) {
+      const valType = statement.valueExpr ? this.inferType(statement.valueExpr) : "any";
+      this.declareVariable(statement.name, valType);
+      if (statement.valueExpr) {
+        this.checkExpression(statement.valueExpr);
+      }
+    } 
+    else if (statement instanceof FnDecl) {
+      this.pushScope();
+      for (const param of statement.params) {
+        this.declareVariable(param.name, param.type);
+      }
+      if (statement.body) {
+        this.checkStatement(statement.body);
+      }
+      this.popScope();
+    } 
+    else if (statement instanceof StructDecl) {
+      for (const method of statement.methods) {
+        this.checkStatement(method);
+      }
+    } 
+    else if (statement instanceof InterfaceDecl) {
+      // Checked globally, nothing to check inside
+    } 
+    else if (statement instanceof Block) {
+      this.pushScope();
+      for (const s of statement.statements) {
+        this.checkStatement(s);
+      }
+      this.popScope();
+    } 
+    else if (statement instanceof IfStmt) {
+      this.checkExpression(statement.condition);
+      this.checkStatement(statement.thenBranch);
+      if (statement.elseIfs) {
+        for (const branch of statement.elseIfs) {
+          this.checkExpression(branch.cond);
+          this.checkStatement(branch.body);
+        }
+      }
+      if (statement.elseBranch) {
+        this.checkStatement(statement.elseBranch);
+      }
+    } 
+    else if (statement instanceof ForStmt) {
+      this.pushScope();
+      const colType = statement.iterableExpr ? this.inferType(statement.iterableExpr) : "any";
+      let loopVarType = "any";
+      if (colType.startsWith("[]")) {
+        loopVarType = colType.substring(2);
+      } else if (colType === "int" || colType === "float" || colType === "number") {
+        loopVarType = "number";
+      }
+      this.declareVariable(statement.varName, loopVarType);
+      if (statement.iterableExpr) {
+        this.checkExpression(statement.iterableExpr);
+      }
+      this.checkStatement(statement.body);
+      this.popScope();
+    } 
+    else if (statement instanceof MatchStmt) {
+      this.checkExpression(statement.condition);
+      for (const branch of statement.branches) {
+        for (const cond of branch.conditions) {
+          this.checkExpression(cond);
+        }
+        this.checkStatement(branch.body);
+      }
+      if (statement.alternate) {
+        this.checkStatement(statement.alternate);
+      }
+    } 
+    else if (statement instanceof ImportStmt) {
+      this.resolveAndCheckModule(statement.moduleName);
+      this.declareVariable(statement.moduleName, "module");
+    } 
+    else if (statement instanceof FromImportStmt) {
+      this.resolveAndCheckModule(statement.moduleName);
+      const modChecker = this.moduleCheckers.get(statement.moduleName);
+      if (modChecker) {
+        for (const name of statement.imports) {
+          const type = modChecker.resolveIdentifierType(name);
+          this.declareVariable(name, type);
+        }
+      }
+    } 
+    else if (statement instanceof ReturnStmt) {
+      if (statement.argument) {
+        this.checkExpression(statement.argument);
+      }
+    } 
+    else if (statement instanceof ExprStmt) {
+      this.checkExpression(statement.expression);
+    }
+    else if (statement instanceof Expr) {
+      this.checkExpression(statement);
+    }
+  }
+
+  checkExpression(expr) {
+    if (!expr) return;
+
+    if (expr instanceof BinaryExpr) {
+      this.checkExpression(expr.left);
+      this.checkExpression(expr.right);
+
+      if (expr.operator === '=') {
+        const leftType = this.inferType(expr.left);
+        const rightType = this.inferType(expr.right);
+        if (!this.isCompatible(rightType, leftType)) {
+          throw new Error(`TYPE CHECK ERROR: Cannot assign type '${rightType}' to target of type '${leftType}'.`);
+        }
+      }
+    } 
+    else if (expr instanceof TernaryExpr) {
+      this.checkExpression(expr.condition);
+      this.checkExpression(expr.consequent);
+      this.checkExpression(expr.alternate);
+    } 
+    else if (expr instanceof VectorExpr) {
+      if (expr.elements) {
+        for (const el of expr.elements) {
+          this.checkExpression(el);
+        }
+      }
+      if (expr.lenExpr) this.checkExpression(expr.lenExpr);
+      if (expr.initExpr) this.checkExpression(expr.initExpr);
+    } 
+    else if (expr instanceof StructInstanceExpr) {
+      const structDecl = this.findStruct(expr.structName);
+      if (!structDecl) {
+        throw new Error(`TYPE CHECK ERROR: Struct '${expr.structName}' is not defined.`);
+      } else {
+        for (const [key, valExpr] of Object.entries(expr.initializers)) {
+          const field = structDecl.fields.find(f => f.name === key);
+          if (!field) {
+            throw new Error(`TYPE CHECK ERROR: Struct '${expr.structName}' does not have field '${key}'.`);
+          }
+          this.checkExpression(valExpr);
+          const propType = this.inferType(valExpr);
+          if (!this.isCompatible(propType, field.type)) {
+            throw new Error(`TYPE CHECK ERROR: Cannot assign type '${propType}' to field '${key}' of type '${field.type}' in struct '${expr.structName}'.`);
+          }
+        }
+      }
+    } 
+    else if (expr instanceof CallExpr) {
+      const argTypes = expr.args.map(a => this.inferType(a));
+      for (const arg of expr.args) {
+        this.checkExpression(arg);
+      }
+
+      if (expr.callee instanceof IdentifierExpr) {
+        const calleeName = expr.callee.name;
+        if (this.functions.has(calleeName)) {
+          const fnDecl = this.functions.get(calleeName);
+          if (fnDecl.params.length !== argTypes.length) {
+            throw new Error(`TYPE CHECK ERROR: Function '${calleeName}' expected ${fnDecl.params.length} arguments, but got ${argTypes.length}.`);
+          }
+          for (let i = 0; i < fnDecl.params.length; i++) {
+            if (!this.isCompatible(argTypes[i], fnDecl.params[i].type)) {
+              throw new Error(`TYPE CHECK ERROR: Argument ${i+1} for function '${calleeName}' expected type '${fnDecl.params[i].type}', but got '${argTypes[i]}'.`);
+            }
+          }
+        }
+      }
+    } 
+    else if (expr instanceof FunctionLambdaExpression) {
+      this.pushScope();
+      for (const param of expr.parameters) {
+        this.declareVariable(param.name, param.type);
+      }
+      this.checkStatement(expr.body);
+      this.popScope();
+    } 
+    else if (expr instanceof IndexAccessExpr) {
+      this.checkExpression(expr.target);
+      this.checkExpression(expr.index);
+    } 
+    else if (expr instanceof MapExpr) {
+      for (const entry of expr.entries) {
+        this.checkExpression(entry.key);
+        this.checkExpression(entry.value);
+        const kType = this.inferType(entry.key);
+        const vType = this.inferType(entry.value);
+        if (!this.isCompatible(kType, expr.keyType)) {
+          throw new Error(`TYPE CHECK ERROR: Map key expected type '${expr.keyType}', but got '${kType}'.`);
+        }
+        if (!this.isCompatible(vType, expr.valType)) {
+          throw new Error(`TYPE CHECK ERROR: Map value expected type '${expr.valType}', but got '${vType}'.`);
+        }
+      }
+    }
+  }
+
+  inferType(expr) {
+    if (expr instanceof LiteralExpr) {
+      if (expr.type === 'BOOLEAN') return 'bool';
+      if (expr.type === 'NUMBER') return 'number';
+      if (expr.type === 'STRING') return 'string';
+      return 'any';
+    }
+
+    if (expr instanceof IdentifierExpr) {
+      return this.resolveIdentifierType(expr.name);
+    }
+
+    if (expr instanceof VectorExpr) {
+      if (expr.elements && expr.elements.length > 0) {
+        const firstType = this.inferType(expr.elements[0]);
+        return "[]" + firstType;
+      }
+      return "[]any";
+    }
+
+    if (expr instanceof StructInstanceExpr) {
+      return expr.structName;
+    }
+
+    if (expr instanceof MapExpr) {
+      return `map[${expr.keyType}, ${expr.valType}]`;
+    }
+
+    if (expr instanceof CallExpr) {
+      if (expr.callee instanceof IdentifierExpr) {
+        return this.resolveFunctionReturnType(expr.callee.name);
+      }
+      return "any";
+    }
+
+    if (expr instanceof BinaryExpr) {
+      if (expr.operator === ':') {
+        const leftType = this.inferType(expr.left);
+        const structDecl = this.findStruct(leftType);
+        if (structDecl) {
+          if (expr.right instanceof IdentifierExpr) {
+            const field = structDecl.fields.find(f => f.name === expr.right.name);
+            if (field) return field.type;
+            const method = structDecl.methods.find(m => m.name === expr.right.name);
+            if (method) return this.getFunctionSignatureString(method);
+          } else if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+            const method = structDecl.methods.find(m => m.name === expr.right.callee.name);
+            if (method) return this.inferFunctionReturnType(method);
+          }
+        }
+        if (leftType.startsWith("[]")) {
+          if (expr.right instanceof IdentifierExpr && (expr.right.name === "len" || expr.right.name === "length")) {
+            return "number";
+          }
+        }
+        if (leftType.startsWith("map[")) {
+          if (expr.right instanceof IdentifierExpr && (expr.right.name === "len" || expr.right.name === "length")) {
+            return "number";
+          }
+        }
+        if (leftType === "string") {
+          if (expr.right instanceof IdentifierExpr && (expr.right.name === "len" || expr.right.name === "length")) {
+            return "number";
+          }
+        }
+        return "any";
+      }
+
+      if (expr.operator === '::') {
+        if (expr.left instanceof IdentifierExpr) {
+          const modName = expr.left.name;
+          if (this.findEnum(modName)) {
+            return modName;
+          }
+          const modChecker = this.moduleCheckers.get(modName);
+          if (modChecker) {
+            if (expr.right instanceof StructInstanceExpr) {
+              return expr.right.structName;
+            }
+            if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
+              return modChecker.resolveFunctionReturnType(expr.right.callee.name);
+            }
+            if (expr.right instanceof IdentifierExpr) {
+              return modChecker.resolveIdentifierType(expr.right.name);
+            }
+          }
+        }
+        return "any";
+      }
+
+      if (['==', '!=', '<', '<=', '>', '>=', 'in'].includes(expr.operator)) {
+        return "bool";
+      }
+
+      return this.inferType(expr.left);
+    }
+
+    if (expr instanceof TernaryExpr) {
+      return this.inferType(expr.consequent);
+    }
+
+    if (expr instanceof FunctionLambdaExpression) {
+      return this.getFunctionSignatureString(null, null, expr);
+    }
+
+    if (expr instanceof IndexAccessExpr) {
+      const targetType = this.inferType(expr.target);
+      if (targetType.startsWith("[]")) {
+        return targetType.substring(2);
+      }
+      if (targetType.startsWith("map[")) {
+        const commaIdx = targetType.indexOf(',');
+        if (commaIdx !== -1) {
+          return targetType.substring(commaIdx + 1, targetType.length - 1).trim();
+        }
+      }
+      if (targetType === "string") {
+        return "string";
+      }
+      return "any";
+    }
+
+    return "any";
+  }
+
+  isCompatible(srcType, destType) {
+    if (destType === "any" || srcType === "any" || !destType) {
+      return true;
+    }
+
+    if (srcType === destType) {
+      return true;
+    }
+
+    if ((srcType === "int" || srcType === "float" || srcType === "number") && 
+        (destType === "int" || destType === "float" || destType === "number")) {
+      return true;
+    }
+
+    const interfaceDecl = this.findInterface(destType);
+    if (interfaceDecl) {
+      const structDecl = this.findStruct(srcType);
+      if (structDecl) {
+        return this.implementsInterface(structDecl, interfaceDecl);
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  implementsInterface(structDecl, interfaceDecl) {
+    for (const reqMethod of interfaceDecl.methods) {
+      const implMethod = structDecl.methods.find(m => m.name === reqMethod.name);
+      if (!implMethod) {
+        return false;
+      }
+
+      if (implMethod.params.length !== reqMethod.params.length) {
+        return false;
+      }
+
+      for (let i = 0; i < reqMethod.params.length; i++) {
+        const reqParamType = reqMethod.params[i].type;
+        const implParamType = implMethod.params[i].type;
+        if (!this.isCompatible(implParamType, reqParamType)) {
+          return false;
+        }
+      }
+
+      const reqRetType = this.inferFunctionReturnType(reqMethod);
+      const implRetType = this.inferFunctionReturnType(implMethod);
+      if (!this.isCompatible(implRetType, reqRetType)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  inferFunctionReturnType(fn) {
+    if (!fn.body) {
+      return "any";
+    }
+
+    const returns = this.findReturnStatements(fn.body);
+    if (returns.length === 0) {
+      return "any";
+    }
+
+    let firstRetType = "any";
+    let first = true;
+    for (const ret of returns) {
+      const retType = ret.argument ? this.inferType(ret.argument) : "any";
+      if (first) {
+        firstRetType = retType;
+        first = false;
+      } else {
+        if (!this.isCompatible(retType, firstRetType) && !this.isCompatible(firstRetType, retType)) {
+          throw new Error(`TYPE CHECK ERROR: Function '${fn.name}' has conflicting return types '${firstRetType}' and '${retType}'.`);
+        }
+      }
+    }
+
+    return firstRetType;
+  }
+
+  findReturnStatements(stmt) {
+    const list = [];
+    this.findReturnStatementsRecursive(stmt, list);
+    return list;
+  }
+
+  findReturnStatementsRecursive(stmt, list) {
+    if (!stmt) return;
+
+    if (stmt instanceof ReturnStmt) {
+      list.push(stmt);
+      return;
+    }
+
+    if (stmt instanceof Block) {
+      for (const s of stmt.statements) {
+        this.findReturnStatementsRecursive(s, list);
+      }
+    } else if (stmt instanceof IfStmt) {
+      this.findReturnStatementsRecursive(stmt.thenBranch, list);
+      if (stmt.elseIfs) {
+        for (const branch of stmt.elseIfs) {
+          this.findReturnStatementsRecursive(branch.body, list);
+        }
+      }
+      if (stmt.elseBranch) {
+        this.findReturnStatementsRecursive(stmt.elseBranch, list);
+      }
+    } else if (stmt instanceof ForStmt) {
+      this.findReturnStatementsRecursive(stmt.body, list);
+    } else if (stmt instanceof MatchStmt) {
+      for (const branch of stmt.branches) {
+        this.findReturnStatementsRecursive(branch.body, list);
+      }
+      if (stmt.alternate) {
+        this.findReturnStatementsRecursive(stmt.alternate, list);
+      }
+    }
+  }
+}
+
 // Global entry point function to execute code string
 function runPinoCode(sourceCode, onOutput, onInput) {
   try {
@@ -2259,6 +2933,11 @@ function runPinoCode(sourceCode, onOutput, onInput) {
     const tokens = lexer.tokenize();
     const parser = new Parser(tokens);
     const statements = parser.parse();
+    
+    // Static Type Checker
+    const checker = new TypeChecker();
+    checker.check(statements);
+    
     const interpreter = new Interpreter(onOutput, onInput);
     interpreter.execute(statements);
   } catch (err) {
@@ -2268,5 +2947,5 @@ function runPinoCode(sourceCode, onOutput, onInput) {
 
 // Export modules for node or browser usage
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Lexer, Parser, Environment, PinoModule, Interpreter, runPinoCode };
+  module.exports = { Lexer, Parser, Environment, PinoModule, Interpreter, TypeChecker, runPinoCode };
 }

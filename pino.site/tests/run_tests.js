@@ -341,6 +341,40 @@ const tests = [
       println("Java" in strVal)
     `,
     expectedOutput: "map\n12\n15\n20\n{\"James\": 20, \"Julian\": 32}\n2\n2\nvector\n2\n20\n1\ntrue\nfalse\ntrue\nfalse\ntrue\nfalse\n"
+  },
+  {
+    name: "TypeChecker - Valid Interface Assignment",
+    code: `
+      interface Greeter {
+        fn greet(name string)
+      }
+      struct User {
+        fn greet(name string) {
+          println("Hello, " + name)
+        }
+      }
+      fn run_greet(g Greeter) {
+        g:greet("Shawn")
+      }
+      val u = User {}
+      run_greet(u)
+    `,
+    expectedOutput: "Hello, Shawn\n"
+  },
+  {
+    name: "TypeChecker - Invalid Interface Assignment",
+    code: `
+      interface Greeter {
+        fn greet(name string)
+      }
+      struct User {
+        fn other() {}
+      }
+      fn run_greet(g Greeter) {}
+      val u = User {}
+      run_greet(u)
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Argument 1 for function 'run_greet' expected type 'Greeter', but got 'User'.\n"
   }
 ];
 

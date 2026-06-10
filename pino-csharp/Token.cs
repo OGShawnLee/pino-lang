@@ -12,7 +12,7 @@ public enum TokenType {
 }
 
 public enum KeywordType {
-  As, Break, Constant, Continue, Else, Enum, From, Function, If, Import, In, Loop, Map, Match, Module, Pub, Return, Static, Struct, Then, Variable, When
+  As, Break, Constant, Continue, Else, Enum, From, Function, If, Import, In, Interface, Loop, Map, Match, Module, Pub, Return, Static, Struct, Then, Variable, When
 }
 
 public enum LiteralType {

@@ -350,6 +350,72 @@ public class ParserTests {
     Assert.Equal("dict", fnDecl.Parameters[0].Identifier);
     Assert.Equal("map[string, int]", fnDecl.Parameters[0].Typing);
   }
+
+  [Fact]
+  public void TestParseInterfaceDeclaration() {
+    var input = @"interface State {
+      fn execute_state(context Context)
+    }";
+    var stmt = Parser.ParseString(input);
+    var interfaceDecl = Assert.IsType<InterfaceDeclaration>(stmt);
+    Assert.Equal("State", interfaceDecl.Identifier);
+    Assert.Single(interfaceDecl.Methods);
+    
+    var method = interfaceDecl.Methods[0];
+    Assert.Equal("execute_state", method.Identifier);
+    Assert.Single(method.Parameters);
+    Assert.Equal("context", method.Parameters[0].Identifier);
+    Assert.Equal("Context", method.Parameters[0].Typing);
+    Assert.Null(method.Body);
+  }
+
+  [Fact]
+  public void TestTypeCheckerValidInterface() {
+    var input = @"
+      interface Greeter {
+        fn greet(name string)
+      }
+      
+      struct User {
+        fn greet(name string) {
+          println(""Hello, "" + name)
+        }
+      }
+      
+      fn run_greet(g Greeter) {
+        g:greet(""Shawn"")
+      }
+      
+      val u = User {}
+      run_greet(u)
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    
+    checker.Check(program);
+  }
+
+  [Fact]
+  public void TestTypeCheckerInvalidInterfaceThrows() {
+    var input = @"
+      interface Greeter {
+        fn greet(name string)
+      }
+      
+      struct User {
+        fn other() {}
+      }
+      
+      fn run_greet(g Greeter) {}
+      
+      val u = User {}
+      run_greet(u)
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    
+    Assert.ThrowsAny<Exception>(() => checker.Check(program));
+  }
 }
 
 

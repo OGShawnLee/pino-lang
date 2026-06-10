@@ -176,6 +176,8 @@ public class Parser {
           return ParseFunctionDeclaration(stream, isPublic);
         case KeywordType.Struct:
           return ParseStructDeclaration(stream, isPublic);
+        case KeywordType.Interface:
+          return ParseInterfaceDeclaration(stream, isPublic);
         case KeywordType.Enum:
           return ParseEnumDeclaration(stream, isPublic);
         case KeywordType.Module:
@@ -398,6 +400,49 @@ public class Parser {
     ConsumeAttributesAndMethods(stream, fields, methods);
 
     return new StructDeclaration(identifier, fields, methods, IsPublic: isPublic);
+  }
+
+  private static InterfaceDeclaration ParseInterfaceDeclaration(TokenStream stream, bool isPublic = false) {
+    if (!stream.Consume().IsKeyword(KeywordType.Interface)) {
+      throw new Exception("PARSER: Expected 'interface' keyword");
+    }
+
+    var identifier = ConsumeIdentifier(stream);
+    var methods = new List<FunctionDeclaration>();
+
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{' to start interface body");
+    }
+
+    while (true) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume();
+        break;
+      }
+
+      if (stream.Current.IsKeyword(KeywordType.Function)) {
+        methods.Add(ParseInterfaceMethodSignature(stream));
+      } else {
+        throw new Exception($"PARSER: Expected method signature in interface body, got {stream.Current}");
+      }
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+      }
+    }
+
+    return new InterfaceDeclaration(identifier, methods, IsPublic: isPublic);
+  }
+
+  private static FunctionDeclaration ParseInterfaceMethodSignature(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Function)) {
+      throw new Exception("PARSER: Expected 'fn' keyword for method signature");
+    }
+
+    var identifier = ConsumeIdentifier(stream);
+    var parameters = ConsumeParameters(stream);
+
+    return new FunctionDeclaration(identifier, parameters, null, IsPublic: false);
   }
 
   private static EnumDeclaration ParseEnumDeclaration(TokenStream stream, bool isPublic = false) {

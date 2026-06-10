@@ -234,6 +234,10 @@ public class Evaluator {
         }
         break;
 
+      case InterfaceDeclaration:
+        // Checked statically by TypeChecker, ignored during execution.
+        break;
+
       case ModuleDeclaration:
         // Handled during load/resolution, ignored during sequential execution.
         break;

@@ -20,6 +20,7 @@ public class Lexer {
         { "if", KeywordType.If },
         { "import", KeywordType.Import },
         { "in", KeywordType.In },
+        { "interface", KeywordType.Interface },
         { "for", KeywordType.Loop },
         { "match", KeywordType.Match },
         { "module", KeywordType.Module },

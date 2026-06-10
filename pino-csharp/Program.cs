@@ -235,6 +235,8 @@ class Program {
   static void RunFile(string path) {
     try {
       var program = Parser.ParseFile(path);
+      var checker = new TypeChecker();
+      checker.Check(program);
       var evaluator = new Evaluator();
       evaluator.Execute(program);
     } catch (Exception ex) {
