@@ -403,10 +403,11 @@ public class Parser {
     var identifier = ConsumeIdentifier(stream);
     var fields = new List<VariableDeclaration>();
     var methods = new List<FunctionDeclaration>();
+    var inheritedStructs = new List<string>();
 
-    ConsumeAttributesAndMethods(stream, fields, methods);
+    ConsumeAttributesAndMethods(stream, fields, methods, inheritedStructs);
 
-    return new StructDeclaration(identifier, fields, methods, IsPublic: isPublic);
+    return new StructDeclaration(identifier, fields, methods, inheritedStructs, IsPublic: isPublic);
   }
 
   private static InterfaceDeclaration ParseInterfaceDeclaration(TokenStream stream, bool isPublic = false) {
@@ -1035,7 +1036,8 @@ public class Parser {
   private static void ConsumeAttributesAndMethods(
       TokenStream stream,
       List<VariableDeclaration> attributes,
-      List<FunctionDeclaration> methods) {
+      List<FunctionDeclaration> methods,
+      List<string> inheritedStructs) {
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
       throw new Exception("PARSER: Expected '{'");
     }
@@ -1050,8 +1052,12 @@ public class Parser {
         methods.Add(ParseFunctionDeclaration(stream));
       } else {
         var identifier = ConsumeIdentifier(stream);
-        var typing = ConsumeTyping(stream);
-        attributes.Add(new VariableDeclaration(VariableKind.Variable, identifier, null, typing));
+        if (char.IsUpper(identifier[0])) {
+          inheritedStructs.Add(identifier);
+        } else {
+          var typing = ConsumeTyping(stream);
+          attributes.Add(new VariableDeclaration(VariableKind.Variable, identifier, null, typing));
+        }
       }
 
       if (stream.Current.IsMarker(MarkerType.Comma)) {

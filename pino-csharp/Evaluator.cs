@@ -87,11 +87,13 @@ public class PinoStruct {
   public string Name { get; }
   public List<VariableDeclaration> Fields { get; }
   public List<FunctionDeclaration> Methods { get; }
+  public List<string> InheritedStructs { get; }
 
-  public PinoStruct(string name, List<VariableDeclaration> fields, List<FunctionDeclaration> methods) {
+  public PinoStruct(string name, List<VariableDeclaration> fields, List<FunctionDeclaration> methods, List<string> inheritedStructs) {
     Name = name;
     Fields = fields;
     Methods = methods;
+    InheritedStructs = inheritedStructs;
   }
 }
 
@@ -219,7 +221,29 @@ public class Evaluator {
         break;
 
       case StructDeclaration structDecl:
-        var @struct = new PinoStruct(structDecl.Identifier, structDecl.Fields, structDecl.Methods);
+        var consolidatedFields = new List<VariableDeclaration>();
+        var consolidatedMethods = new List<FunctionDeclaration>();
+        
+        foreach (var parentName in structDecl.InheritedStructs) {
+          var parentObj = env.Get(parentName);
+          if (parentObj is PinoStruct parentStruct) {
+            consolidatedFields.AddRange(parentStruct.Fields);
+            consolidatedMethods.AddRange(parentStruct.Methods);
+          } else {
+            throw new Exception($"RUNTIME ERROR: Parent struct '{parentName}' is not defined.");
+          }
+        }
+        
+        foreach (var field in structDecl.Fields) {
+          consolidatedFields.RemoveAll(f => f.Identifier == field.Identifier);
+          consolidatedFields.Add(field);
+        }
+        foreach (var method in structDecl.Methods) {
+          consolidatedMethods.RemoveAll(m => m.Identifier == method.Identifier);
+          consolidatedMethods.Add(method);
+        }
+
+        var @struct = new PinoStruct(structDecl.Identifier, consolidatedFields, consolidatedMethods, structDecl.InheritedStructs);
         env.Define(structDecl.Identifier, @struct, true);
         if (structDecl.IsPublic) {
           env.PublicExports.Add(structDecl.Identifier);

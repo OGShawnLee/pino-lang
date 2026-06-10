@@ -396,8 +396,9 @@ public class TypeChecker {
         if (structDecl == null) {
           throw new Exception($"TYPE CHECK ERROR: Struct '{inst.StructName}' is not defined.");
         } else {
+          ResolveStructMembers(inst.StructName, out var allFields, out var _);
           foreach (var prop in inst.Properties) {
-            var field = structDecl.Fields.Find(f => f.Identifier == prop.Identifier);
+            var field = allFields.Find(f => f.Identifier == prop.Identifier);
             if (field == null) {
               throw new Exception($"TYPE CHECK ERROR: Struct '{inst.StructName}' does not have field '{prop.Identifier}'.");
             }
@@ -499,13 +500,14 @@ public class TypeChecker {
           string leftType = InferType(bin.Left);
           var structDecl = FindStruct(leftType);
           if (structDecl != null) {
+            ResolveStructMembers(leftType, out var allFields, out var allMethods);
             if (bin.Right is IdentifierExpression propId) {
-              var field = structDecl.Fields.Find(f => f.Identifier == propId.Name);
+              var field = allFields.Find(f => f.Identifier == propId.Name);
               if (field != null) return field.Typing;
-              var method = structDecl.Methods.Find(m => m.Identifier == propId.Name);
+              var method = allMethods.Find(m => m.Identifier == propId.Name);
               if (method != null) return GetFunctionSignatureString(method);
             } else if (bin.Right is FunctionCallExpression methodCall) {
-              var method = structDecl.Methods.Find(m => m.Identifier == methodCall.Callee);
+              var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
               if (method != null) return InferFunctionReturnType(method);
             }
           }
@@ -750,8 +752,9 @@ public class TypeChecker {
   }
   
   private bool ImplementsInterface(StructDeclaration structDecl, InterfaceDeclaration interfaceDecl) {
+    ResolveStructMembers(structDecl.Identifier, out var _, out var allMethods);
     foreach (var reqMethod in interfaceDecl.Methods) {
-      var implMethod = structDecl.Methods.Find(m => m.Identifier == reqMethod.Identifier);
+      var implMethod = allMethods.Find(m => m.Identifier == reqMethod.Identifier);
       if (implMethod == null) {
         return false;
       }
@@ -776,6 +779,29 @@ public class TypeChecker {
     }
     
     return true;
+  }
+
+  private void ResolveStructMembers(string structName, out List<VariableDeclaration> allFields, out List<FunctionDeclaration> allMethods) {
+    allFields = new List<VariableDeclaration>();
+    allMethods = new List<FunctionDeclaration>();
+    
+    var structDecl = FindStruct(structName);
+    if (structDecl == null) return;
+    
+    foreach (var parentName in structDecl.InheritedStructs) {
+      ResolveStructMembers(parentName, out var parentFields, out var parentMethods);
+      allFields.AddRange(parentFields);
+      allMethods.AddRange(parentMethods);
+    }
+    
+    foreach (var field in structDecl.Fields) {
+      allFields.RemoveAll(f => f.Identifier == field.Identifier);
+      allFields.Add(field);
+    }
+    foreach (var method in structDecl.Methods) {
+      allMethods.RemoveAll(m => m.Identifier == method.Identifier);
+      allMethods.Add(method);
+    }
   }
 
   private string InferFunctionReturnType(FunctionDeclaration fn) {

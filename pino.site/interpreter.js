@@ -274,11 +274,12 @@ class MatchStmt extends Stmt {
 }
 
 class StructDecl extends Stmt {
-  constructor(name, fields, methods, isPublic = false) {
+  constructor(name, fields, methods, inheritedStructs = [], isPublic = false) {
     super();
     this.name = name;
     this.fields = fields; // array of {name, type}
     this.methods = methods; // array of FnDecl
+    this.inheritedStructs = inheritedStructs; // array of strings
     this.isPublic = isPublic;
   }
 }
@@ -822,21 +823,27 @@ class Parser {
     
     const fields = [];
     const methods = [];
+    const inheritedStructs = [];
 
     while (!this.check(TokenType.DELIMITER, '}') && !this.isAtEnd()) {
       if (this.match(TokenType.KEYWORD, 'fn')) {
         methods.push(this.fnDeclaration());
       } else {
         const fieldNameToken = this.consume(TokenType.IDENTIFIER, "Expect field name");
-        const fieldType = this.consumeTyping();
-        fields.push({ name: fieldNameToken.value, type: fieldType });
+        const fieldName = fieldNameToken.value;
+        if (fieldName.length > 0 && fieldName[0] === fieldName[0].toUpperCase()) {
+          inheritedStructs.push(fieldName);
+        } else {
+          const fieldType = this.consumeTyping();
+          fields.push({ name: fieldName, type: fieldType });
+        }
         // Optional commas between fields
         this.match(TokenType.DELIMITER, ',');
       }
     }
 
     this.consume(TokenType.DELIMITER, "Expect '}' to close struct declaration", '}');
-    return new StructDecl(nameToken.value, fields, methods, isPublic);
+    return new StructDecl(nameToken.value, fields, methods, inheritedStructs, isPublic);
   }
 
   interfaceDeclaration(isPublic = false) {
@@ -1563,8 +1570,35 @@ class Interpreter {
     } else if (stmt instanceof MatchStmt) {
       this.executeMatch(stmt, env);
     } else if (stmt instanceof StructDecl) {
-      this.structs.set(stmt.name, stmt);
-      env.define(stmt.name, stmt, true);
+      const consolidatedFields = [];
+      const consolidatedMethods = [];
+      
+      if (stmt.inheritedStructs) {
+        for (const parentName of stmt.inheritedStructs) {
+          const parentStruct = env.get(parentName);
+          if (parentStruct instanceof StructDecl) {
+            consolidatedFields.push(...parentStruct.fields);
+            consolidatedMethods.push(...parentStruct.methods);
+          } else {
+            throw new Error(`RUNTIME ERROR: Parent struct '${parentName}' is not defined.`);
+          }
+        }
+      }
+      
+      for (const field of stmt.fields) {
+        const idx = consolidatedFields.findIndex(f => f.name === field.name);
+        if (idx !== -1) consolidatedFields.splice(idx, 1);
+        consolidatedFields.push(field);
+      }
+      for (const method of stmt.methods) {
+        const idx = consolidatedMethods.findIndex(m => m.name === method.name);
+        if (idx !== -1) consolidatedMethods.splice(idx, 1);
+        consolidatedMethods.push(method);
+      }
+      
+      const structDef = new StructDecl(stmt.name, consolidatedFields, consolidatedMethods, stmt.inheritedStructs, stmt.isPublic);
+      this.structs.set(stmt.name, structDef);
+      env.define(stmt.name, structDef, true);
       if (stmt.isPublic) {
         env.publicExports.add(stmt.name);
       }
@@ -2639,8 +2673,9 @@ class TypeChecker {
       if (!structDecl) {
         throw new Error(`TYPE CHECK ERROR: Struct '${expr.structName}' is not defined.`);
       } else {
+        const { allFields } = this.resolveStructMembers(expr.structName);
         for (const [key, valExpr] of Object.entries(expr.initializers)) {
-          const field = structDecl.fields.find(f => f.name === key);
+          const field = allFields.find(f => f.name === key);
           if (!field) {
             throw new Error(`TYPE CHECK ERROR: Struct '${expr.structName}' does not have field '${key}'.`);
           }
@@ -2744,13 +2779,14 @@ class TypeChecker {
         const leftType = this.inferType(expr.left);
         const structDecl = this.findStruct(leftType);
         if (structDecl) {
+          const { allFields, allMethods } = this.resolveStructMembers(leftType);
           if (expr.right instanceof IdentifierExpr) {
-            const field = structDecl.fields.find(f => f.name === expr.right.name);
+            const field = allFields.find(f => f.name === expr.right.name);
             if (field) return field.type;
-            const method = structDecl.methods.find(m => m.name === expr.right.name);
+            const method = allMethods.find(m => m.name === expr.right.name);
             if (method) return this.getFunctionSignatureString(method);
           } else if (expr.right instanceof CallExpr && expr.right.callee instanceof IdentifierExpr) {
-            const method = structDecl.methods.find(m => m.name === expr.right.callee.name);
+            const method = allMethods.find(m => m.name === expr.right.callee.name);
             if (method) return this.inferFunctionReturnType(method);
           }
         }
@@ -2996,9 +3032,39 @@ class TypeChecker {
     return false;
   }
 
+  resolveStructMembers(structName) {
+    const allFields = [];
+    const allMethods = [];
+    
+    const structDecl = this.findStruct(structName);
+    if (!structDecl) return { allFields, allMethods };
+    
+    if (structDecl.inheritedStructs) {
+      for (const parentName of structDecl.inheritedStructs) {
+        const parent = this.resolveStructMembers(parentName);
+        allFields.push(...parent.allFields);
+        allMethods.push(...parent.allMethods);
+      }
+    }
+    
+    for (const field of structDecl.fields) {
+      const idx = allFields.findIndex(f => f.name === field.name);
+      if (idx !== -1) allFields.splice(idx, 1);
+      allFields.push(field);
+    }
+    for (const method of structDecl.methods) {
+      const idx = allMethods.findIndex(m => m.name === method.name);
+      if (idx !== -1) allMethods.splice(idx, 1);
+      allMethods.push(method);
+    }
+    
+    return { allFields, allMethods };
+  }
+
   implementsInterface(structDecl, interfaceDecl) {
+    const { allMethods } = this.resolveStructMembers(structDecl.name);
     for (const reqMethod of interfaceDecl.methods) {
-      const implMethod = structDecl.methods.find(m => m.name === reqMethod.name);
+      const implMethod = allMethods.find(m => m.name === reqMethod.name);
       if (!implMethod) {
         return false;
       }

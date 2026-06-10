@@ -44,7 +44,7 @@ public record VariableDeclaration(VariableKind Kind, string Identifier, Expressi
 
 public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
 public record InterfaceDeclaration(string Identifier, List<FunctionDeclaration> Methods, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 

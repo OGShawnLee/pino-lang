@@ -483,6 +483,86 @@ public class ParserTests {
     
     Assert.ThrowsAny<Exception>(() => checker.Check(program));
   }
+
+  [Fact]
+  public void TestStructEmbeddingParsingAndChecking() {
+    var input = @"
+      struct Shape {
+        x int
+        y int
+      }
+
+      struct Circle {
+        Shape
+        radius int
+      }
+
+      val c = Circle {
+        x: 10,
+        y: 20,
+        radius: 5
+      }
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    
+    checker.Check(program);
+
+    var statements = program.Statements;
+    var shapeDecl = Assert.IsType<StructDeclaration>(statements[0]);
+    Assert.Equal("Shape", shapeDecl.Identifier);
+    Assert.Empty(shapeDecl.InheritedStructs);
+
+    var circleDecl = Assert.IsType<StructDeclaration>(statements[1]);
+    Assert.Equal("Circle", circleDecl.Identifier);
+    Assert.Single(circleDecl.InheritedStructs);
+    Assert.Equal("Shape", circleDecl.InheritedStructs[0]);
+
+    var varDecl = Assert.IsType<VariableDeclaration>(statements[2]);
+    var inst = Assert.IsType<StructInstanceExpression>(varDecl.Value);
+    Assert.Equal("Circle", inst.StructName);
+    Assert.Equal(3, inst.Properties.Count);
+  }
+
+  [Fact]
+  public void TestStructEmbeddingEvaluation() {
+    var input = @"
+      struct Parent {
+        a int
+        fn hello() string {
+          return ""hello""
+        }
+      }
+
+      struct Child {
+        Parent
+        b int
+        fn hello() string {
+          return ""world""
+        }
+      }
+
+      val obj = Child {
+        a: 100,
+        b: 200
+      }
+
+      val valA = obj:a
+      val valB = obj:b
+      val greeting = obj:hello()
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    checker.Check(program);
+
+    var evaluator = new Evaluator();
+    var env = new Pino.Environment();
+    evaluator.Execute(program, env);
+
+    Assert.Equal(100L, env.Get("valA"));
+    Assert.Equal(200L, env.Get("valB"));
+    Assert.Equal("world", env.Get("greeting"));
+  }
 }
 
 

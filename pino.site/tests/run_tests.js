@@ -430,6 +430,54 @@ const tests = [
       }
     `,
     expectedOutput: "[ERROR] TYPE CHECK ERROR: Function 'get_name' declared return type 'string', but returned 'number'.\n"
+  },
+  {
+    name: "TypeChecker - Struct Embedding (Valid)",
+    code: `
+      struct Shape {
+        x int
+        y int
+      }
+      struct Circle {
+        Shape
+        radius int
+      }
+      val c = Circle {
+        x: 10
+        y: 20
+        radius: 5
+      }
+      println(c:x)
+      println(c:y)
+      println(c:radius)
+    `,
+    expectedOutput: "10\n20\n5\n"
+  },
+  {
+    name: "TypeChecker - Struct Embedding Shadowing and Methods (Valid)",
+    code: `
+      struct Parent {
+        a int
+        fn hello() string {
+          return "hello"
+        }
+      }
+      struct Child {
+        Parent
+        b int
+        fn hello() string {
+          return "world"
+        }
+      }
+      val obj = Child {
+        a: 100
+        b: 200
+      }
+      println(obj:a)
+      println(obj:b)
+      println(obj:hello())
+    `,
+    expectedOutput: "100\n200\nworld\n"
   }
 ];
 
