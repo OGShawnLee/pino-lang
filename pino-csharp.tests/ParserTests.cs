@@ -449,6 +449,40 @@ public class ParserTests {
     
     checker.Check(program);
   }
+
+  [Fact]
+  public void TestTypeCheckerDeclaredReturnType() {
+    var input = @"
+      struct Product {
+        price int
+
+        fn get_double_price() int {
+          return price * 2
+        }
+      }
+
+      fn another_get_double(n int) int {
+        return n * 2
+      }
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    
+    checker.Check(program);
+  }
+
+  [Fact]
+  public void TestTypeCheckerDeclaredReturnTypeInvalid() {
+    var input = @"
+      fn get_name() string {
+        return 42
+      }
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    
+    Assert.ThrowsAny<Exception>(() => checker.Check(program));
+  }
 }
 
 

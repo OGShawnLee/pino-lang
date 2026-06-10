@@ -257,6 +257,7 @@ public class TypeChecker {
           CheckStatement(fnDecl.Body);
         }
         PopScope();
+        InferFunctionReturnType(fnDecl);
         break;
         
       case StructDeclaration structDecl:
@@ -778,6 +779,28 @@ public class TypeChecker {
   }
 
   private string InferFunctionReturnType(FunctionDeclaration fn) {
+    if (!string.IsNullOrEmpty(fn.ReturnType)) {
+      if (fn.Body == null) {
+        return fn.ReturnType;
+      }
+      
+      PushScope();
+      foreach (var param in fn.Parameters) {
+        DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
+      }
+      
+      var returns = FindReturnStatements(fn.Body);
+      foreach (var ret in returns) {
+        string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
+        if (!IsCompatible(retType, fn.ReturnType)) {
+          throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' declared return type '{fn.ReturnType}', but returned '{retType}'.");
+        }
+      }
+      
+      PopScope();
+      return fn.ReturnType;
+    }
+
     if (fn.Body == null) {
       return "any";
     }
@@ -787,15 +810,15 @@ public class TypeChecker {
       DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
     }
     
-    var returns = FindReturnStatements(fn.Body);
-    if (returns.Count == 0) {
+    var returns2 = FindReturnStatements(fn.Body);
+    if (returns2.Count == 0) {
       PopScope();
       return "any";
     }
     
     string firstRetType = "any";
     bool first = true;
-    foreach (var ret in returns) {
+    foreach (var ret in returns2) {
       string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
       if (first) {
         firstRetType = retType;

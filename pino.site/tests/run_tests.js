@@ -405,6 +405,31 @@ const tests = [
       process(fn (it number) => it * 2)
     `,
     expectedOutput: "[ERROR] TYPE CHECK ERROR: Argument 1 for function 'process' expected type 'fn(int) string', but got 'fn(number) number'.\n"
+  },
+  {
+    name: "TypeChecker - Declared Return Type (Valid)",
+    code: `
+      struct Product {
+        price int
+        fn get_double_price() int {
+          return price * 2
+        }
+      }
+      fn another_get_double(n int) int {
+        return n * 2
+      }
+      println("Success")
+    `,
+    expectedOutput: "Success\n"
+  },
+  {
+    name: "TypeChecker - Declared Return Type (Invalid)",
+    code: `
+      fn get_name() string {
+        return 42
+      }
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Function 'get_name' declared return type 'string', but returned 'number'.\n"
   }
 ];
 

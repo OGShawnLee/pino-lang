@@ -302,11 +302,12 @@ class EnumDecl extends Stmt {
 }
 
 class FnDecl extends Stmt {
-  constructor(name, params, body, isPublic = false) {
+  constructor(name, params, body, returnType = "", isPublic = false) {
     super();
     this.name = name;
     this.params = params; // array of {name, type}
     this.body = body;
+    this.returnType = returnType;
     this.isPublic = isPublic;
   }
 }
@@ -868,7 +869,15 @@ class Parser {
       } while (this.match(TokenType.DELIMITER, ',') || this.check(TokenType.IDENTIFIER));
     }
     this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
-    return new FnDecl(nameToken.value, params, null, false);
+
+    let returnType = "";
+    if (this.check(TokenType.DELIMITER, '[') || 
+        this.check(TokenType.KEYWORD, 'fn') || 
+        this.check(TokenType.IDENTIFIER)) {
+      returnType = this.consumeTyping();
+    }
+
+    return new FnDecl(nameToken.value, params, null, returnType, false);
   }
 
   enumDeclaration(isPublic = false) {
@@ -901,6 +910,13 @@ class Parser {
     }
     this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
 
+    let returnType = "";
+    if (this.check(TokenType.DELIMITER, '[') || 
+        this.check(TokenType.KEYWORD, 'fn') || 
+        this.check(TokenType.IDENTIFIER)) {
+      returnType = this.consumeTyping();
+    }
+
     this.pushScope();
     for (const p of params) {
       this.declareVariable(p.name);
@@ -911,7 +927,7 @@ class Parser {
 
     this.declareVariable(nameToken.value);
 
-    return new FnDecl(nameToken.value, params, body, isPublic);
+    return new FnDecl(nameToken.value, params, body, returnType, isPublic);
   }
 
   returnStatement() {
@@ -2504,6 +2520,7 @@ class TypeChecker {
         this.checkStatement(statement.body);
       }
       this.popScope();
+      this.inferFunctionReturnType(statement);
     } 
     else if (statement instanceof StructDecl) {
       for (const method of statement.methods) {
@@ -3009,6 +3026,25 @@ class TypeChecker {
   }
 
   inferFunctionReturnType(fn) {
+    if (fn.returnType) {
+      if (!fn.body) {
+        return fn.returnType;
+      }
+      this.pushScope();
+      for (const p of fn.params) {
+        this.declareVariable(p.name, p.type || "any");
+      }
+      const returns = this.findReturnStatements(fn.body);
+      for (const ret of returns) {
+        const retType = ret.argument ? this.inferType(ret.argument) : "any";
+        if (!this.isCompatible(retType, fn.returnType)) {
+          throw new Error(`TYPE CHECK ERROR: Function '${fn.name}' declared return type '${fn.returnType}', but returned '${retType}'.`);
+        }
+      }
+      this.popScope();
+      return fn.returnType;
+    }
+
     if (!fn.body) {
       return "any";
     }
@@ -3018,15 +3054,15 @@ class TypeChecker {
       this.declareVariable(p.name, p.type || "any");
     }
 
-    const returns = this.findReturnStatements(fn.body);
-    if (returns.length === 0) {
+    const returns2 = this.findReturnStatements(fn.body);
+    if (returns2.length === 0) {
       this.popScope();
       return "any";
     }
 
     let firstRetType = "any";
     let first = true;
-    for (const ret of returns) {
+    for (const ret of returns2) {
       const retType = ret.argument ? this.inferType(ret.argument) : "any";
       if (first) {
         firstRetType = retType;

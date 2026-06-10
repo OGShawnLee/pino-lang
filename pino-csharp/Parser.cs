@@ -375,6 +375,13 @@ public class Parser {
     var identifier = ConsumeIdentifier(stream);
     var parameters = ConsumeParameters(stream);
     
+    string returnType = "";
+    if (stream.Current.Type == TokenType.Identifier || 
+        stream.Current.IsMarker(MarkerType.BracketBegin) || 
+        stream.Current.IsKeyword(KeywordType.Function)) {
+      returnType = ConsumeTyping(stream);
+    }
+
     PushScope(stream);
     foreach (var param in parameters) {
       DeclareVariable(stream, param.Identifier);
@@ -385,7 +392,7 @@ public class Parser {
 
     DeclareVariable(stream, identifier);
 
-    return new FunctionDeclaration(identifier, parameters, body, IsPublic: isPublic);
+    return new FunctionDeclaration(identifier, parameters, body, returnType, IsPublic: isPublic);
   }
 
   private static StructDeclaration ParseStructDeclaration(TokenStream stream, bool isPublic = false) {
@@ -442,7 +449,14 @@ public class Parser {
     var identifier = ConsumeIdentifier(stream);
     var parameters = ConsumeParameters(stream);
 
-    return new FunctionDeclaration(identifier, parameters, null, IsPublic: false);
+    string returnType = "";
+    if (stream.Current.Type == TokenType.Identifier || 
+        stream.Current.IsMarker(MarkerType.BracketBegin) || 
+        stream.Current.IsKeyword(KeywordType.Function)) {
+      returnType = ConsumeTyping(stream);
+    }
+
+    return new FunctionDeclaration(identifier, parameters, null, returnType, IsPublic: false);
   }
 
   private static EnumDeclaration ParseEnumDeclaration(TokenStream stream, bool isPublic = false) {
