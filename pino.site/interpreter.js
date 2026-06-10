@@ -634,7 +634,7 @@ class Parser {
       }
       this.consume(TokenType.DELIMITER, "Expect ')' after function type parameters", ')');
       
-      let returnType = "";
+      let returnType = " any";
       if (this.check(TokenType.DELIMITER, '[') || 
           this.check(TokenType.KEYWORD, 'fn') || 
           this.check(TokenType.IDENTIFIER)) {
@@ -2472,10 +2472,15 @@ class TypeChecker {
     if (fn) {
       retType = this.inferFunctionReturnType(fn);
     } else if (lambda) {
+      this.pushScope();
+      for (const p of lambda.parameters) {
+        this.declareVariable(p.name, p.type || "any");
+      }
       const returns = this.findReturnStatements(lambda.body);
       if (returns.length > 0) {
         retType = returns[0].argument ? this.inferType(returns[0].argument) : "any";
       }
+      this.popScope();
     }
     return `fn(${paramTypes.join(', ')}) ${retType}`;
   }
@@ -2874,6 +2879,51 @@ class TypeChecker {
     return "any";
   }
 
+  parseFunctionSignature(signature) {
+    if (typeof signature !== 'string' || !signature.startsWith("fn(")) return null;
+    
+    let depth = 1;
+    let closingParenIdx = -1;
+    for (let i = 3; i < signature.length; i++) {
+      if (signature[i] === '(') depth++;
+      else if (signature[i] === ')') {
+        depth--;
+        if (depth === 0) {
+          closingParenIdx = i;
+          break;
+        }
+      }
+    }
+    
+    if (closingParenIdx === -1) return null;
+    
+    const paramsStr = signature.substring(3, closingParenIdx).trim();
+    let returnType = signature.substring(closingParenIdx + 1).trim();
+    if (!returnType) {
+      returnType = "any";
+    }
+    
+    let paramsList = [];
+    if (paramsStr === "...") {
+      paramsList = null;
+    } else if (paramsStr) {
+      let nestedDepth = 0;
+      let start = 0;
+      for (let i = 0; i < paramsStr.length; i++) {
+        const c = paramsStr[i];
+        if (c === '(' || c === '[') nestedDepth++;
+        else if (c === ')' || c === ']') nestedDepth--;
+        else if (c === ',' && nestedDepth === 0) {
+          paramsList.push(paramsStr.substring(start, i).trim());
+          start = i + 1;
+        }
+      }
+      paramsList.push(paramsStr.substring(start).trim());
+    }
+    
+    return { paramsList, returnType };
+  }
+
   isCompatible(srcType, destType) {
     if (destType === "any" || srcType === "any" || !destType) {
       return true;
@@ -2885,6 +2935,35 @@ class TypeChecker {
 
     if ((srcType === "int" || srcType === "float" || srcType === "number") && 
         (destType === "int" || destType === "float" || destType === "number")) {
+      return true;
+    }
+
+    if (typeof srcType === 'string' && srcType.startsWith("fn(") && 
+        typeof destType === 'string' && destType.startsWith("fn(")) {
+      const srcSig = this.parseFunctionSignature(srcType);
+      const destSig = this.parseFunctionSignature(destType);
+      if (!srcSig || !destSig) {
+        return false;
+      }
+      
+      if (!this.isCompatible(srcSig.returnType, destSig.returnType)) {
+        return false;
+      }
+      
+      if (destSig.paramsList === null) {
+        return true;
+      }
+      if (srcSig.paramsList === null) {
+        return false;
+      }
+      if (srcSig.paramsList.length !== destSig.paramsList.length) {
+        return false;
+      }
+      for (let i = 0; i < srcSig.paramsList.length; i++) {
+        if (!this.isCompatible(destSig.paramsList[i], srcSig.paramsList[i])) {
+          return false;
+        }
+      }
       return true;
     }
 
@@ -2934,8 +3013,14 @@ class TypeChecker {
       return "any";
     }
 
+    this.pushScope();
+    for (const p of fn.params) {
+      this.declareVariable(p.name, p.type || "any");
+    }
+
     const returns = this.findReturnStatements(fn.body);
     if (returns.length === 0) {
+      this.popScope();
       return "any";
     }
 
@@ -2953,6 +3038,7 @@ class TypeChecker {
       }
     }
 
+    this.popScope();
     return firstRetType;
   }
 

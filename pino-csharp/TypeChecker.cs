@@ -213,10 +213,15 @@ public class TypeChecker {
     if (fn != null) {
       retType = InferFunctionReturnType(fn);
     } else if (lambda != null) {
+      PushScope();
+      foreach (var param in lambda.Parameters) {
+        DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
+      }
       var returns = FindReturnStatements(lambda.Body);
       if (returns.Count > 0) {
         retType = returns[0].Argument != null ? InferType(returns[0].Argument!) : "any";
       }
+      PopScope();
     }
     return $"fn({string.Join(", ", paramTypes)}) {retType}";
   }
@@ -645,6 +650,52 @@ public class TypeChecker {
     }
   }
 
+  private static bool ParseFunctionSignature(string signature, out List<string> paramsList, out string returnType) {
+    paramsList = new List<string>();
+    returnType = "any";
+    if (string.IsNullOrEmpty(signature) || !signature.StartsWith("fn(")) return false;
+    
+    int depth = 1;
+    int closingParenIdx = -1;
+    for (int i = 3; i < signature.Length; i++) {
+      if (signature[i] == '(') depth++;
+      else if (signature[i] == ')') {
+        depth--;
+        if (depth == 0) {
+          closingParenIdx = i;
+          break;
+        }
+      }
+    }
+    
+    if (closingParenIdx == -1) return false;
+    
+    string paramsStr = signature.Substring(3, closingParenIdx - 3).Trim();
+    returnType = signature.Substring(closingParenIdx + 1).Trim();
+    if (string.IsNullOrEmpty(returnType)) {
+      returnType = "any";
+    }
+    
+    if (paramsStr == "...") {
+      paramsList = null!;
+    } else if (!string.IsNullOrEmpty(paramsStr)) {
+      int nestedDepth = 0;
+      int start = 0;
+      for (int i = 0; i < paramsStr.Length; i++) {
+        char c = paramsStr[i];
+        if (c == '(' || c == '[') nestedDepth++;
+        else if (c == ')' || c == ']') nestedDepth--;
+        else if (c == ',' && nestedDepth == 0) {
+          paramsList.Add(paramsStr.Substring(start, i - start).Trim());
+          start = i + 1;
+        }
+      }
+      paramsList.Add(paramsStr.Substring(start).Trim());
+    }
+    
+    return true;
+  }
+
   private bool IsCompatible(string srcType, string destType) {
     if (destType == "any" || srcType == "any" || string.IsNullOrEmpty(destType)) {
       return true;
@@ -655,6 +706,33 @@ public class TypeChecker {
     }
     
     if ((srcType == "int" || srcType == "float") && (destType == "int" || destType == "float")) {
+      return true;
+    }
+    
+    if (srcType.StartsWith("fn(") && destType.StartsWith("fn(")) {
+      if (!ParseFunctionSignature(srcType, out var srcParams, out var srcRet) ||
+          !ParseFunctionSignature(destType, out var destParams, out var destRet)) {
+        return false;
+      }
+      
+      if (!IsCompatible(srcRet, destRet)) {
+        return false;
+      }
+      
+      if (destParams == null) {
+        return true;
+      }
+      if (srcParams == null) {
+        return false;
+      }
+      if (srcParams.Count != destParams.Count) {
+        return false;
+      }
+      for (int i = 0; i < srcParams.Count; i++) {
+        if (!IsCompatible(destParams[i], srcParams[i])) {
+          return false;
+        }
+      }
       return true;
     }
     
@@ -704,8 +782,14 @@ public class TypeChecker {
       return "any";
     }
     
+    PushScope();
+    foreach (var param in fn.Parameters) {
+      DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
+    }
+    
     var returns = FindReturnStatements(fn.Body);
     if (returns.Count == 0) {
+      PopScope();
       return "any";
     }
     
@@ -723,6 +807,7 @@ public class TypeChecker {
       }
     }
     
+    PopScope();
     return firstRetType;
   }
 

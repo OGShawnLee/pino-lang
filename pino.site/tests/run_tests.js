@@ -385,6 +385,26 @@ const tests = [
       print_list(list_str)
     `,
     expectedOutput: "[ERROR] TYPE CHECK ERROR: Argument 1 for function 'print_list' expected type '[]int', but got '[]string'.\n"
+  },
+  {
+    name: "TypeChecker - Function Signature Scoping and Compatibility (Valid)",
+    code: `
+      val list = []int { len: 3, init: it * 3 }
+      fn print_list(list []int, on_each fn (int)) {
+        list:each(on_each)
+      }
+      print_list(list, it * 2)
+      println("Success")
+    `,
+    expectedOutput: "Success\n"
+  },
+  {
+    name: "TypeChecker - Function Signature Incompatibility (Invalid)",
+    code: `
+      fn process(callback fn (int) string) {}
+      process(fn (it number) => it * 2)
+    `,
+    expectedOutput: "[ERROR] TYPE CHECK ERROR: Argument 1 for function 'process' expected type 'fn(int) string', but got 'fn(number) number'.\n"
   }
 ];
 

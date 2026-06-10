@@ -935,7 +935,7 @@ public class Parser {
         throw new Exception($"PARSER: Expected ')' for function type, got {stream.Current}");
       }
       
-      string returnType = "";
+      string returnType = " any";
       // Optional return type: can start with identifier, bracket '[', or keyword 'fn'
       if (stream.Current.Type == TokenType.Identifier || 
           stream.Current.IsMarker(MarkerType.BracketBegin) || 

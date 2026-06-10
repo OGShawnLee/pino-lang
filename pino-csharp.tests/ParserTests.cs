@@ -432,6 +432,23 @@ public class ParserTests {
     
     Assert.ThrowsAny<Exception>(() => checker.Check(program));
   }
+
+  [Fact]
+  public void TestTypeCheckerFunctionSignatureScopingAndCompatibility() {
+    var input = @"
+      val list = []int { len: 3, init: it * 3 }
+      
+      fn print_list(list []int, on_each fn (int)) {
+        list:each(on_each)
+      }
+      
+      print_list(list, it * 2)
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    
+    checker.Check(program);
+  }
 }
 
 
