@@ -2,7 +2,7 @@
   "name": "pino-lang",
   "displayName": "Pino Language Support",
   "description": "Syntax highlighting and language support for Pino Lang (.pino)",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "publisher": "shawn-lee",
   "engines": {
     "vscode": "^1.40.0"
