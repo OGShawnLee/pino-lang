@@ -83,7 +83,7 @@
         },
         {
           "name": "storage.type.pino",
-          "match": "\\b(fn|struct|enum|var|val)\\b"
+          "match": "\\b(fn|struct|enum|var|val|interface)\\b"
         },
         {
           "name": "storage.modifier.pino",
