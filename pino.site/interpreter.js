@@ -428,6 +428,15 @@ class IndexAccessExpr extends Expr {
   }
 }
 
+class MapExpr extends Expr {
+  constructor(keyType, valType, entries) {
+    super();
+    this.keyType = keyType;
+    this.valType = valType;
+    this.entries = entries; // array of {key, value}
+  }
+}
+
 // Precedence-Climbing Parser
 class Parser {
   constructor(tokens) {
@@ -542,6 +551,12 @@ class Parser {
     }
     if (expr instanceof IndexAccessExpr) {
       return this.containsUndeclaredIt(expr.target) || this.containsUndeclaredIt(expr.index);
+    }
+    if (expr instanceof MapExpr) {
+      for (const entry of expr.entries) {
+        if (this.containsUndeclaredIt(entry.key) || this.containsUndeclaredIt(entry.value)) return true;
+      }
+      return false;
     }
     return false;
   }
@@ -859,22 +874,22 @@ class Parser {
     return new ExprStmt(expr);
   }
 
-  expression(allowStruct = true) {
-    return this.ternary(allowStruct);
+  expression(allowStruct = true, allowMemberAccess = true) {
+    return this.ternary(allowStruct, allowMemberAccess);
   }
 
-  ternary(allowStruct = true) {
-    return this.assignment(allowStruct);
+  ternary(allowStruct = true, allowMemberAccess = true) {
+    return this.assignment(allowStruct, allowMemberAccess);
   }
 
-  assignment(allowStruct = true) {
-    const expr = this.logicalOr(allowStruct);
+  assignment(allowStruct = true, allowMemberAccess = true) {
+    const expr = this.logicalOr(allowStruct, allowMemberAccess);
 
     if (this.match(TokenType.OPERATOR)) {
       const opToken = this.previous();
       const opValue = opToken.value;
       if (['=', '+=', '-=', '*=', '/=', '%='].includes(opValue)) {
-        const val = this.assignment(allowStruct);
+        const val = this.assignment(allowStruct, allowMemberAccess);
         if (expr instanceof IdentifierExpr || (expr instanceof BinaryExpr && expr.operator === ':') || expr instanceof IndexAccessExpr) {
           return new BinaryExpr(expr, opValue, val);
         }
@@ -887,84 +902,90 @@ class Parser {
     return expr;
   }
 
-  logicalOr(allowStruct = true) {
-    let expr = this.logicalAnd(allowStruct);
+  logicalOr(allowStruct = true, allowMemberAccess = true) {
+    let expr = this.logicalAnd(allowStruct, allowMemberAccess);
     while (this.match(TokenType.OPERATOR, '||')) {
       const op = this.previous().value;
-      const right = this.logicalAnd(allowStruct);
+      const right = this.logicalAnd(allowStruct, allowMemberAccess);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  logicalAnd(allowStruct = true) {
-    let expr = this.equality(allowStruct);
+  logicalAnd(allowStruct = true, allowMemberAccess = true) {
+    let expr = this.equality(allowStruct, allowMemberAccess);
     while (this.match(TokenType.OPERATOR, '&&')) {
       const op = this.previous().value;
-      const right = this.equality(allowStruct);
+      const right = this.equality(allowStruct, allowMemberAccess);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  equality(allowStruct = true) {
-    let expr = this.comparison(allowStruct);
+  equality(allowStruct = true, allowMemberAccess = true) {
+    let expr = this.comparison(allowStruct, allowMemberAccess);
     while (this.match(TokenType.OPERATOR, '==') || this.match(TokenType.OPERATOR, '!=')) {
       const op = this.previous().value;
-      const right = this.comparison(allowStruct);
+      const right = this.comparison(allowStruct, allowMemberAccess);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  comparison(allowStruct = true) {
-    let expr = this.addition(allowStruct);
-    while (this.match(TokenType.OPERATOR, '<') || this.match(TokenType.OPERATOR, '<=') || this.match(TokenType.OPERATOR, '>') || this.match(TokenType.OPERATOR, '>=')) {
+  comparison(allowStruct = true, allowMemberAccess = true) {
+    let expr = this.addition(allowStruct, allowMemberAccess);
+    while (this.match(TokenType.OPERATOR, '<') || this.match(TokenType.OPERATOR, '<=') ||
+           this.match(TokenType.OPERATOR, '>') || this.match(TokenType.OPERATOR, '>=') ||
+           this.match(TokenType.KEYWORD, 'in')) {
       const op = this.previous().value;
-      const right = this.addition(allowStruct);
+      const right = this.addition(allowStruct, allowMemberAccess);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  addition(allowStruct = true) {
-    let expr = this.multiplication(allowStruct);
+  addition(allowStruct = true, allowMemberAccess = true) {
+    let expr = this.multiplication(allowStruct, allowMemberAccess);
     while (this.match(TokenType.OPERATOR, '+') || this.match(TokenType.OPERATOR, '-')) {
       const op = this.previous().value;
-      const right = this.multiplication(allowStruct);
+      const right = this.multiplication(allowStruct, allowMemberAccess);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  multiplication(allowStruct = true) {
-    let expr = this.unary(allowStruct);
+  multiplication(allowStruct = true, allowMemberAccess = true) {
+    let expr = this.unary(allowStruct, allowMemberAccess);
     while (this.match(TokenType.OPERATOR, '*') || this.match(TokenType.OPERATOR, '/') || this.match(TokenType.OPERATOR, '%')) {
       const op = this.previous().value;
-      const right = this.unary(allowStruct);
+      const right = this.unary(allowStruct, allowMemberAccess);
       expr = new BinaryExpr(expr, op, right);
     }
     return expr;
   }
 
-  unary(allowStruct = true) {
+  unary(allowStruct = true, allowMemberAccess = true) {
     if (this.match(TokenType.OPERATOR, '!') || this.match(TokenType.OPERATOR, '-')) {
       const op = this.previous().value;
-      const right = this.unary(allowStruct);
+      const right = this.unary(allowStruct, allowMemberAccess);
       return new UnaryExpr(op, right);
     }
-    return this.postfix(allowStruct);
+    return this.postfix(allowStruct, allowMemberAccess);
   }
 
-  postfix(allowStruct = true) {
-    let expr = this.basePrimary(allowStruct);
+  postfix(allowStruct = true, allowMemberAccess = true) {
+    let expr = this.basePrimary(allowStruct, allowMemberAccess);
 
     while (true) {
       if (this.match(TokenType.DELIMITER, '[')) {
         const indexExpr = this.expression();
         this.consume(TokenType.DELIMITER, "Expect ']' to close index access", ']');
         expr = new IndexAccessExpr(expr, indexExpr);
-      } else if (this.match(TokenType.OPERATOR, ':')) {
+      } else if (this.peek().type === TokenType.OPERATOR && this.peek().value === ':') {
+        if (!allowMemberAccess) {
+          break;
+        }
+        this.advance(); // consume ':'
         const nextToken = this.consume(TokenType.IDENTIFIER, "Expect member name after ':'");
         let right = new IdentifierExpr(nextToken.value);
         if (this.match(TokenType.DELIMITER, '(')) {
@@ -1036,7 +1057,33 @@ class Parser {
     return expr;
   }
 
-  basePrimary(allowStruct = true) {
+  mapExpression() {
+    this.consume(TokenType.IDENTIFIER, "Expect 'map' identifier", 'map');
+    this.consume(TokenType.DELIMITER, "Expect '[' after 'map'", '[');
+    const keyType = this.consumeTyping();
+    this.consume(TokenType.DELIMITER, "Expect ',' separator in map types", ',');
+    const valType = this.consumeTyping();
+    this.consume(TokenType.DELIMITER, "Expect ']' after map types", ']');
+    this.consume(TokenType.DELIMITER, "Expect '{' to start map initializer", '{');
+
+    const entries = [];
+    while (!this.check(TokenType.DELIMITER, '}') && !this.isAtEnd()) {
+      if (this.match(TokenType.DELIMITER, ',')) {
+        continue;
+      }
+      const keyExpr = this.expression(true, false); // allowStruct = true, allowMemberAccess = false
+      this.consume(TokenType.OPERATOR, "Expect ':' after map key expression", ':');
+      const valExpr = this.expression();
+      entries.push({ key: keyExpr, value: valExpr });
+    }
+    this.consume(TokenType.DELIMITER, "Expect '}' to close map initializer", '}');
+    return new MapExpr(keyType, valType, entries);
+  }
+
+  basePrimary(allowStruct = true, allowMemberAccess = true) {
+    if (this.check(TokenType.IDENTIFIER, 'map') && this.tokens[this.index + 1]?.value === '[') {
+      return this.mapExpression();
+    }
     if (this.match(TokenType.KEYWORD, 'true')) return new LiteralExpr(true, 'BOOLEAN');
     if (this.match(TokenType.KEYWORD, 'false')) return new LiteralExpr(false, 'BOOLEAN');
     if (this.match(TokenType.KEYWORD, 'null')) return new LiteralExpr(null, 'NULL');
@@ -1368,6 +1415,7 @@ class Interpreter {
         return 'string';
       }
       if (Array.isArray(val)) return 'vector';
+      if (val instanceof Map) return 'map';
       if (val instanceof StructInstance) return 'struct';
       if (val instanceof PinoCallable || typeof val === 'function') return 'function';
       return typeof val;
@@ -1387,6 +1435,14 @@ class Interpreter {
     if (val === null || val === undefined) return 'null';
     if (Array.isArray(val)) {
       return '[' + val.map(v => this.formatVal(v)).join(', ') + ']';
+    }
+    if (val instanceof Map) {
+      const entries = Array.from(val.entries()).map(([k, v]) => {
+        const keyStr = typeof k === 'string' ? `"${k}"` : this.formatVal(k);
+        const valStr = typeof v === 'string' ? `"${v}"` : this.formatVal(v);
+        return `${keyStr}: ${valStr}`;
+      });
+      return '{' + entries.join(', ') + '}';
     }
     if (val instanceof StructInstance) {
       const fieldsStr = Object.entries(val.fields)
@@ -1846,6 +1902,37 @@ class Interpreter {
 
             throw new Error(`RUNTIME ERROR: Vector has no method '${methodName}'.`);
           }
+        } else if (target instanceof Map) {
+          const right = expr.right;
+          if (right instanceof IdentifierExpr && (right.name === 'length' || right.name === 'len')) {
+            return target.size;
+          }
+
+          if (right instanceof CallExpr && right.callee instanceof IdentifierExpr) {
+            const methodName = right.callee.name;
+            const methodArgs = right.args.map(a => this.evaluateExpression(a, env));
+
+            if (methodName === 'keys') {
+              if (methodArgs.length !== 0) throw new Error("RUNTIME ERROR: keys() expects 0 arguments.");
+              return Array.from(target.keys());
+            }
+            if (methodName === 'values') {
+              if (methodArgs.length !== 0) throw new Error("RUNTIME ERROR: values() expects 0 arguments.");
+              return Array.from(target.values());
+            }
+            if (methodName === 'remove') {
+              if (methodArgs.length !== 1) throw new Error("RUNTIME ERROR: remove() expects 1 argument.");
+              const key = methodArgs[0];
+              if (key === null || key === undefined) throw new Error("RUNTIME ERROR: remove() key cannot be null.");
+              if (target.has(key)) {
+                const removedVal = target.get(key);
+                target.delete(key);
+                return removedVal;
+              }
+              return null;
+            }
+            throw new Error(`RUNTIME ERROR: Map has no method '${methodName}'.`);
+          }
         } else if (typeof target === 'string') {
           const right = expr.right;
           if (right instanceof IdentifierExpr && (right.name === 'length' || right.name === 'len')) {
@@ -1979,19 +2066,34 @@ class Interpreter {
         if (expr.left instanceof IndexAccessExpr) {
           const target = this.evaluateExpression(expr.left.target, env);
           const indexVal = this.evaluateExpression(expr.left.index, env);
-          if (!Array.isArray(target)) {
-            throw new Error("RUNTIME ERROR: Cannot assign to index of non-vector object.");
+          if (Array.isArray(target)) {
+            if (indexVal < 0 || indexVal >= target.length) {
+              throw new Error(`RUNTIME ERROR: Index ${indexVal} out of range for vector of size ${target.length}.`);
+            }
+            let targetVal = val;
+            if (expr.operator !== '=') {
+              const currentVal = target[indexVal];
+              targetVal = this.evalOp(currentVal, expr.operator.slice(0, -1), val);
+            }
+            target[indexVal] = targetVal;
+            return targetVal;
           }
-          if (indexVal < 0 || indexVal >= target.length) {
-            throw new Error(`RUNTIME ERROR: Index ${indexVal} out of range for vector of size ${target.length}.`);
+          if (target instanceof Map) {
+            if (indexVal === null || indexVal === undefined) {
+              throw new Error("RUNTIME ERROR: Map key cannot be null.");
+            }
+            let targetVal = val;
+            if (expr.operator !== '=') {
+              if (!target.has(indexVal)) {
+                throw new Error(`RUNTIME ERROR: Key '${indexVal}' not found in map.`);
+              }
+              const currentVal = target.get(indexVal);
+              targetVal = this.evalOp(currentVal, expr.operator.slice(0, -1), val);
+            }
+            target.set(indexVal, targetVal);
+            return targetVal;
           }
-          let targetVal = val;
-          if (expr.operator !== '=') {
-            const currentVal = target[indexVal];
-            targetVal = this.evalOp(currentVal, expr.operator.slice(0, -1), val);
-          }
-          target[indexVal] = targetVal;
-          return targetVal;
+          throw new Error("RUNTIME ERROR: Cannot assign to index of non-vector and non-map object.");
         }
       }
 
@@ -2020,7 +2122,29 @@ class Interpreter {
         }
         return targetVal[indexVal];
       }
-      throw new Error("RUNTIME ERROR: Cannot apply index access to non-vector and non-string object.");
+      if (targetVal instanceof Map) {
+        if (indexVal === null || indexVal === undefined) {
+          throw new Error("RUNTIME ERROR: Map key cannot be null.");
+        }
+        if (!targetVal.has(indexVal)) {
+          throw new Error(`RUNTIME ERROR: Key '${indexVal}' not found in map.`);
+        }
+        return targetVal.get(indexVal);
+      }
+      throw new Error("RUNTIME ERROR: Cannot apply index access to non-vector, non-string, and non-map object.");
+    }
+
+    if (expr instanceof MapExpr) {
+      const map = new Map();
+      for (const entry of expr.entries) {
+        const k = this.evaluateExpression(entry.key, env);
+        if (k === null || k === undefined) {
+          throw new Error("RUNTIME ERROR: Map key cannot be null.");
+        }
+        const v = this.evaluateExpression(entry.value, env);
+        map.set(k, v);
+      }
+      return map;
     }
 
     if (expr instanceof StructInstanceExpr) {
@@ -2092,6 +2216,21 @@ class Interpreter {
       case '>=': return left >= right;
       case '&&': return this.isTruthy(left) && this.isTruthy(right);
       case '||': return this.isTruthy(left) || this.isTruthy(right);
+      case 'in': {
+        if (right instanceof Map) {
+          return left !== null && left !== undefined && right.has(left);
+        }
+        if (Array.isArray(right)) {
+          return right.includes(left);
+        }
+        if (typeof right === 'string') {
+          if (typeof left !== 'string') {
+            throw new Error("RUNTIME ERROR: Left side of 'in' operator must be a string when right side is a string.");
+          }
+          return right.includes(left);
+        }
+        throw new Error(`RUNTIME ERROR: 'in' operator not supported for type '${typeof right}'.`);
+      }
       default:
         throw new Error(`RUNTIME ERROR: Unsupported operator '${op}'.`);
     }

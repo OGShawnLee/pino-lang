@@ -103,6 +103,14 @@ public class Parser {
       
       case IndexAccessExpression idx:
         return ContainsUndeclaredIt(idx.Target, stream) || ContainsUndeclaredIt(idx.Index, stream);
+
+      case MapExpression map:
+        foreach (var entry in map.Entries) {
+          if (ContainsUndeclaredIt(entry.Key, stream) || ContainsUndeclaredIt(entry.Value, stream)) {
+            return true;
+          }
+        }
+        return false;
       
       default:
         return false;
@@ -427,7 +435,7 @@ public class Parser {
       return new LoopStatement(LoopKind.Infinite, null, null, body);
     }
 
-    var begin = ParseExpression(stream, false);
+    var begin = ParseExpression(stream, allowStruct: false, allowMemberAccess: true, allowIn: false);
 
     // For times loop: for 10 { ... }
     if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
@@ -569,16 +577,22 @@ public class Parser {
     throw new Exception("PARSER: Expected '}'");
   }
 
-  private static Expression ParseExpression(TokenStream stream, bool allowStruct = true) {
-    return ParseExpressionWithPrecedence(stream, 0, allowStruct);
+  private static Expression ParseExpression(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
+    return ParseExpressionWithPrecedence(stream, 0, allowStruct, allowMemberAccess, allowIn);
   }
 
-  private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence, bool allowStruct = true) {
-    var expression = ParsePrimaryExpression(stream, allowStruct);
+  private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
+    var expression = ParsePrimaryExpression(stream, allowStruct, allowMemberAccess);
 
-    while (stream.HasNext && stream.Current.Type == TokenType.Operator) {
+    while (stream.HasNext && (stream.Current.Type == TokenType.Operator || stream.Current.IsKeyword(KeywordType.In))) {
       var opToken = stream.Current;
-      var opType = opToken.Operator!.Value;
+      var opType = opToken.IsKeyword(KeywordType.In) ? OperatorType.In : opToken.Operator!.Value;
+      if (opType == OperatorType.MemberAccess && !allowMemberAccess) {
+        break;
+      }
+      if (opType == OperatorType.In && !allowIn) {
+        break;
+      }
       var precedence = GetOperatorPrecedence(opType);
 
       if (precedence < minPrecedence) {
@@ -588,22 +602,25 @@ public class Parser {
       stream.Consume(); // consume operator
 
       var nextMinPrecedence = IsRightAssociative(opType) ? precedence : precedence + 1;
-      var right = ParseExpressionWithPrecedence(stream, nextMinPrecedence, allowStruct);
+      var right = ParseExpressionWithPrecedence(stream, nextMinPrecedence, allowStruct, allowMemberAccess, allowIn);
       expression = new BinaryExpression(expression, opType, right);
     }
 
     return expression;
   }
 
-  private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true) {
+  private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true) {
     Expression expr;
 
     if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
       stream.Consume();
-      expr = ParseExpression(stream, true);
+      expr = ParseExpression(stream, true, true);
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
         throw new Exception("PARSER: Expected ')' to close grouped expression");
       }
+    }
+    else if (stream.Current.Type == TokenType.Identifier && stream.Current.Data == "map" && stream.IsNext(t => t.IsMarker(MarkerType.BracketBegin))) {
+      expr = ParseMapExpression(stream);
     }
     else if (IsFunctionCall(stream)) {
       expr = ParseFunctionCall(stream);
@@ -640,6 +657,9 @@ public class Parser {
         }
         expr = new IndexAccessExpression(expr, indexExpr);
       } else if (stream.Current.IsOperator(OperatorType.MemberAccess)) {
+        if (!allowMemberAccess) {
+          break;
+        }
         stream.Consume(); // consume ':'
         var memberName = ConsumeIdentifier(stream);
         Expression rightSide;
@@ -689,6 +709,7 @@ public class Parser {
       OperatorType.LessThanEqual => 5,
       OperatorType.GreaterThan => 5,
       OperatorType.GreaterThanEqual => 5,
+      OperatorType.In => 5,
 
       OperatorType.Addition => 6,
       OperatorType.Subtraction => 6,
@@ -1010,5 +1031,55 @@ public class Parser {
     }
 
     throw new Exception("PARSER: Expected '}'");
+  }
+
+  private static MapExpression ParseMapExpression(TokenStream stream) {
+    var mapTok = stream.Consume();
+    if (mapTok.Type != TokenType.Identifier || mapTok.Data != "map") {
+      throw new Exception("PARSER: Expected 'map' identifier");
+    }
+
+    if (!stream.Consume().IsMarker(MarkerType.BracketBegin)) {
+      throw new Exception("PARSER: Expected '[' after 'map'");
+    }
+
+    var keyType = ConsumeTyping(stream);
+
+    if (!stream.Consume().IsMarker(MarkerType.Comma)) {
+      throw new Exception("PARSER: Expected ',' separator in map types");
+    }
+
+    var valType = ConsumeTyping(stream);
+
+    if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+      throw new Exception("PARSER: Expected ']' after map types");
+    }
+
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{' to start map initializer");
+    }
+
+    var entries = new List<KeyValuePair<Expression, Expression>>();
+    while (stream.HasNext) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume(); // consume '}'
+        break;
+      }
+
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+        continue;
+      }
+
+      var keyExpr = ParseExpression(stream, allowStruct: true, allowMemberAccess: false);
+      if (!stream.Consume().IsOperator(OperatorType.MemberAccess)) {
+        throw new Exception("PARSER: Expected ':' after map key expression");
+      }
+      var valExpr = ParseExpression(stream);
+
+      entries.Add(new KeyValuePair<Expression, Expression>(keyExpr, valExpr));
+    }
+
+    return new MapExpression(keyType, valType, entries);
   }
 }

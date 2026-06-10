@@ -74,3 +74,5 @@ public record FunctionCallExpression(string Callee, List<Expression> Arguments) 
 public record FunctionLambdaExpression(List<VariableDeclaration> Parameters, Statement Body) : Expression;
 
 public record IndexAccessExpression(Expression Target, Expression Index) : Expression;
+
+public record MapExpression(string KeyType, string ValueType, List<KeyValuePair<Expression, Expression>> Entries) : Expression;

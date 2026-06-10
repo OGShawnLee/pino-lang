@@ -77,4 +77,59 @@ public class StdlibTests {
     var expected = "20\n20\nHello Pino Lang!\nhello pino lang!\nHELLO PINO LANG!\nTrue\nFalse\nHello\nPino\nLang!\nGoodbye Pino Lang!\n";
     Assert.Equal(expected, output);
   }
+
+  [Fact]
+  public void TestMapAndInOperator() {
+    var code = @"
+      # Declaration without commas
+      val m = map[string, int] {
+        ""James"": 12
+        ""Julian"": 32
+      }
+      println(type(m))
+      println(m[""James""])
+      
+      # Index write
+      m[""James""] = 15
+      println(m[""James""])
+      
+      # Compound assignment
+      m[""James""] += 5
+      println(m[""James""])
+
+      # Map formatting string
+      println(str(m))
+
+      # length properties
+      println(m:len)
+      println(m:length)
+
+      # keys and values
+      var keysList = m:keys()
+      println(type(keysList))
+      println(keysList:len)
+
+      # remove
+      var removedVal = m:remove(""James"")
+      println(removedVal)
+      println(m:len)
+
+      # in operator for maps
+      println(""Julian"" in m)
+      println(""James"" in m)
+
+      # in operator for vectors
+      var vec = [10, 20, 30]
+      println(20 in vec)
+      println(40 in vec)
+
+      # in operator for strings
+      var strVal = ""Pino Language""
+      println(""Pino"" in strVal)
+      println(""Java"" in strVal)
+    ";
+    var output = RunCode(code);
+    var expected = "map\n12\n15\n20\n{\"James\": 20, \"Julian\": 32}\n2\n2\nvector\n2\n20\n1\nTrue\nFalse\nTrue\nFalse\nTrue\nFalse\n";
+    Assert.Equal(expected, output);
+  }
 }

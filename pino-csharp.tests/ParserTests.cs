@@ -306,6 +306,29 @@ public class ParserTests {
     Assert.True((bool)env.Get("hasAll")!);
     Assert.False((bool)env.Get("notAll")!);
   }
+
+  [Fact]
+  public void TestParseMapAndIn() {
+    var input = "val m = map[string, int] { \"a\": 1, \"b\": 2 }";
+    var stmt = Parser.ParseString(input);
+    var varDecl = Assert.IsType<VariableDeclaration>(stmt);
+    Assert.Equal("m", varDecl.Identifier);
+
+    var mapExpr = Assert.IsType<MapExpression>(varDecl.Value);
+    Assert.Equal("string", mapExpr.KeyType);
+    Assert.Equal("int", mapExpr.ValueType);
+    Assert.Equal(2, mapExpr.Entries.Count);
+
+    Assert.Equal("a", Assert.IsType<LiteralExpression>(mapExpr.Entries[0].Key).Value);
+    Assert.Equal("1", Assert.IsType<LiteralExpression>(mapExpr.Entries[0].Value).Value);
+
+    var inInput = "1 in [1, 2]";
+    var inStmt = Parser.ParseString(inInput);
+    var binExpr = Assert.IsType<BinaryExpression>(inStmt);
+    Assert.Equal(OperatorType.In, binExpr.Operator);
+    Assert.Equal("1", Assert.IsType<LiteralExpression>(binExpr.Left).Value);
+    Assert.IsType<VectorExpression>(binExpr.Right);
+  }
 }
 
 

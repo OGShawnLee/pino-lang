@@ -293,6 +293,48 @@ const tests = [
       println(numList:all(it > 20))
     `,
     expectedOutput: "10\n20\n99\n15\nP\nI\n30\n2\ntrue\nfalse\ntrue\nfalse\n"
+  },
+  {
+    name: "Map literal creation, operations, and 'in' operator",
+    code: `
+      var m = map[string, int] {
+        "James": 12
+        "Julian": 32
+      }
+      println(type(m))
+      println(m["James"])
+
+      m["James"] = 15
+      println(m["James"])
+
+      m["James"] += 5
+      println(m["James"])
+
+      println(str(m))
+
+      println(m:len)
+      println(m:length)
+
+      var keys = m:keys()
+      println(type(keys))
+      println(keys:len)
+
+      var removed = m:remove("James")
+      println(removed)
+      println(m:len)
+
+      println("Julian" in m)
+      println("James" in m)
+
+      var vec = [10, 20, 30]
+      println(20 in vec)
+      println(40 in vec)
+
+      var strVal = "Pino Language"
+      println("Pino" in strVal)
+      println("Java" in strVal)
+    `,
+    expectedOutput: "map\n12\n15\n20\n{\"James\": 20, \"Julian\": 32}\n2\n2\nvector\n2\n20\n1\ntrue\nfalse\ntrue\nfalse\ntrue\nfalse\n"
   }
 ];
 

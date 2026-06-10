@@ -397,7 +397,14 @@ public class Evaluator {
               assignList[(int)assignIdx] = val;
               return val;
             }
-            throw new Exception("RUNTIME ERROR: Cannot assign to index of non-vector object.");
+            if (target is Dictionary<object, object?> assignDict) {
+              if (assignIndexVal == null) {
+                throw new Exception("RUNTIME ERROR: Map key cannot be null.");
+              }
+              assignDict[assignIndexVal] = val;
+              return val;
+            }
+            throw new Exception("RUNTIME ERROR: Cannot assign to index of non-vector and non-map object.");
           }
 
           if (bin.Left is BinaryExpression memberAccess && memberAccess.Operator == OperatorType.MemberAccess) {
@@ -454,7 +461,19 @@ public class Evaluator {
               compoundList[(int)compoundIdx] = newVal;
               return newVal;
             }
-            throw new Exception("RUNTIME ERROR: Cannot assign to index of non-vector object.");
+            if (target is Dictionary<object, object?> compoundDict) {
+              if (compoundIndexVal == null) {
+                throw new Exception("RUNTIME ERROR: Map key cannot be null.");
+              }
+              if (!compoundDict.ContainsKey(compoundIndexVal)) {
+                throw new Exception($"RUNTIME ERROR: Key '{compoundIndexVal}' not found in map.");
+              }
+              var currentVal = compoundDict[compoundIndexVal];
+              var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
+              compoundDict[compoundIndexVal] = newVal;
+              return newVal;
+            }
+            throw new Exception("RUNTIME ERROR: Cannot assign to index of non-vector and non-map object.");
           }
 
           if (bin.Left is BinaryExpression memberAccess && memberAccess.Operator == OperatorType.MemberAccess) {
@@ -549,6 +568,15 @@ public class Evaluator {
           }
           return readList[(int)readIdx];
         }
+        if (targetVal is Dictionary<object, object?> readDict) {
+          if (readIndexVal == null) {
+            throw new Exception("RUNTIME ERROR: Map key cannot be null.");
+          }
+          if (!readDict.ContainsKey(readIndexVal)) {
+            throw new Exception($"RUNTIME ERROR: Key '{readIndexVal}' not found in map.");
+          }
+          return readDict[readIndexVal];
+        }
         if (targetVal is string readStr) {
           long readIdx = readIndexVal is long l ? l : Convert.ToInt64(readIndexVal);
           if (readIdx < 0 || readIdx >= readStr.Length) {
@@ -556,7 +584,19 @@ public class Evaluator {
           }
           return readStr[(int)readIdx].ToString();
         }
-        throw new Exception("RUNTIME ERROR: Cannot apply index access to non-vector and non-string object.");
+        throw new Exception("RUNTIME ERROR: Cannot apply index access to non-vector, non-string, and non-map object.");
+
+      case MapExpression map:
+        var mapDict = new Dictionary<object, object?>();
+        foreach (var entry in map.Entries) {
+          var k = Evaluate(entry.Key, env);
+          if (k == null) {
+            throw new Exception("RUNTIME ERROR: Map key cannot be null.");
+          }
+          var v = Evaluate(entry.Value, env);
+          mapDict[k] = v;
+        }
+        return mapDict;
 
       default:
         throw new Exception($"RUNTIME ERROR: Unknown expression type '{expression.GetType().Name}'.");
@@ -601,6 +641,37 @@ public class Evaluator {
           return instance.Fields[propId.Name];
         }
         throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no property '{propId.Name}'.");
+      }
+    } else if (leftVal is Dictionary<object, object?> dict) {
+      // Case 5: map:len or map:length
+      if (rightExpr is IdentifierExpression mapId && (mapId.Name == "length" || mapId.Name == "len")) {
+        return (long)dict.Count;
+      }
+
+      // Case 6: map method calls
+      if (rightExpr is FunctionCallExpression methodCall) {
+        var methodName = methodCall.Callee;
+        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+
+        if (methodName == "keys") {
+          if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: keys() expects 0 arguments.");
+          return dict.Keys.Cast<object?>().ToList();
+        }
+        if (methodName == "values") {
+          if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: values() expects 0 arguments.");
+          return dict.Values.ToList();
+        }
+        if (methodName == "remove") {
+          if (methodArgs.Count != 1) throw new Exception("RUNTIME ERROR: remove() expects 1 argument.");
+          var key = methodArgs[0];
+          if (key == null) throw new Exception("RUNTIME ERROR: remove() key cannot be null.");
+          if (dict.TryGetValue(key, out var removedVal)) {
+            dict.Remove(key);
+            return removedVal;
+          }
+          return null;
+        }
+        throw new Exception($"RUNTIME ERROR: Map has no method '{methodName}'.");
       }
     } else if (leftVal is List<object?> list) {
       // Case 3: vector:len or vector:length
@@ -938,6 +1009,20 @@ public class Evaluator {
         return IsTruthy(left) && IsTruthy(right);
       case OperatorType.Or:
         return IsTruthy(left) || IsTruthy(right);
+      case OperatorType.In:
+        if (right is Dictionary<object, object?> inMap) {
+          return left != null && inMap.ContainsKey(left);
+        }
+        if (right is List<object?> inList) {
+          return inList.Contains(left);
+        }
+        if (right is string inStr) {
+          if (left is not string leftStr) {
+            throw new Exception("RUNTIME ERROR: Left side of 'in' operator must be a string when right side is a string.");
+          }
+          return inStr.Contains(leftStr);
+        }
+        throw new Exception($"RUNTIME ERROR: 'in' operator not supported for type '{right?.GetType().Name ?? "null"}'.");
 
       default:
         throw new Exception($"RUNTIME ERROR: Operator '{op}' not supported for numeric operations.");
@@ -947,6 +1032,14 @@ public class Evaluator {
   public string FormatVal(object? arg) {
     if (arg is List<object?> list) {
       return "[" + string.Join(", ", list.Select(FormatVal)) + "]";
+    }
+    if (arg is Dictionary<object, object?> dict) {
+      var entries = dict.Select(kv => {
+        var keyStr = kv.Key is string ? $"\"{kv.Key}\"" : FormatVal(kv.Key);
+        var valStr = kv.Value is string ? $"\"{kv.Value}\"" : FormatVal(kv.Value);
+        return $"{keyStr}: {valStr}";
+      });
+      return "{" + string.Join(", ", entries) + "}";
     }
     return arg?.ToString() ?? "null";
   }
@@ -1032,6 +1125,7 @@ public class Evaluator {
       if (val is double) return "float";
       if (val is string) return "string";
       if (val is List<object?>) return "vector";
+      if (val is Dictionary<object, object?>) return "map";
       if (val is PinoStructInstance) return "struct";
       if (val is IPinoCallable) return "function";
       if (val is PinoEnumValue) return "enum";
