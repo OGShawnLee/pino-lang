@@ -847,6 +847,22 @@ public class Parser {
   }
 
   private static string ConsumeTyping(TokenStream stream) {
+    if (stream.Current.Type == TokenType.Identifier && stream.Current.Data == "map") {
+      stream.Consume(); // consume 'map'
+      if (!stream.Consume().IsMarker(MarkerType.BracketBegin)) {
+        throw new Exception($"PARSER: Expected '[' after 'map' in type signature, got {stream.Current}");
+      }
+      string keyType = ConsumeTyping(stream);
+      if (!stream.Consume().IsMarker(MarkerType.Comma)) {
+        throw new Exception($"PARSER: Expected ',' between map types in type signature, got {stream.Current}");
+      }
+      string valType = ConsumeTyping(stream);
+      if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+        throw new Exception($"PARSER: Expected ']' after map types in type signature, got {stream.Current}");
+      }
+      return $"map[{keyType}, {valType}]";
+    }
+
     if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
       stream.Consume(); // consume '['
       if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {

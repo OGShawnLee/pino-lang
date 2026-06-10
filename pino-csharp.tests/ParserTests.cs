@@ -329,6 +329,27 @@ public class ParserTests {
     Assert.Equal("1", Assert.IsType<LiteralExpression>(binExpr.Left).Value);
     Assert.IsType<VectorExpression>(binExpr.Right);
   }
+
+  [Fact]
+  public void TestParseMapTypeSignature() {
+    var structInput = @"struct State {
+      state map[int, string]
+    }";
+    var structStmt = Parser.ParseString(structInput);
+    var structDecl = Assert.IsType<StructDeclaration>(structStmt);
+    Assert.Equal("State", structDecl.Identifier);
+    Assert.Single(structDecl.Fields);
+    Assert.Equal("state", structDecl.Fields[0].Identifier);
+    Assert.Equal("map[int, string]", structDecl.Fields[0].Typing);
+
+    var fnInput = @"fn print(dict map[string, int]) {}";
+    var fnStmt = Parser.ParseString(fnInput);
+    var fnDecl = Assert.IsType<FunctionDeclaration>(fnStmt);
+    Assert.Equal("print", fnDecl.Identifier);
+    Assert.Single(fnDecl.Parameters);
+    Assert.Equal("dict", fnDecl.Parameters[0].Identifier);
+    Assert.Equal("map[string, int]", fnDecl.Parameters[0].Typing);
+  }
 }
 
 

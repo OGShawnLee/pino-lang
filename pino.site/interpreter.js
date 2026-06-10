@@ -600,6 +600,15 @@ class Parser {
   }
 
   consumeTyping() {
+    if (this.match(TokenType.IDENTIFIER, 'map')) {
+      this.consume(TokenType.DELIMITER, "Expect '[' after 'map' in type signature", '[');
+      const keyType = this.consumeTyping();
+      this.consume(TokenType.DELIMITER, "Expect ',' between map types in type signature", ',');
+      const valType = this.consumeTyping();
+      this.consume(TokenType.DELIMITER, "Expect ']' after map types in type signature", ']');
+      return `map[${keyType}, ${valType}]`;
+    }
+
     if (this.match(TokenType.DELIMITER, '[')) {
       this.consume(TokenType.DELIMITER, "Expect ']' for array type", ']');
       const elemType = this.consumeTyping();

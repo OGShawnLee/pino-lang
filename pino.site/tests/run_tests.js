@@ -66,8 +66,11 @@ const tests = [
     expectedOutput: "0\n1\n2\n"
   },
   {
-    name: "Complex type signatures (arrays and function parameters)",
+    name: "Complex type signatures (arrays, maps, and function parameters)",
     code: `
+      struct State {
+        state map[int, string]
+      }
       struct Mock {
         data []int
       }
@@ -75,6 +78,9 @@ const tests = [
         for it in arr {
           fun(it)
         }
+      }
+      fn print(dict map[string, int]) {
+        println(dict)
       }
       println("Type signatures parsed successfully!")
     `,
