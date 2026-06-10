@@ -953,34 +953,86 @@ class Parser {
       const right = this.unary(allowStruct);
       return new UnaryExpr(op, right);
     }
-    return this.memberAccess(allowStruct);
+    return this.postfix(allowStruct);
   }
 
-  memberAccess(allowStruct = true) {
-    let expr = this.primary(allowStruct);
+  postfix(allowStruct = true) {
+    let expr = this.basePrimary(allowStruct);
 
     while (true) {
-      if (this.match(TokenType.OPERATOR, ':')) {
-        const right = this.primary(allowStruct);
+      if (this.match(TokenType.DELIMITER, '[')) {
+        const indexExpr = this.expression();
+        this.consume(TokenType.DELIMITER, "Expect ']' to close index access", ']');
+        expr = new IndexAccessExpr(expr, indexExpr);
+      } else if (this.match(TokenType.OPERATOR, ':')) {
+        const nextToken = this.consume(TokenType.IDENTIFIER, "Expect member name after ':'");
+        let right = new IdentifierExpr(nextToken.value);
+        if (this.match(TokenType.DELIMITER, '(')) {
+          const args = [];
+          if (!this.check(TokenType.DELIMITER, ')')) {
+            do {
+              let arg = this.expression();
+              if (this.containsUndeclaredIt(arg)) {
+                arg = new FunctionLambdaExpression([{ name: 'it', type: 'int' }], new Block([new ReturnStmt(arg)]));
+              }
+              args.push(arg);
+            } while (this.match(TokenType.DELIMITER, ','));
+          }
+          this.consume(TokenType.DELIMITER, "Expect ')' after function arguments", ')');
+          right = new CallExpr(right, args);
+        }
         expr = new BinaryExpr(expr, ':', right);
       } else if (this.match(TokenType.OPERATOR, '::')) {
-        const right = this.primary(allowStruct);
+        const nextToken = this.consume(TokenType.IDENTIFIER, "Expect member name after '::'");
+        let right = new IdentifierExpr(nextToken.value);
+
+        let isStruct = false;
+        if (nextToken.value.length > 0 && nextToken.value[0] === nextToken.value[0].toUpperCase()) {
+          const next = this.peek();
+          if (next && next.type === TokenType.DELIMITER && next.value === '{') {
+            const nextNext = this.tokens[this.index + 1];
+            if (nextNext && nextNext.type === TokenType.DELIMITER && nextNext.value === '}') {
+              isStruct = false;
+            } else {
+              if (this.isStructBlock(this.index)) {
+                isStruct = true;
+              }
+            }
+          }
+        }
+
+        if (isStruct && this.match(TokenType.DELIMITER, '{')) {
+          const initializers = {};
+          while (!this.check(TokenType.DELIMITER, '}') && !this.isAtEnd()) {
+            const propName = this.consume(TokenType.IDENTIFIER, "Expect property name").value;
+            this.consume(TokenType.OPERATOR, "Expect ':' after property name", ':');
+            const value = this.expression();
+            initializers[propName] = value;
+            this.match(TokenType.DELIMITER, ',');
+          }
+          this.consume(TokenType.DELIMITER, "Expect '}' after struct initializer list", '}');
+          right = new StructInstanceExpr(nextToken.value, initializers);
+        } else if (this.match(TokenType.DELIMITER, '(')) {
+          const args = [];
+          if (!this.check(TokenType.DELIMITER, ')')) {
+            do {
+              let arg = this.expression();
+              if (this.containsUndeclaredIt(arg)) {
+                arg = new FunctionLambdaExpression([{ name: 'it', type: 'int' }], new Block([new ReturnStmt(arg)]));
+              }
+              args.push(arg);
+            } while (this.match(TokenType.DELIMITER, ','));
+          }
+          this.consume(TokenType.DELIMITER, "Expect ')' after function arguments", ')');
+          right = new CallExpr(right, args);
+        }
+
         expr = new BinaryExpr(expr, '::', right);
       } else {
         break;
       }
     }
 
-    return expr;
-  }
-
-  primary(allowStruct = true) {
-    let expr = this.basePrimary(allowStruct);
-    while (this.match(TokenType.DELIMITER, '[')) {
-      const indexExpr = this.expression();
-      this.consume(TokenType.DELIMITER, "Expect ']' to close index access", ']');
-      expr = new IndexAccessExpr(expr, indexExpr);
-    }
     return expr;
   }
 

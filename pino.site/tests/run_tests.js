@@ -274,8 +274,17 @@ const tests = [
 
       val text = "Pino"
       println(text[0])
+
+      struct Style {
+        name string
+      }
+      val styles = [
+        Style { name: "Leaping tiger" },
+        Style { name: "Iron Fist" }
+      ]
+      println(styles[1]:name[0])
     `,
-    expectedOutput: "10\n20\n99\n15\nP\n"
+    expectedOutput: "10\n20\n99\n15\nP\nI\n"
   }
 ];
 

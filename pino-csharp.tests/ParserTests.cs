@@ -269,6 +269,15 @@ public class ParserTests {
 
       val text = ""Pino""
       val charP = text[0]
+
+      struct Style {
+        name string
+      }
+      val styles = [
+        Style { name: ""Leaping tiger"" },
+        Style { name: ""Iron Fist"" }
+      ]
+      val current_char = styles[1]:name[0]
     ";
     var program = Parser.ParseProgramString(programInput);
     var evaluator = new Evaluator();
@@ -280,6 +289,7 @@ public class ParserTests {
     Assert.Equal(99L, env.Get("modified"));
     Assert.Equal(15L, env.Get("compoundVal"));
     Assert.Equal("P", env.Get("charP"));
+    Assert.Equal("I", env.Get("current_char"));
   }
 }
 

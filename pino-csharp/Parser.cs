@@ -639,6 +639,29 @@ public class Parser {
           throw new Exception("PARSER: Expected ']' to close index access");
         }
         expr = new IndexAccessExpression(expr, indexExpr);
+      } else if (stream.Current.IsOperator(OperatorType.MemberAccess)) {
+        stream.Consume(); // consume ':'
+        var memberName = ConsumeIdentifier(stream);
+        Expression rightSide;
+        if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+          var args = ConsumeArguments(stream);
+          rightSide = new FunctionCallExpression(memberName, args);
+        } else {
+          rightSide = new IdentifierExpression(memberName);
+        }
+        expr = new BinaryExpression(expr, OperatorType.MemberAccess, rightSide);
+      } else if (stream.Current.IsOperator(OperatorType.StaticMemberAccess)) {
+        stream.Consume(); // consume '::'
+        Expression rightSide;
+        if (IsStructInstance(stream)) {
+          rightSide = ParseStructInstance(stream);
+        } else if (IsFunctionCall(stream)) {
+          rightSide = ParseFunctionCall(stream);
+        } else {
+          var memberName = ConsumeIdentifier(stream);
+          rightSide = new IdentifierExpression(memberName);
+        }
+        expr = new BinaryExpression(expr, OperatorType.StaticMemberAccess, rightSide);
       } else {
         break;
       }
