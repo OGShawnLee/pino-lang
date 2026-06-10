@@ -283,8 +283,16 @@ const tests = [
         Style { name: "Iron Fist" }
       ]
       println(styles[1]:name[0])
+
+      val numList = [10, 20, 30, 40]
+      println(numList:find(it > 25))
+      println(numList:find_index(it > 25))
+      println(numList:any(it == 30))
+      println(numList:any(it == 99))
+      println(numList:all(it >= 10))
+      println(numList:all(it > 20))
     `,
-    expectedOutput: "10\n20\n99\n15\nP\nI\n"
+    expectedOutput: "10\n20\n99\n15\nP\nI\n30\n2\ntrue\nfalse\ntrue\nfalse\n"
   }
 ];
 

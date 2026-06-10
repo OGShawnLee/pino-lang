@@ -278,6 +278,14 @@ public class ParserTests {
         Style { name: ""Iron Fist"" }
       ]
       val current_char = styles[1]:name[0]
+
+      val numList = [10, 20, 30, 40]
+      val foundVal = numList:find(it > 25)
+      val foundIdx = numList:find_index(it > 25)
+      val hasAny = numList:any(it == 30)
+      val hasNone = numList:any(it == 99)
+      val hasAll = numList:all(it >= 10)
+      val notAll = numList:all(it > 20)
     ";
     var program = Parser.ParseProgramString(programInput);
     var evaluator = new Evaluator();
@@ -290,6 +298,13 @@ public class ParserTests {
     Assert.Equal(15L, env.Get("compoundVal"));
     Assert.Equal("P", env.Get("charP"));
     Assert.Equal("I", env.Get("current_char"));
+
+    Assert.Equal(30L, env.Get("foundVal"));
+    Assert.Equal(2L, env.Get("foundIdx"));
+    Assert.True((bool)env.Get("hasAny")!);
+    Assert.False((bool)env.Get("hasNone")!);
+    Assert.True((bool)env.Get("hasAll")!);
+    Assert.False((bool)env.Get("notAll")!);
   }
 }
 

@@ -617,61 +617,138 @@ public class Evaluator {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: each() expects a callable argument.");
           }
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
           for (int i = 0; i < list.Count; i++) {
-            var args = new List<object?>();
-            if (func.Arity == 1) {
-              args.Add(list[i]);
-            } else if (func.Arity == 2) {
-              args.Add(list[i]);
-              args.Add((long)i);
-            } else {
-              args.Add(list[i]);
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long)i;
             }
             func.Call(this, args);
           }
           return null;
         }
-
+ 
         if (methodName == "map") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: map() expects a callable argument.");
           }
           var mappedList = new List<object?>();
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
           for (int i = 0; i < list.Count; i++) {
-            var args = new List<object?>();
-            if (func.Arity == 1) {
-              args.Add(list[i]);
-            } else if (func.Arity == 2) {
-              args.Add(list[i]);
-              args.Add((long)i);
-            } else {
-              args.Add(list[i]);
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long)i;
             }
             mappedList.Add(func.Call(this, args));
           }
           return mappedList;
         }
-
+ 
         if (methodName == "filter") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: filter() expects a callable argument.");
           }
           var filteredList = new List<object?>();
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
           for (int i = 0; i < list.Count; i++) {
-            var args = new List<object?>();
-            if (func.Arity == 1) {
-              args.Add(list[i]);
-            } else if (func.Arity == 2) {
-              args.Add(list[i]);
-              args.Add((long)i);
-            } else {
-              args.Add(list[i]);
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long)i;
             }
             if (IsTruthy(func.Call(this, args))) {
               filteredList.Add(list[i]);
             }
           }
           return filteredList;
+        }
+ 
+        if (methodName == "find") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: find() expects a callable argument.");
+          }
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
+          for (int i = 0; i < list.Count; i++) {
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long)i;
+            }
+            if (IsTruthy(func.Call(this, args))) {
+              return list[i];
+            }
+          }
+          return null;
+        }
+ 
+        if (methodName == "find_index") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: find_index() expects a callable argument.");
+          }
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
+          for (int i = 0; i < list.Count; i++) {
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long)i;
+            }
+            if (IsTruthy(func.Call(this, args))) {
+              return (long)i;
+            }
+          }
+          return -1L;
+        }
+ 
+        if (methodName == "any") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: any() expects a callable argument.");
+          }
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
+          for (int i = 0; i < list.Count; i++) {
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long)i;
+            }
+            if (IsTruthy(func.Call(this, args))) {
+              return true;
+            }
+          }
+          return false;
+        }
+ 
+        if (methodName == "all") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: all() expects a callable argument.");
+          }
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
+          for (int i = 0; i < list.Count; i++) {
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long)i;
+            }
+            if (!IsTruthy(func.Call(this, args))) {
+              return false;
+            }
+          }
+          return true;
         }
 
         if (methodName == "push" || methodName == "add") {

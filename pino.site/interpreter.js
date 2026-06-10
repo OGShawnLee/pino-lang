@@ -1682,9 +1682,11 @@ class Interpreter {
               if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
                 throw new Error("RUNTIME ERROR: each() expects a callable argument.");
               }
+              const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+              const args = arity === 2 ? [null, 0] : [null];
               for (let i = 0; i < target.length; i++) {
-                const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
-                const args = arity === 2 ? [target[i], i] : [target[i]];
+                args[0] = target[i];
+                if (arity === 2) args[1] = i;
                 if (typeof func === 'function') {
                   func(args);
                 } else {
@@ -1699,10 +1701,12 @@ class Interpreter {
               if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
                 throw new Error("RUNTIME ERROR: map() expects a callable argument.");
               }
+              const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+              const args = arity === 2 ? [null, 0] : [null];
               const mapped = [];
               for (let i = 0; i < target.length; i++) {
-                const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
-                const args = arity === 2 ? [target[i], i] : [target[i]];
+                args[0] = target[i];
+                if (arity === 2) args[1] = i;
                 if (typeof func === 'function') {
                   mapped.push(func(args));
                 } else {
@@ -1717,10 +1721,12 @@ class Interpreter {
               if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
                 throw new Error("RUNTIME ERROR: filter() expects a callable argument.");
               }
+              const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+              const args = arity === 2 ? [null, 0] : [null];
               const filtered = [];
               for (let i = 0; i < target.length; i++) {
-                const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
-                const args = arity === 2 ? [target[i], i] : [target[i]];
+                args[0] = target[i];
+                if (arity === 2) args[1] = i;
                 let res;
                 if (typeof func === 'function') {
                   res = func(args);
@@ -1732,6 +1738,98 @@ class Interpreter {
                 }
               }
               return filtered;
+            }
+
+            if (methodName === 'find') {
+              const func = methodArgs[0];
+              if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
+                throw new Error("RUNTIME ERROR: find() expects a callable argument.");
+              }
+              const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+              const args = arity === 2 ? [null, 0] : [null];
+              for (let i = 0; i < target.length; i++) {
+                args[0] = target[i];
+                if (arity === 2) args[1] = i;
+                let res;
+                if (typeof func === 'function') {
+                  res = func(args);
+                } else {
+                  res = func.call(this, args);
+                }
+                if (this.isTruthy(res)) {
+                  return target[i];
+                }
+              }
+              return null;
+            }
+
+            if (methodName === 'find_index') {
+              const func = methodArgs[0];
+              if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
+                throw new Error("RUNTIME ERROR: find_index() expects a callable argument.");
+              }
+              const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+              const args = arity === 2 ? [null, 0] : [null];
+              for (let i = 0; i < target.length; i++) {
+                args[0] = target[i];
+                if (arity === 2) args[1] = i;
+                let res;
+                if (typeof func === 'function') {
+                  res = func(args);
+                } else {
+                  res = func.call(this, args);
+                }
+                if (this.isTruthy(res)) {
+                  return i;
+                }
+              }
+              return -1;
+            }
+
+            if (methodName === 'any') {
+              const func = methodArgs[0];
+              if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
+                throw new Error("RUNTIME ERROR: any() expects a callable argument.");
+              }
+              const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+              const args = arity === 2 ? [null, 0] : [null];
+              for (let i = 0; i < target.length; i++) {
+                args[0] = target[i];
+                if (arity === 2) args[1] = i;
+                let res;
+                if (typeof func === 'function') {
+                  res = func(args);
+                } else {
+                  res = func.call(this, args);
+                }
+                if (this.isTruthy(res)) {
+                  return true;
+                }
+              }
+              return false;
+            }
+
+            if (methodName === 'all') {
+              const func = methodArgs[0];
+              if (!func || (typeof func !== 'function' && !(func instanceof PinoCallable))) {
+                throw new Error("RUNTIME ERROR: all() expects a callable argument.");
+              }
+              const arity = (func instanceof PinoCallable) ? func.fnDecl.params.length : -1;
+              const args = arity === 2 ? [null, 0] : [null];
+              for (let i = 0; i < target.length; i++) {
+                args[0] = target[i];
+                if (arity === 2) args[1] = i;
+                let res;
+                if (typeof func === 'function') {
+                  res = func(args);
+                } else {
+                  res = func.call(this, args);
+                }
+                if (!this.isTruthy(res)) {
+                  return false;
+                }
+              }
+              return true;
             }
 
             if (methodName === 'push' || methodName === 'add') {
