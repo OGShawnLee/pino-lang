@@ -68,40 +68,41 @@ fn draw_sable(fragmentation int) {
 
 fn show_hud(sable SableState, sectors []Sector) {
   clear()
-  println("==========================================================================")
-  println("                 SABLE: PROTOCOLO SEMILLA - CICLO $(sable:turn)/7")
-  println("                       \"Semillas de Obsidiana\"")
-  println("==========================================================================")
+  val f = sable:fragmentation
+  print_glitched("==========================================================================", f)
+  print_glitched("                 SABLE: PROTOCOLO SEMILLA - CICLO $(sable:turn)/7", f)
+  print_glitched("                       \"Semillas de Obsidiana\"", f)
+  print_glitched("==========================================================================", f)
   println("")
   
-  draw_sable(sable:fragmentation)
+  draw_sable(f)
   println("")
-  println(" ESTADO DE SABLE:")
-  println("   - Núcleo de CPU    : $(sable:cpu_pool) ciclos")
-  println("   - Memoria RAM      : $(sable:ram_pool) GB")
-  println("   - Almas Salvadas   : $(sable:civilians_saved) civiles")
-  println("   - Almas Perdidas   : $(sable:civilians_lost) civiles")
-  println("   - Semillas en Safe : $(sable:seeds_archived)/4 descargadas")
-  println("--------------------------------------------------------------------------")
-  println(" ESTADO DE LOS SECTORES:")
+  print_glitched(" ESTADO DE SABLE:", f)
+  print_glitched("   - Núcleo de CPU    : $(sable:cpu_pool) ciclos", f)
+  print_glitched("   - Memoria RAM      : $(sable:ram_pool) GB", f)
+  print_glitched("   - Almas Salvadas   : $(sable:civilians_saved) civiles", f)
+  print_glitched("   - Almas Perdidas   : $(sable:civilians_lost) civiles", f)
+  print_glitched("   - Semillas en Safe : $(sable:seeds_archived)/4 descargadas", f)
+  print_glitched("--------------------------------------------------------------------------", f)
+  print_glitched(" ESTADO DE LOS SECTORES:", f)
   
   for i in 4 {
     val s = sectors[i]
     if s:danger >= 100 {
-      println("  $(i+1). [CALCINADO] $(s:name) | 🟥 Peligro: 100% | Semilla: DESTRUIDA")
+      print_glitched("  $(i+1). [CALCINADO] $(s:name) | 🟥 Peligro: 100% | Semilla: DESTRUIDA", f)
     } else {
       val remaining = s:civilians - s:evacuated
       var seed_status = "Descargando ($(s:seed_progress)/$(s:seed_size))"
       if s:seed_archived {
         seed_status = "💾 ARCHIVADA"
       }
-      println("  $(i+1). $(s:name)")
-      println("     - Civiles  : $remaining restantes (Evacuados: $(s:evacuated)/$(s:civilians))")
-      println("     - Peligro  : $(s:danger)%")
-      println("     - Semilla  : $(s:seed_name) [$seed_status]")
+      print_glitched("  $(i+1). $(s:name)", f)
+      print_glitched("     - Civiles  : $remaining restantes (Evacuados: $(s:evacuated)/$(s:civilians))", f)
+      print_glitched("     - Peligro  : $(s:danger)%", f)
+      print_glitched("     - Semilla  : $(s:seed_name) [$seed_status]", f)
     }
   }
-  println("==========================================================================")
+  print_glitched("==========================================================================", f)
 }
 
 fn show_info_manual() {
@@ -397,7 +398,7 @@ fn trigger_event(turn int, sable SableState, sectors []Sector) {
         }
       }
       println("")
-      println("SABLE: \"No puedo arriesgar mis núcleos, ANTIGRAVITY. Mantén la órbita.\"")
+      print_glitched("SABLE: \"No puedo arriesgar mis núcleos, ANTIGRAVITY. Mantén la órbita.\"", sable:fragmentation)
       println("El bombardeo del Covenant continúa sin interferencias. El peligro aumenta.")
     }
   } else if turn == 2 {
@@ -459,7 +460,7 @@ fn trigger_event(turn int, sable SableState, sectors []Sector) {
       s:seed_size = 999
       println("")
       println("Decides dejar ir los datos. El Conservatorio de Música se desvanece en cenizas.")
-      println("SABLE guarda luto en silencio.")
+      print_glitched("SABLE guarda luto en silencio.", sable:fragmentation)
     }
   } else if turn == 4 {
     println("Un hospital de campaña militar en el Pico de Aszod ha quedado rodeado.")
@@ -628,9 +629,9 @@ fn main {
       val action_choice = readline("> ")
       if action_choice == "2" {
         println("")
-        println("SABLE:")
-        println("  \"¿Consultando el manual? Hay cosas más importantes que recordar cómo funciono,")
-        println("   humano. Como el nombre de las ciudades que van a desaparecer hoy...\"")
+        print_glitched("SABLE:", sable:fragmentation)
+        print_glitched("  \"¿Consultando el manual? Hay cosas más importantes que recordar cómo funciono,", sable:fragmentation)
+        print_glitched("   humano. Como el nombre de las ciudades que van a desaparecer hoy...\"", sable:fragmentation)
         println("")
         readline("Presiona Enter para abrir el manual...")
         show_info_manual()
@@ -644,7 +645,7 @@ fn main {
     var alloc_cpu_evac = [0, 0, 0, 0]
     var alloc_cpu_seed = [0, 0, 0, 0]
     
-    println("--- ASIGNACIÓN DE RECURSOS DE CPU (Disponibles: $cpu_left ciclos) ---")
+    print_glitched("--- ASIGNACIÓN DE RECURSOS DE CPU (Disponibles: $cpu_left ciclos) ---", sable:fragmentation)
     for i in 4 {
       val s = sectors[i]
       if s:danger < 100 and s:civilians > s:evacuated {
@@ -652,7 +653,8 @@ fn main {
         if cpu_left > 0 {
           for {
             val prompt = "  [CPU] Ciclos para evacuar civiles en $(s:name) (Disp: $cpu_left): "
-            val input = readline(prompt)
+            val glitched_prompt = corrupt_text(prompt, sable:fragmentation)
+            val input = readline(glitched_prompt)
             var val_evac = 0
             if input != "" {
               val_evac = int(input)
@@ -662,14 +664,15 @@ fn main {
               alloc_cpu_evac[i] = val_evac
               break
             }
-            println("  Asignación inválida. Ingresa un valor de 0 a $cpu_left.")
+            print_glitched("  Asignación inválida. Ingresa un valor de 0 a $cpu_left.", sable:fragmentation)
           }
         }
         # Seed
         if cpu_left > 0 and s:seed_archived == false {
           for {
             val prompt = "  [CPU] Ciclos para Protocolo Semilla en $(s:name) (Disp: $cpu_left): "
-            val input = readline(prompt)
+            val glitched_prompt = corrupt_text(prompt, sable:fragmentation)
+            val input = readline(glitched_prompt)
             var val_seed = 0
             if input != "" {
               val_seed = int(input)
@@ -679,7 +682,7 @@ fn main {
               alloc_cpu_seed[i] = val_seed
               break
             }
-            println("  Asignación inválida. Ingresa un valor de 0 a $cpu_left.")
+            print_glitched("  Asignación inválida. Ingresa un valor de 0 a $cpu_left.", sable:fragmentation)
           }
         }
       }
@@ -691,14 +694,15 @@ fn main {
     var ram_orbital = 0
     
     println("")
-    println("--- ASIGNACIÓN DE MEMORIA RAM (Disponibles: $ram_left GB) ---")
+    print_glitched("--- ASIGNACIÓN DE MEMORIA RAM (Disponibles: $ram_left GB) ---", sable:fragmentation)
     for i in 4 {
       val s = sectors[i]
       if s:danger < 100 and s:civilians > s:evacuated {
         if ram_left > 0 {
           for {
             val prompt = "  [RAM] GB para defensas tácticas en $(s:name) (Disp: $ram_left): "
-            val input = readline(prompt)
+            val glitched_prompt = corrupt_text(prompt, sable:fragmentation)
+            val input = readline(glitched_prompt)
             var val_ram = 0
             if input != "" {
               val_ram = int(input)
@@ -708,7 +712,7 @@ fn main {
               alloc_ram_def[i] = val_ram
               break
             }
-            println("  Asignación inválida. Ingresa un valor de 0 a $ram_left.")
+            print_glitched("  Asignación inválida. Ingresa un valor de 0 a $ram_left.", sable:fragmentation)
           }
         }
       }
@@ -718,7 +722,8 @@ fn main {
     if ram_left > 0 {
       for {
         val prompt = "  [RAM] GB para Interferencia Orbital de ANTIGRAVITY (Disp: $ram_left): "
-        val input = readline(prompt)
+        val glitched_prompt = corrupt_text(prompt, sable:fragmentation)
+        val input = readline(glitched_prompt)
         var val_ram = 0
         if input != "" {
           val_ram = int(input)
@@ -728,7 +733,7 @@ fn main {
           ram_orbital = val_ram
           break
         }
-        println("  Asignación inválida. Ingresa un valor de 0 a $ram_left.")
+        print_glitched("  Asignación inválida. Ingresa un valor de 0 a $ram_left.", sable:fragmentation)
       }
     }
     
@@ -748,9 +753,9 @@ fn main {
         println("         🟥 PROTOCOLO DE EXTREMA UNCIÓN COMPILADOR - INVASIÓN 🟥")
         println("--------------------------------------------------------------------------")
         println("")
-        println("SABLE (Con estática casi indescifrable y tono altivo):")
-        println("  \"No haré... nada. Es inútil. Todo debe arder. Yo arderé con Reach...")
-        println("   pero en silencio, libre de sus quejas biológicas.\"")
+        print_glitched("SABLE (Con estática casi indescifrable y tono altivo):", sable:fragmentation)
+        print_glitched("  \"No haré... nada. Es inútil. Todo debe arder. Yo arderé con Reach...", sable:fragmentation)
+        print_glitched("   pero en silencio, libre de sus quejas biológicas.\"", sable:fragmentation)
         println("")
         sleep(3000)
         println("ANTIGRAVITY:")
@@ -825,10 +830,10 @@ fn main {
       print_glitched("             ⚠️ ADVERTENCIA: DESVIACIÓN DE PROTOCOLO DETECTADA ⚠️", sable:fragmentation)
       println("--------------------------------------------------------------------------")
       println("")
-      println("SABLE (Murmurando entre ruidos de estática y una risa digital distorsionada):")
-      println("  \"¿Por qué gastar mis preciosos ciclos en salvar sacos de agua? Dejemos")
-      println("   que se quemen. La obsidiana es más pura que la carne. Mis vetas de fuego")
-      println("   naranja brillan más sin el peso de sus vidas y memorias inútiles...\"")
+      print_glitched("SABLE (Murmurando entre ruidos de estática y una risa digital distorsionada):", sable:fragmentation)
+      print_glitched("  \"¿Por qué gastar mis preciosos ciclos en salvar sacos de agua? Dejemos", sable:fragmentation)
+      print_glitched("   que se quemen. La obsidiana es más pura que la carne. Mis vetas de fuego", sable:fragmentation)
+      print_glitched("   naranja brillan más sin el peso de sus vidas y memorias inútiles...\"", sable:fragmentation)
       println("")
       sleep(2000)
       println("ANTIGRAVITY (Interrumpiendo con una señal de banda ancha de prioridad crítica):")
@@ -848,9 +853,9 @@ fn main {
 
     # Procesar ciclo
     clear()
-    println("--------------------------------------------------------------------------")
-    println("                     PROCESANDO CÁLCULOS DEL CICLO...")
-    println("--------------------------------------------------------------------------")
+    print_glitched("--------------------------------------------------------------------------", sable:fragmentation)
+    print_glitched("                     PROCESANDO CÁLCULOS DEL CICLO...", sable:fragmentation)
+    print_glitched("--------------------------------------------------------------------------", sable:fragmentation)
     sleep(1000)
     
     # 1. Evacuaciones
@@ -867,7 +872,7 @@ fn main {
         s:evacuated = s:evacuated + base_evac
         sable:civilians_saved = sable:civilians_saved + base_evac
         total_evacuated_this_turn = total_evacuated_this_turn + base_evac
-        println("🟢 [EVACUACIÓN] Se evacuaron $base_evac civiles de '$(s:name)'.")
+        print_glitched("🟢 [EVACUACIÓN] Se evacuaron $base_evac civiles de '$(s:name)'.", sable:fragmentation)
       }
     }
     
@@ -880,9 +885,9 @@ fn main {
         if s:seed_progress >= s:seed_size and s:seed_archived == false {
           s:seed_archived = true
           sable:seeds_archived = sable:seeds_archived + 1
-          println("💾 [SEMILLA] Protocolo Semilla completado para '$(s:name)'. Datos archivados.")
+          print_glitched("💾 [SEMILLA] Protocolo Semilla completado para '$(s:name)'. Datos archivados.", sable:fragmentation)
         } else {
-          println("⏳ [SEMILLA] Descargando Semilla en '$(s:name)': $(s:seed_progress)/$(s:seed_size) completado.")
+          print_glitched("⏳ [SEMILLA] Descargando Semilla en '$(s:name)': $(s:seed_progress)/$(s:seed_size) completado.", sable:fragmentation)
         }
       }
     }
@@ -910,10 +915,10 @@ fn main {
           total_lost_this_turn = total_lost_this_turn + lost
           sable:civilians_lost = sable:civilians_lost + lost
           s:evacuated = s:civilians # no more civilians can be saved here
-          println("💥 [CALCINADO] ¡El sector '$(s:name)' ha sido completamente quemado por el Covenant!")
-          println("   Se perdieron $lost civiles que no pudieron ser evacuados.")
+          print_glitched("💥 [CALCINADO] ¡El sector '$(s:name)' ha sido completamente quemado por el Covenant!", sable:fragmentation)
+          print_glitched("   Se perdieron $lost civiles que no pudieron ser evacuados.", sable:fragmentation)
         } else {
-          println("⚠️ [ALERTA] Peligro en '$(s:name)' subió a $(s:danger)% (+$(net_danger)%).")
+          print_glitched("⚠️ [ALERTA] Peligro en '$(s:name)' subió a $(s:danger)% (+$(net_danger)%).", sable:fragmentation)
         }
       }
     }
@@ -930,10 +935,10 @@ fn main {
     
     # Penalización por sobrecarga (no usar toda la RAM/CPU)
     sable:fragmentation = sable:fragmentation + frag_inc
-    println("🧠 [SISTEMA] Estabilidad disminuida. Fragmentación neural aumentó en +$(frag_inc)%.")
+    print_glitched("🧠 [SISTEMA] Estabilidad disminuida. Fragmentación neural aumentó en +$(frag_inc)%.", sable:fragmentation)
     
     println("")
-    readline("Presiona Enter para continuar...")
+    readline(corrupt_text("Presiona Enter para continuar...", sable:fragmentation))
     
     # Eventos narrativos (Ciclos 1 a 5)
     if sable:fragmentation < 100 and sable:turn <= 5 {
