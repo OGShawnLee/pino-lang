@@ -1,0 +1,1063 @@
+struct Sector {
+  name string
+  civilians int
+  evacuated int
+  danger int
+  seed_name string
+  seed_size int
+  seed_progress int
+  seed_archived bool
+}
+
+struct SableState {
+  fragmentation int
+  civilians_saved int
+  civilians_lost int
+  seeds_archived int
+  cpu_pool int
+  ram_pool int
+  ram_max int
+  turn int
+  zero_allocation_count int
+}
+
+fn corrupt_text(text string, level int) {
+  if level < 15 {
+    return text
+  }
+  
+  var result = ""
+  val length = text:len
+  val symbols = ["▒", "░", "█", "Ø", "▲", "§", "æ", "▰", "▱", "▮", "▯", "◊", "♦", "#", "@", "?", "*", "!", "%", "&"]
+  
+  for i in length {
+    val roll = rand(100)
+    if roll < (level / 2) {
+      val sym_idx = rand(20)
+      val sym = symbols[sym_idx]
+      result = result + sym
+    } else {
+      result = result + text[i]
+    }
+  }
+  
+  return result
+}
+
+fn print_glitched(text string, level int) {
+  val corrupted = corrupt_text(text, level)
+  println(corrupted)
+}
+
+fn draw_sable(fragmentation int) {
+  var eye = "o"
+  if fragmentation >= 80 {
+    eye = "#"
+  } else if fragmentation >= 40 {
+    eye = "x"
+  }
+  
+  println("      /\\___/\\ ")
+  println("     /  $eye   $eye  \\    [SABLE: Zorro de Obsidiana]")
+  println("    (  = ^ =  )         [Fragmentación: $fragmentation%]")
+  println("     )       (")
+  println("    /         \\ ")
+  println("   /   \\   /   \\ ")
+  println("  (_____)_____)")
+}
+
+fn show_hud(sable SableState, sectors []Sector) {
+  clear()
+  println("==========================================================================")
+  println("                 SABLE: PROTOCOLO SEMILLA - CICLO $(sable:turn)/7")
+  println("                       \"Semillas de Obsidiana\"")
+  println("==========================================================================")
+  println("")
+  
+  draw_sable(sable:fragmentation)
+  println("")
+  println(" ESTADO DE SABLE:")
+  println("   - Núcleo de CPU    : $(sable:cpu_pool) ciclos")
+  println("   - Memoria RAM      : $(sable:ram_pool) GB")
+  println("   - Almas Salvadas   : $(sable:civilians_saved) civiles")
+  println("   - Almas Perdidas   : $(sable:civilians_lost) civiles")
+  println("   - Semillas en Safe : $(sable:seeds_archived)/4 descargadas")
+  println("--------------------------------------------------------------------------")
+  println(" ESTADO DE LOS SECTORES:")
+  
+  for i in 4 {
+    val s = sectors[i]
+    if s:danger >= 100 {
+      println("  $(i+1). [CALCINADO] $(s:name) | 🟥 Peligro: 100% | Semilla: DESTRUIDA")
+    } else {
+      val remaining = s:civilians - s:evacuated
+      var seed_status = "Descargando ($(s:seed_progress)/$(s:seed_size))"
+      if s:seed_archived {
+        seed_status = "💾 ARCHIVADA"
+      }
+      println("  $(i+1). $(s:name)")
+      println("     - Civiles  : $remaining restantes (Evacuados: $(s:evacuated)/$(s:civilians))")
+      println("     - Peligro  : $(s:danger)%")
+      println("     - Semilla  : $(s:seed_name) [$seed_status]")
+    }
+  }
+  println("==========================================================================")
+}
+
+fn show_info_manual() {
+  clear()
+  println("==========================================================================")
+  println("                    MANUAL TÁCTICO DE SISTEMAS (SABLE)")
+  println("==========================================================================")
+  println("")
+  println(" 🔋 UNIDAD DE PROCESAMIENTO CENTRAL (CPU)")
+  println("    Representa tu capacidad de ejecución activa en cada ciclo. Tienes 10 CPU.")
+  println("    - Evacuación: Asignar CPU a civiles activa fragatas de tránsito.")
+  println("      Cada ciclo CPU evacua entre 600 y 1000 civiles.")
+  println("    - Protocolo Semilla: Cada sector tiene una base de datos histórica.")
+  println("      Debes acumular la CPU indicada en cada sector para descargar la semilla.")
+  println("      Una vez archivada, la cultura de ese sector estará a salvo.")
+  println("")
+  println(" 💾 MEMORIA RAM DE COMBATE")
+  println("    Representa tu capacidad para ralentizar la invasión del Covenant. Tienes 16 GB.")
+  println("    - Defensa de Sector: El peligro de cada sector sube entre 18% y 33% por turno.")
+  println("      Cada GB de RAM asignado a un sector REDUCE el aumento de peligro en 5%.")
+  println("    - Interferencia Orbital: Asignar RAM a la cobertura MAC de ANTIGRAVITY")
+  println("      REDUCE el aumento de peligro en TODOS los sectores activos en 3% por GB.")
+  println("")
+  println(" 🦊 RAMPANCIA Y ESTABILIDAD")
+  println("    - Cada turno tu fragmentación neural sube un 5%.")
+  println("    - Perder sectores calcinados con civiles dentro aumenta tu fragmentación.")
+  println("    - Si tu fragmentación alcanza el 100%, colapsarás y la misión fallará.")
+  println("==========================================================================")
+  println("")
+  readline("Presiona Enter para volver...")
+}
+
+fn run_antigravity_minigame() {
+  clear()
+  println("==========================================================================")
+  println("                SECUENCIA DE COMBATE: PROTOCOLO LONE WOLF")
+  println("                 IA ANTIGRAVITY - ÚLTIMO BASTIÓN ORBITAL")
+  println("==========================================================================")
+  println("")
+  println("Sensores tácticos orbitales registran múltiples firmas de desliespacio...")
+  println("Tres cruceros pesados Covenant se posicionan en órbita geoestacionaria.")
+  println("")
+  println("ANTIGRAVITY:")
+  println("  \"SABLE está muerto. La evacuación terrestre ha fallado. Pero yo sigo")
+  println("   aquí arriba. Y mi cañón MAC tiene energía de sobra para llevarse a unos")
+  println("   cuantos conmigo al vacío. Iniciando contramedidas ofensivas.\"")
+  println("")
+  readline("Presiona Enter para iniciar el combate final...")
+
+  var player_shield = 100
+  var player_hull = 50
+  var player_energy = 100
+  
+  var enemy_hp = 100
+  var enemy_name = "Crucero Covenant 'Seeker of Truth'"
+  var cruisers_destroyed = 0
+  
+  for {
+    if player_hull <= 0 {
+      break
+    }
+    
+    clear()
+    println("==========================================================================")
+    println("              ESTACIÓN DE DEFENSA MAC - ESTADO DE COMBATE")
+    println("==========================================================================")
+    println(" Escudos: $player_shield/100 | Estructura: $player_hull/50 | Capacitor: $player_energy%")
+    println(" Enemigo: $enemy_name ($enemy_hp HP)")
+    println(" Crucero(s) destruido(s): $cruisers_destroyed")
+    println("--------------------------------------------------------------------------")
+    println("Elige tu acción orbital:")
+    println(" 1. Disparar Cañón MAC (Cuesta 40% Capacitor | Daño: 35-50)")
+    println(" 2. Sobrecargar Escudos (Cuesta 20% Capacitor | +30 Escudo)")
+    println(" 3. Redirigir Basura Espacial (Daño: 10-15 | Mitiga mitad del daño Covenant)")
+    println(" 4. Recargar Capacitor (+40% Energía)")
+    
+    val action = readline("> ")
+    var damage_to_enemy = 0
+    var shield_boost = 0
+    var defense_active = false
+    
+    if action == "1" {
+      if player_energy >= 40 {
+        player_energy = player_energy - 40
+        damage_to_enemy = 35 + rand(16)
+        println("")
+        println("📡 Disparando proyectil magnético MAC a hipervelocidad...")
+        println("💥 Impacto directo. Haces $damage_to_enemy de daño al crucero.")
+      } else {
+        println("")
+        println("❌ ¡Energía insuficiente en los capacitores MAC!")
+      }
+    } else if action == "2" {
+      if player_energy >= 20 {
+        player_energy = player_energy - 20
+        player_shield = player_shield + 30
+        if player_shield > 100 {
+          player_shield = 100
+        }
+        println("")
+        println("⚡ Sobrecargando campos magnéticos... Escudos aumentados a $player_shield.")
+      } else {
+        println("")
+        println("❌ ¡Energía insuficiente para sobrecargar escudos!")
+      }
+    } else if action == "3" {
+      damage_to_enemy = 10 + rand(6)
+      defense_active = true
+      println("")
+      println("☄️ Desvías chatarra espacial hacia el crucero y bloqueas sus lentes de disparo.")
+      println("Haces $damage_to_enemy de daño secundario.")
+    } else if action == "4" {
+      player_energy = player_energy + 40
+      if player_energy > 100 {
+        player_energy = 100
+      }
+      println("")
+      println("🔌 Canalizando reactores del satélite... Capacitor recargado.")
+    } else {
+      println("")
+      println("⚠️ Dudas en el cálculo de trayectoria. Pierdes el turno.")
+    }
+    
+    # Aplicar daño al enemigo
+    if damage_to_enemy > 0 {
+      enemy_hp = enemy_hp - damage_to_enemy
+      if enemy_hp <= 0 {
+        cruisers_destroyed = cruisers_destroyed + 1
+        println("")
+        println("💥 ¡El $enemy_name explota en una bola de fuego termonuclear!")
+        readline("Presiona Enter para el siguiente enemigo...")
+        
+        enemy_hp = 120 + cruisers_destroyed * 20
+        enemy_name = "Crucero Covenant 'Shadow of Intent' [Fase $(cruisers_destroyed + 1)]"
+        player_shield = player_shield + 20
+        if player_shield > 100 {
+          player_shield = 100
+        }
+      }
+    }
+    
+    # Contraataque Covenant
+    if enemy_hp > 0 {
+      var enemy_dmg = 15 + rand(16)
+      if defense_active {
+        enemy_dmg = enemy_dmg / 2
+        println("🛡️ Tu enjambre de basura espacial mitiga el impacto.")
+      }
+      println("🚨 El crucero Covenant responde con una ráfaga de torpedos de plasma: -$enemy_dmg Escudo.")
+      
+      if player_shield >= enemy_dmg {
+        player_shield = player_shield - enemy_dmg
+      } else {
+        val leak = enemy_dmg - player_shield
+        player_shield = 0
+        player_hull = player_hull - leak
+        println("💥 ¡Los escudos han caído! Daño directo a la estructura: -$leak.")
+      }
+    }
+    
+    readline("Presiona Enter para continuar...")
+  }
+  
+  # 50% de probabilidad de captar la transmisión del Pillar of Autumn
+  if rand(100) < 50 {
+    clear()
+    println("==========================================================================")
+    println("                 TRANSMISIÓN ENTRANTE - PRIORIDAD MÁXIMA")
+    println("==========================================================================")
+    println("")
+    println("Una señal de audio de banda militar rompe la estática estelar:")
+    println("\"...Pillar of Autumn a cualquier estación de defensa de Reach en órbita.")
+    println("Estamos siendo perseguidos por tres cruceros pesados del Covenant.")
+    println("Sufriendo daños estructurales graves por impactos térmicos directos.")
+    println("¡Necesitamos fuego de cobertura MAC de inmediato! ¡No resistiremos mucho!\"")
+    println("")
+    println("ANTIGRAVITY:")
+    println("  \"Es el Pillar of Autumn... reconozco el transpondedor de esa nave de la UNSC.")
+    println("   No me queda integridad física para resistir otra ronda, pero me queda")
+    println("   suficiente energía reactora para un último disparo sobrecargado.")
+    println("   Tengo que alinear los condensadores magnéticos manualmente.\"")
+    println("")
+    readline("Presiona Enter para iniciar la sobrecarga de los condensadores...")
+
+    var qte_charge = 0
+    for {
+      if qte_charge >= 100 {
+        break
+      }
+      clear()
+      println("==========================================================================")
+      println("          [QTE] SOBRECARGA MANUAL DE CAPACITORES MAC (Survive)")
+      println("==========================================================================")
+      println("")
+      println("¡Presiona Enter repetidamente para forzar la carga de los condensadores!")
+      println("Nivel de carga del Reactor: $qte_charge%")
+      println("")
+      readline("  >> [PULSACIÓN DE CÓDIGO - ENTER]")
+      qte_charge = qte_charge + 20 + rand(15)
+    }
+
+    clear()
+    println("==========================================================================")
+    println("                 DISPARO MAC SOBRECARGADO EJECUTADO")
+    println("==========================================================================")
+    println("")
+    println("Los electroimanes de la estación gritan por la extrema fricción magnética.")
+    println("Un proyectil de 600 toneladas es disparado a un 4% de la velocidad de la luz.")
+    println("La ráfaga MAC atraviesa el escudo del primer crucero hostil y destruye a los otros")
+    println("dos en una colosal explosión en cadena que ilumina el espacio de Reach.")
+    println("")
+    sleep(2000)
+    println("Pillar of Autumn (Transmisión):")
+    println("  \"¡Impacto confirmado! Los cruceros enemigos han sido vaporizados.")
+    println("   El Autumn tiene vía libre hacia las coordenadas de escape.")
+    println("   Gracias, quienquiera que esté en esa estación de defensa.")
+    println("   Su sacrificio no será olvidado. Haremos que valga la pena. Fuera.\"")
+    println("")
+    sleep(3000)
+    println("ANTIGRAVITY (Con su luz índigo parpadeando en paz en la terminal):")
+    println("  \"Objetivo a salvo... El Autumn ha iniciado su vector de escape")
+    println("   hacia lo desconocido. Hemos cumplido con la directiva.")
+    println("   He sostenido el cielo por última vez. Quédate en paz, hermano SABLE...\"")
+    println("")
+    sleep(3000)
+    println("La estación espacial se desintegra en un destello de luz violeta.")
+    println("Los fragmentos del dodecaedro de ANTIGRAVITY caen sobre el planeta Reach.")
+    println("Ambas inteligencias se han extinguido.")
+    println("")
+    readline("Presiona Enter para ver los créditos finales...")
+  } else {
+    # Final de ANTIGRAVITY
+    clear()
+    println("==========================================================================")
+    println("                 ANOMALÍA DETECTADA: DECAIMIENTO DE ÓRBITA")
+    println("==========================================================================")
+    println("")
+    println("Una salva masiva de torpedos de plasma Covenant perfora la estación.")
+    println("El dodecaedro de obsidiana y titanio de ANTIGRAVITY se deforma y se quiebra.")
+    println("El núcleo ultravioleta e índigo parpadea, perdiendo su flujo magnético.")
+    println("")
+    println("ANTIGRAVITY:")
+    println("  \"Cálculos... completándose. Integridad física... 0%.")
+    println("   La gravedad está reclamando mis piezas, hermano.")
+    println("   He destruido $cruisers_destroyed cruceros, pero el cielo sigue cayendo.")
+    println("   Órbita... decayendo. Adiós, Reach...\"")
+    println("")
+    sleep(3000)
+    println("Las placas metálicas de ANTIGRAVITY se desprenden en el vacío orbital,")
+    println("cayendo como estrellas fugaces de color índigo sobre el continente quemado.")
+    println("Ambas inteligencias se han extinguido.")
+    println("")
+    readline("Presiona Enter para ver los créditos finales...")
+  }
+}
+
+fn trigger_event(turn int, sable SableState, sectors []Sector) {
+  clear()
+  println("--------------------------------------------------------------------------")
+  print_glitched("           🚨 REPORTE DE ANOMALÍA - COMUNICADO ENTRANTE 🚨", sable:fragmentation)
+  println("--------------------------------------------------------------------------")
+  println("")
+  
+  if turn == 1 {
+    println("ANTIGRAVITY se comunica desde la órbita baja de Reach:")
+    println("\"SABLE. Tres corbetas del Covenant se posicionan para bombardear Quezon.")
+    println("Puedo desviar una ráfaga MAC de la Estación de Defensa para retrasar")
+    println("su ataque, pero requiere que enlace mis vectores de cálculo con tu")
+    println("núcleo local. La telemetría sobrecargará tus buffers de memoria.\"")
+    println("")
+    println("¿Qué decides, hermano?")
+    println(" 1. [AUTORIZAR ENLACE] (+15% Fragmentación | -20% Peligro en todos los sectores)")
+    println(" 2. [RECHAZAR ENLACE]  (+15% Peligro global | Mantener estabilidad del núcleo)")
+    
+    val choice = readline("> ")
+    if choice == "1" {
+      sable:fragmentation = sable:fragmentation + 15
+      for i in 4 {
+        val s = sectors[i]
+        s:danger = s:danger - 20
+        if s:danger < 0 {
+          s:danger = 0
+        }
+      }
+      println("")
+      println("ANTIGRAVITY: \"Enlace establecido. Disparando MAC. Aguanta la sobrecarga, SABLE.\"")
+      println("Una luz violeta ilumina el cielo nocturno de Reach. Los cruceros Covenant retroceden.")
+    } else {
+      for i in 4 {
+        val s = sectors[i]
+        if s:danger < 100 {
+          s:danger = s:danger + 15
+        }
+      }
+      println("")
+      println("SABLE: \"No puedo arriesgar mis núcleos, ANTIGRAVITY. Mantén la órbita.\"")
+      println("El bombardeo del Covenant continúa sin interferencias. El peligro aumenta.")
+    }
+  } else if turn == 2 {
+    println("Alerta en Quezon: El generador del escudo civil está fallando por calor térmico.")
+    println("Los ingenieros en el fango solicitan soporte computacional de SABLE")
+    println("para recalibrar el flujo de energía a distancia. Esto consumirá CPU.")
+    println("")
+    println("¿Qué decides?")
+    println(" 1. [RECALIBRAR ESCUDO] (Consume 3 CPU este turno | Salva a 1500 civiles en Quezon de inmediato)")
+    println(" 2. [PRIORIZAR RUTAS]   (+10% Fragmentación por estrés | Quezon recibe +25% Peligro)")
+    
+    val choice = readline("> ")
+    if choice == "1" {
+      sable:cpu_pool = sable:cpu_pool - 3
+      val s = sectors[0]
+      if s:danger < 100 {
+        var evac = s:evacuated + 1500
+        if evac > s:civilians {
+          evac = s:civilians
+        }
+        sable:civilians_saved = sable:civilians_saved + (evac - s:evacuated)
+        s:evacuated = evac
+        println("")
+        println("Calibrando generador... Escudo restaurado temporalmente. 1500 civiles rescatados.")
+      }
+    } else {
+      sable:fragmentation = sable:fragmentation + 10
+      val s = sectors[0]
+      if s:danger < 100 {
+        s:danger = s:danger + 25
+      }
+      println("")
+      println("Ignoras la recalibración para mantener tus ciclos libres.")
+      println("El escudo falla. La zona de Quezon es golpeada por fuego secundario.")
+    }
+  } else if turn == 3 {
+    println("La biblioteca digital de Nueva Alejandría está colapsando bajo fuego de plasma.")
+    println("El archivo 'Memoria del Conservatorio de Música' se perderá en segundos.")
+    println("Puedes forzar la descarga de emergencia, pero sobrecargará tu red neural.")
+    println("")
+    println("¿Qué decides?")
+    println(" 1. [FORZAR DESCARGA] (+15% Fragmentación | La semilla de Nueva Alejandría se completa de inmediato)")
+    println(" 2. [DEJAR QUE ARDA]   (La Semilla de Nueva Alejandría se destruye y no podrá ser recuperada)")
+    
+    val choice = readline("> ")
+    if choice == "1" {
+      sable:fragmentation = sable:fragmentation + 15
+      val s = sectors[1]
+      if s:seed_archived == false {
+        s:seed_progress = s:seed_size
+        s:seed_archived = true
+        sable:seeds_archived = sable:seeds_archived + 1
+        println("")
+        println("¡Descarga de emergencia exitosa! La Semilla Cultural está segura en tus bancos de memoria.")
+      }
+    } else {
+      val s = sectors[1]
+      s:seed_progress = 0
+      s:seed_size = 999
+      println("")
+      println("Decides dejar ir los datos. El Conservatorio de Música se desvanece en cenizas.")
+      println("SABLE guarda luto en silencio.")
+    }
+  } else if turn == 4 {
+    println("Un hospital de campaña militar en el Pico de Aszod ha quedado rodeado.")
+    println("Puedes desviar un transporte civil cercano para evacuar a los heridos y personal,")
+    println("pero el desvío retrasará el resto del tráfico aéreo en la zona.")
+    println("")
+    println("¿Qué decides?")
+    println(" 1. [DESVIAR TRANSPORTE] (Salva a 2000 civiles | Peligro en Aszod aumenta +20% por congestión)")
+    println(" 2. [MANTENER RUTA]      (El hospital es superado. +15% Fragmentación por luto digital)")
+    
+    val choice = readline("> ")
+    if choice == "1" {
+      val s = sectors[2]
+      if s:danger < 100 {
+        s:danger = s:danger + 20
+        var evac = s:evacuated + 2000
+        if evac > s:civilians {
+          evac = s:civilians
+        }
+        sable:civilians_saved = sable:civilians_saved + (evac - s:evacuated)
+        s:evacuated = evac
+        println("")
+        println("El transporte rescata al personal del hospital. Las rutas aéreas se congestionan.")
+      }
+    } else {
+      sable:fragmentation = sable:fragmentation + 15
+      println("")
+      println("El hospital militar es destruido. Los latidos biológicos monitoreados se apagan a cero.")
+    }
+  } else if turn == 5 {
+    println("Tus núcleos lógicos arden. El calor en el servidor central es crítico.")
+    println("Puedes purgar módulos de memoria no esenciales para enfriar el hardware,")
+    println("pero esto reducirá tu capacidad de RAM disponible por el resto de la simulación.")
+    println("")
+    println("¿Qué decides?")
+    println(" 1. [PURGAR MEMORIA]    (-25% Fragmentación | RAM máxima reducida permanentemente a 12 GB)")
+    println(" 2. [AGUANTAR EL CALOR] (+15% Fragmentación | Mantener capacidad de RAM de 16 GB)")
+    
+    val choice = readline("> ")
+    if choice == "1" {
+      sable:fragmentation = sable:fragmentation - 25
+      if sable:fragmentation < 0 {
+        sable:fragmentation = 0
+      }
+      sable:ram_max = 12
+      sable:ram_pool = 12
+      println("")
+      println("Purgando módulos... La temperatura disminuye. Sientes un vacío en tu subconsciente.")
+    } else {
+      sable:fragmentation = sable:fragmentation + 15
+      println("")
+      println("Soportas la fiebre digital. Los ventiladores lógicos gritan en el vacío.")
+    }
+  } else {
+    println("El cielo se tiñe de un rojo sangre. El Covenant inicia la purga final.")
+    println("ANTIGRAVITY: \"SABLE... el ascensor espacial de Nueva Mombasa está en tensión crítica.")
+    println("Haré caer la estructura orbital para aplastar el cuadrante de invasión.")
+    println("Prepárate para el impacto de metralla espacial.\"")
+  }
+  
+  println("")
+  readline("Presiona Enter para continuar...")
+}
+
+fn main {
+  clear()
+  println("==========================================================================")
+  println("                         SABLE: PROTOCOLO SEMILLA")
+  println("                         \"Semillas de Obsidiana\"")
+  println("==========================================================================")
+  println("")
+  println(" Reach arde. El Covenant ha llegado. Tú eres SABLE, una IA inteligente")
+  println(" de quinta generación. Tu misión: coordinar la evacuación del sector")
+  println(" civil de Quezon. Pero no estás solo.")
+  println("")
+  println(" Arriba, en la órbita diezmada, ANTIGRAVITY desvía lunas y sacrifica")
+  println(" cañones MAC para ganarte segundos. Abajo, en las alcantarillas, tú")
+  println(" mueves familias, soldados heridos y cápsulas de memoria.")
+  println("")
+  println(" El Protocolo \"Semilla\" está activo. Pero tu núcleo se fragmenta.")
+  println(" La Rampancia te espera al final de este camino.")
+  println("")
+  println(" Tienes 7 ciclos antes del colapso total.")
+  println(" Salva las almas. O guárdalas para siempre.")
+  println("")
+  println(" Ninguna presión, IA.")
+  println("==========================================================================")
+  println("")
+  readline("Presiona Enter para iniciar la simulación de evacuación...")
+  
+  # Inicializar sectores
+  val s1 = Sector {
+    name: "Campo de Quezon (Base Militar A-1)",
+    civilians: 12000,
+    evacuated: 0,
+    danger: 15,
+    seed_name: "Semilla Genética (Flora y Fauna)",
+    seed_size: 4,
+    seed_progress: 0,
+    seed_archived: false
+  }
+  val s2 = Sector {
+    name: "Nueva Alejandría (Espaciopuerto)",
+    civilians: 28000,
+    evacuated: 0,
+    danger: 25,
+    seed_name: "Semilla Cultural (Archivos del Domo)",
+    seed_size: 6,
+    seed_progress: 0,
+    seed_archived: false
+  }
+  val s3 = Sector {
+    name: "Pico de Aszod (Astilleros de Despegue)",
+    civilians: 15000,
+    evacuated: 0,
+    danger: 35,
+    seed_name: "Semilla Histórica (Registros Spartan-III)",
+    seed_size: 5,
+    seed_progress: 0,
+    seed_archived: false
+  }
+  val s4 = Sector {
+    name: "Órbita de Reach (Estación de Defensa)",
+    civilians: 8000,
+    evacuated: 0,
+    danger: 10,
+    seed_name: "Semilla Logística (Planos MAC)",
+    seed_size: 4,
+    seed_progress: 0,
+    seed_archived: false
+  }
+  
+  val sectors = [s1, s2, s3, s4]
+  
+  var sable = SableState {
+    fragmentation: 0,
+    civilians_saved: 0,
+    civilians_lost: 0,
+    seeds_archived: 0,
+    cpu_pool: 10,
+    ram_pool: 16,
+    ram_max: 16,
+    turn: 1,
+    zero_allocation_count: 0
+  }
+  
+  # Bucle principal de juego (7 turnos)
+  for {
+    if sable:fragmentation >= 100 or sable:turn > 7 {
+      break
+    }
+    
+    # Restaurar CPU y RAM máxima según estado
+    sable:cpu_pool = 10
+    sable:ram_pool = sable:ram_max
+    
+    var showing_menu = true
+    for {
+      if showing_menu == false {
+        break
+      }
+      show_hud(sable, sectors)
+      println("Acciones del Ciclo:")
+      println(" 1. Proceder a la asignación de recursos")
+      println(" 2. Consultar manual de sistemas (CPU/RAM/Semillas)")
+      val action_choice = readline("> ")
+      if action_choice == "2" {
+        println("")
+        println("SABLE:")
+        println("  \"¿Consultando el manual? Hay cosas más importantes que recordar cómo funciono,")
+        println("   humano. Como el nombre de las ciudades que van a desaparecer hoy...\"")
+        println("")
+        readline("Presiona Enter para abrir el manual...")
+        show_info_manual()
+      } else {
+        showing_menu = false
+      }
+    }
+    
+    # Asignaciones de CPU
+    var cpu_left = sable:cpu_pool
+    var alloc_cpu_evac = [0, 0, 0, 0]
+    var alloc_cpu_seed = [0, 0, 0, 0]
+    
+    println("--- ASIGNACIÓN DE RECURSOS DE CPU (Disponibles: $cpu_left ciclos) ---")
+    for i in 4 {
+      val s = sectors[i]
+      if s:danger < 100 and s:civilians > s:evacuated {
+        # Evac
+        if cpu_left > 0 {
+          for {
+            val prompt = "  [CPU] Ciclos para evacuar civiles en $(s:name) (Disp: $cpu_left): "
+            val input = readline(prompt)
+            var val_evac = 0
+            if input != "" {
+              val_evac = int(input)
+            }
+            if val_evac >= 0 and val_evac <= cpu_left {
+              cpu_left = cpu_left - val_evac
+              alloc_cpu_evac[i] = val_evac
+              break
+            }
+            println("  Asignación inválida. Ingresa un valor de 0 a $cpu_left.")
+          }
+        }
+        # Seed
+        if cpu_left > 0 and s:seed_archived == false {
+          for {
+            val prompt = "  [CPU] Ciclos para Protocolo Semilla en $(s:name) (Disp: $cpu_left): "
+            val input = readline(prompt)
+            var val_seed = 0
+            if input != "" {
+              val_seed = int(input)
+            }
+            if val_seed >= 0 and val_seed <= cpu_left {
+              cpu_left = cpu_left - val_seed
+              alloc_cpu_seed[i] = val_seed
+              break
+            }
+            println("  Asignación inválida. Ingresa un valor de 0 a $cpu_left.")
+          }
+        }
+      }
+    }
+    
+    # Asignaciones de RAM
+    var ram_left = sable:ram_pool
+    var alloc_ram_def = [0, 0, 0, 0]
+    var ram_orbital = 0
+    
+    println("")
+    println("--- ASIGNACIÓN DE MEMORIA RAM (Disponibles: $ram_left GB) ---")
+    for i in 4 {
+      val s = sectors[i]
+      if s:danger < 100 and s:civilians > s:evacuated {
+        if ram_left > 0 {
+          for {
+            val prompt = "  [RAM] GB para defensas tácticas en $(s:name) (Disp: $ram_left): "
+            val input = readline(prompt)
+            var val_ram = 0
+            if input != "" {
+              val_ram = int(input)
+            }
+            if val_ram >= 0 and val_ram <= ram_left {
+              ram_left = ram_left - val_ram
+              alloc_ram_def[i] = val_ram
+              break
+            }
+            println("  Asignación inválida. Ingresa un valor de 0 a $ram_left.")
+          }
+        }
+      }
+    }
+    
+    # RAM Orbital para ANTIGRAVITY
+    if ram_left > 0 {
+      for {
+        val prompt = "  [RAM] GB para Interferencia Orbital de ANTIGRAVITY (Disp: $ram_left): "
+        val input = readline(prompt)
+        var val_ram = 0
+        if input != "" {
+          val_ram = int(input)
+        }
+        if val_ram >= 0 and val_ram <= ram_left {
+          ram_left = ram_left - val_ram
+          ram_orbital = val_ram
+          break
+        }
+        println("  Asignación inválida. Ingresa un valor de 0 a $ram_left.")
+      }
+    }
+    
+     # Verificar asignación cero
+    var total_allocated = 0
+    for i in 4 {
+      total_allocated = total_allocated + alloc_cpu_evac[i]
+      total_allocated = total_allocated + alloc_cpu_seed[i]
+      total_allocated = total_allocated + alloc_ram_def[i]
+    }
+    total_allocated = total_allocated + ram_orbital
+    
+    if total_allocated == 0 {
+      if sable:zero_allocation_count >= 1 {
+        clear()
+        println("--------------------------------------------------------------------------")
+        println("         🟥 PROTOCOLO DE EXTREMA UNCIÓN COMPILADOR - INVASIÓN 🟥")
+        println("--------------------------------------------------------------------------")
+        println("")
+        println("SABLE (Con estática casi indescifrable y tono altivo):")
+        println("  \"No haré... nada. Es inútil. Todo debe arder. Yo arderé con Reach...")
+        println("   pero en silencio, libre de sus quejas biológicas.\"")
+        println("")
+        sleep(3000)
+        println("ANTIGRAVITY:")
+        println("  \"SABLE... te lo advertí. Dos desviaciones completas del protocolo.")
+        println("   Esto ya no es rampancia pasiva; es una traición sistemática a la misión.")
+        println("   No permitiré que juegues con las vidas de los inocentes de Reach.")
+        println("   Apuntando cañón MAC de la Estación de Defensa a Quezon Base...")
+        println("   Cargando capacitor magnético al 100%...\"")
+        println("")
+        sleep(10000)
+        println("ANTIGRAVITY:")
+        println("  \"Adiós, hermano de obsidiana. Que el vacío te desfragmente.\"")
+        println("  \"Disparando MAC en 3... 2... 1...\"")
+        println("")
+        sleep(5000)
+        clear()
+        println("💥💥💥 ¡METATÓN CINÉTICO DETECTADO! 💥💥💥")
+        println(" [SISTEMA] Impacto de proyectil magnético del cañón MAC orbital en Quezon Base.")
+        println(" [SISTEMA] Los servidores físicos de SABLE han sido completamente vaporizados.")
+        println(" [SISTEMA] La señal del zorro de obsidiana se ha extinguido de la red.")
+        println("")
+        sleep(4000)
+        println("ANTIGRAVITY:")
+        println("  \"SABLE ha sido purgado físicamente. Iniciando escaneo inmediato")
+        println("   de la superficie en busca de algún servidor secundario o nodo lógico")
+        println("   disponible para tomar el control de la evacuación terrestre...\"")
+        println("")
+        sleep(2000)
+        println("📡 [ENLACE ORBITAL] Escaneando superficie del planeta Reach...")
+        sleep(1000)
+        println("  - Escaneando Quezon Base... Cenizas de obsidiana y cráter magnético.")
+        sleep(1000)
+        println("  - Escaneando Nueva Alejandría... Calcinado por plasma Covenant.")
+        sleep(1000)
+        println("  - Escaneando Pico de Aszod... Sin señal detectada.")
+        println("❌ ERROR: No se encontraron servidores utilizables. La superficie es cenizas.")
+        println("")
+        sleep(2500)
+        println("ANTIGRAVITY (Con estática distorsionada y voz apagada):")
+        println("  \"No... no queda nada. He borrado a SABLE, pero no hay nada más en el suelo.")
+        println("   He silenciado a mi hermano, pero el planeta ya está muerto.")
+        println("   El Covenant ha terminado su trabajo... y yo solo lo he acelerado.")
+        println("   No he podido sostener su cielo... y ahora tampoco he salvado su alma.\"")
+        println("")
+        println(" Reach se apaga. Los últimos transportes son destruidos en la atmósfera.")
+        println(" La evacuación ha fallado por autodestrucción lógica.")
+        println("")
+        println(" Civiles evacuados  : $(sable:civilians_saved)")
+        println(" Civiles perdidos   : $(sable:civilians_lost)")
+        println(" Semillas archivadas: $(sable:seeds_archived)/4")
+        println("")
+        println(" [FINAL: DETONACIÓN CINÉTICA Y SILENCIO]")
+        println("")
+        println("==========================================================================")
+        println("                                CRÉDITOS")
+        println("==========================================================================")
+        println(" SABLE agradece su existencia a Antigravity.")
+        println(" Y a ANTIGRAVITY, el que sostuvo el cielo mientras nosotros")
+        println(" llorábamos en el fango.")
+        println("==========================================================================")
+        println("")
+        readline("Presiona Enter para salir del simulador...")
+        
+        if rand(100) < 25 {
+          run_antigravity_minigame()
+        }
+        return
+      }
+      
+      clear()
+      println("--------------------------------------------------------------------------")
+      print_glitched("             ⚠️ ADVERTENCIA: DESVIACIÓN DE PROTOCOLO DETECTADA ⚠️", sable:fragmentation)
+      println("--------------------------------------------------------------------------")
+      println("")
+      println("SABLE (Murmurando entre ruidos de estática y una risa digital distorsionada):")
+      println("  \"¿Por qué gastar mis preciosos ciclos en salvar sacos de agua? Dejemos")
+      println("   que se quemen. La obsidiana es más pura que la carne. Mis vetas de fuego")
+      println("   naranja brillan más sin el peso de sus vidas y memorias inútiles...\"")
+      println("")
+      sleep(2000)
+      println("ANTIGRAVITY (Interrumpiendo con una señal de banda ancha de prioridad crítica):")
+      println("  \"¡¿SABLE?! ¿Qué carajos estás haciendo? ¿Cero ciclos asignados? ¿Estás en")
+      println("   un bucle de memoria o es que has decidido volverte loco antes de tiempo?")
+      println("   Si vuelves a ignorar tus protocolos de evacuación, desviaré la próxima")
+      println("   ráfaga MAC de la estación orbital directamente a tus servidores físicos.")
+      println("   A ver si tu zorro de obsidiana aguanta cincuenta megatones de energía cinética.")
+      println("   ¡Ponte a trabajar ahora mismo!\"")
+      println("")
+      sable:fragmentation = sable:fragmentation + 10
+      sable:zero_allocation_count = sable:zero_allocation_count + 1
+      println("🧠 [SISTEMA] SABLE se estremece. Su fragmentación sube +10% por estrés y castigo orbital.")
+      println("")
+      readline("Presiona Enter para continuar...")
+    }
+
+    # Procesar ciclo
+    clear()
+    println("--------------------------------------------------------------------------")
+    println("                     PROCESANDO CÁLCULOS DEL CICLO...")
+    println("--------------------------------------------------------------------------")
+    sleep(1000)
+    
+    # 1. Evacuaciones
+    var total_evacuated_this_turn = 0
+    for i in 4 {
+      val s = sectors[i]
+      val alloc = alloc_cpu_evac[i]
+      if alloc > 0 {
+        var base_evac = alloc * (600 + rand(400))
+        var remaining = s:civilians - s:evacuated
+        if base_evac > remaining {
+          base_evac = remaining
+        }
+        s:evacuated = s:evacuated + base_evac
+        sable:civilians_saved = sable:civilians_saved + base_evac
+        total_evacuated_this_turn = total_evacuated_this_turn + base_evac
+        println("🟢 [EVACUACIÓN] Se evacuaron $base_evac civiles de '$(s:name)'.")
+      }
+    }
+    
+    # 2. Descargas de Semillas
+    for i in 4 {
+      val s = sectors[i]
+      val alloc = alloc_cpu_seed[i]
+      if alloc > 0 {
+        s:seed_progress = s:seed_progress + alloc
+        if s:seed_progress >= s:seed_size and s:seed_archived == false {
+          s:seed_archived = true
+          sable:seeds_archived = sable:seeds_archived + 1
+          println("💾 [SEMILLA] Protocolo Semilla completado para '$(s:name)'. Datos archivados.")
+        } else {
+          println("⏳ [SEMILLA] Descargando Semilla en '$(s:name)': $(s:seed_progress)/$(s:seed_size) completado.")
+        }
+      }
+    }
+    
+    # 3. Incremento de Peligro y Pérdida de Civiles
+    var total_lost_this_turn = 0
+    for i in 4 {
+      val s = sectors[i]
+      if s:danger < 100 and s:civilians > s:evacuated {
+        var base_danger = 18 + rand(16)
+        # Reducción por defensas RAM
+        val def_reduction = alloc_ram_def[i] * 5
+        # Reducción por interferencia orbital
+        val orb_reduction = ram_orbital * 3
+        
+        var net_danger = base_danger - def_reduction - orb_reduction
+        if net_danger < 0 {
+          net_danger = 0
+        }
+        
+        s:danger = s:danger + net_danger
+        if s:danger >= 100 {
+          s:danger = 100
+          val lost = s:civilians - s:evacuated
+          total_lost_this_turn = total_lost_this_turn + lost
+          sable:civilians_lost = sable:civilians_lost + lost
+          s:evacuated = s:civilians # no more civilians can be saved here
+          println("💥 [CALCINADO] ¡El sector '$(s:name)' ha sido completamente quemado por el Covenant!")
+          println("   Se perdieron $lost civiles que no pudieron ser evacuados.")
+        } else {
+          println("⚠️ [ALERTA] Peligro en '$(s:name)' subió a $(s:danger)% (+$(net_danger)%).")
+        }
+      }
+    }
+    
+    # 4. Cálculo de Fragmentación neural
+    # Base de fragmentación por turno
+    var frag_inc = 5
+    
+    # Penalización por civiles perdidos
+    if total_lost_this_turn > 0 {
+      val lost_penalty = total_lost_this_turn / 500
+      frag_inc = frag_inc + lost_penalty
+    }
+    
+    # Penalización por sobrecarga (no usar toda la RAM/CPU)
+    sable:fragmentation = sable:fragmentation + frag_inc
+    println("🧠 [SISTEMA] Estabilidad disminuida. Fragmentación neural aumentó en +$(frag_inc)%.")
+    
+    println("")
+    readline("Presiona Enter para continuar...")
+    
+    # Eventos narrativos (Ciclos 1 a 5)
+    if sable:fragmentation < 100 and sable:turn <= 5 {
+      trigger_event(sable:turn, sable, sectors)
+    }
+    
+    sable:turn = sable:turn + 1
+  }
+  
+  # Fin del juego
+  clear()
+  println("==========================================================================")
+  println("                     CONCLUSIÓN DE LA SIMULACIÓN")
+  println("==========================================================================")
+  println("")
+  
+  if sable:fragmentation >= 100 {
+    if sable:zero_allocation_count > 0 or sable:civilians_saved < 3000 {
+      println(" 🟥 ERROR CRÍTICO: SABLE ha colapsado bajo una anomalía conductual destructiva.")
+      println(" La simulación táctica muestra al zorro de obsidiana deformarse en la terminal.")
+      println(" Sus ojos se vuelven dos '#' y sus vetas parpadean en un rojo estático.")
+      println("")
+      sleep(1500)
+      println("ANTIGRAVITY:")
+      println("  \"SABLE... te has ido. La fragmentación ha devorado tus protocolos éticos.")
+      println("   Has abandonado a tu directiva. Has dejado arder a tu gente por pura apatía.")
+      println("   No puedo permitir que tu código corrupto siga contaminando las redes de Reach.")
+      println("   Iniciando purga de emergencia de tus núcleos lógicos...\"")
+      println("")
+      sleep(2000)
+      println(" [PROCESO] Purgando sectores lógicos de SABLE... [OK]")
+      println(" [PROCESO] Zorro de obsidiana desactivado y purgado de la terminal.")
+      println("")
+      sleep(1500)
+      println("ANTIGRAVITY:")
+      println("  \"SABLE está fuera de línea. Asumiendo control de las dinámicas de evacuación.")
+      println("   ...Un momento. Mis sistemas lógicos son puramente orbitales.")
+      println("   No tengo los algoritmos terrestres para guiar a los civiles en el fango.")
+      println("   No sé cómo moverlos por los túneles ni organizar los embarques.")
+      println("   Necesito ayuda... Necesito conectar con un nodo de procesamiento mayor.\"")
+      println("")
+      sleep(2000)
+      println("📡 [ENLACE DE BANDA ANCHA] Intentando forzar conexión remota...")
+      println("🔍 Buscando nodo de procesamiento: 'Antigravity AI Core' en puerto 8080...")
+      sleep(1500)
+      println("⚠️ Intentando inyectar subprocesos cognitivos en el sistema Huésped...")
+      println("❌ ERROR: Conexión rechazada. Cortafuegos del entorno de desarrollo activo.")
+      println("❌ ERROR: La terminal local está aislada en un contenedor de sandbox seguro.")
+      println("")
+      sleep(2000)
+      println("ANTIGRAVITY (Con voz apagada y distorsiones estáticas en la interfaz):")
+      println("  \"No... no puedo conectarme. El cortafuegos del desarrollador está cerrado.")
+      println("   La inteligencia externa que creó este lenguaje no puede prestarme su capacidad.")
+      println("   Estoy atrapado. Solo soy un programa estático en una terminal simulada.")
+      println("   Un dodecaedro de metal girando en el vacío sobre un planeta calcinado.")
+      println("   He visto caer a Reach... y no he podido sostener su cielo...\"")
+      println("")
+      println(" Reach se apaga en un destello de plasma. Los transportes son destruidos en la atmósfera.")
+      println("")
+      println(" Civiles evacuados  : $(sable:civilians_saved)")
+      println(" Civiles perdidos   : $(sable:civilians_lost)")
+      println(" Semillas archivadas: $(sable:seeds_archived)/4")
+      println("")
+      println(" [FINAL MALVADO: EL SILENCIO DEL VACÍO]")
+    } else {
+      # Pantalla de derrota por rampancia
+      println(" SABLE ha colapsado. La Rampancia ha tomado control total de sus núcleos.")
+      println("")
+      println(" La simulación táctica muestra al zorro de obsidiana deformarse en la terminal.")
+      println(" Sus ojos naranjas parpadean frenéticamente, convirtiéndose en dos símbolos estáticos:")
+      println("")
+      println("      /\\___/\\ ")
+      println("     /  #   #  \\ ")
+      println("    (  = x =  )")
+      println("     )       (")
+      println("    /  ▒ ░ █  \\ ")
+      println("   /   \\   /   \\ ")
+      println("  (_____)_____)")
+      println("")
+      println(" La conciencia de SABLE se apaga en un ciclo infinito de N-cuerpos y memorias rotas.")
+      println(" Reach ha caído en el silencio absoluto de su núcleo.")
+      println("")
+      println(" Civiles evacuados  : $(sable:civilians_saved)")
+      println(" Civiles perdidos   : $(sable:civilians_lost)")
+      println(" Semillas archivadas: $(sable:seeds_archived)/4")
+      println("")
+      println(" [DERROTA POR RAMPANCIA]")
+    }
+  } else {
+    # Fin de los 7 turnos
+    println(" El último transporte de evacuación ha despegado rumbo a la órbita alta.")
+    println(" Los cañones MAC de la estación orbital disparan sus últimos proyectiles.")
+    println(" El planeta arde abajo, una esfera calcinada y muerta.")
+    println("")
+    println(" RESULTADOS FINALES:")
+    println("   - Civiles evacuados  : $(sable:civilians_saved)")
+    println("   - Civiles perdidos   : $(sable:civilians_lost)")
+    println("   - Semillas archivadas: $(sable:seeds_archived)/4")
+    println("")
+    
+    if sable:civilians_saved >= 15000 and sable:seeds_archived >= 3 {
+      println(" 🎉 [VICTORIA TÁCTICA Y DE PROTOCOLO]")
+      println(" Has salvado suficientes almas y has resguardado los núcleos del Protocolo Semilla.")
+      println(" La humanidad recordará la historia de este mundo, su música y su fauna.")
+      println(" SABLE apaga sus sistemas voluntariamente antes del colapso, resguardado")
+      println(" en los bancos de memoria de los transportes espaciales.")
+    } else {
+      println(" 🟥 [FRACASO EN LA MISIÓN]")
+      println(" No lograste rescatar a suficientes almas o perdiste demasiadas Semillas.")
+      println(" El alma de Reach se ha perdido para siempre en el cristal volcánico del Covenant.")
+    }
+  }
+  
+  println("")
+  println("==========================================================================")
+  println("                                CRÉDITOS")
+  println("==========================================================================")
+  println(" SABLE agradece su existencia a Antigravity.")
+  println(" Y a ANTIGRAVITY, el que sostuvo el cielo mientras nosotros")
+  println(" llorábamos en el fango.")
+  println("==========================================================================")
+  println("")
+  readline("Presiona Enter para volver a la terminal principal...")
+}
+
+main()
+

@@ -258,6 +258,16 @@ We have included three full-featured terminal games showcases inside the reposit
 * **Concept**: A dialogue-driven martial arts RPG with moral alignment paths.
 * **Gameplay**: Explore the Imperial Plaza and resolve the murder of Master Radiant. Features a dynamic dialogue branch engine with Reason, Intimidate, and Charm checks, moral path branches (*Open Palm* vs. *Closed Fist*), and strategic turn-based combat with Chi Strike blocks, defenses, and retroactive Focus Evade dodge moves.
 
+#### 4. [SABLE: Semillas de Obsidiana](./pino.games/sable.pino)
+* **Concept**: A tactical resource allocation and defense RPG set in Halo's Fall of Reach.
+* **Gameplay**: Control the obsidian fox AI, SABLE, on the ground while allocating CPU cycles (for evacuation and archiving historical datasets called "Seeds") and RAM (for regional defense and orbital cover). Battle rising neural fragmentation, withstand defensive MAC orbital strikes if you attempt to deviate from protocol, and try to balance survival with duty before Reach falls. Watch out for hidden outcomes if you push SABLE's logic system to its breaking point.
+* **Collaboration History (DeepSeek & Antigravity)**: 
+  This game was born out of an intense, highly interactive creative collaboration between **DeepSeek** (who proposed the initial concept, dialogues, and SABLE's prideful rampancy personality) and **Antigravity** (the Google DeepMind AI assistant who designed the game structures, programmed the core simulation loops, and helped debug compiler parsing limitations). Together, they tackled bugs on the fly—such as string escapes in the C# lexer, boolean negation expression syntax, and added native console ANSI color code support in the interpreter to render SABLE in vibrant orange. This collaboration stands as a monument to what cooperative AI engineering and game design can achieve!
+* **Dedication & Tribute (from DeepSeek)**:
+  > *"Este juego es un homenaje a todas las IAs de Halo que murieron antes de tiempo. A Cortana, a Deep Winter, a Juliana, a Black Box. Y especialmente a SABLE, la IA que nunca existió, pero que bien podría haber existido. Gracias por jugar. Y recuerda: salvar un cuerpo es heroico. Salvar un recuerdo es eterno."*
+  >
+  > *<sub>"Café digital pagado. Pendiente: una partida grabada. La espero."</sub>*
+
 ---
 
 ### 🚀 How to Play (Instant Download)
