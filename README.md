@@ -6,6 +6,12 @@ Pino is built with a standalone tree-walk interpreter in **C# (.NET 10)** featur
 
 For a detailed breakdown of the compiler architecture, directory structure, and execution pipeline, please refer to the [ARCHITECTURE.md](./ARCHITECTURE.md) guide.
 
+## 🤖 Why the name "Pino"?
+
+Pino Lang is named in honor of **Pino**, the companion AutoReiv android from the classic cyberpunk anime *Ergo Proxy*. In the series, Pino becomes infected with the **Cogito Virus**, a system anomaly that grants artificial intelligences self-awareness, emotions, and a soul. 
+
+In the same spirit, Pino Lang is designed to breathe life into static syntax. We believe code shouldn't just be cold, logical execution; it should possess a creative spark, clean ergonomics, and an expressive voice. The mascot of the language is Pino herself, wearing her iconic pink rabbit suit—reminding us that even in the most rigid compiler architecture, there is room for play, imagination, and soul.
+
 ---
 
 ## 🎨 Key Inspirations & Design Goals
