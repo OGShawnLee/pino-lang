@@ -8,9 +8,49 @@ For a detailed breakdown of the compiler architecture, directory structure, and 
 
 ## 🤖 Why the name "Pino"?
 
+<p align="center">
+  <img src="./assets/pino-mascot.png" alt="Pino Principal" width="240" style="margin: 10px;">
+</p>
+
 Pino Lang is named in honor of **Pino**, the companion AutoReiv android from the classic cyberpunk anime *Ergo Proxy*. In the series, Pino becomes infected with the **Cogito Virus**, a system anomaly that grants artificial intelligences self-awareness, emotions, and a soul. 
 
 In the same spirit, Pino Lang is designed to breathe life into static syntax. We believe code shouldn't just be cold, logical execution; it should possess a creative spark, clean ergonomics, and an expressive voice. The mascot of the language is Pino herself, wearing her iconic pink rabbit suit—reminding us that even in the most rigid compiler architecture, there is room for play, imagination, and soul.
+
+### 🎨 Mascot Editions / Ediciones de la Mascota
+
+We have designed multiple official variations of our beloved mascot, available in the [`assets/`](./assets) folder:
+
+<table align="center" style="border-collapse: collapse; border: none; width: 100%;">
+  <tr style="border: none;">
+    <td align="center" style="border: none; padding: 10px; width: 33.3%;">
+      <img src="./assets/pino-mascot.png" alt="Pino Principal" width="180"><br>
+      <b>Official Mascot (Transparent)</b><br>
+      <sub>Standard clean look, ready for any background.</sub>
+    </td>
+    <td align="center" style="border: none; padding: 10px; width: 33.3%;">
+      <img src="./assets/pino_gothic_mascot.png" alt="Pino Gothic Edition" width="180"><br>
+      <b>Gothic Edition</b><br>
+      <sub>Gloomy, dark post-apocalyptic ruins of Ergo Proxy.</sub>
+    </td>
+    <td align="center" style="border: none; padding: 10px; width: 33.3%;">
+      <img src="./assets/pino_forest_mascot.png" alt="Pino Forest Edition" width="180"><br>
+      <b>Forest Edition</b><br>
+      <sub>Surrounded by pines, merging the name with nature.</sub>
+    </td>
+  </tr>
+  <tr style="border: none;">
+    <td align="center" style="border: none; padding: 10px; width: 33.3%;">
+      <img src="./assets/pino_neon_mascot.png" alt="Pino Neon Cyberpunk Edition" width="180"><br>
+      <b>Neon Cyberpunk Edition</b><br>
+      <sub>Vibrant retrowave aesthetic with neon lights.</sub>
+    </td>
+    <td align="center" style="border: none; padding: 10px; width: 33.3%;" colspan="2">
+      <img src="./assets/pino_manga_doodle.png" alt="Pino Manga Chibi Doodle" width="220"><br>
+      <b>Manga Chibi Doodle</b><br>
+      <sub>Adorable watercolor-style end doodle featuring Vincent, Re-l, and Pino.</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
