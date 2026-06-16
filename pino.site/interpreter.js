@@ -255,12 +255,13 @@ class IfStmt extends Stmt {
 }
 
 class ForStmt extends Stmt {
-  constructor(varName, iterableExpr, body, isInfinite) {
+  constructor(varName, iterableExpr, body, isInfinite, keyVar = null) {
     super();
     this.varName = varName; // "it" or custom variable name
     this.iterableExpr = iterableExpr;
     this.body = body;
     this.isInfinite = isInfinite;
+    this.keyVar = keyVar;
   }
 }
 
@@ -782,15 +783,25 @@ class Parser {
     }
 
     // Otherwise, it could be for time in 5 { ... } or for item in vector { ... }
-    const varToken = this.consume(TokenType.IDENTIFIER, "Expect iterator variable name");
+    // Or for key, value in collection { ... }
+    let varToken = this.consume(TokenType.IDENTIFIER, "Expect iterator variable name");
+    let keyVar = null;
+    if (this.match(TokenType.DELIMITER, ',')) {
+      keyVar = varToken.value;
+      varToken = this.consume(TokenType.IDENTIFIER, "Expect iterator value variable name");
+    }
+
     this.consume(TokenType.KEYWORD, "Expect 'in' after iterator variable", 'in');
     const iterableExpr = this.expression(false);
     this.pushScope();
     this.declareVariable(varToken.value);
+    if (keyVar !== null) {
+      this.declareVariable(keyVar);
+    }
     this.consume(TokenType.DELIMITER, "Expect '{' before loop body", '{');
     const body = this.block();
     this.popScope();
-    return new ForStmt(varToken.value, iterableExpr, body, false);
+    return new ForStmt(varToken.value, iterableExpr, body, false, keyVar);
   }
 
   matchStatement() {
@@ -1678,6 +1689,9 @@ class Interpreter {
       for (let i = 0; i < iterable; i++) {
         const loopEnv = new Environment(env);
         loopEnv.define(stmt.varName, i, false);
+        if (stmt.keyVar !== null) {
+          loopEnv.define(stmt.keyVar, i, false);
+        }
         try {
           this.evaluateStatement(stmt.body, loopEnv);
         } catch (err) {
@@ -1687,9 +1701,30 @@ class Interpreter {
         }
       }
     } else if (Array.isArray(iterable)) {
-      for (const item of iterable) {
+      for (let i = 0; i < iterable.length; i++) {
+        const item = iterable[i];
         const loopEnv = new Environment(env);
         loopEnv.define(stmt.varName, item, false);
+        if (stmt.keyVar !== null) {
+          loopEnv.define(stmt.keyVar, i, false);
+        }
+        try {
+          this.evaluateStatement(stmt.body, loopEnv);
+        } catch (err) {
+          if (err instanceof BreakException) break;
+          if (err instanceof ContinueException) continue;
+          throw err;
+        }
+      }
+    } else if (iterable instanceof Map) {
+      for (const [key, value] of iterable.entries()) {
+        const loopEnv = new Environment(env);
+        if (stmt.keyVar !== null) {
+          loopEnv.define(stmt.keyVar, key, false);
+          loopEnv.define(stmt.varName, value, false);
+        } else {
+          loopEnv.define(stmt.varName, key, false);
+        }
         try {
           this.evaluateStatement(stmt.body, loopEnv);
         } catch (err) {
@@ -2643,12 +2678,27 @@ class TypeChecker {
       this.pushScope();
       const colType = statement.iterableExpr ? this.inferType(statement.iterableExpr) : "any";
       let loopVarType = "any";
+      let keyVarType = "number";
       if (colType.startsWith("[]")) {
         loopVarType = colType.substring(2);
+        keyVarType = "number";
+      } else if (colType.startsWith("map[")) {
+        const commaIdx = colType.indexOf(',');
+        if (commaIdx !== -1) {
+          keyVarType = colType.substring(4, commaIdx).trim();
+          loopVarType = colType.substring(commaIdx + 1, colType.length - 1).trim();
+        }
+        if (statement.keyVar === null) {
+          loopVarType = keyVarType;
+        }
       } else if (colType === "int" || colType === "float" || colType === "number") {
         loopVarType = "number";
+        keyVarType = "number";
       }
       this.declareVariable(statement.varName, loopVarType);
+      if (statement.keyVar !== null) {
+        this.declareVariable(statement.keyVar, keyVarType);
+      }
       if (statement.iterableExpr) {
         this.checkExpression(statement.iterableExpr);
       }

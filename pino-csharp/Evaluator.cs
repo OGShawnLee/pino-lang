@@ -323,9 +323,26 @@ public class Evaluator {
         var loopVar = (loop.Begin as IdentifierExpression)?.Name ?? throw new Exception("RUNTIME ERROR: Loop variable must be an identifier.");
 
         if (collection is List<object?> list) {
-          foreach (var item in list) {
+          for (int i = 0; i < list.Count; i++) {
+            var item = list[i];
             var childEnv = new Environment(env);
             childEnv.Define(loopVar, item, false);
+            if (!string.IsNullOrEmpty(loop.KeyVar)) {
+              childEnv.Define(loop.KeyVar, (long)i, false);
+            }
+            try {
+              Execute(loop.Body, childEnv);
+            } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
+          }
+        } else if (collection is Dictionary<object, object?> dict) {
+          foreach (var kvp in dict) {
+            var childEnv = new Environment(env);
+            if (!string.IsNullOrEmpty(loop.KeyVar)) {
+              childEnv.Define(loop.KeyVar, kvp.Key, false);
+              childEnv.Define(loopVar, kvp.Value, false);
+            } else {
+              childEnv.Define(loopVar, kvp.Key, false);
+            }
             try {
               Execute(loop.Body, childEnv);
             } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
@@ -334,6 +351,9 @@ public class Evaluator {
           for (long i = 0; i < rangeLimit; i++) {
             var childEnv = new Environment(env);
             childEnv.Define(loopVar, i, false);
+            if (!string.IsNullOrEmpty(loop.KeyVar)) {
+              childEnv.Define(loop.KeyVar, i, false);
+            }
             try {
               Execute(loop.Body, childEnv);
             } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
@@ -1242,4 +1262,3 @@ public class Evaluator {
     }
   }
 }
-

@@ -20,7 +20,7 @@ public enum LoopKind {
   Infinite
 }
 
-public record LoopStatement(LoopKind Kind, Expression? Begin, Expression? End, Statement Body) : Statement;
+public record LoopStatement(LoopKind Kind, Expression? Begin, Expression? End, Statement Body, string? KeyVar = null) : Statement;
 
 public record IfStatement(Expression Condition, Statement Consequent, Statement? Alternate) : Statement;
 

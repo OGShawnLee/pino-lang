@@ -536,6 +536,44 @@ const tests = [
       val res = Helper2::helper_fn()
     `,
     expectedOutput: "[ERROR] TYPE CHECK ERROR: Method 'helper_fn' of struct 'Helper2' is not static.\n"
+  },
+  {
+    name: "For loop over range (single and dual variable)",
+    code: `
+      for i in 3 {
+        println(i)
+      }
+      for idx, v in 3 {
+        println("$(idx):$(v)")
+      }
+    `,
+    expectedOutput: "0\n1\n2\n0:0\n1:1\n2:2\n"
+  },
+  {
+    name: "For loop over vector (single and dual variable)",
+    code: `
+      val items = [10, 20, 30]
+      for item in items {
+        println(item)
+      }
+      for idx, item in items {
+        println("$(idx):$(item)")
+      }
+    `,
+    expectedOutput: "10\n20\n30\n0:10\n1:20\n2:30\n"
+  },
+  {
+    name: "For loop over map (single and dual variable)",
+    code: `
+      val m = map[string, int] { "a": 1, "b": 2 }
+      for k in m {
+        println(k)
+      }
+      for k, v in m {
+        println("$(k):$(v)")
+      }
+    `,
+    expectedOutput: "a\nb\na:1\nb:2\n"
   }
 ];
 

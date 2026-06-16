@@ -505,6 +505,19 @@ public class Parser {
       return new LoopStatement(LoopKind.ForTimes, begin, null, body);
     }
 
+    string? KeyVar = null;
+    if (stream.Current.IsMarker(MarkerType.Comma)) {
+      if (begin is not IdentifierExpression idKey) {
+        throw new Exception("PARSER: Loop key variable must be an identifier");
+      }
+      KeyVar = idKey.Name;
+      stream.Consume(); // consume the comma ','
+      begin = ParseExpression(stream, allowStruct: false, allowMemberAccess: true, allowIn: false);
+      if (begin is not IdentifierExpression) {
+        throw new Exception("PARSER: Loop value variable must be an identifier");
+      }
+    }
+
     // For In loop: for i in collection { ... }
     if (!stream.Consume().IsKeyword(KeywordType.In)) {
       throw new Exception("PARSER: Expected 'in' in loop declaration");
@@ -516,10 +529,15 @@ public class Parser {
     if (begin is IdentifierExpression id) {
       DeclareVariable(stream, id.Name);
     }
+
+    if (!string.IsNullOrEmpty(KeyVar)) {
+      DeclareVariable(stream, KeyVar);
+    }
+
     var inBody = ParseBlock(stream);
     PopScope(stream);
 
-    return new LoopStatement(LoopKind.ForIn, begin, end, inBody);
+    return new LoopStatement(LoopKind.ForIn, begin, end, inBody, KeyVar);
   }
 
   private static IfStatement ParseIfStatement(TokenStream stream) {
