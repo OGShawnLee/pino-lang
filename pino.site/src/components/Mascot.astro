@@ -1,0 +1,204 @@
+---
+import { Image } from "astro:assets";
+import pinoMascot from "@assets/pino-mascot.png";
+import pinoGothicMascot from "@assets/pino_gothic_mascot.png";
+import pinoForestMascot from "@assets/pino_forest_mascot.png";
+import pinoNeonMascot from "@assets/pino_neon_mascot.png";
+import pinoMangaDoodle from "@assets/pino_manga_doodle.png";
+---
+
+<section id="mascot" class="max-w-6xl mx-auto my-24 px-8">
+  <div class="section-header">
+    <h2 class="font-heading text-4xl font-bold mb-4">The Mascot: Pino 🤖</h2>
+    <p class="text-text-muted text-lg max-w-[600px] mx-auto">
+      Inspired by the AutoReiv from <em>Ergo Proxy</em> infected with the Cogito Virus.
+      Pino represents self-awareness, soul, and playfulness in programming.
+    </p>
+  </div>
+
+  <div class="flex flex-col gap-14 mt-12">
+    <!-- Main Mascot Spotlight -->
+    <div
+      class="bg-gradient-to-br from-white/2 to-accent-green/2 border border-border-colored rounded-3xl p-12 grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-12 items-center shadow-lg backdrop-blur-md relative overflow-hidden"
+    >
+      <div class="flex justify-center items-center relative">
+        <Image
+          src={pinoMascot}
+          alt="Pino Lang Mascot"
+          class="floating-mascot max-w-full h-auto size-[320px]"
+        />
+      </div>
+      <div class="flex flex-col gap-4">
+        <span class="mascot-badge">Official Mascot</span>
+        <h3
+          class="font-heading text-3xl font-bold text-text-main bg-gradient-to-r from-text-main to-accent-green bg-clip-text text-transparent"
+        >
+          Pino (Transparent Edition)
+        </h3>
+        <p class="text-text-muted text-lg leading-relaxed">
+          A clean render of Pino wearing her signature pink rabbit onesie,
+          featuring straight lilac hair with bangs. She is the official face of
+          our language, embodying the philosophy that code should not only be
+          cold, logical execution, but also expressive and full of life.
+        </p>
+        <div
+          class="bg-white/2 border-l-3 border-accent-green rounded p-4 mt-4 text-left"
+        >
+          <strong class="text-text-main text-[0.95rem] block mb-1"
+            >🦠 Cogito Virus Infection:</strong
+          >
+          <p class="text-[0.9rem] text-text-muted leading-relaxed">
+            Just as the Cogito virus grants artificial intelligence
+            self-awareness and a soul in the series, our goal is to bring a
+            creative spark and flexibility to code syntax.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mascot Variations Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <!-- Variant 1 -->
+      <div
+        class="bg-bg-secondary border border-border-colored rounded-2xl overflow-hidden flex flex-col group transition-all duration-300 hover:(-translate-y-1.5 border-accent-cyan/3 shadow-[0_15px_35px_rgba(6,182,212,0.15)])"
+      >
+        <div
+          class="relative overflow-hidden aspect-square bg-black/20 flex items-center justify-center border-b border-border-colored"
+        >
+          <Image
+            src={pinoGothicMascot}
+            alt="Pino Gothic Edition"
+            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+        <div class="p-6 flex flex-col gap-2 flex-grow">
+          <h4 class="font-heading text-lg font-bold text-text-main">
+            Gothic Edition
+          </h4>
+          <span class="variant-badge gothic">Ergo Proxy Aesthetic</span>
+          <p class="text-text-muted text-[0.88rem] leading-relaxed mt-1">
+            Pino set in a backdrop of gothic ruins and concrete, loyal to the
+            dark, gloomy post-apocalyptic atmosphere of the original series.
+          </p>
+        </div>
+      </div>
+
+      <!-- Variant 2 -->
+      <div
+        class="bg-bg-secondary border border-border-colored rounded-2xl overflow-hidden flex flex-col group transition-all duration-300 hover:(-translate-y-1.5 border-accent-cyan/3 shadow-[0_15px_35px_rgba(6,182,212,0.15)])"
+      >
+        <div
+          class="relative overflow-hidden aspect-square bg-black/20 flex items-center justify-center border-b border-border-colored"
+        >
+          <Image
+            src={pinoForestMascot}
+            alt="Pino Forest Edition"
+            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+        <div class="p-6 flex flex-col gap-2 flex-grow">
+          <h4 class="font-heading text-lg font-bold text-text-main">
+            Forest Edition
+          </h4>
+          <span class="variant-badge forest">Pino Lang Aesthetic</span>
+          <p class="text-text-muted text-[0.88rem] leading-relaxed mt-1">
+            Surrounded by pine trees and nature, integrating the botanical
+            origin of her name with the language's theme.
+          </p>
+        </div>
+      </div>
+
+      <!-- Variant 3 -->
+      <div
+        class="bg-bg-secondary border border-border-colored rounded-2xl overflow-hidden flex flex-col group transition-all duration-300 hover:(-translate-y-1.5 border-accent-cyan/3 shadow-[0_15px_35px_rgba(6,182,212,0.15)])"
+      >
+        <div
+          class="relative overflow-hidden aspect-square bg-black/20 flex items-center justify-center border-b border-border-colored"
+        >
+          <Image
+            src={pinoNeonMascot}
+            alt="Pino Neon Edition"
+            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+        <div class="p-6 flex flex-col gap-2 flex-grow">
+          <h4 class="font-heading text-lg font-bold text-text-main">
+            Neon Cyberpunk
+          </h4>
+          <span class="variant-badge neon">Retrowave Aesthetic</span>
+          <p class="text-text-muted text-[0.88rem] leading-relaxed mt-1">
+            A vibrant waifu-style design loaded with retro-neon glow lights and
+            classic cyberpunk vibes.
+          </p>
+        </div>
+      </div>
+
+      <!-- Variant 4 -->
+      <div
+        class="bg-bg-secondary border border-border-colored rounded-2xl overflow-hidden flex flex-col group transition-all duration-300 hover:(-translate-y-1.5 border-accent-cyan/3 shadow-[0_15px_35px_rgba(6,182,212,0.15)])"
+      >
+        <div
+          class="relative overflow-hidden aspect-square bg-black/20 flex items-center justify-center border-b border-border-colored"
+        >
+          <Image
+            src={pinoMangaDoodle}
+            alt="Pino Manga Doodle"
+            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+        <div class="p-6 flex flex-col gap-2 flex-grow">
+          <h4 class="font-heading text-lg font-bold text-text-main">
+            Manga Chibi Doodle
+          </h4>
+          <span class="variant-badge manga">Watercolor Art</span>
+          <p class="text-text-muted text-[0.88rem] leading-relaxed mt-1">
+            An adorable manga sketch-style watercolor doodle featuring Vincent
+            Law, Re-l Mayer, and little Pino.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Mascot badge customized classes */
+  .mascot-badge {
+    align-self: flex-start;
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-green);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .variant-badge.gothic {
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--accent-purple);
+  }
+
+  .variant-badge.forest {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-green);
+  }
+
+  .variant-badge.neon {
+    background: rgba(6, 182, 212, 0.1);
+    color: var(--accent-cyan);
+  }
+
+  .variant-badge.manga {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+
+  @media (max-width: 850px) {
+    .mascot-badge {
+      align-self: center;
+    }
+  }
+</style>

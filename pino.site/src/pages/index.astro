@@ -1,0 +1,31 @@
+---
+import Layout from "@layouts/Layout.astro";
+import Playground from "@components/Playground.vue";
+import Hero from "@components/Hero.astro";
+import Features from "@components/Features.astro";
+import GameShowcase from "@components/GameShowcase.astro";
+import Mascot from "@components/Mascot.astro";
+import GettingStarted from "@components/GettingStarted.astro";
+---
+
+<Layout>
+  <!-- Hero Section -->
+  <Hero />
+
+  <!-- Playground Section -->
+  <section id="playground" class="max-w-6xl mx-auto my-12 px-8">
+    <Playground client:load />
+  </section>
+
+  <!-- Features Section -->
+  <Features />
+
+  <!-- Game Showcase Section -->
+  <GameShowcase />
+
+  <!-- Mascot Section -->
+  <Mascot />
+
+  <!-- Getting Started Section -->
+  <GettingStarted />
+</Layout>

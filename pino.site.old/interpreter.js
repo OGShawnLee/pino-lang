@@ -78,7 +78,7 @@ class Lexer {
       }
 
       if (this.matchAhead('+=') || this.matchAhead('-=') || this.matchAhead('*=') || this.matchAhead('/=') || this.matchAhead('%=') ||
-          this.matchAhead('==') || this.matchAhead('!=') || this.matchAhead('<=') || this.matchAhead('>=') || this.matchAhead('::') || this.matchAhead('=>')) {
+        this.matchAhead('==') || this.matchAhead('!=') || this.matchAhead('<=') || this.matchAhead('>=') || this.matchAhead('::') || this.matchAhead('=>')) {
         const op = this.source.slice(this.index, this.index + 2);
         this.tokens.push(new Token(TokenType.OPERATOR, op, this.line));
         this.index += 2;
@@ -162,7 +162,7 @@ class Lexer {
         // We have interpolation
         pushLiteral();
         this.index++; // skip '$'
-        
+
         if (this.source[this.index] === '(') {
           this.index++; // skip '('
           let parenCount = 1;
@@ -180,7 +180,7 @@ class Lexer {
           const subLexer = new Lexer(exprSource);
           const subTokens = subLexer.tokenize();
           subTokens.pop(); // remove sub-lexer EOF token
-          
+
           if (!first) {
             this.tokens.push(new Token(TokenType.OPERATOR, '+', this.line));
           }
@@ -224,8 +224,8 @@ class Lexer {
 }
 
 // AST Nodes
-class Stmt {}
-class Expr {}
+class Stmt { }
+class Expr { }
 
 class VarDecl extends Stmt {
   constructor(name, valueExpr, isConstant, isPublic = false) {
@@ -533,9 +533,9 @@ class Parser {
       return this.containsUndeclaredIt(expr.right);
     }
     if (expr instanceof TernaryExpr) {
-      return this.containsUndeclaredIt(expr.condition) || 
-             this.containsUndeclaredIt(expr.consequent) || 
-             this.containsUndeclaredIt(expr.alternate);
+      return this.containsUndeclaredIt(expr.condition) ||
+        this.containsUndeclaredIt(expr.consequent) ||
+        this.containsUndeclaredIt(expr.alternate);
     }
     if (expr instanceof CallExpr) {
       for (const arg of expr.args) {
@@ -636,14 +636,14 @@ class Parser {
         this.match(TokenType.DELIMITER, ',');
       }
       this.consume(TokenType.DELIMITER, "Expect ')' after function type parameters", ')');
-      
+
       let returnType = " any";
-      if (this.check(TokenType.DELIMITER, '[') || 
-          this.check(TokenType.KEYWORD, 'fn') || 
-          this.check(TokenType.IDENTIFIER)) {
+      if (this.check(TokenType.DELIMITER, '[') ||
+        this.check(TokenType.KEYWORD, 'fn') ||
+        this.check(TokenType.IDENTIFIER)) {
         returnType = " " + this.consumeTyping();
       }
-      
+
       return `fn(${paramTypes.join(', ')})${returnType}`;
     }
 
@@ -805,7 +805,7 @@ class Parser {
         do {
           conditions.push(this.expression(false));
         } while (this.match(TokenType.DELIMITER, ','));
-        
+
         this.consume(TokenType.DELIMITER, "Expect '{' after when conditions", '{');
         const body = this.block();
         branches.push({ conditions, body });
@@ -824,7 +824,7 @@ class Parser {
   structDeclaration(isPublic = false) {
     const nameToken = this.consume(TokenType.IDENTIFIER, "Expect struct name");
     this.consume(TokenType.DELIMITER, "Expect '{' after struct name", '{');
-    
+
     const fields = [];
     const methods = [];
     const inheritedStructs = [];
@@ -892,9 +892,9 @@ class Parser {
     this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
 
     let returnType = "";
-    if (this.check(TokenType.DELIMITER, '[') || 
-        this.check(TokenType.KEYWORD, 'fn') || 
-        this.check(TokenType.IDENTIFIER)) {
+    if (this.check(TokenType.DELIMITER, '[') ||
+      this.check(TokenType.KEYWORD, 'fn') ||
+      this.check(TokenType.IDENTIFIER)) {
       returnType = this.consumeTyping();
     }
 
@@ -918,7 +918,7 @@ class Parser {
 
   fnDeclaration(isPublic = false) {
     const nameToken = this.consume(TokenType.IDENTIFIER, "Expect function name");
-    
+
     // Parameters are in parentheses
     this.consume(TokenType.DELIMITER, "Expect '(' after function name", '(');
     const params = [];
@@ -932,9 +932,9 @@ class Parser {
     this.consume(TokenType.DELIMITER, "Expect ')' after parameter list", ')');
 
     let returnType = "";
-    if (this.check(TokenType.DELIMITER, '[') || 
-        this.check(TokenType.KEYWORD, 'fn') || 
-        this.check(TokenType.IDENTIFIER)) {
+    if (this.check(TokenType.DELIMITER, '[') ||
+      this.check(TokenType.KEYWORD, 'fn') ||
+      this.check(TokenType.IDENTIFIER)) {
       returnType = this.consumeTyping();
     }
 
@@ -1025,8 +1025,8 @@ class Parser {
   comparison(allowStruct = true, allowMemberAccess = true) {
     let expr = this.addition(allowStruct, allowMemberAccess);
     while (this.match(TokenType.OPERATOR, '<') || this.match(TokenType.OPERATOR, '<=') ||
-           this.match(TokenType.OPERATOR, '>') || this.match(TokenType.OPERATOR, '>=') ||
-           this.match(TokenType.KEYWORD, 'in')) {
+      this.match(TokenType.OPERATOR, '>') || this.match(TokenType.OPERATOR, '>=') ||
+      this.match(TokenType.KEYWORD, 'in')) {
       const op = this.previous().value;
       const right = this.addition(allowStruct, allowMemberAccess);
       expr = new BinaryExpr(expr, op, right);
@@ -1289,10 +1289,10 @@ class Parser {
         // Vector initialization constructor: []type { len: limit, init: expr }
         const typeToken = this.consume(TokenType.IDENTIFIER, "Expect vector element type");
         this.consume(TokenType.DELIMITER, "Expect '{' for vector init block", '{');
-        
+
         let lenExpr = null;
         let initExpr = null;
-        
+
         while (!this.check(TokenType.DELIMITER, '}') && !this.isAtEnd()) {
           const propName = this.consume(TokenType.IDENTIFIER, "Expect 'len' or 'init' parameter").value;
           this.consume(TokenType.OPERATOR, "Expect ':' after property name", ':');
@@ -1333,8 +1333,8 @@ class ReturnException extends Error {
     this.value = value;
   }
 }
-class BreakException extends Error {}
-class ContinueException extends Error {}
+class BreakException extends Error { }
+class ContinueException extends Error { }
 
 class Environment {
   constructor(parent = null) {
@@ -1586,7 +1586,7 @@ class Interpreter {
     } else if (stmt instanceof StructDecl) {
       const consolidatedFields = [];
       const consolidatedMethods = [];
-      
+
       if (stmt.inheritedStructs) {
         for (const parentName of stmt.inheritedStructs) {
           const parentStruct = env.get(parentName);
@@ -1598,7 +1598,7 @@ class Interpreter {
           }
         }
       }
-      
+
       for (const field of stmt.fields) {
         const idx = consolidatedFields.findIndex(f => f.name === field.name);
         if (idx !== -1) consolidatedFields.splice(idx, 1);
@@ -1609,7 +1609,7 @@ class Interpreter {
         if (idx !== -1) consolidatedMethods.splice(idx, 1);
         consolidatedMethods.push(method);
       }
-      
+
       const structDef = new StructDecl(stmt.name, consolidatedFields, consolidatedMethods, stmt.inheritedStructs, stmt.isPublic);
       this.structs.set(stmt.name, structDef);
       env.define(stmt.name, structDef, true);
@@ -2396,7 +2396,7 @@ class TypeChecker {
     this.currentlyCheckingModules = new Set();
     this.currentStruct = null;
     this.inStaticMethod = false;
-    
+
     this.builtInFunctions = new Map([
       ["println", "fn(...)"],
       ["readline", "fn(...) string"],
@@ -2585,7 +2585,7 @@ class TypeChecker {
       if (statement.valueExpr) {
         this.checkExpression(statement.valueExpr);
       }
-    } 
+    }
     else if (statement instanceof FnDecl) {
       this.pushScope();
       if (this.currentStruct && !this.inStaticMethod) {
@@ -2604,7 +2604,7 @@ class TypeChecker {
       }
       this.popScope();
       this.inferFunctionReturnType(statement);
-    } 
+    }
     else if (statement instanceof StructDecl) {
       const oldStruct = this.currentStruct;
       const oldStatic = this.inStaticMethod;
@@ -2615,17 +2615,17 @@ class TypeChecker {
       }
       this.currentStruct = oldStruct;
       this.inStaticMethod = oldStatic;
-    } 
+    }
     else if (statement instanceof InterfaceDecl) {
       // Checked globally, nothing to check inside
-    } 
+    }
     else if (statement instanceof Block) {
       this.pushScope();
       for (const s of statement.statements) {
         this.checkStatement(s);
       }
       this.popScope();
-    } 
+    }
     else if (statement instanceof IfStmt) {
       this.checkExpression(statement.condition);
       this.checkStatement(statement.thenBranch);
@@ -2638,7 +2638,7 @@ class TypeChecker {
       if (statement.elseBranch) {
         this.checkStatement(statement.elseBranch);
       }
-    } 
+    }
     else if (statement instanceof ForStmt) {
       this.pushScope();
       const colType = statement.iterableExpr ? this.inferType(statement.iterableExpr) : "any";
@@ -2654,7 +2654,7 @@ class TypeChecker {
       }
       this.checkStatement(statement.body);
       this.popScope();
-    } 
+    }
     else if (statement instanceof MatchStmt) {
       this.checkExpression(statement.condition);
       for (const branch of statement.branches) {
@@ -2666,11 +2666,11 @@ class TypeChecker {
       if (statement.alternate) {
         this.checkStatement(statement.alternate);
       }
-    } 
+    }
     else if (statement instanceof ImportStmt) {
       this.resolveAndCheckModule(statement.moduleName);
       this.declareVariable(statement.moduleName, "module");
-    } 
+    }
     else if (statement instanceof FromImportStmt) {
       this.resolveAndCheckModule(statement.moduleName);
       const modChecker = this.moduleCheckers.get(statement.moduleName);
@@ -2680,12 +2680,12 @@ class TypeChecker {
           this.declareVariable(name, type);
         }
       }
-    } 
+    }
     else if (statement instanceof ReturnStmt) {
       if (statement.argument) {
         this.checkExpression(statement.argument);
       }
-    } 
+    }
     else if (statement instanceof ExprStmt) {
       this.checkExpression(statement.expression);
     }
@@ -2748,7 +2748,7 @@ class TypeChecker {
               }
               for (let i = 0; i < method.params.length; i++) {
                 if (!this.isCompatible(argTypes[i], method.params[i].type)) {
-                  throw new Error(`TYPE CHECK ERROR: Argument ${i+1} for method '${calleeName}' expected type '${method.params[i].type}', but got '${argTypes[i]}'.`);
+                  throw new Error(`TYPE CHECK ERROR: Argument ${i + 1} for method '${calleeName}' expected type '${method.params[i].type}', but got '${argTypes[i]}'.`);
                 }
               }
             } else {
@@ -2785,7 +2785,7 @@ class TypeChecker {
               }
               for (let i = 0; i < method.params.length; i++) {
                 if (!this.isCompatible(argTypes[i], method.params[i].type)) {
-                  throw new Error(`TYPE CHECK ERROR: Argument ${i+1} for static method '${calleeName}' expected type '${method.params[i].type}', but got '${argTypes[i]}'.`);
+                  throw new Error(`TYPE CHECK ERROR: Argument ${i + 1} for static method '${calleeName}' expected type '${method.params[i].type}', but got '${argTypes[i]}'.`);
                 }
               }
             } else if (expr.right instanceof IdentifierExpr) {
@@ -2803,12 +2803,12 @@ class TypeChecker {
           }
         }
       }
-    } 
+    }
     else if (expr instanceof TernaryExpr) {
       this.checkExpression(expr.condition);
       this.checkExpression(expr.consequent);
       this.checkExpression(expr.alternate);
-    } 
+    }
     else if (expr instanceof VectorExpr) {
       if (expr.elements) {
         for (const el of expr.elements) {
@@ -2817,7 +2817,7 @@ class TypeChecker {
       }
       if (expr.lenExpr) this.checkExpression(expr.lenExpr);
       if (expr.initExpr) this.checkExpression(expr.initExpr);
-    } 
+    }
     else if (expr instanceof StructInstanceExpr) {
       const structDecl = this.findStruct(expr.structName);
       if (!structDecl) {
@@ -2836,7 +2836,7 @@ class TypeChecker {
           }
         }
       }
-    } 
+    }
     else if (expr instanceof CallExpr) {
       const argTypes = expr.args.map(a => this.inferType(a));
       for (const arg of expr.args) {
@@ -2852,12 +2852,12 @@ class TypeChecker {
           }
           for (let i = 0; i < fnDecl.params.length; i++) {
             if (!this.isCompatible(argTypes[i], fnDecl.params[i].type)) {
-              throw new Error(`TYPE CHECK ERROR: Argument ${i+1} for function '${calleeName}' expected type '${fnDecl.params[i].type}', but got '${argTypes[i]}'.`);
+              throw new Error(`TYPE CHECK ERROR: Argument ${i + 1} for function '${calleeName}' expected type '${fnDecl.params[i].type}', but got '${argTypes[i]}'.`);
             }
           }
         }
       }
-    } 
+    }
     else if (expr instanceof FunctionLambdaExpression) {
       this.pushScope();
       for (const param of expr.parameters) {
@@ -2865,11 +2865,11 @@ class TypeChecker {
       }
       this.checkStatement(expr.body);
       this.popScope();
-    } 
+    }
     else if (expr instanceof IndexAccessExpr) {
       this.checkExpression(expr.target);
       this.checkExpression(expr.index);
-    } 
+    }
     else if (expr instanceof MapExpr) {
       for (const entry of expr.entries) {
         this.checkExpression(entry.key);
@@ -3096,7 +3096,7 @@ class TypeChecker {
 
   parseFunctionSignature(signature) {
     if (typeof signature !== 'string' || !signature.startsWith("fn(")) return null;
-    
+
     let depth = 1;
     let closingParenIdx = -1;
     for (let i = 3; i < signature.length; i++) {
@@ -3109,15 +3109,15 @@ class TypeChecker {
         }
       }
     }
-    
+
     if (closingParenIdx === -1) return null;
-    
+
     const paramsStr = signature.substring(3, closingParenIdx).trim();
     let returnType = signature.substring(closingParenIdx + 1).trim();
     if (!returnType) {
       returnType = "any";
     }
-    
+
     let paramsList = [];
     if (paramsStr === "...") {
       paramsList = null;
@@ -3135,7 +3135,7 @@ class TypeChecker {
       }
       paramsList.push(paramsStr.substring(start).trim());
     }
-    
+
     return { paramsList, returnType };
   }
 
@@ -3148,23 +3148,23 @@ class TypeChecker {
       return true;
     }
 
-    if ((srcType === "int" || srcType === "float" || srcType === "number") && 
-        (destType === "int" || destType === "float" || destType === "number")) {
+    if ((srcType === "int" || srcType === "float" || srcType === "number") &&
+      (destType === "int" || destType === "float" || destType === "number")) {
       return true;
     }
 
-    if (typeof srcType === 'string' && srcType.startsWith("fn(") && 
-        typeof destType === 'string' && destType.startsWith("fn(")) {
+    if (typeof srcType === 'string' && srcType.startsWith("fn(") &&
+      typeof destType === 'string' && destType.startsWith("fn(")) {
       const srcSig = this.parseFunctionSignature(srcType);
       const destSig = this.parseFunctionSignature(destType);
       if (!srcSig || !destSig) {
         return false;
       }
-      
+
       if (!this.isCompatible(srcSig.returnType, destSig.returnType)) {
         return false;
       }
-      
+
       if (destSig.paramsList === null) {
         return true;
       }
@@ -3197,10 +3197,10 @@ class TypeChecker {
   resolveStructMembers(structName) {
     const allFields = [];
     const allMethods = [];
-    
+
     const structDecl = this.findStruct(structName);
     if (!structDecl) return { allFields, allMethods };
-    
+
     if (structDecl.inheritedStructs) {
       for (const parentName of structDecl.inheritedStructs) {
         const parent = this.resolveStructMembers(parentName);
@@ -3208,7 +3208,7 @@ class TypeChecker {
         allMethods.push(...parent.allMethods);
       }
     }
-    
+
     for (const field of structDecl.fields) {
       const idx = allFields.findIndex(f => f.name === field.name);
       if (idx !== -1) allFields.splice(idx, 1);
@@ -3219,7 +3219,7 @@ class TypeChecker {
       if (idx !== -1) allMethods.splice(idx, 1);
       allMethods.push(method);
     }
-    
+
     return { allFields, allMethods };
   }
 
@@ -3355,11 +3355,11 @@ function runPinoCode(sourceCode, onOutput, onInput) {
     const tokens = lexer.tokenize();
     const parser = new Parser(tokens);
     const statements = parser.parse();
-    
+
     // Static Type Checker
     const checker = new TypeChecker();
     checker.check(statements);
-    
+
     const interpreter = new Interpreter(onOutput, onInput);
     interpreter.execute(statements);
   } catch (err) {

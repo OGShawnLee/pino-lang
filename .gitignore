@@ -40,6 +40,9 @@ CMakeCache.txt
 cmake_install.cmake
 cmake-build-debug
 Makefile
+**/node_modules/
+**/dist/
+**/.astro/
 
 # .NET / C# Build Artifacts
 **/[Bb]in/

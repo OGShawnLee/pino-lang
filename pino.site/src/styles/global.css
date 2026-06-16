@@ -1,0 +1,171 @@
+
+
+:root {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-card: rgba(10, 10, 10, 0.7);
+  --accent-green: #10b981;
+  --accent-green-hover: #059669;
+  --accent-green-glow: rgba(16, 185, 129, 0.25);
+  --accent-cyan: #06b6d4;
+  --accent-purple: #8b5cf6;
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Base resets & layout background grids */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  overflow-x: hidden;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: -2;
+}
+
+/* Ambient Glowing Blobs */
+.ambient-blob-1 {
+  position: absolute;
+  top: 15%;
+  right: -5%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
+  z-index: -1;
+  filter: blur(40px);
+  pointer-events: none;
+  animation: float-blob 25s infinite alternate ease-in-out;
+}
+
+.ambient-blob-2 {
+  position: absolute;
+  top: 55%;
+  left: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.07) 0%, transparent 70%);
+  z-index: -1;
+  filter: blur(50px);
+  pointer-events: none;
+  animation: float-blob 30s infinite alternate-reverse ease-in-out;
+}
+
+/* Animations */
+@keyframes float-blob {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, -60px) scale(1.1); }
+  100% { transform: translate(-30px, 40px) scale(0.95); }
+}
+
+@keyframes sway-tree {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(8deg); }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-character {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom Tree Swaying */
+.logo-tree {
+  animation: sway-tree 4s infinite ease-in-out;
+  transform-origin: bottom center;
+}
+
+/* Hero entrance animation */
+.hero-animated {
+  animation: fade-in-up 0.8s ease-out;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Custom Syntax Highlighting Styles inside Playground & Tabs */
+.keyword { color: var(--accent-cyan); }
+.string { color: #f59e0b; }
+.comment { color: #6b7280; font-style: italic; }
+.number { color: #f43f5e; }
+.type { color: #3b82f6; }
+
+/* Custom mascot glow card offsets */
+.mascot-hero-card::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.floating-mascot {
+  filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.5));
+  animation: float-character 6s ease-in-out infinite;
+}
+
+/* Custom bullet list icons */
+.before-tree {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.before-tree::before {
+  content: "🌲";
+  position: absolute;
+  left: 0;
+  font-size: 0.9rem;
+}

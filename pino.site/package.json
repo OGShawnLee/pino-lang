@@ -1,0 +1,27 @@
+{
+  "name": "pino.site.new",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "predev": "node sync-assets.js",
+    "dev": "astro dev",
+    "prebuild": "node sync-assets.js",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/vue": "^6.0.1",
+    "astro": "^6.4.6",
+    "vue": "^3.5.38"
+  },
+  "devDependencies": {
+    "@unocss/astro": "^66.7.2",
+    "@unocss/reset": "^66.7.2",
+    "sharp": "^0.35.1",
+    "unocss": "^66.7.2"
+  }
+}

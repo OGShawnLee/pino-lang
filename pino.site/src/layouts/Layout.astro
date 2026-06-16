@@ -1,0 +1,47 @@
+---
+import '@unocss/reset/tailwind.css';
+import 'uno.css';
+import "@styles/global.css";
+import Header from "@components/Header.astro";
+import Footer from "@components/Footer.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "Pino Lang 🌲 | Beautiful, Simple, Aesthetic Programming Language",
+  description = "Pino is a modern, simple, and highly aesthetic programming language combining syntax from Vlang, Go, Kotlin, and Ruby. Write code in the playground today!",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+  </head>
+  <body
+    class="bg-bg-primary text-text-main font-sans leading-relaxed min-h-screen flex flex-col"
+  >
+    <!-- Background Glows -->
+    <div class="ambient-blob-1"></div>
+    <div class="ambient-blob-2"></div>
+
+    <!-- Header -->
+    <Header />
+
+    <!-- Main Content Slot -->
+    <main class="flex-grow">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <Footer />
+  </body>
+</html>

@@ -1,0 +1,199 @@
+<script is:inline>
+ // Helper to copy setup commands
+ window.copySnippet = function (btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+   const orig = btn.innerText;
+   btn.innerText = "Copied!";
+   setTimeout(() => (btn.innerText = orig), 1500);
+  });
+ };
+</script>
+
+<section
+ id="install"
+ class="bg-bg-secondary/40 border-t border-b border-border-colored py-24 px-8"
+>
+ <div class="max-w-[1000px] mx-auto">
+  <div class="section-header">
+   <h2 class="font-heading text-4xl font-bold mb-4">Run Pino Locally</h2>
+   <p class="text-text-muted text-lg max-w-[600px] mx-auto">
+    Get the standalone C# interpreter running on your local terminal. Download a
+    binary or build from source.
+   </p>
+  </div>
+
+  <!-- Download Binaries Section -->
+  <div class="my-8">
+   <div
+    class="bg-gradient-to-br from-accent-green/5 to-accent-cyan/5 border border-accent-green/15 rounded-2xl p-10 flex flex-col gap-8 shadow-lg backdrop-blur-md"
+   >
+    <div class="download-info">
+     <h3
+      class="font-heading text-2xl font-bold mb-2 bg-gradient-to-r from-accent-green to-accent-cyan bg-clip-text text-transparent"
+     >
+      Download Precompiled Compiler
+     </h3>
+     <p class="text-text-muted text-[0.95rem]">
+      Get the lightweight, single-file native executable. No installation or
+      .NET SDK required.
+     </p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+     <a
+      href="https://github.com/OGShawnLee/pino-lang/releases/latest/download/pino-windows-x64.zip"
+      class="flex items-center justify-center gap-3 bg-white/3 border border-border-colored text-text-main no-underline p-4 rounded-xl font-500 transition-all duration-300 hover:(bg-accent-green border-accent-green text-bg-primary shadow-[0_0_20px_rgba(16,185,129,0.35)] -translate-y-0.5)"
+     >
+      <span class="text-xl">❖</span> Windows <span
+       class="text-xs opacity-60 ml-1">(x64)</span
+      >
+     </a>
+     <a
+      href="https://github.com/OGShawnLee/pino-lang/releases/latest/download/pino-macos-x64.tar.gz"
+      class="flex items-center justify-center gap-3 bg-white/3 border border-border-colored text-text-main no-underline p-4 rounded-xl font-500 transition-all duration-300 hover:(bg-accent-cyan border-accent-cyan text-bg-primary shadow-[0_0_20px_rgba(6,182,212,0.35)] -translate-y-0.5)"
+     >
+      <span class="text-xl"></span> macOS <span class="text-xs opacity-60 ml-1"
+       >(x64/ARM)</span
+      >
+     </a>
+     <a
+      href="https://github.com/OGShawnLee/pino-lang/releases/latest/download/pino-linux-x64.tar.gz"
+      class="flex items-center justify-center gap-3 bg-white/3 border border-border-colored text-text-main no-underline p-4 rounded-xl font-500 transition-all duration-300 hover:(bg-accent-purple border-accent-purple text-bg-primary shadow-[0_0_20px_rgba(139,92,246,0.35)] -translate-y-0.5)"
+     >
+      <span class="text-xl">🐧</span> Linux <span
+       class="text-xs opacity-60 ml-1">(x64)</span
+      >
+     </a>
+    </div>
+   </div>
+  </div>
+
+  <div class="text-center mt-12 mb-6">
+   <h3 class="font-heading text-2xl font-bold mb-2">Terminal Quick Install</h3>
+   <p class="text-text-muted text-[0.95rem]">
+    Run these commands to instantly download and configure Pino globally in your
+    PATH.
+   </p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+   <!-- Terminal Install Windows -->
+   <div
+    class="bg-bgCard border border-border-colored p-8 rounded-xl transition hover:-translate-y-1"
+   >
+    <div
+     class="bg-accent-green/10 text-accent-green border border-accent-green/20 w-8 h-8 flex items-center justify-center rounded-full font-600 mb-5"
+    >
+     ❖
+    </div>
+    <h3 class="font-heading text-lg font-bold mb-3">Windows (PowerShell)</h3>
+    <p class="text-text-muted text-sm mb-5">
+     Download binary and configure User PATH automatically:
+    </p>
+    <div
+     class="bg-black/20 border border-border-colored rounded-lg p-3 flex justify-between items-center text-text-main font-mono text-xs"
+    >
+     <code
+      >irm
+      https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.ps1 |
+      iex</code
+     >
+     <button
+      class="btn-copy-small bg-transparent hover:bg-white/8 text-text-muted hover:text-text-main px-2 py-1 rounded text-[0.75rem] transition"
+      onclick="copySnippet(this, 'irm https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.ps1 | iex')"
+      >Copy</button
+     >
+    </div>
+   </div>
+
+   <!-- Terminal Install Unix -->
+   <div
+    class="bg-bgCard border border-border-colored p-8 rounded-xl transition hover:-translate-y-1"
+   >
+    <div
+     class="bg-accent-green/10 text-accent-green border border-accent-green/20 w-8 h-8 flex items-center justify-center rounded-full font-600 mb-5"
+    >
+     🐧
+    </div>
+    <h3 class="font-heading text-lg font-bold mb-3">
+     macOS & Linux (Bash/Zsh)
+    </h3>
+    <p class="text-text-muted text-sm mb-5">
+     Download, mark executable, and append to Shell profile path:
+    </p>
+    <div
+     class="bg-black/20 border border-border-colored rounded-lg p-3 flex justify-between items-center text-text-main font-mono text-xs"
+    >
+     <code
+      >curl -fsSL
+      https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.sh |
+      bash</code
+     >
+     <button
+      class="btn-copy-small bg-transparent hover:bg-white/8 text-text-muted hover:text-text-main px-2 py-1 rounded text-[0.75rem] transition"
+      onclick="copySnippet(this, 'curl -fsSL https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.sh | bash')"
+      >Copy</button
+     >
+    </div>
+   </div>
+  </div>
+
+  <div class="text-center mt-12 mb-6">
+   <h3 class="font-heading text-2xl font-bold mb-2">Build From Source</h3>
+   <p class="text-text-muted text-[0.95rem]">
+    Or clone the repository and compile using the .NET SDK manually.
+   </p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+   <!-- Step 1 -->
+   <div
+    class="bg-bgCard border border-border-colored p-8 rounded-xl transition hover:-translate-y-1"
+   >
+    <div
+     class="bg-accent-green/10 text-accent-green border border-accent-green/20 w-8 h-8 flex items-center justify-center rounded-full font-600 mb-5"
+    >
+     1
+    </div>
+    <h3 class="font-heading text-lg font-bold mb-3">Build compiler CLI</h3>
+    <p class="text-text-muted text-sm mb-5">
+     Clone the repository and build the C# compiler. Ensure you have the .NET 10
+     SDK installed.
+    </p>
+    <div
+     class="bg-black/20 border border-border-colored rounded-lg p-3 flex justify-between items-center text-text-main font-mono text-xs"
+    >
+     <code>cd pino-csharp &amp;&amp; dotnet build</code>
+     <button
+      class="btn-copy-small bg-transparent hover:bg-white/8 text-text-muted hover:text-text-main px-2 py-1 rounded text-[0.75rem] transition"
+      onclick="copySnippet(this, 'cd pino-csharp && dotnet build')">Copy</button
+     >
+    </div>
+   </div>
+
+   <!-- Step 2 -->
+   <div
+    class="bg-bgCard border border-border-colored p-8 rounded-xl transition hover:-translate-y-1"
+   >
+    <div
+     class="bg-accent-green/10 text-accent-green border border-accent-green/20 w-8 h-8 flex items-center justify-center rounded-full font-600 mb-5"
+    >
+     2
+    </div>
+    <h3 class="font-heading text-lg font-bold mb-3">Run your first script</h3>
+    <p class="text-text-muted text-sm mb-5">
+     Execute your pino source code file using the run command or launch the
+     watch daemon.
+    </p>
+    <div
+     class="bg-black/20 border border-border-colored rounded-lg p-3 flex justify-between items-center text-text-main font-mono text-xs"
+    >
+     <code>dotnet run run main.pino</code>
+     <button
+      class="btn-copy-small bg-transparent hover:bg-white/8 text-text-muted hover:text-text-main px-2 py-1 rounded text-[0.75rem] transition"
+      onclick="copySnippet(this, 'dotnet run run main.pino')">Copy</button
+     >
+    </div>
+   </div>
+  </div>
+ </div>
+</section>

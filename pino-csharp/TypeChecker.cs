@@ -324,12 +324,24 @@ public class TypeChecker {
           if (loop.Begin is IdentifierExpression id) {
             string colType = loop.End != null ? InferType(loop.End) : "any";
             string loopVarType = "any";
+            string keyVarType = "int";
             if (colType.StartsWith("[]")) {
               loopVarType = colType.Substring(2);
+              keyVarType = "int";
+            } else if (colType.StartsWith("map[")) {
+              int commaIdx = colType.IndexOf(',');
+              if (commaIdx != -1) {
+                keyVarType = colType.Substring(4, commaIdx - 4).Trim();
+                loopVarType = colType.Substring(commaIdx + 1, colType.Length - commaIdx - 2).Trim();
+              }
             } else if (colType == "int" || colType == "float") {
               loopVarType = "int";
+              keyVarType = "int";
             }
             DeclareVariable(id.Name, loopVarType);
+            if (!string.IsNullOrEmpty(loop.KeyVar)) {
+              DeclareVariable(loop.KeyVar, keyVarType);
+            }
           }
           if (loop.End != null) {
             CheckExpression(loop.End);

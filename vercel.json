@@ -7,7 +7,7 @@
     },
     {
       "source": "/:path*",
-      "destination": "/pino.site/:path*"
+      "destination": "/pino.site/dist/:path*"
     }
   ]
 }

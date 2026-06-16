@@ -1,0 +1,383 @@
+<!-- Features Showcase Section -->
+<section id="features" class="max-w-6xl mx-auto my-24 px-8">
+  <div class="section-header">
+    <h2 class="font-heading text-4xl font-bold mb-4">Syntactic Elegance</h2>
+    <p class="text-text-muted text-lg max-w-[600px] mx-auto">
+      Clean structures, optional commas, zero boilerplate. Discover how Pino
+      reads.
+    </p>
+  </div>
+
+  <!-- Tabs Nav -->
+  <div
+    class="flex justify-center flex-wrap gap-2 mb-10 border-b border-border-colored pb-4"
+  >
+    <button class="tab-btn active" data-tab="tab-variables"
+      >Variables & Constants</button
+    >
+    <button class="tab-btn" data-tab="tab-strings">String Interpolation</button>
+    <button class="tab-btn" data-tab="tab-functions">Functions & Lambdas</button
+    >
+    <button class="tab-btn" data-tab="tab-structs">Structs & Instances</button>
+    <button class="tab-btn" data-tab="tab-vectors"
+      >Vectors & Functional APIs</button
+    >
+    <button class="tab-btn" data-tab="tab-loops">Simplified Loops</button>
+    <button class="tab-btn" data-tab="tab-conditionals">Decision Control</button
+    >
+  </div>
+
+  <!-- Tab Contents -->
+
+  <!-- Variables Tab -->
+  <div id="tab-variables" class="tab-content active">
+    <div class="flex flex-col md:flex-row gap-12 items-center">
+      <div class="flex-1">
+        <h3 class="font-heading text-3xl font-semibold mb-4 text-text-main">
+          Constants vs. Mutables
+        </h3>
+        <p class="text-text-muted text-lg mb-6">
+          Distinguish cleanly between constant and mutable variables. Constant
+          mutability checks are evaluated at parse-time to guarantee runtime
+          immutability.
+        </p>
+        <ul class="list-none p-0">
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Use <code class="text-accent-cyan font-mono">val</code> for immutable
+            properties.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Use <code class="text-accent-cyan font-mono">var</code> for values that
+            can change.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Parser enforces compile-time warnings against reassignment.
+          </li>
+        </ul>
+      </div>
+      <div class="flex-1 w-full">
+        <pre
+          class="bg-bg-secondary border border-border-colored rounded-xl p-6 overflow-x-auto font-mono text-[0.9rem] text-text-main"><code><span class="comment"># Define a constant value</span>
+<span class="keyword">val</span> gravity = <span class="number">9.81</span>
+
+<span class="comment"># Define a mutable tracker</span>
+<span class="keyword">var</span> velocity = <span class="number">0</span>
+velocity = velocity + <span class="number">10</span> <span class="comment"># Reassignment is allowed</span></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Strings Tab -->
+  <div id="tab-strings" class="tab-content hidden">
+    <div class="flex flex-col md:flex-row gap-12 items-center">
+      <div class="flex-1">
+        <h3 class="font-heading text-3xl font-semibold mb-4 text-text-main">
+          First-Class Interpolation
+        </h3>
+        <p class="text-text-muted text-lg mb-6">
+          Interpolate variables directly inside double quotes using a simple $
+          symbol, or write full evaluations inside $(expr) tags. Interpolated
+          blocks desegment into addition trees automatically.
+        </p>
+        <ul class="list-none p-0">
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Variable injection via <code>$varName</code>.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Expression interpolation via <code>$(expression)</code>.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            No complex compiler overrides needed; parses directly as
+            concatenated string expressions.
+          </li>
+        </ul>
+      </div>
+      <div class="flex-1 w-full">
+        <pre
+          class="bg-bg-secondary border border-border-colored rounded-xl p-6 overflow-x-auto font-mono text-[0.9rem] text-text-main"><code><span class="keyword">val</span> name = <span class="string">"Lenore"</span>
+<span class="keyword">val</span> age = <span class="number">28</span>
+println(<span class="string">"Developer $name is $age years old."</span>)
+println(<span class="string">"Next year: $(age + 1)"</span>)</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Functions Tab -->
+  <div id="tab-functions" class="tab-content hidden">
+    <div class="flex flex-col md:flex-row gap-12 items-center">
+      <div class="flex-1">
+        <h3 class="font-heading text-3xl font-semibold mb-4 text-text-main">
+          Higher-Order Closures & Lambdas
+        </h3>
+        <p class="text-text-muted text-lg mb-6">
+          Functions support optional parameter lists and zero commas. Pino
+          lambdas generate local scopes carrying references to their parent
+          environments, supporting closures. You can also write quick arrow
+          lambdas (`=>`) for single-line expressions.
+        </p>
+        <ul class="list-none p-0">
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Declare functions using <code class="text-accent-cyan font-mono"
+              >fn</code
+            >.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Return lambdas dynamically to build functional closures.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Use <code class="text-accent-cyan font-mono">=></code> for concise single-line
+            expressions.
+          </li>
+        </ul>
+      </div>
+      <div class="flex-1 w-full">
+        <pre
+          class="bg-bg-secondary border border-border-colored rounded-xl p-6 overflow-x-auto font-mono text-[0.9rem] text-text-main"><code><span class="comment"># Arrow lambda syntax (single-line expressions)</span>
+<span class="keyword">val</span> get_times_it_fn = <span class="keyword">fn</span> (multiplier <span class="type">int</span>) => <span class="keyword">fn</span> (it <span class="type">int</span>) => it * multiplier
+
+<span class="keyword">val</span> double_it = get_times_it_fn(<span class="number">2</span>)
+println(double_it(<span class="number">5</span>)) <span class="comment"># Prints 10</span></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Structs Tab -->
+  <div id="tab-structs" class="tab-content hidden">
+    <div class="flex flex-col md:flex-row gap-12 items-center">
+      <div class="flex-1">
+        <h3 class="font-heading text-3xl font-semibold mb-4 text-text-main">
+          Encapsulated Struct Methods
+        </h3>
+        <p class="text-text-muted text-lg mb-6">
+          Pino provides full OOP-like encapsulation via structure block
+          declarations. Write struct methods directly within the parent block
+          scope, and invoke them cleanly using the custom colon attribute
+          operator.
+        </p>
+        <ul class="list-none p-0">
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Attributes and methods declared side-by-side in custom <code
+              class="text-accent-cyan font-mono">struct</code
+            > models.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Access and trigger instance routines via <code
+              class="text-accent-cyan font-mono">:</code
+            > notation.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Instantiate structs using layout blocks without comma separation.
+          </li>
+        </ul>
+      </div>
+      <div class="flex-1 w-full">
+        <pre
+          class="bg-bg-secondary border border-border-colored rounded-xl p-6 overflow-x-auto font-mono text-[0.9rem] text-text-main"><code>{`<span class="keyword">struct</span> Point {
+  x <span class="type">int</span>
+  y <span class="type">int</span>
+
+  <span class="keyword">fn</span> draw() {
+    println(<span class="string">"Drawing Point at $x, $y"</span>)
+  }
+}
+
+<span class="keyword">val</span> pt = Point { x: <span class="number">10</span>, y: <span class="number">20</span> }
+pt:draw() <span class="comment"># Triggering Point method</span>`}</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vectors Tab -->
+  <div id="tab-vectors" class="tab-content hidden">
+    <div class="flex flex-col md:flex-row gap-12 items-center">
+      <div class="flex-1">
+        <h3 class="font-heading text-3xl font-semibold mb-4 text-text-main">
+          Functional Collections
+        </h3>
+        <p class="text-text-muted text-lg mb-6">
+          Pino vectors are dynamic array lists built with functional mapping
+          capabilities. They support automatic layout construction using
+          explicit length descriptors and iterator expressions.
+        </p>
+        <ul class="list-none p-0">
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Declare vector variables with <code
+              class="text-accent-cyan font-mono">[]type</code
+            > notation.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Construct arrays using length descriptors: <code
+              class="text-accent-cyan font-mono"
+              >&#123; len: N, init: expr &#125;</code
+            >.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Chain collections using functional lambdas like <code
+              class="text-accent-cyan font-mono">map</code
+            >, <code class="text-accent-cyan font-mono">filter</code>, or <code
+              class="text-accent-cyan font-mono">each</code
+            >.
+          </li>
+        </ul>
+      </div>
+      <div class="flex-1 w-full">
+        <pre
+          class="bg-bg-secondary border border-border-colored rounded-xl p-6 overflow-x-auto font-mono text-[0.9rem] text-text-main"><code>{`<span class="comment"># Vector init block using generator index 'it'</span>
+<span class="keyword">val</span> numbers = []<span class="type">int</span> { len: <span class="number">5</span>, init: it + <span class="number">1</span> }
+
+<span class="comment"># Map & Filter collections</span>
+<span class="keyword">val</span> doubled = numbers:map(<span class="keyword">fn</span>(it <span class="type">int</span>) => it * <span class="number">2</span>)
+<span class="keyword">val</span> evens = numbers:filter(<span class="keyword">fn</span>(it <span class="type">int</span>) => it % <span class="number">2</span> == <span class="number">0</span>)`}</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loops Tab -->
+  <div id="tab-loops" class="tab-content hidden">
+    <div class="flex flex-col md:flex-row gap-12 items-center">
+      <div class="flex-1">
+        <h3 class="font-heading text-3xl font-semibold mb-4 text-text-main">
+          Unified Loop Semantics
+        </h3>
+        <p class="text-text-muted text-lg mb-6">
+          Pino simplifies iteration blocks down to a single core keyword: <code
+            class="text-accent-cyan font-mono">for</code
+          >. This handles standard iterator limits, collection mappings, and
+          infinite cycles natively.
+        </p>
+        <ul class="list-none p-0">
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Infinite loop block: <code class="text-accent-cyan font-mono"
+              >for &#123; ... &#125;</code
+            > (exits via break).
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Collection looping: <code class="text-accent-cyan font-mono"
+              >for item in collection</code
+            >.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Range looping: <code class="text-accent-cyan font-mono"
+              >for index in limit</code
+            >.
+          </li>
+        </ul>
+      </div>
+      <div class="flex-1 w-full">
+        <pre
+          class="bg-bg-secondary border border-border-colored rounded-xl p-6 overflow-x-auto font-mono text-[0.9rem] text-text-main"><code>{`<span class="comment"># 1. Loop collections</span>
+<span class="keyword">for</span> hero in [<span class="string">"Marcus"</span>, <span class="string">"Vincent"</span>] {
+  println(hero)
+}
+
+<span class="comment"># 2. Iterate limit count</span>
+<span class="keyword">for</span> time in <span class="number">5</span> {
+  println(<span class="string">"Iteration $time"</span>)
+}`}</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conditionals Tab -->
+  <div id="tab-conditionals" class="tab-content hidden">
+    <div class="flex flex-col md:flex-row gap-12 items-center">
+      <div class="flex-1">
+        <h3 class="font-heading text-3xl font-semibold mb-4 text-text-main">
+          Precise Branch Evaluations
+        </h3>
+        <p class="text-text-muted text-lg mb-6">
+          Pino executes logical branches via traditional conditional forks and
+          high-speed multi-case matching patterns. Parentheses are completely
+          optional around conditions.
+        </p>
+        <ul class="list-none p-0">
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Standard if-else block routing.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Unified compiler-optimized <code class="text-accent-cyan font-mono"
+              >match-when</code
+            > selectors.
+          </li>
+          <li class="before-tree mb-3 text-[0.95rem]">
+            Support for multi-value targets: <code
+              class="text-accent-cyan font-mono">when "Value1", "Value2"</code
+            >.
+          </li>
+        </ul>
+      </div>
+      <div class="flex-1 w-full">
+        <pre
+          class="bg-bg-secondary border border-border-colored rounded-xl p-6 overflow-x-auto font-mono text-[0.9rem] text-text-main"><code>{`<span class="keyword">val</span> action = <span class="string">"Compile"</span>
+<span class="keyword">match</span> action {
+  <span class="keyword">when</span> <span class="string">"Compile"</span> {
+    println(<span class="string">"Building executable..."</span>)
+  }
+  <span class="keyword">when</span> <span class="string">"Clean"</span>, <span class="string">"Reset"</span> {
+    println(<span class="string">"Cleaning..."</span>)
+  }
+  <span class="keyword">else</span> {
+    println(<span class="string">"Unknown command."</span>)
+  }
+}`}</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script is:inline>
+  // Visual tab switcher script
+  const tabButtons = document.querySelectorAll(".tab-btn");
+  const tabContents = document.querySelectorAll(".tab-content");
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
+      const tabId = btn.getAttribute("data-tab");
+
+      // Hide all contents and remove active class from buttons
+      tabContents.forEach((content) => {
+        content.classList.add("hidden");
+        content.classList.remove("active");
+      });
+      tabButtons.forEach((b) => b.classList.remove("active"));
+
+      // Show the selected tab and mark button active
+      const activeContent = document.getElementById(tabId);
+      if (activeContent) {
+        activeContent.classList.remove("hidden");
+        activeContent.classList.add("active");
+      }
+      btn.classList.add("active");
+    });
+  });
+</script>
+
+<style>
+  /* Local styling rules for tabs status */
+  .tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .tab-btn.active {
+    color: var(--accent-green);
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+
+  .tab-content {
+    animation: fade-in 0.4s ease-out;
+  }
+</style>
