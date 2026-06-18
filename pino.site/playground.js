@@ -1,5 +1,9 @@
+import { dotnet } from './wasm/_framework/dotnet.js';
+
+let WASMExports = null;
+
 // Playground logic for Pino.site
-// Pre-loads templates and handles execution hookups with interpreter.js
+// Pre-loads templates and handles execution hookups with WebAssembly
 
 const TEMPLATES = {
   hello: `# PinoQuest: Hello World Showcase
@@ -91,7 +95,20 @@ println(numbers:map(get_times_it_fn(2)))
 `
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize WASM Runtime
+try {
+  const { getAssemblyExports, getConfig } = await dotnet
+    .withDiagnosticTracing(false)
+    .create();
+  const config = getConfig();
+  WASMExports = await getAssemblyExports(config.mainAssemblyName);
+  initializePlayground();
+  console.log("🌲 Pino WebAssembly Compiler Loaded Successfully!");
+} catch (err) {
+  console.error("Failed to load .NET WASM Runtime:", err);
+}
+
+function initializePlayground() {
   const codeEditor = document.getElementById('code-editor');
   const runBtn = document.getElementById('run-btn');
   const clearBtn = document.getElementById('clear-btn');
@@ -117,26 +134,18 @@ document.addEventListener('DOMContentLoaded', () => {
     appendOutput(`[SYSTEM] Compiling and executing pino program...\n`);
     const code = codeEditor.value;
 
-    // Capture standard output
-    const onOutput = (text) => {
-      if (text === '\f') {
-        clearConsole();
-      } else {
-        appendOutput(text);
-      }
-    };
-
-    // Capture standard input using prompt
-    const onInput = () => {
-      const input = prompt("Enter input value:");
-      appendOutput(`${input}\n`);
-      return input || "";
-    };
-
-    // Run program execution
     setTimeout(() => {
-      runPinoCode(code, onOutput, onInput);
-      appendOutput(`\n[SYSTEM] Process finished with exit code 0.\n`);
+      if (!WASMExports) {
+        appendOutput("[ERROR] WebAssembly compiler is still loading. Please wait...\n");
+        return;
+      }
+      try {
+        const result = WASMExports.pino_csharp.WASMBridge.Evaluate(code);
+        appendOutput(result);
+        appendOutput(`\n[SYSTEM] Process finished with exit status.\n`);
+      } catch (err) {
+        appendOutput(`[ERROR] Execution failed: ${err.message}\n`);
+      }
     }, 50);
   });
 
@@ -166,9 +175,9 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
-    
+
     consoleOutput.innerHTML += escaped;
     // Auto scroll to bottom
     consoleOutput.scrollTop = consoleOutput.scrollHeight;
   }
-});
+}

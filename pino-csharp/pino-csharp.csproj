@@ -8,5 +8,14 @@
     <Nullable>enable</Nullable>
     <Version>0.3.0</Version>
   </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- Exclude WASM-only files from non-WASM builds -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != 'browser-wasm'">
+    <Compile Remove="WASMBridge.cs" />
+  </ItemGroup>
 
 </Project>
