@@ -1,0 +1,45 @@
+name: Build WebAssembly and Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install wasm-tools Workload
+        run: dotnet workload install wasm-tools
+
+      - name: Publish Pino WebAssembly
+        run: dotnet publish pino-csharp/pino-csharp.csproj -c Release -r browser-wasm
+
+      - name: Copy WASM Bundle to Website
+        run: |
+          rm -rf pino.site/wasm
+          mkdir -p pino.site/wasm
+          cp -r pino-csharp/bin/Release/net10.0/browser-wasm/AppBundle/* pino.site/wasm/
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Pull Vercel Project Info
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./pino.site
+
+      - name: Build Vercel Project
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./pino.site
+
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./pino.site
