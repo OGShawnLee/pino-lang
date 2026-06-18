@@ -11,6 +11,8 @@
   
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
   </PropertyGroup>
 
   <!-- Exclude WASM-only files from non-WASM builds -->
