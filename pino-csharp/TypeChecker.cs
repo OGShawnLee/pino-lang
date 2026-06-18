@@ -11,18 +11,21 @@ public class TypeChecker {
   private readonly Dictionary<string, InterfaceDeclaration> _interfaces = new();
   private readonly Dictionary<string, EnumDeclaration> _enums = new();
   private readonly Dictionary<string, FunctionDeclaration> _functions = new();
-  
+
   // Environment/scopes for variable checking
   private readonly Stack<Dictionary<string, string>> _scopes = new();
-  
+
   // Context for current struct and method being checked
   private StructDeclaration? _currentStruct = null;
   private bool _inStaticMethod = false;
-  
+
   // Cache of checked modules to prevent double-checking
   private readonly Dictionary<string, TypeChecker> _moduleCheckers = new();
   private readonly HashSet<string> _currentlyCheckingModules = new();
-  
+
+  // Guard against infinite recursion during return type inference of recursive functions
+  private readonly HashSet<string> _inferringFunctions = new();
+
   // Standard library definitions
   private static readonly Dictionary<string, string> BuiltInFunctions = new() {
     { "println", "fn(...)" },
@@ -78,7 +81,7 @@ public class TypeChecker {
 
   public void Check(ProgramStatement program) {
     PushScope();
-    
+
     // Pass 1: Gather global symbols
     foreach (var stmt in program.Statements) {
       switch (stmt) {
@@ -96,36 +99,36 @@ public class TypeChecker {
           break;
       }
     }
-    
+
     // Pass 2: Check all statements
     foreach (var stmt in program.Statements) {
       CheckStatement(stmt);
     }
-    
+
     PopScope();
   }
 
   private void ResolveAndCheckModule(string moduleName) {
     if (_moduleCheckers.ContainsKey(moduleName)) return;
-    
+
     if (_currentlyCheckingModules.Contains(moduleName)) {
       throw new Exception($"TYPE CHECK ERROR: Circular dependency detected while type checking module '{moduleName}'.");
     }
     _currentlyCheckingModules.Add(moduleName);
-    
+
     try {
       var filename = moduleName.ToLower() + ".pino";
       var modulesDir = Path.Combine(System.Environment.CurrentDirectory, "modules");
       var filePath = Path.Combine(modulesDir, filename);
-      
+
       if (!File.Exists(filePath)) {
         throw new Exception($"TYPE CHECK ERROR: Module '{moduleName}' not found. Expected file at '{filePath}'.");
       }
-      
+
       var program = Parser.ParseFile(filePath);
       var moduleChecker = new TypeChecker();
       moduleChecker.Check(program);
-      
+
       _moduleCheckers[moduleName] = moduleChecker;
     } finally {
       _currentlyCheckingModules.Remove(moduleName);
@@ -135,41 +138,41 @@ public class TypeChecker {
   private void PushScope() {
     _scopes.Push(new Dictionary<string, string>());
   }
-  
+
   private void PopScope() {
     if (_scopes.Count > 0) {
       _scopes.Pop();
     }
   }
-  
+
   private void DeclareVariable(string name, string type) {
     if (_scopes.Count > 0) {
       _scopes.Peek()[name] = type;
     }
   }
-  
+
   public string ResolveIdentifierType(string name) {
     foreach (var scope in _scopes) {
       if (scope.TryGetValue(name, out var type)) {
         return type;
       }
     }
-    
+
     // Check global functions
     if (_functions.TryGetValue(name, out var fnDecl)) {
       return GetFunctionSignatureString(fnDecl);
     }
-    
+
     // Check built-in functions
     if (BuiltInFunctions.TryGetValue(name, out var builtInSig)) {
       return builtInSig;
     }
-    
+
     // If it's a known struct, return it as type name
     if (FindStruct(name) != null) {
       return name;
     }
-    
+
     // If it's a known interface, return it
     if (FindInterface(name) != null) {
       return name;
@@ -177,12 +180,12 @@ public class TypeChecker {
 
     return "any";
   }
-  
+
   public string ResolveFunctionReturnType(string callee) {
     if (_functions.TryGetValue(callee, out var fnDecl)) {
       return InferFunctionReturnType(fnDecl);
     }
-    
+
     if (BuiltInFunctions.TryGetValue(callee, out var builtInSig)) {
       // Extract return type if present (e.g. "fn(...) string" -> "string")
       int lastSpace = builtInSig.LastIndexOf(' ');
@@ -191,7 +194,7 @@ public class TypeChecker {
       }
       return "any";
     }
-    
+
     // Look up identifier type
     string idType = ResolveIdentifierType(callee);
     if (idType.StartsWith("fn(")) {
@@ -201,10 +204,10 @@ public class TypeChecker {
         return idType.Substring(closingParen + 1).Trim();
       }
     }
-    
+
     return "any";
   }
-  
+
   private string GetFunctionSignatureString(FunctionDeclaration? fn = null, List<VariableDeclaration>? parameters = null, FunctionLambdaExpression? lambda = null) {
     var paramTypes = new List<string>();
     var paramsList = fn != null ? fn.Parameters : (parameters ?? lambda?.Parameters);
@@ -236,7 +239,7 @@ public class TypeChecker {
         if (varDecl.Kind == VariableKind.Constant || varDecl.Kind == VariableKind.Variable) {
           string valType = varDecl.Value != null ? InferType(varDecl.Value) : "any";
           string expectedType = varDecl.Typing;
-          
+
           if (!string.IsNullOrEmpty(expectedType)) {
             if (!IsCompatible(valType, expectedType)) {
               throw new Exception($"TYPE CHECK ERROR: Cannot assign type '{valType}' to variable '{varDecl.Identifier}' of type '{expectedType}'.");
@@ -245,13 +248,13 @@ public class TypeChecker {
           } else {
             DeclareVariable(varDecl.Identifier, valType);
           }
-          
+
           if (varDecl.Value != null) {
             CheckExpression(varDecl.Value);
           }
         }
         break;
-        
+
       case FunctionDeclaration fnDecl:
         PushScope();
         if (_currentStruct != null && !_inStaticMethod) {
@@ -271,7 +274,7 @@ public class TypeChecker {
         PopScope();
         InferFunctionReturnType(fnDecl);
         break;
-        
+
       case StructDeclaration structDecl:
         var oldStruct = _currentStruct;
         var oldStatic = _inStaticMethod;
@@ -288,10 +291,10 @@ public class TypeChecker {
         _currentStruct = oldStruct;
         _inStaticMethod = oldStatic;
         break;
-        
+
       case InterfaceDeclaration:
         break;
-        
+
       case BlockStatement block:
         PushScope();
         foreach (var s in block.Statements) {
@@ -299,7 +302,7 @@ public class TypeChecker {
         }
         PopScope();
         break;
-        
+
       case IfStatement ifs:
         CheckExpression(ifs.Condition);
         CheckStatement(ifs.Consequent);
@@ -307,17 +310,17 @@ public class TypeChecker {
           CheckStatement(ifs.Alternate);
         }
         break;
-        
+
       case ElseStatement els:
         CheckStatement(els.Body);
         break;
-        
+
       case ReturnStatement ret:
         if (ret.Argument != null) {
           CheckExpression(ret.Argument);
         }
         break;
-        
+
       case LoopStatement loop:
         PushScope();
         if (loop.Kind == LoopKind.ForIn) {
@@ -358,7 +361,7 @@ public class TypeChecker {
         CheckStatement(loop.Body);
         PopScope();
         break;
-        
+
       case MatchStatement match:
         CheckExpression(match.Condition);
         foreach (var branch in match.Branches) {
@@ -371,12 +374,12 @@ public class TypeChecker {
           CheckStatement(match.Alternate);
         }
         break;
-        
+
       case ImportStatement imp:
         ResolveAndCheckModule(imp.ModuleName);
         DeclareVariable(imp.ModuleName, "module");
         break;
-        
+
       case FromImportStatement fromImp:
         ResolveAndCheckModule(fromImp.ModuleName);
         if (_moduleCheckers.TryGetValue(fromImp.ModuleName, out var modChecker)) {
@@ -386,7 +389,7 @@ public class TypeChecker {
           }
         }
         break;
-        
+
       case Expression expr:
         CheckExpression(expr);
         break;
@@ -417,95 +420,93 @@ public class TypeChecker {
         break;
 
       case BinaryExpression bin: {
-        CheckExpression(bin.Left);
-        CheckExpression(bin.Right);
-        
-        if (bin.Operator == OperatorType.Assignment) {
-          string leftType = InferType(bin.Left);
-          string rightType = InferType(bin.Right);
-          if (!IsCompatible(rightType, leftType)) {
-            throw new Exception($"TYPE CHECK ERROR: Cannot assign type '{rightType}' to target of type '{leftType}'.");
-          }
-        }
-        else if (bin.Operator == OperatorType.MemberAccess) {
-          string leftType = InferType(bin.Left);
-          var accessStructDecl = FindStruct(leftType);
-          if (accessStructDecl != null) {
-            ResolveStructMembers(leftType, out var _, out var allMethods);
-            if (bin.Right is FunctionCallExpression methodCall) {
-              var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
-              if (method != null) {
-                if (method.IsStatic) {
-                  throw new Exception($"TYPE CHECK ERROR: Cannot call static method '{method.Identifier}' of struct '{accessStructDecl.Identifier}' on an instance.");
-                }
-                // Validate arguments
-                var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
-                if (method.Parameters.Count != memberCallArgTypes.Count) {
-                  throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {memberCallArgTypes.Count}.");
-                }
-                for (int i = 0; i < method.Parameters.Count; i++) {
-                  if (!IsCompatible(memberCallArgTypes[i], method.Parameters[i].Typing)) {
-                    throw new Exception($"TYPE CHECK ERROR: Argument {i+1} for method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{memberCallArgTypes[i]}'.");
-                  }
-                }
-              } else {
-                throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have method '{methodCall.Callee}'.");
-              }
-            } else if (bin.Right is IdentifierExpression propId) {
-              var method = allMethods.Find(m => m.Identifier == propId.Name);
-              if (method != null && method.IsStatic) {
-                throw new Exception($"TYPE CHECK ERROR: Cannot access static method '{method.Identifier}' as instance member.");
-              }
+          CheckExpression(bin.Left);
+          CheckExpression(bin.Right);
+
+          if (bin.Operator == OperatorType.Assignment) {
+            string leftType = InferType(bin.Left);
+            string rightType = InferType(bin.Right);
+            if (!IsCompatible(rightType, leftType)) {
+              throw new Exception($"TYPE CHECK ERROR: Cannot assign type '{rightType}' to target of type '{leftType}'.");
             }
-          }
-        }
-        else if (bin.Operator == OperatorType.StaticMemberAccess) {
-          if (bin.Left is IdentifierExpression structId) {
-            string structName = structId.Name;
-            var staticAccessStructDecl = FindStruct(structName);
-            if (staticAccessStructDecl != null) {
-              ResolveStructMembers(structName, out var _, out var allMethods);
+          } else if (bin.Operator == OperatorType.MemberAccess) {
+            string leftType = InferType(bin.Left);
+            var accessStructDecl = FindStruct(leftType);
+            if (accessStructDecl != null) {
+              ResolveStructMembers(leftType, out var _, out var allMethods);
               if (bin.Right is FunctionCallExpression methodCall) {
                 var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
-                if (method == null) {
-                  throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodCall.Callee}'.");
-                }
-                if (!method.IsStatic) {
-                  throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
-                }
-                // Validate arguments
-                var staticCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
-                if (method.Parameters.Count != staticCallArgTypes.Count) {
-                  throw new Exception($"TYPE CHECK ERROR: Static method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {staticCallArgTypes.Count}.");
-                }
-                for (int i = 0; i < method.Parameters.Count; i++) {
-                  if (!IsCompatible(staticCallArgTypes[i], method.Parameters[i].Typing)) {
-                    throw new Exception($"TYPE CHECK ERROR: Argument {i+1} for static method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{staticCallArgTypes[i]}'.");
+                if (method != null) {
+                  if (method.IsStatic) {
+                    throw new Exception($"TYPE CHECK ERROR: Cannot call static method '{method.Identifier}' of struct '{accessStructDecl.Identifier}' on an instance.");
                   }
+                  // Validate arguments
+                  var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                  if (method.Parameters.Count != memberCallArgTypes.Count) {
+                    throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {memberCallArgTypes.Count}.");
+                  }
+                  for (int i = 0; i < method.Parameters.Count; i++) {
+                    if (!IsCompatible(memberCallArgTypes[i], method.Parameters[i].Typing)) {
+                      throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{memberCallArgTypes[i]}'.");
+                    }
+                  }
+                } else {
+                  throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have method '{methodCall.Callee}'.");
                 }
-              } else if (bin.Right is IdentifierExpression methodId) {
-                var method = allMethods.Find(m => m.Identifier == methodId.Name);
-                if (method == null) {
-                  throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodId.Name}'.");
+              } else if (bin.Right is IdentifierExpression propId) {
+                var method = allMethods.Find(m => m.Identifier == propId.Name);
+                if (method != null && method.IsStatic) {
+                  throw new Exception($"TYPE CHECK ERROR: Cannot access static method '{method.Identifier}' as instance member.");
                 }
-                if (!method.IsStatic) {
-                  throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+              }
+            }
+          } else if (bin.Operator == OperatorType.StaticMemberAccess) {
+            if (bin.Left is IdentifierExpression structId) {
+              string structName = structId.Name;
+              var staticAccessStructDecl = FindStruct(structName);
+              if (staticAccessStructDecl != null) {
+                ResolveStructMembers(structName, out var _, out var allMethods);
+                if (bin.Right is FunctionCallExpression methodCall) {
+                  var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
+                  if (method == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodCall.Callee}'.");
+                  }
+                  if (!method.IsStatic) {
+                    throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                  }
+                  // Validate arguments
+                  var staticCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                  if (method.Parameters.Count != staticCallArgTypes.Count) {
+                    throw new Exception($"TYPE CHECK ERROR: Static method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {staticCallArgTypes.Count}.");
+                  }
+                  for (int i = 0; i < method.Parameters.Count; i++) {
+                    if (!IsCompatible(staticCallArgTypes[i], method.Parameters[i].Typing)) {
+                      throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for static method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{staticCallArgTypes[i]}'.");
+                    }
+                  }
+                } else if (bin.Right is IdentifierExpression methodId) {
+                  var method = allMethods.Find(m => m.Identifier == methodId.Name);
+                  if (method == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodId.Name}'.");
+                  }
+                  if (!method.IsStatic) {
+                    throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                  }
+                } else {
+                  throw new Exception($"TYPE CHECK ERROR: Invalid static member access on struct '{structName}'.");
                 }
-              } else {
-                throw new Exception($"TYPE CHECK ERROR: Invalid static member access on struct '{structName}'.");
               }
             }
           }
+          break;
         }
-        break;
-      }
-        
+
       case TernaryExpression tern:
         CheckExpression(tern.Condition);
         CheckExpression(tern.Consequent);
         CheckExpression(tern.Alternate);
         break;
-        
+
       case VectorExpression vec:
         if (vec.Elements != null) {
           foreach (var el in vec.Elements) {
@@ -515,7 +516,7 @@ public class TypeChecker {
         if (vec.Len != null) CheckExpression(vec.Len);
         if (vec.Init != null) CheckExpression(vec.Init);
         break;
-        
+
       case StructInstanceExpression inst:
         var structDecl = FindStruct(inst.StructName);
         if (structDecl == null) {
@@ -537,25 +538,25 @@ public class TypeChecker {
           }
         }
         break;
-        
+
       case FunctionCallExpression call:
         var argTypes = call.Arguments.Select(InferType).ToList();
         foreach (var arg in call.Arguments) {
           CheckExpression(arg);
         }
-        
+
         if (_functions.TryGetValue(call.Callee, out var fnDecl)) {
           if (fnDecl.Parameters.Count != argTypes.Count) {
             throw new Exception($"TYPE CHECK ERROR: Function '{call.Callee}' expected {fnDecl.Parameters.Count} arguments, but got {argTypes.Count}.");
           }
           for (int i = 0; i < fnDecl.Parameters.Count; i++) {
             if (!IsCompatible(argTypes[i], fnDecl.Parameters[i].Typing)) {
-              throw new Exception($"TYPE CHECK ERROR: Argument {i+1} for function '{call.Callee}' expected type '{fnDecl.Parameters[i].Typing}', but got '{argTypes[i]}'.");
+              throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for function '{call.Callee}' expected type '{fnDecl.Parameters[i].Typing}', but got '{argTypes[i]}'.");
             }
           }
         }
         break;
-        
+
       case FunctionLambdaExpression lambda:
         PushScope();
         foreach (var param in lambda.Parameters) {
@@ -564,12 +565,12 @@ public class TypeChecker {
         CheckStatement(lambda.Body);
         PopScope();
         break;
-        
+
       case IndexAccessExpression idx:
         CheckExpression(idx.Target);
         CheckExpression(idx.Index);
         break;
-        
+
       case MapExpression map:
         foreach (var entry in map.Entries) {
           CheckExpression(entry.Key);
@@ -597,10 +598,10 @@ public class TypeChecker {
           LiteralType.String => "string",
           _ => "any"
         };
-      
+
       case IdentifierExpression id:
         return ResolveIdentifierType(id.Name);
-      
+
       case VectorExpression vec:
         if (vec.Elements != null && vec.Elements.Count > 0) {
           string firstType = InferType(vec.Elements[0]);
@@ -610,16 +611,16 @@ public class TypeChecker {
           return "[]" + vec.Typing;
         }
         return "[]any";
-      
+
       case StructInstanceExpression inst:
         return inst.StructName;
-      
+
       case MapExpression map:
         return $"map[{map.KeyType}, {map.ValueType}]";
-      
+
       case FunctionCallExpression call:
         return ResolveFunctionReturnType(call.Callee);
-      
+
       case BinaryExpression bin:
         if (bin.Operator == OperatorType.MemberAccess) {
           string leftType = InferType(bin.Left);
@@ -714,7 +715,7 @@ public class TypeChecker {
           }
           return "any";
         }
-        
+
         if (bin.Operator == OperatorType.StaticMemberAccess) {
           if (bin.Left is IdentifierExpression modId) {
             string modName = modId.Name;
@@ -747,28 +748,28 @@ public class TypeChecker {
           }
           return "any";
         }
-        
+
         if (bin.Operator == OperatorType.Addition) {
           if (InferType(bin.Left) == "string" || InferType(bin.Right) == "string") {
             return "string";
           }
         }
-        
+
         if (bin.Operator == OperatorType.Equal || bin.Operator == OperatorType.NotEqual ||
             bin.Operator == OperatorType.LessThan || bin.Operator == OperatorType.LessThanEqual ||
             bin.Operator == OperatorType.GreaterThan || bin.Operator == OperatorType.GreaterThanEqual ||
             bin.Operator == OperatorType.In) {
           return "bool";
         }
-        
+
         return InferType(bin.Left);
-      
+
       case TernaryExpression tern:
         return InferType(tern.Consequent);
-      
+
       case FunctionLambdaExpression lambda:
         return GetFunctionSignatureString(null, lambda.Parameters, lambda);
-      
+
       case IndexAccessExpression idx:
         string targetType = InferType(idx.Target);
         if (targetType.StartsWith("[]")) {
@@ -784,7 +785,7 @@ public class TypeChecker {
           return "string";
         }
         return "any";
-      
+
       default:
         return "any";
     }
@@ -794,7 +795,7 @@ public class TypeChecker {
     paramsList = new List<string>();
     returnType = "any";
     if (string.IsNullOrEmpty(signature) || !signature.StartsWith("fn(")) return false;
-    
+
     int depth = 1;
     int closingParenIdx = -1;
     for (int i = 3; i < signature.Length; i++) {
@@ -807,15 +808,15 @@ public class TypeChecker {
         }
       }
     }
-    
+
     if (closingParenIdx == -1) return false;
-    
+
     string paramsStr = signature.Substring(3, closingParenIdx - 3).Trim();
     returnType = signature.Substring(closingParenIdx + 1).Trim();
     if (string.IsNullOrEmpty(returnType)) {
       returnType = "any";
     }
-    
+
     if (paramsStr == "...") {
       paramsList = null!;
     } else if (!string.IsNullOrEmpty(paramsStr)) {
@@ -832,7 +833,7 @@ public class TypeChecker {
       }
       paramsList.Add(paramsStr.Substring(start).Trim());
     }
-    
+
     return true;
   }
 
@@ -840,25 +841,25 @@ public class TypeChecker {
     if (destType == "any" || srcType == "any" || string.IsNullOrEmpty(destType)) {
       return true;
     }
-    
+
     if (srcType == destType) {
       return true;
     }
-    
+
     if ((srcType == "int" || srcType == "float") && (destType == "int" || destType == "float")) {
       return true;
     }
-    
+
     if (srcType.StartsWith("fn(") && destType.StartsWith("fn(")) {
       if (!ParseFunctionSignature(srcType, out var srcParams, out var srcRet) ||
           !ParseFunctionSignature(destType, out var destParams, out var destRet)) {
         return false;
       }
-      
+
       if (!IsCompatible(srcRet, destRet)) {
         return false;
       }
-      
+
       if (destParams == null) {
         return true;
       }
@@ -875,7 +876,7 @@ public class TypeChecker {
       }
       return true;
     }
-    
+
     var interfaceDecl = FindInterface(destType);
     if (interfaceDecl != null) {
       var structDecl = FindStruct(srcType);
@@ -884,10 +885,10 @@ public class TypeChecker {
       }
       return false;
     }
-    
+
     return false;
   }
-  
+
   private bool ImplementsInterface(StructDeclaration structDecl, InterfaceDeclaration interfaceDecl) {
     ResolveStructMembers(structDecl.Identifier, out var _, out var allMethods);
     var instanceMethods = allMethods.Where(m => !m.IsStatic).ToList();
@@ -896,11 +897,11 @@ public class TypeChecker {
       if (implMethod == null) {
         return false;
       }
-      
+
       if (implMethod.Parameters.Count != reqMethod.Parameters.Count) {
         return false;
       }
-      
+
       for (int i = 0; i < reqMethod.Parameters.Count; i++) {
         var reqParamType = reqMethod.Parameters[i].Typing;
         var implParamType = implMethod.Parameters[i].Typing;
@@ -908,30 +909,30 @@ public class TypeChecker {
           return false;
         }
       }
-      
+
       string reqRetType = InferFunctionReturnType(reqMethod);
       string implRetType = InferFunctionReturnType(implMethod);
       if (!IsCompatible(implRetType, reqRetType)) {
         return false;
       }
     }
-    
+
     return true;
   }
 
   private void ResolveStructMembers(string structName, out List<VariableDeclaration> allFields, out List<FunctionDeclaration> allMethods) {
     allFields = new List<VariableDeclaration>();
     allMethods = new List<FunctionDeclaration>();
-    
+
     var structDecl = FindStruct(structName);
     if (structDecl == null) return;
-    
+
     foreach (var parentName in structDecl.InheritedStructs) {
       ResolveStructMembers(parentName, out var parentFields, out var parentMethods);
       allFields.AddRange(parentFields);
       allMethods.AddRange(parentMethods);
     }
-    
+
     foreach (var field in structDecl.Fields) {
       allFields.RemoveAll(f => f.Identifier == field.Identifier);
       allFields.Add(field);
@@ -943,59 +944,80 @@ public class TypeChecker {
   }
 
   private string InferFunctionReturnType(FunctionDeclaration fn) {
-    if (!string.IsNullOrEmpty(fn.ReturnType)) {
-      if (fn.Body == null) {
+    string fnKey = fn.Identifier ?? "<lambda>";
+
+    // Cycle guard must come first — covers BOTH explicit and inferred return type paths.
+    // If we are already inferring this function, it is recursive.
+    if (_inferringFunctions.Contains(fnKey)) {
+      // Explicit return type is already known — return it directly to break the cycle.
+      if (!string.IsNullOrEmpty(fn.ReturnType)) {
         return fn.ReturnType;
       }
-      
+      // No annotation — we cannot infer the type of a recursive call.
+      throw new Exception(
+        $"TYPE CHECK ERROR: Function '{fn.Identifier}' is recursive and requires an explicit return type annotation.\n" +
+        $"  Hint: fn {fn.Identifier}({string.Join(" ", fn.Parameters.Select(p => p.Identifier + " " + p.Typing))}) <return_type> {{ ... }}"
+      );
+    }
+
+    _inferringFunctions.Add(fnKey);
+    try {
+      if (!string.IsNullOrEmpty(fn.ReturnType)) {
+        if (fn.Body == null) {
+          return fn.ReturnType;
+        }
+
+        PushScope();
+        foreach (var param in fn.Parameters) {
+          DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
+        }
+
+        var returns = FindReturnStatements(fn.Body);
+        foreach (var ret in returns) {
+          string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
+          if (!IsCompatible(retType, fn.ReturnType)) {
+            throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' declared return type '{fn.ReturnType}', but returned '{retType}'.");
+          }
+        }
+
+        PopScope();
+        return fn.ReturnType;
+      }
+
+      if (fn.Body == null) {
+        return "any";
+      }
+
       PushScope();
       foreach (var param in fn.Parameters) {
         DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
       }
-      
-      var returns = FindReturnStatements(fn.Body);
-      foreach (var ret in returns) {
-        string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
-        if (!IsCompatible(retType, fn.ReturnType)) {
-          throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' declared return type '{fn.ReturnType}', but returned '{retType}'.");
-        }
-      }
-      
-      PopScope();
-      return fn.ReturnType;
-    }
 
-    if (fn.Body == null) {
-      return "any";
-    }
-    
-    PushScope();
-    foreach (var param in fn.Parameters) {
-      DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
-    }
-    
-    var returns2 = FindReturnStatements(fn.Body);
-    if (returns2.Count == 0) {
-      PopScope();
-      return "any";
-    }
-    
-    string firstRetType = "any";
-    bool first = true;
-    foreach (var ret in returns2) {
-      string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
-      if (first) {
-        firstRetType = retType;
-        first = false;
-      } else {
-        if (!IsCompatible(retType, firstRetType) && !IsCompatible(firstRetType, retType)) {
-          throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' has conflicting return types '{firstRetType}' and '{retType}'.");
+      var returns2 = FindReturnStatements(fn.Body);
+      if (returns2.Count == 0) {
+        PopScope();
+        return "any";
+      }
+
+      string firstRetType = "any";
+      bool first = true;
+      foreach (var ret in returns2) {
+        string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
+        if (first) {
+          firstRetType = retType;
+          first = false;
+        } else {
+          if (!IsCompatible(retType, firstRetType) && !IsCompatible(firstRetType, retType)) {
+            throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' has conflicting return types '{firstRetType}' and '{retType}'.");
+          }
         }
       }
+
+      PopScope();
+      return firstRetType;
+    } finally {
+      _inferringFunctions.Remove(fnKey);
     }
-    
-    PopScope();
-    return firstRetType;
   }
 
   private List<ReturnStatement> FindReturnStatements(Statement stmt) {
@@ -1003,15 +1025,15 @@ public class TypeChecker {
     FindReturnStatementsRecursive(stmt, list);
     return list;
   }
-  
+
   private void FindReturnStatementsRecursive(Statement stmt, List<ReturnStatement> list) {
     if (stmt == null) return;
-    
+
     if (stmt is ReturnStatement ret) {
       list.Add(ret);
       return;
     }
-    
+
     if (stmt is BlockStatement block) {
       foreach (var s in block.Statements) {
         FindReturnStatementsRecursive(s, list);

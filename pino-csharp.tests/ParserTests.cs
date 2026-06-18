@@ -665,6 +665,50 @@ public class ParserTests {
     var checker4 = new TypeChecker();
     Assert.ThrowsAny<Exception>(() => checker4.Check(program4));
   }
+
+  [Fact]
+  public void TestTypeCheckerRecursiveFunctionExplicitTypePasses() {
+    var input = @"
+      fn fib(n int) int {
+        if n <= 1 { return n }
+        return fib(n - 1) + fib(n - 2)
+      }
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    checker.Check(program);
+  }
+
+  [Fact]
+  public void TestTypeCheckerRecursiveFunctionNoTypeThrows() {
+    var input = @"
+      fn fib(n int) {
+        if n <= 1 { return n }
+        return fib(n - 1) + fib(n - 2)
+      }
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    var ex = Assert.ThrowsAny<Exception>(() => checker.Check(program));
+    Assert.Contains("is recursive and requires an explicit return type", ex.Message);
+  }
+
+  [Fact]
+  public void TestTypeCheckerMutuallyRecursiveExplicitTypePasses() {
+    var input = @"
+      fn is_even(n int) bool {
+        if n == 0 { return true }
+        return is_odd(n - 1)
+      }
+      fn is_odd(n int) bool {
+        if n == 0 { return false }
+        return is_even(n - 1)
+      }
+    ";
+    var program = Parser.ParseProgramString(input);
+    var checker = new TypeChecker();
+    checker.Check(program);
+  }
 }
 
 
