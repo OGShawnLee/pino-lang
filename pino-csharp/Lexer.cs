@@ -7,8 +7,7 @@ using System.Text.RegularExpressions;
 namespace Pino;
 
 public class Lexer {
-  private static readonly Dictionary<string, KeywordType> Keywords = new()
-  {
+  private static readonly Dictionary<string, KeywordType> Keywords = new() {
         { "as", KeywordType.As },
         { "break", KeywordType.Break },
         { "val", KeywordType.Constant },
@@ -33,8 +32,7 @@ public class Lexer {
         { "when", KeywordType.When }
     };
 
-  private static readonly Dictionary<char, MarkerType> Markers = new()
-  {
+  private static readonly Dictionary<char, MarkerType> Markers = new() {
         { '{', MarkerType.BlockBegin },
         { '}', MarkerType.BlockEnd },
         { '[', MarkerType.BracketBegin },
@@ -46,8 +44,7 @@ public class Lexer {
         { '"', MarkerType.StrQuote }
     };
 
-  private static readonly Dictionary<string, OperatorType> Operators = new()
-  {
+  private static readonly Dictionary<string, OperatorType> Operators = new() {
         { "=", OperatorType.Assignment },
         { "+", OperatorType.Addition },
         { "+=", OperatorType.AdditionAssignment },
@@ -120,8 +117,7 @@ public class Lexer {
       }
 
       // Single-character Operators
-      if (Operators.TryGetValue(c.ToString(), out var opType) && c != 'a' && c != 'o' && c != 'n') // avoid partial "and", "or", "not"
-      {
+      if (Operators.TryGetValue(c.ToString(), out var opType) && c != 'a' && c != 'o' && c != 'n') { // avoid partial "and", "or", "not"
         tokens.Add(new Token(TokenType.Operator, c.ToString(), Operator: opType));
         index++;
         continue;
@@ -189,7 +185,7 @@ public class Lexer {
 
           tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
           index += 2; // skip "$("
-          
+
           int depth = 1;
           int startExpr = index;
           while (index < line.Length && depth > 0) {

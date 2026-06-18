@@ -1,0 +1,33 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.cs]
+# Estilo de indentación y espaciado
+indent_style = space
+indent_size = 2
+
+# Estilo de llaves en la misma línea (Same-Line braces)
+csharp_new_line_before_open_brace = none
+csharp_new_line_before_else = false
+csharp_new_line_before_catch = false
+csharp_new_line_before_finally = false
+csharp_new_line_before_members_in_object_initializers = false
+csharp_new_line_before_members_in_anonymous_types = false
+
+# Espaciado
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_around_binary_operators = before_and_after
+csharp_space_after_cast = true
+
+# Directivas Using
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = true

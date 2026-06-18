@@ -155,7 +155,7 @@ class Program {
 
       var tempPath = Path.Combine(Path.GetTempPath(), assetName);
       Console.WriteLine($"Downloading update from {downloadUrl}...");
-      
+
       var bytes = client.GetByteArrayAsync(downloadUrl).Result;
       File.WriteAllBytes(tempPath, bytes);
 
@@ -410,7 +410,7 @@ class Program {
       Console.WriteLine($" {i + 1}. {Path.GetFileNameWithoutExtension(files[i])}");
     }
     Console.WriteLine("================================================");
-    
+
     while (true) {
       Console.Write($"Choose game (1-{files.Length}) or '.exit': ");
       var input = Console.ReadLine()?.Trim();
@@ -432,14 +432,14 @@ class Program {
     try {
       using var client = new HttpClient();
       client.DefaultRequestHeaders.UserAgent.ParseAdd("PinoCompiler-GamesDownloader");
-      
+
       var zipBytes = client.GetByteArrayAsync("https://github.com/OGShawnLee/pino-lang/archive/refs/heads/main.zip").Result;
-      
+
       using var ms = new MemoryStream(zipBytes);
       using var archive = new ZipArchive(ms);
-      
+
       Directory.CreateDirectory(targetDir);
-      
+
       int count = 0;
       foreach (var entry in archive.Entries) {
         var parts = entry.FullName.Split('/');
@@ -449,7 +449,7 @@ class Program {
           count++;
         }
       }
-      
+
       Console.WriteLine($"🌲 Success! Downloaded and installed {count} games in '{targetDir}'.");
     } catch (Exception ex) {
       Console.WriteLine($"Error downloading games: {ex.Message}");

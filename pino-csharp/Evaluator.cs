@@ -223,7 +223,7 @@ public class Evaluator {
       case StructDeclaration structDecl:
         var consolidatedFields = new List<VariableDeclaration>();
         var consolidatedMethods = new List<FunctionDeclaration>();
-        
+
         foreach (var parentName in structDecl.InheritedStructs) {
           var parentObj = env.Get(parentName);
           if (parentObj is PinoStruct parentStruct) {
@@ -233,7 +233,7 @@ public class Evaluator {
             throw new Exception($"RUNTIME ERROR: Parent struct '{parentName}' is not defined.");
           }
         }
-        
+
         foreach (var field in structDecl.Fields) {
           consolidatedFields.RemoveAll(f => f.Identifier == field.Identifier);
           consolidatedFields.Add(field);
@@ -328,7 +328,7 @@ public class Evaluator {
             var childEnv = new Environment(env);
             childEnv.Define(loopVar, item, false);
             if (!string.IsNullOrEmpty(loop.KeyVar)) {
-              childEnv.Define(loop.KeyVar, (long)i, false);
+              childEnv.Define(loop.KeyVar, (long) i, false);
             }
             try {
               Execute(loop.Body, childEnv);
@@ -442,7 +442,7 @@ public class Evaluator {
               if (assignIdx < 0 || assignIdx >= assignList.Count) {
                 throw new Exception($"RUNTIME ERROR: Index {assignIdx} out of range for vector of size {assignList.Count}.");
               }
-              assignList[(int)assignIdx] = val;
+              assignList[(int) assignIdx] = val;
               return val;
             }
             if (target is Dictionary<object, object?> assignDict) {
@@ -504,9 +504,9 @@ public class Evaluator {
               if (compoundIdx < 0 || compoundIdx >= compoundList.Count) {
                 throw new Exception($"RUNTIME ERROR: Index {compoundIdx} out of range for vector of size {compoundList.Count}.");
               }
-              var currentVal = compoundList[(int)compoundIdx];
+              var currentVal = compoundList[(int) compoundIdx];
               var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
-              compoundList[(int)compoundIdx] = newVal;
+              compoundList[(int) compoundIdx] = newVal;
               return newVal;
             }
             if (target is Dictionary<object, object?> compoundDict) {
@@ -614,7 +614,7 @@ public class Evaluator {
           if (readIdx < 0 || readIdx >= readList.Count) {
             throw new Exception($"RUNTIME ERROR: Index {readIdx} out of range for vector of size {readList.Count}.");
           }
-          return readList[(int)readIdx];
+          return readList[(int) readIdx];
         }
         if (targetVal is Dictionary<object, object?> readDict) {
           if (readIndexVal == null) {
@@ -630,7 +630,7 @@ public class Evaluator {
           if (readIdx < 0 || readIdx >= readStr.Length) {
             throw new Exception($"RUNTIME ERROR: Index {readIdx} out of range for string of length {readStr.Length}.");
           }
-          return readStr[(int)readIdx].ToString();
+          return readStr[(int) readIdx].ToString();
         }
         throw new Exception("RUNTIME ERROR: Cannot apply index access to non-vector, non-string, and non-map object.");
 
@@ -693,7 +693,7 @@ public class Evaluator {
     } else if (leftVal is Dictionary<object, object?> dict) {
       // Case 5: map:len or map:length
       if (rightExpr is IdentifierExpression mapId && (mapId.Name == "length" || mapId.Name == "len")) {
-        return (long)dict.Count;
+        return (long) dict.Count;
       }
 
       // Case 6: map method calls
@@ -724,7 +724,7 @@ public class Evaluator {
     } else if (leftVal is List<object?> list) {
       // Case 3: vector:len or vector:length
       if (rightExpr is IdentifierExpression listId && (listId.Name == "length" || listId.Name == "len")) {
-        return (long)list.Count;
+        return (long) list.Count;
       }
 
       // Case 4: vector method calls
@@ -743,13 +743,13 @@ public class Evaluator {
           for (int i = 0; i < list.Count; i++) {
             args[0] = list[i];
             if (func.Arity == 2) {
-              args[1] = (long)i;
+              args[1] = (long) i;
             }
             func.Call(this, args);
           }
           return null;
         }
- 
+
         if (methodName == "map") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: map() expects a callable argument.");
@@ -762,13 +762,13 @@ public class Evaluator {
           for (int i = 0; i < list.Count; i++) {
             args[0] = list[i];
             if (func.Arity == 2) {
-              args[1] = (long)i;
+              args[1] = (long) i;
             }
             mappedList.Add(func.Call(this, args));
           }
           return mappedList;
         }
- 
+
         if (methodName == "filter") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: filter() expects a callable argument.");
@@ -781,7 +781,7 @@ public class Evaluator {
           for (int i = 0; i < list.Count; i++) {
             args[0] = list[i];
             if (func.Arity == 2) {
-              args[1] = (long)i;
+              args[1] = (long) i;
             }
             if (IsTruthy(func.Call(this, args))) {
               filteredList.Add(list[i]);
@@ -789,7 +789,7 @@ public class Evaluator {
           }
           return filteredList;
         }
- 
+
         if (methodName == "find") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: find() expects a callable argument.");
@@ -801,7 +801,7 @@ public class Evaluator {
           for (int i = 0; i < list.Count; i++) {
             args[0] = list[i];
             if (func.Arity == 2) {
-              args[1] = (long)i;
+              args[1] = (long) i;
             }
             if (IsTruthy(func.Call(this, args))) {
               return list[i];
@@ -809,7 +809,7 @@ public class Evaluator {
           }
           return null;
         }
- 
+
         if (methodName == "find_index") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: find_index() expects a callable argument.");
@@ -821,15 +821,15 @@ public class Evaluator {
           for (int i = 0; i < list.Count; i++) {
             args[0] = list[i];
             if (func.Arity == 2) {
-              args[1] = (long)i;
+              args[1] = (long) i;
             }
             if (IsTruthy(func.Call(this, args))) {
-              return (long)i;
+              return (long) i;
             }
           }
           return -1L;
         }
- 
+
         if (methodName == "any") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: any() expects a callable argument.");
@@ -841,7 +841,7 @@ public class Evaluator {
           for (int i = 0; i < list.Count; i++) {
             args[0] = list[i];
             if (func.Arity == 2) {
-              args[1] = (long)i;
+              args[1] = (long) i;
             }
             if (IsTruthy(func.Call(this, args))) {
               return true;
@@ -849,7 +849,7 @@ public class Evaluator {
           }
           return false;
         }
- 
+
         if (methodName == "all") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: all() expects a callable argument.");
@@ -861,7 +861,7 @@ public class Evaluator {
           for (int i = 0; i < list.Count; i++) {
             args[0] = list[i];
             if (func.Arity == 2) {
-              args[1] = (long)i;
+              args[1] = (long) i;
             }
             if (!IsTruthy(func.Call(this, args))) {
               return false;
@@ -890,7 +890,7 @@ public class Evaluator {
     } else if (leftVal is string str) {
       if (rightExpr is IdentifierExpression propId) {
         if (propId.Name == "len" || propId.Name == "length") {
-          return (long)str.Length;
+          return (long) str.Length;
         }
         throw new Exception($"RUNTIME ERROR: String has no property '{propId.Name}'.");
       }
@@ -980,7 +980,7 @@ public class Evaluator {
         }
         return instance;
       }
-      
+
       throw new Exception("RUNTIME ERROR: Right side of '::' must be a member name, function call, or struct instance.");
     }
 
@@ -1017,7 +1017,7 @@ public class Evaluator {
     throw new Exception($"RUNTIME ERROR: Target is neither a module, struct, nor an enum.");
   }
 
-    bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;
+  bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;
 
   private object EvaluateBinaryOperation(object? left, OperatorType op, object? right) {
     // Handle String Concatenation
@@ -1136,7 +1136,7 @@ public class Evaluator {
     public int Arity => 1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
       var arg = arguments[0]?.ToString() ?? "0";
-      if (double.TryParse(arg, out var d)) return (long)d;
+      if (double.TryParse(arg, out var d)) return (long) d;
       return long.Parse(arg);
     }
   }
@@ -1157,7 +1157,7 @@ public class Evaluator {
       }
       var maxVal = arguments[0];
       long max = maxVal is long l ? l : Convert.ToInt64(maxVal);
-      return (long)_rand.Next(0, (int)max);
+      return (long) _rand.Next(0, (int) max);
     }
   }
 
@@ -1173,7 +1173,7 @@ public class Evaluator {
     public object? Call(Evaluator evaluator, List<object?> arguments) {
       var msVal = arguments[0];
       long ms = msVal is long l ? l : Convert.ToInt64(msVal);
-      System.Threading.Thread.Sleep((int)ms);
+      System.Threading.Thread.Sleep((int) ms);
       return null;
     }
   }

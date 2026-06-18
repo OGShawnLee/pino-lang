@@ -67,15 +67,15 @@ public class Parser {
     switch (expr) {
       case IdentifierExpression id:
         return id.Name == "it" && !IsDeclared(stream, "it");
-      
+
       case BinaryExpression bin:
         return ContainsUndeclaredIt(bin.Left, stream) || ContainsUndeclaredIt(bin.Right, stream);
-      
+
       case TernaryExpression tern:
-        return ContainsUndeclaredIt(tern.Condition, stream) || 
-               ContainsUndeclaredIt(tern.Consequent, stream) || 
+        return ContainsUndeclaredIt(tern.Condition, stream) ||
+               ContainsUndeclaredIt(tern.Consequent, stream) ||
                ContainsUndeclaredIt(tern.Alternate, stream);
-      
+
       case VectorExpression vec:
         if (vec.Elements != null) {
           foreach (var el in vec.Elements) {
@@ -85,22 +85,22 @@ public class Parser {
         if (vec.Len != null && ContainsUndeclaredIt(vec.Len, stream)) return true;
         if (vec.Init != null && ContainsUndeclaredIt(vec.Init, stream)) return true;
         return false;
-      
+
       case StructInstanceExpression inst:
         foreach (var prop in inst.Properties) {
           if (ContainsUndeclaredIt(prop.Value, stream)) return true;
         }
         return false;
-      
+
       case FunctionCallExpression call:
         foreach (var arg in call.Arguments) {
           if (ContainsUndeclaredIt(arg, stream)) return true;
         }
         return false;
-      
+
       case FunctionLambdaExpression lambda:
         return false;
-      
+
       case IndexAccessExpression idx:
         return ContainsUndeclaredIt(idx.Target, stream) || ContainsUndeclaredIt(idx.Index, stream);
 
@@ -111,7 +111,7 @@ public class Parser {
           }
         }
         return false;
-      
+
       default:
         return false;
     }
@@ -257,7 +257,7 @@ public class Parser {
     if (!stream.Consume().IsKeyword(KeywordType.Import)) {
       throw new Exception("PARSER: Expected 'import' keyword after from <ModuleName>");
     }
-    
+
     var imports = new List<string>();
     while (true) {
       var importedName = ConsumeIdentifier(stream);
@@ -376,10 +376,10 @@ public class Parser {
 
     var identifier = ConsumeIdentifier(stream);
     var parameters = ConsumeParameters(stream);
-    
+
     string returnType = "";
-    if (stream.Current.Type == TokenType.Identifier || 
-        stream.Current.IsMarker(MarkerType.BracketBegin) || 
+    if (stream.Current.Type == TokenType.Identifier ||
+        stream.Current.IsMarker(MarkerType.BracketBegin) ||
         stream.Current.IsKeyword(KeywordType.Function)) {
       returnType = ConsumeTyping(stream);
     }
@@ -388,7 +388,7 @@ public class Parser {
     foreach (var param in parameters) {
       DeclareVariable(stream, param.Identifier);
     }
-    
+
     var body = ParseBlock(stream);
     PopScope(stream);
 
@@ -453,8 +453,8 @@ public class Parser {
     var parameters = ConsumeParameters(stream);
 
     string returnType = "";
-    if (stream.Current.Type == TokenType.Identifier || 
-        stream.Current.IsMarker(MarkerType.BracketBegin) || 
+    if (stream.Current.Type == TokenType.Identifier ||
+        stream.Current.IsMarker(MarkerType.BracketBegin) ||
         stream.Current.IsKeyword(KeywordType.Function)) {
       returnType = ConsumeTyping(stream);
     }
@@ -524,7 +524,7 @@ public class Parser {
     }
 
     var end = ParseExpression(stream, false);
-    
+
     PushScope(stream);
     if (begin is IdentifierExpression id) {
       DeclareVariable(stream, id.Name);
@@ -698,33 +698,24 @@ public class Parser {
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
         throw new Exception("PARSER: Expected ')' to close grouped expression");
       }
-    }
-    else if (stream.Current.Type == TokenType.Identifier && stream.Current.Data == "map" && stream.IsNext(t => t.IsMarker(MarkerType.BracketBegin))) {
+    } else if (stream.Current.Type == TokenType.Identifier && stream.Current.Data == "map" && stream.IsNext(t => t.IsMarker(MarkerType.BracketBegin))) {
       expr = ParseMapExpression(stream);
-    }
-    else if (IsFunctionCall(stream)) {
+    } else if (IsFunctionCall(stream)) {
       expr = ParseFunctionCall(stream);
-    }
-    else if (IsFunctionLambda(stream)) {
+    } else if (IsFunctionLambda(stream)) {
       expr = ParseFunctionLambda(stream);
-    }
-    else if (IsVector(stream)) {
+    } else if (IsVector(stream)) {
       expr = ParseVector(stream);
-    }
-    else if (allowStruct && IsStructInstance(stream)) {
+    } else if (allowStruct && IsStructInstance(stream)) {
       expr = ParseStructInstance(stream);
-    }
-    else if (stream.Current.IsKeyword(KeywordType.If)) {
+    } else if (stream.Current.IsKeyword(KeywordType.If)) {
       expr = ParseTernaryExpression(stream);
-    }
-    else if (stream.Current.Type == TokenType.Identifier) {
+    } else if (stream.Current.Type == TokenType.Identifier) {
       expr = new IdentifierExpression(stream.Consume().Data);
-    }
-    else if (stream.Current.Type == TokenType.Literal) {
+    } else if (stream.Current.Type == TokenType.Literal) {
       var t = stream.Consume();
       expr = new LiteralExpression(t.Data, t.Literal!.Value, t.Injections);
-    }
-    else {
+    } else {
       throw new Exception($"PARSER: Expected expression, got {stream.Current}");
     }
 
@@ -826,7 +817,7 @@ public class Parser {
     }
 
     var parameters = ConsumeParameters(stream);
-    
+
     PushScope(stream);
     foreach (var param in parameters) {
       DeclareVariable(stream, param.Identifier);
@@ -957,7 +948,7 @@ public class Parser {
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisBegin)) {
         throw new Exception($"PARSER: Expected '(' for function type, got {stream.Current}");
       }
-      
+
       var paramTypes = new List<string>();
       while (stream.HasNext && !stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
         paramTypes.Add(ConsumeTyping(stream));
@@ -965,19 +956,19 @@ public class Parser {
           stream.Consume();
         }
       }
-      
+
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
         throw new Exception($"PARSER: Expected ')' for function type, got {stream.Current}");
       }
-      
+
       string returnType = " any";
       // Optional return type: can start with identifier, bracket '[', or keyword 'fn'
-      if (stream.Current.Type == TokenType.Identifier || 
-          stream.Current.IsMarker(MarkerType.BracketBegin) || 
+      if (stream.Current.Type == TokenType.Identifier ||
+          stream.Current.IsMarker(MarkerType.BracketBegin) ||
           stream.Current.IsKeyword(KeywordType.Function)) {
         returnType = " " + ConsumeTyping(stream);
       }
-      
+
       return $"fn({string.Join(", ", paramTypes)}){returnType}";
     }
 
