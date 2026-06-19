@@ -162,6 +162,14 @@ public partial class Evaluator {
   }
 
   public void Execute(Statement statement) {
+    if (statement is ProgramStatement program) {
+      var checker = new Checker();
+      try {
+        checker.Check(program);
+      } catch {
+        // Ignore Checker errors if running in un-checked mode
+      }
+    }
     Execute(statement, _globals);
   }
 }

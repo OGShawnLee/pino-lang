@@ -8,6 +8,7 @@ public partial class Checker {
   private void CheckExpression(Expression expr) {
     switch (expr) {
       case IdentifierExpression id:
+        Resolve(id, id.Name);
         if (_currentStruct != null && _inStaticMethod) {
           if (id.Name == "this" || id.Name == "self") {
             throw new Exception($"TYPE CHECK ERROR: Cannot access '{id.Name}' from static method in struct '{_currentStruct.Identifier}'.");
@@ -149,6 +150,7 @@ public partial class Checker {
         break;
 
       case FunctionCallExpression call:
+        Resolve(call, call.Callee);
         var argTypes = call.Arguments.Select(InferType).ToList();
         foreach (var arg in call.Arguments) {
           CheckExpression(arg);

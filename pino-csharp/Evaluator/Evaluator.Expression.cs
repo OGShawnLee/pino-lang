@@ -33,7 +33,7 @@ public partial class Evaluator {
         // Special check for break/continue
         if (id.Name == "break") throw new PinoBreakException();
         if (id.Name == "continue") throw new PinoContinueException();
-        return env.Get(id.Name);
+        return LookUpVariable(id, env);
 
       case BinaryExpression bin:
         // Handle member access and static member access separately
@@ -49,7 +49,7 @@ public partial class Evaluator {
           var val = Evaluate(bin.Right, env);
 
           if (bin.Left is IdentifierExpression idExpr) {
-            env.Assign(idExpr.Name, val);
+            AssignVariable(idExpr, val, env);
             return val;
           }
 
@@ -109,9 +109,9 @@ public partial class Evaluator {
           };
 
           if (bin.Left is IdentifierExpression idExpr) {
-            var currentVal = env.Get(idExpr.Name);
+            var currentVal = LookUpVariable(idExpr, env);
             var newVal = EvaluateBinaryOperation(currentVal, baseOp, delta);
-            env.Assign(idExpr.Name, newVal);
+            AssignVariable(idExpr, newVal, env);
             return newVal;
           }
 
@@ -209,7 +209,12 @@ public partial class Evaluator {
         return instance;
 
       case FunctionCallExpression call:
-        var callableObj = env.Get(call.Callee);
+        object? callableObj;
+        if (call.Distance != -1) {
+          callableObj = env.GetAt(call.Distance, call.Callee);
+        } else {
+          callableObj = env.Get(call.Callee);
+        }
         if (callableObj is not IPinoCallable callable) {
           throw new Exception($"RUNTIME ERROR: '{call.Callee}' is not callable.");
         }
@@ -730,5 +735,20 @@ public partial class Evaluator {
     if (value == null) return false;
     if (value is bool b) return b;
     return true;
+  }
+
+  private object? LookUpVariable(IdentifierExpression id, Environment env) {
+    if (id.Distance != -1) {
+      return env.GetAt(id.Distance, id.Name);
+    }
+    return env.Get(id.Name);
+  }
+
+  private void AssignVariable(IdentifierExpression id, object? value, Environment env) {
+    if (id.Distance != -1) {
+      env.AssignAt(id.Distance, id.Name, value);
+    } else {
+      env.Assign(id.Name, value);
+    }
   }
 }

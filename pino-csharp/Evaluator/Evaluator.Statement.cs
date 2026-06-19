@@ -252,6 +252,13 @@ public partial class Evaluator {
     _currentlyLoadingModules.Add(moduleName);
 
     try {
+      var moduleChecker = new Checker();
+      try {
+        moduleChecker.Check(program);
+      } catch {
+        // Ignore type checking errors to let runtime handle it
+      }
+
       var moduleEnv = new Environment(_globals);
       foreach (var stmt in program.Statements) {
         if (stmt is ModuleDeclaration modDecl) {

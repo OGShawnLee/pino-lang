@@ -27,6 +27,7 @@ public partial class Checker {
         break;
 
       case FunctionDeclaration fnDecl:
+        DeclareVariable(fnDecl.Identifier, GetFunctionSignatureString(fnDecl));
         PushScope();
         if (_currentStruct != null && !_inStaticMethod) {
           DeclareVariable("this", _currentStruct.Identifier);
@@ -93,10 +94,14 @@ public partial class Checker {
         break;
 
       case LoopStatement loop:
-        PushScope();
         if (loop.Kind == LoopKind.ForIn) {
+          string colType = "any";
+          if (loop.End != null) {
+            CheckExpression(loop.End);
+            colType = InferType(loop.End);
+          }
+          PushScope();
           if (loop.Begin is IdentifierExpression id) {
-            string colType = loop.End != null ? InferType(loop.End) : "any";
             string loopVarType = "any";
             string keyVarType = "int";
             if (colType.StartsWith("[]")) {
@@ -120,14 +125,14 @@ public partial class Checker {
               DeclareVariable(loop.KeyVar, keyVarType);
             }
           }
-          if (loop.End != null) {
-            CheckExpression(loop.End);
-          }
         } else if (loop.Kind == LoopKind.ForTimes) {
           if (loop.Begin != null) {
             CheckExpression(loop.Begin);
           }
+          PushScope();
           DeclareVariable("it", "int");
+        } else {
+          PushScope();
         }
         CheckStatement(loop.Body);
         PopScope();

@@ -150,6 +150,17 @@ public partial class Checker {
     }
   }
 
+  private void Resolve(Expression expr, string name) {
+    int distance = 0;
+    foreach (var scope in _scopes) {
+      if (scope.ContainsKey(name)) {
+        expr.Distance = distance;
+        return;
+      }
+      distance++;
+    }
+  }
+
   public string ResolveIdentifierType(string name) {
     foreach (var scope in _scopes) {
       if (scope.TryGetValue(name, out var type)) {

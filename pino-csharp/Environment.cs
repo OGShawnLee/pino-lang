@@ -63,4 +63,26 @@ public class Environment {
     if (_parent != null) return _parent.Exists(name);
     return false;
   }
+
+  public object? GetAt(int distance, string name) {
+    if (distance == 0) return _values[name].Value;
+    return Ancestor(distance)._values[name].Value;
+  }
+
+  public void AssignAt(int distance, string name, object? value) {
+    var ancestor = distance == 0 ? this : Ancestor(distance);
+    var binding = ancestor._values[name];
+    if (binding.IsConstant) {
+      throw new Exception($"RUNTIME ERROR: Cannot reassign constant variable '{name}'.");
+    }
+    ancestor._values[name] = (value, false, binding.Typing);
+  }
+
+  private Environment Ancestor(int distance) {
+    var environment = this;
+    for (int i = 0; i < distance; i++) {
+      environment = environment._parent ?? throw new Exception($"RUNTIME ERROR: Scope ancestor at distance {distance} not found.");
+    }
+    return environment;
+  }
 }
