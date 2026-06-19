@@ -99,7 +99,7 @@ public partial class Evaluator {
         break;
 
       case InterfaceDeclaration:
-        // Checked statically by TypeChecker, ignored during execution.
+        // Checked statically by Checker, ignored during execution.
         break;
 
       case ModuleDeclaration:

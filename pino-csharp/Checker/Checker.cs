@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Pino;
 
-public partial class TypeChecker {
+public partial class Checker {
   // Global registries
   private readonly Dictionary<string, StructDeclaration> _structs = new();
   private readonly Dictionary<string, InterfaceDeclaration> _interfaces = new();
@@ -19,7 +19,7 @@ public partial class TypeChecker {
   private bool _inStaticMethod = false;
 
   // Cache of checked modules to prevent double-checking
-  private readonly Dictionary<string, TypeChecker> _moduleCheckers = new();
+  private readonly Dictionary<string, Checker> _moduleCheckers = new();
   private readonly HashSet<string> _currentlyCheckingModules = new();
 
   // Guard against infinite recursion during return type inference of recursive functions
@@ -125,7 +125,7 @@ public partial class TypeChecker {
       }
 
       var program = Parser.ParseFile(filePath);
-      var moduleChecker = new TypeChecker();
+      var moduleChecker = new Checker();
       moduleChecker.Check(program);
 
       _moduleCheckers[moduleName] = moduleChecker;

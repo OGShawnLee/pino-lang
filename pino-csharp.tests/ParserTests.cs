@@ -390,7 +390,7 @@ public class ParserTests {
       run_greet(u)
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     
     checker.Check(program);
   }
@@ -412,7 +412,7 @@ public class ParserTests {
       run_greet(u)
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     
     Assert.ThrowsAny<Exception>(() => checker.Check(program));
   }
@@ -428,7 +428,7 @@ public class ParserTests {
       print_list(list_str)
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     
     Assert.ThrowsAny<Exception>(() => checker.Check(program));
   }
@@ -445,7 +445,7 @@ public class ParserTests {
       print_list(list, it * 2)
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     
     checker.Check(program);
   }
@@ -466,7 +466,7 @@ public class ParserTests {
       }
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     
     checker.Check(program);
   }
@@ -479,7 +479,7 @@ public class ParserTests {
       }
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     
     Assert.ThrowsAny<Exception>(() => checker.Check(program));
   }
@@ -504,7 +504,7 @@ public class ParserTests {
       }
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     
     checker.Check(program);
 
@@ -552,7 +552,7 @@ public class ParserTests {
       val greeting = obj:hello()
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     checker.Check(program);
 
     var evaluator = new Evaluator();
@@ -604,7 +604,7 @@ public class ParserTests {
       val res = MathUtils::multiply(6, 7)
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     checker.Check(program);
 
     var evaluator = new Evaluator();
@@ -626,7 +626,7 @@ public class ParserTests {
       }
     ";
     var program1 = Parser.ParseProgramString(inputInvalidThis);
-    var checker1 = new TypeChecker();
+    var checker1 = new Checker();
     Assert.ThrowsAny<Exception>(() => checker1.Check(program1));
 
     // 2. Trying to access instance field directly from a static method should fail
@@ -639,7 +639,7 @@ public class ParserTests {
       }
     ";
     var program2 = Parser.ParseProgramString(inputInvalidField);
-    var checker2 = new TypeChecker();
+    var checker2 = new Checker();
     Assert.ThrowsAny<Exception>(() => checker2.Check(program2));
 
     // 3. Trying to call static method via instance member access ':' should fail
@@ -651,7 +651,7 @@ public class ParserTests {
       val res = h:helper_fn()
     ";
     var program3 = Parser.ParseProgramString(inputInvalidInstanceCall);
-    var checker3 = new TypeChecker();
+    var checker3 = new Checker();
     Assert.ThrowsAny<Exception>(() => checker3.Check(program3));
 
     // 4. Trying to call instance method via static member access '::' should fail
@@ -662,7 +662,7 @@ public class ParserTests {
       val res = Helper2::helper_fn()
     ";
     var program4 = Parser.ParseProgramString(inputInvalidStaticCall);
-    var checker4 = new TypeChecker();
+    var checker4 = new Checker();
     Assert.ThrowsAny<Exception>(() => checker4.Check(program4));
   }
 
@@ -675,7 +675,7 @@ public class ParserTests {
       }
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     checker.Check(program);
   }
 
@@ -688,7 +688,7 @@ public class ParserTests {
       }
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     var ex = Assert.ThrowsAny<Exception>(() => checker.Check(program));
     Assert.Contains("is recursive and requires an explicit return type", ex.Message);
   }
@@ -706,7 +706,7 @@ public class ParserTests {
       }
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     checker.Check(program);
   }
 }

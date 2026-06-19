@@ -10,7 +10,7 @@ public partial class WASMBridge {
 	public static string Evaluate(string code) {
 		try {
 			var program = Parser.ParseProgramString(code);
-			var checker = new TypeChecker();
+			var checker = new Checker();
 			checker.Check(program);
 			
 			var evaluator = new Evaluator();

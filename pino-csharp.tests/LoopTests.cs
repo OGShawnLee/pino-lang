@@ -10,7 +10,7 @@ namespace pino_csharp.tests;
 public class LoopTests {
   private string RunCode(string source) {
     var program = Parser.ParseProgramString(source);
-    var checker = new TypeChecker();
+    var checker = new Checker();
     checker.Check(program);
 
     var evaluator = new Evaluator();

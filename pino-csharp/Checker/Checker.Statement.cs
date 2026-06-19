@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Pino;
 
-public partial class TypeChecker {
+public partial class Checker {
   private void CheckStatement(Statement statement) {
     switch (statement) {
       case VariableDeclaration varDecl:

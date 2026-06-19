@@ -7,7 +7,7 @@
 ---
 
 ## 1. Resumen (Summary)
-Esta propuesta define una serie de optimizaciones de rendimiento y diseño de backend para el lenguaje Pino Lang, aprovechando la información de tipos resuelta y validada estáticamente por el nuevo componente `TypeChecker`. 
+Esta propuesta define una serie de optimizaciones de rendimiento y diseño de backend para el lenguaje Pino Lang, aprovechando la información de tipos resuelta y validada estáticamente por el nuevo componente `Checker`. 
 
 Se proponen tres áreas clave de optimización:
 1. **Traspilado Fuertemente Tipado**: Eliminar el uso de `dynamic` en el generador de código C# (`Transpiler.cs`), reemplazándolo por tipos nativos y firmas directas de .NET.
@@ -17,7 +17,7 @@ Se proponen tres áreas clave de optimización:
 ---
 
 ## 2. Motivación (Motivation)
-Con la reciente introducción del paso de verificación estática de tipos (`TypeChecker`), el compilador de Pino ahora valida la consistencia de tipos, firmas de funciones y compatibilidad de interfaces antes de ejecutar el programa. Sin embargo, el intérprete y el transpilador actuales siguen utilizando técnicas de tipado dinámico:
+Con la reciente introducción del paso de verificación estática de tipos (`Checker`), el compilador de Pino ahora valida la consistencia de tipos, firmas de funciones y compatibilidad de interfaces antes de ejecutar el programa. Sin embargo, el intérprete y el transpilador actuales siguen utilizando técnicas de tipado dinámico:
 * En C# compilado (`Transpiler.cs`), todas las variables y accesos a métodos se generan usando el tipo `dynamic`. Esto obliga al runtime de .NET (DLR) a buscar miembros en tiempo de ejecución, lo que añade overhead.
 * En el intérprete (`Evaluator.cs` y `interpreter.js`), las propiedades de los structs se guardan en diccionarios/mapas donde las llaves son strings (ej. `fields["name"]`), resultando en búsquedas hash repetitivas durante bucles intensivos.
 
@@ -28,7 +28,7 @@ Dado que la información de tipos ya está disponible de forma estática, podemo
 ## 3. Diseño Detallado (Detailed Design)
 
 ### 3.1 Traspilado Fuertemente Tipado (Eliminación de `dynamic`)
-En lugar de transpilación genérica a `dynamic`, el compilador usará el mapa de tipos del `TypeChecker` para emitir variables y parámetros con sus tipos nativos de C#:
+En lugar de transpilación genérica a `dynamic`, el compilador usará el mapa de tipos del `Checker` para emitir variables y parámetros con sus tipos nativos de C#:
 
 * `int` $\rightarrow$ `long`
 * `float` $\rightarrow$ `double`
@@ -108,8 +108,8 @@ El Type Checker puede evaluar de forma segura expresiones constantes en tiempo d
 ## 4. Implementación Técnica en el Compilador
 
 ### 4.1 Cambios en `Transpiler.cs`
-* Integrar el `TypeChecker` como un paso previo en `Program.cs` antes de llamar a `Transpiler.Transpile(...)`.
-* Pasar el contexto de símbolos resueltos (`TypeChecker`) al transpilador.
+* Integrar el `Checker` como un paso previo en `Program.cs` antes de llamar a `Transpiler.Transpile(...)`.
+* Pasar el contexto de símbolos resueltos (`Checker`) al transpilador.
 * Modificar la lógica de generación de código en `Transpiler` para mapear los nodos del AST a sus homólogos tipados en C#.
 
 ### 4.2 Cambios en `Evaluator.cs` y `interpreter.js`

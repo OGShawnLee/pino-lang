@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Pino;
 
-public partial class TypeChecker {
+public partial class Checker {
   private void CheckExpression(Expression expr) {
     switch (expr) {
       case IdentifierExpression id:
