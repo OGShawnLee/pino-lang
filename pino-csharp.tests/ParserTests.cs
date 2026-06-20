@@ -709,6 +709,118 @@ public class ParserTests {
     var checker = new Checker();
     checker.Check(program);
   }
+
+  [Fact]
+  public void TestMapParserEdgeCases() {
+    // 1. Empty map
+    var emptyInput = "val m = map[string, int] {}";
+    var emptyStmt = Parser.ParseString(emptyInput);
+    var varDecl1 = Assert.IsType<VariableDeclaration>(emptyStmt);
+    var mapExpr1 = Assert.IsType<MapExpression>(varDecl1.Value);
+    Assert.Equal("string", mapExpr1.KeyType);
+    Assert.Equal("int", mapExpr1.ValueType);
+    Assert.Empty(mapExpr1.Entries);
+
+    // 2. Nested map types
+    var nestedInput = "val m = map[string, []int] {}";
+    var nestedStmt = Parser.ParseString(nestedInput);
+    var varDecl2 = Assert.IsType<VariableDeclaration>(nestedStmt);
+    var mapExpr2 = Assert.IsType<MapExpression>(varDecl2.Value);
+    Assert.Equal("string", mapExpr2.KeyType);
+    Assert.Equal("[]int", mapExpr2.ValueType);
+
+    // 3. Syntax error cases
+    Assert.ThrowsAny<Exception>(() => Parser.ParseString("val m = map[string] {}"));
+    Assert.ThrowsAny<Exception>(() => Parser.ParseString("val m = map[string, int] { \"key\" }"));
+  }
+
+  [Fact]
+  public void TestMapTypeCheckerSemanticValidation() {
+    // 1. Valid types pass
+    var validCode = @"
+      val m = map[string, int] { ""a"": 1, ""b"": 2 }
+    ";
+    var program = Parser.ParseProgramString(validCode);
+    var checker = new Checker();
+    checker.Check(program);
+
+    // 2. Invalid key type throws
+    var invalidKeyCode = @"
+      val m = map[string, int] { 123: 1 }
+    ";
+    var progKey = Parser.ParseProgramString(invalidKeyCode);
+    Assert.ThrowsAny<Exception>(() => new Checker().Check(progKey));
+
+    // 3. Invalid value type throws
+    var invalidValCode = @"
+      val m = map[string, int] { ""a"": ""hello"" }
+    ";
+    var progVal = Parser.ParseProgramString(invalidValCode);
+    Assert.ThrowsAny<Exception>(() => new Checker().Check(progVal));
+  }
+
+  [Fact]
+  public void TestMapEvaluatorRuntimeBehavior() {
+    // 1. Basic operations: insertion, lookup, updates
+    var code = @"
+      val m = map[string, int] { ""a"": 1 }
+      m[""b""] = 2
+      m[""a""] = 10
+      m[""a""] += 5
+      
+      val val_a = m[""a""]
+      val val_b = m[""b""]
+      
+      # Properties and methods
+      val len_val = m:len
+      val keys_len = m:keys():len
+      val values_len = m:values():len
+      
+      # Remove
+      val removed = m:remove(""b"")
+      val len_after_remove = m:len
+      
+      # In operator
+      val in_a = ""a"" in m
+      val in_b = ""b"" in m
+    ";
+    var program = Parser.ParseProgramString(code);
+    var checker = new Checker();
+    checker.Check(program);
+    
+    var evaluator = new Evaluator();
+    var env = new Pino.Environment();
+    evaluator.Execute(program, env);
+
+    Assert.Equal(15L, env.Get("val_a"));
+    Assert.Equal(2L, env.Get("val_b"));
+    Assert.Equal(2L, env.Get("len_val"));
+    Assert.Equal(2L, env.Get("keys_len"));
+    Assert.Equal(2L, env.Get("values_len"));
+    Assert.Equal(2L, env.Get("removed"));
+    Assert.Equal(1L, env.Get("len_after_remove"));
+    Assert.Equal(true, env.Get("in_a"));
+    Assert.Equal(false, env.Get("in_b"));
+
+    // 2. Exception on missing key
+    var missingKeyCode = @"
+      val m = map[string, int] { ""a"": 1 }
+      val x = m[""b""]
+    ";
+    var progMissing = Parser.ParseProgramString(missingKeyCode);
+    Assert.ThrowsAny<Exception>(() => evaluator.Execute(progMissing, new Pino.Environment()));
+
+    // 3. Exception on null key
+    var nullKeyCode = @"
+      struct Wrapper { key string }
+      val w = Wrapper {}
+      val m = map[string, int] { ""a"": 1 }
+      val x = m[w:key]
+    ";
+    var progNull = Parser.ParseProgramString(nullKeyCode);
+    new Checker().Check(progNull);
+    Assert.ThrowsAny<Exception>(() => evaluator.Execute(progNull, new Pino.Environment()));
+  }
 }
 
 
