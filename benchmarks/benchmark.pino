@@ -1,0 +1,31 @@
+# Pino Benchmark: Fibonacci Recursivo & Loop Grande
+# Mide la velocidad de llamadas a funciones recursivas y la velocidad de loops y operaciones.
+
+fn fib(n int) int {
+  if n <= 1 {
+    return n
+  }
+  return fib(n - 1) + fib(n - 2)
+}
+
+println("--- BENCHMARK PINO ---")
+
+# 1. Fibonacci Benchmark (Mide llamadas de función, creación de scopes y aritmética)
+val fibStart = time()
+val fibNum = 28
+val fibResult = fib(fibNum)
+val fibDuration = time() - fibStart
+println("1. Fibonacci($fibNum) recursivo:")
+println("   Resultado: $fibResult")
+println("   Tiempo: $fibDuration ms")
+
+# 2. Loop Benchmark (Mide velocidad en bucles y mutación de variables)
+val loopStart = time()
+var count = 0
+for i in 100_000 {
+  count += 1
+}
+val loopDuration = time() - loopStart
+println("2. Bucle simple de 100,000 iteraciones:")
+println("   Resultado: $count")
+println("   Tiempo: $loopDuration ms")

@@ -59,6 +59,7 @@ public record FromImportStatement(string ModuleName, List<string> Imports) : Sta
 // --- EXPRESSIONS ---
 public abstract record Expression : Statement {
   public int Distance { get; set; } = -1;
+  public string? InferredType { get; set; }
 }
 
 public record LiteralExpression(string Value, LiteralType LiteralType, List<string>? Injections = null) : Expression;

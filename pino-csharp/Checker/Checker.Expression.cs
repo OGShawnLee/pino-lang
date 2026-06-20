@@ -197,9 +197,21 @@ public partial class Checker {
         }
         break;
     }
+
+    try {
+      InferType(expr);
+    } catch {
+      // Ignore failures during early or partial check passes
+    }
   }
 
   private string InferType(Expression expr) {
+    string type = InferTypeInternal(expr);
+    expr.InferredType = type;
+    return type;
+  }
+
+  private string InferTypeInternal(Expression expr) {
     switch (expr) {
       case LiteralExpression lit:
         return lit.LiteralType switch {

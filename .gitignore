@@ -59,3 +59,7 @@ project.nuget.cache
 # Shared ZIP Package
 pino-quest.zip
 **/wasm/*
+
+# Rust benchmarks
+benchmarks/benchmark_rust
+benchmarks/benchmark_rust.pdb

@@ -13,13 +13,17 @@ public partial class WASMBridge {
 			var checker = new Checker();
 			checker.Check(program);
 			
+			var compiler = new Compiler();
+			var vmFn = compiler.Compile(program);
 			var evaluator = new Evaluator();
+			var vm = new VM(evaluator, evaluator.Globals);
+			
 			using var sw = new StringWriter();
 			var originalOut = Console.Out;
 			Console.SetOut(sw);
 			
 			try {
-				evaluator.Execute(program);
+				vm.Execute(vmFn);
 			} finally {
 				Console.SetOut(originalOut);
 			}

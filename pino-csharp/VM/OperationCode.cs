@@ -1,0 +1,42 @@
+namespace Pino;
+
+public enum OperationCode : byte {
+  OP_CONSTANT,
+  OP_TRUE,
+  OP_FALSE,
+  OP_NIL,
+  OP_ADD,
+  OP_SUB,
+  OP_MUL,
+  OP_DIV,
+  OP_MOD,
+  OP_EQUAL,
+  OP_NOT_EQUAL,
+  OP_LESS,
+  OP_LESS_EQUAL,
+  OP_GREATER,
+  OP_GREATER_EQUAL,
+  OP_NOT,
+  OP_POP,
+  OP_DEFINE_GLOBAL,
+  OP_GET_GLOBAL,
+  OP_SET_GLOBAL,
+  OP_GET_LOCAL,
+  OP_SET_LOCAL,
+  OP_JUMP,
+  OP_JUMP_IF_FALSE,
+  OP_CALL,
+  OP_RETURN,
+
+  // Optimized typed operations (integers)
+  OP_ADD_INT,
+  OP_SUB_INT,
+  OP_MUL_INT,
+  OP_DIV_INT,
+  OP_MOD_INT,
+  OP_EQUAL_INT,
+  OP_LESS_INT,
+  OP_LESS_EQUAL_INT,
+  OP_GREATER_INT,
+  OP_GREATER_EQUAL_INT
+}

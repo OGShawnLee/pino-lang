@@ -10,17 +10,24 @@ namespace pino_csharp;
 
 class Program {
   static void Main(string[] args) {
-    if (args.Length == 0) {
+    bool useVM = false;
+    var argList = new List<string>(args);
+    if (argList.Contains("--vm")) {
+      useVM = true;
+      argList.Remove("--vm");
+    }
+
+    if (argList.Count == 0) {
       var defaultPath = Path.Combine(System.Environment.CurrentDirectory, "main.pino");
       if (File.Exists(defaultPath)) {
-        RunFile(defaultPath);
+        RunFile(defaultPath, useVM);
       } else {
         ShowHelp();
       }
       return;
     }
 
-    var command = args[0].ToLower();
+    var command = argList[0].ToLower();
 
     switch (command) {
       case "h":
@@ -33,23 +40,23 @@ class Program {
         break;
 
       case "run":
-        var fileName = args.Length > 1 ? args[1] : "main.pino";
+        var fileName = argList.Count > 1 ? argList[1] : "main.pino";
         var filePath = Path.Combine(System.Environment.CurrentDirectory, fileName);
         if (!File.Exists(filePath)) {
           Console.WriteLine($"Error: File '{fileName}' not found.");
           System.Environment.Exit(1);
         }
-        RunFile(filePath);
+        RunFile(filePath, useVM);
         break;
 
       case "watch":
-        var watchFileName = args.Length > 1 ? args[1] : "main.pino";
+        var watchFileName = argList.Count > 1 ? argList[1] : "main.pino";
         var watchFilePath = Path.Combine(System.Environment.CurrentDirectory, watchFileName);
         if (!File.Exists(watchFilePath)) {
           Console.WriteLine($"Error: File '{watchFileName}' not found.");
           System.Environment.Exit(1);
         }
-        WatchFile(watchFilePath);
+        WatchFile(watchFilePath, useVM);
         break;
 
       case "v":
@@ -63,7 +70,7 @@ class Program {
         break;
 
       case "play":
-        PlayGame(args.Length > 1 ? args[1] : null);
+        PlayGame(argList.Count > 1 ? argList[1] : null);
         break;
 
       default:
@@ -232,13 +239,21 @@ class Program {
     }
   }
 
-  static void RunFile(string path) {
+  static void RunFile(string path, bool useVM = false) {
     try {
       var program = Parser.ParseFile(path);
       var checker = new Checker();
       checker.Check(program);
-      var evaluator = new Evaluator();
-      evaluator.Execute(program);
+      if (useVM) {
+        var compiler = new Compiler();
+        var vmFn = compiler.Compile(program);
+        var evaluator = new Evaluator();
+        var vm = new VM(evaluator, evaluator.Globals);
+        vm.Execute(vmFn);
+      } else {
+        var evaluator = new Evaluator();
+        evaluator.Execute(program);
+      }
     } catch (Exception ex) {
       Console.WriteLine(ex.ToString());
     }
@@ -254,7 +269,7 @@ class Program {
     }
   }
 
-  static void WatchFile(string path) {
+  static void WatchFile(string path, bool useVM = false) {
     var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
     if (string.IsNullOrEmpty(exePath)) {
       throw new Exception("RUNTIME ERROR: Could not locate pino-csharp executable path.");
@@ -284,7 +299,7 @@ class Program {
 
         var startInfo = new System.Diagnostics.ProcessStartInfo {
           FileName = exePath,
-          Arguments = $"run \"{path}\"",
+          Arguments = $"run \"{path}\"{(useVM ? " --vm" : "")}",
           UseShellExecute = false
         };
 

@@ -144,6 +144,7 @@ public class PinoModule {
 // Evaluator / Interpreter
 public partial class Evaluator {
   private readonly Environment _globals = new();
+  public Environment Globals => _globals;
   private readonly Dictionary<string, PinoModule> _moduleCache = new();
   private readonly HashSet<string> _currentlyLoadingModules = new();
 
