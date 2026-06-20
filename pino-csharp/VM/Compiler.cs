@@ -63,6 +63,10 @@ public class Compiler {
         CompileIfStatement(ifs);
         break;
 
+      case ElseStatement elseStmt:
+        CompileStatement(elseStmt.Body);
+        break;
+
       case LoopStatement loop:
         CompileLoopStatement(loop);
         break;
@@ -193,10 +197,16 @@ public class Compiler {
       // Loop body scope
       BeginScope();
       
+      // If double variable loop (e.g. for idx, v in range)
+      if (!string.IsNullOrEmpty(loop.KeyVar)) {
+        EmitByte((byte)OperationCode.OP_GET_LOCAL);
+        EmitByte((byte)counterSlot);
+        _state.Locals.Add(new Local(loop.KeyVar, _state.ScopeDepth));
+      }
+
       // User loop variable
       var id = loop.Begin as IdentifierExpression;
       if (id != null) {
-        int userVarSlot = _state.Locals.Count;
         EmitByte((byte)OperationCode.OP_GET_LOCAL);
         EmitByte((byte)counterSlot);
         _state.Locals.Add(new Local(id.Name, _state.ScopeDepth));

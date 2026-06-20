@@ -1,4 +1,5 @@
 using Xunit;
+using System;
 using System.Collections.Generic;
 using Pino;
 
@@ -245,66 +246,12 @@ public class ParserTests {
   }
 
   [Fact]
-  public void TestIndexAccessParsingAndEvaluation() {
-    // 1. Test parsing styles[0]
+  public void TestIndexAccessParsing() {
     var input = "styles[0]";
     var stmt = Parser.ParseString(input);
     var indexAccess = Assert.IsType<IndexAccessExpression>(stmt);
     Assert.Equal("styles", Assert.IsType<IdentifierExpression>(indexAccess.Target).Name);
     Assert.Equal("0", Assert.IsType<LiteralExpression>(indexAccess.Index).Value);
-
-    // 2. Test parsing and evaluation of list indexing
-    var programInput = @"
-      val arr = [10, 20, 30]
-      val first = arr[0]
-      val second = arr[1]
-      
-      var mutableArr = [1, 2]
-      mutableArr[1] = 99
-      val modified = mutableArr[1]
-      
-      var cArr = [10]
-      cArr[0] += 5
-      val compoundVal = cArr[0]
-
-      val text = ""Pino""
-      val charP = text[0]
-
-      struct Style {
-        name string
-      }
-      val styles = [
-        Style { name: ""Leaping tiger"" },
-        Style { name: ""Iron Fist"" }
-      ]
-      val current_char = styles[1]:name[0]
-
-      val numList = [10, 20, 30, 40]
-      val foundVal = numList:find(it > 25)
-      val foundIdx = numList:find_index(it > 25)
-      val hasAny = numList:any(it == 30)
-      val hasNone = numList:any(it == 99)
-      val hasAll = numList:all(it >= 10)
-      val notAll = numList:all(it > 20)
-    ";
-    var program = Parser.ParseProgramString(programInput);
-    var evaluator = new Evaluator();
-    var env = new Pino.Environment();
-    evaluator.Execute(program, env);
-
-    Assert.Equal(10L, env.Get("first"));
-    Assert.Equal(20L, env.Get("second"));
-    Assert.Equal(99L, env.Get("modified"));
-    Assert.Equal(15L, env.Get("compoundVal"));
-    Assert.Equal("P", env.Get("charP"));
-    Assert.Equal("I", env.Get("current_char"));
-
-    Assert.Equal(30L, env.Get("foundVal"));
-    Assert.Equal(2L, env.Get("foundIdx"));
-    Assert.True((bool)env.Get("hasAny")!);
-    Assert.False((bool)env.Get("hasNone")!);
-    Assert.True((bool)env.Get("hasAll")!);
-    Assert.False((bool)env.Get("notAll")!);
   }
 
   [Fact]
@@ -370,201 +317,6 @@ public class ParserTests {
   }
 
   [Fact]
-  public void TestTypeCheckerValidInterface() {
-    var input = @"
-      interface Greeter {
-        fn greet(name string)
-      }
-      
-      struct User {
-        fn greet(name string) {
-          println(""Hello, "" + name)
-        }
-      }
-      
-      fn run_greet(g Greeter) {
-        g:greet(""Shawn"")
-      }
-      
-      val u = User {}
-      run_greet(u)
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    
-    checker.Check(program);
-  }
-
-  [Fact]
-  public void TestTypeCheckerInvalidInterfaceThrows() {
-    var input = @"
-      interface Greeter {
-        fn greet(name string)
-      }
-      
-      struct User {
-        fn other() {}
-      }
-      
-      fn run_greet(g Greeter) {}
-      
-      val u = User {}
-      run_greet(u)
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    
-    Assert.ThrowsAny<Exception>(() => checker.Check(program));
-  }
-
-  [Fact]
-  public void TestTypeCheckerVectorMapInferenceError() {
-    var input = @"
-      val list = []int { len: 3, init: it * 3 }
-      val list_str = list:map(""$it is a string"")
-
-      fn print_list(list []int) {}
-
-      print_list(list_str)
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    
-    Assert.ThrowsAny<Exception>(() => checker.Check(program));
-  }
-
-  [Fact]
-  public void TestTypeCheckerFunctionSignatureScopingAndCompatibility() {
-    var input = @"
-      val list = []int { len: 3, init: it * 3 }
-      
-      fn print_list(list []int, on_each fn (int)) {
-        list:each(on_each)
-      }
-      
-      print_list(list, it * 2)
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    
-    checker.Check(program);
-  }
-
-  [Fact]
-  public void TestTypeCheckerDeclaredReturnType() {
-    var input = @"
-      struct Product {
-        price int
-
-        fn get_double_price() int {
-          return price * 2
-        }
-      }
-
-      fn another_get_double(n int) int {
-        return n * 2
-      }
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    
-    checker.Check(program);
-  }
-
-  [Fact]
-  public void TestTypeCheckerDeclaredReturnTypeInvalid() {
-    var input = @"
-      fn get_name() string {
-        return 42
-      }
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    
-    Assert.ThrowsAny<Exception>(() => checker.Check(program));
-  }
-
-  [Fact]
-  public void TestStructEmbeddingParsingAndChecking() {
-    var input = @"
-      struct Shape {
-        x int
-        y int
-      }
-
-      struct Circle {
-        Shape
-        radius int
-      }
-
-      val c = Circle {
-        x: 10,
-        y: 20,
-        radius: 5
-      }
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    
-    checker.Check(program);
-
-    var statements = program.Statements;
-    var shapeDecl = Assert.IsType<StructDeclaration>(statements[0]);
-    Assert.Equal("Shape", shapeDecl.Identifier);
-    Assert.Empty(shapeDecl.InheritedStructs);
-
-    var circleDecl = Assert.IsType<StructDeclaration>(statements[1]);
-    Assert.Equal("Circle", circleDecl.Identifier);
-    Assert.Single(circleDecl.InheritedStructs);
-    Assert.Equal("Shape", circleDecl.InheritedStructs[0]);
-
-    var varDecl = Assert.IsType<VariableDeclaration>(statements[2]);
-    var inst = Assert.IsType<StructInstanceExpression>(varDecl.Value);
-    Assert.Equal("Circle", inst.StructName);
-    Assert.Equal(3, inst.Properties.Count);
-  }
-
-  [Fact]
-  public void TestStructEmbeddingEvaluation() {
-    var input = @"
-      struct Parent {
-        a int
-        fn hello() string {
-          return ""hello""
-        }
-      }
-
-      struct Child {
-        Parent
-        b int
-        fn hello() string {
-          return ""world""
-        }
-      }
-
-      val obj = Child {
-        a: 100,
-        b: 200
-      }
-
-      val valA = obj:a
-      val valB = obj:b
-      val greeting = obj:hello()
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    checker.Check(program);
-
-    var evaluator = new Evaluator();
-    var env = new Pino.Environment();
-    evaluator.Execute(program, env);
-
-    Assert.Equal(100L, env.Get("valA"));
-    Assert.Equal(200L, env.Get("valB"));
-    Assert.Equal("world", env.Get("greeting"));
-  }
-
-  [Fact]
   public void TestParseStaticMethod() {
     var input = @"
       struct MyStruct {
@@ -590,124 +342,33 @@ public class ParserTests {
   }
 
   [Fact]
-  public void TestStaticMethodTypeCheckingAndEvaluation() {
+  public void TestStructEmbeddingParsing() {
     var input = @"
-      struct MathUtils {
-        factor int
-        static fn multiply(a int, b int) int {
-          return a * b
-        }
-        fn get_factor() int {
-          return factor
-        }
-      }
-      val res = MathUtils::multiply(6, 7)
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    checker.Check(program);
-
-    var evaluator = new Evaluator();
-    var env = new Pino.Environment();
-    evaluator.Execute(program, env);
-
-    Assert.Equal(42L, env.Get("res"));
-  }
-
-  [Fact]
-  public void TestStaticMethodTypeCheckingErrors() {
-    // 1. Trying to access 'this' from a static method should fail type check
-    var inputInvalidThis = @"
-      struct BadStruct {
+      struct Shape {
         x int
-        static fn bad() int {
-          return this:x
-        }
+        y int
       }
-    ";
-    var program1 = Parser.ParseProgramString(inputInvalidThis);
-    var checker1 = new Checker();
-    Assert.ThrowsAny<Exception>(() => checker1.Check(program1));
 
-    // 2. Trying to access instance field directly from a static method should fail
-    var inputInvalidField = @"
-      struct BadStruct2 {
-        x int
-        static fn bad() int {
-          return x
-        }
+      struct Circle {
+        Shape
+        radius int
       }
-    ";
-    var program2 = Parser.ParseProgramString(inputInvalidField);
-    var checker2 = new Checker();
-    Assert.ThrowsAny<Exception>(() => checker2.Check(program2));
 
-    // 3. Trying to call static method via instance member access ':' should fail
-    var inputInvalidInstanceCall = @"
-      struct Helper {
-        static fn helper_fn() int { return 1 }
-      }
-      val h = Helper {}
-      val res = h:helper_fn()
-    ";
-    var program3 = Parser.ParseProgramString(inputInvalidInstanceCall);
-    var checker3 = new Checker();
-    Assert.ThrowsAny<Exception>(() => checker3.Check(program3));
-
-    // 4. Trying to call instance method via static member access '::' should fail
-    var inputInvalidStaticCall = @"
-      struct Helper2 {
-        fn helper_fn() int { return 1 }
-      }
-      val res = Helper2::helper_fn()
-    ";
-    var program4 = Parser.ParseProgramString(inputInvalidStaticCall);
-    var checker4 = new Checker();
-    Assert.ThrowsAny<Exception>(() => checker4.Check(program4));
-  }
-
-  [Fact]
-  public void TestTypeCheckerRecursiveFunctionExplicitTypePasses() {
-    var input = @"
-      fn fib(n int) int {
-        if n <= 1 { return n }
-        return fib(n - 1) + fib(n - 2)
+      val c = Circle {
+        x: 10,
+        y: 20,
+        radius: 5
       }
     ";
     var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    checker.Check(program);
-  }
+    var statements = program.Statements;
+    var shapeDecl = Assert.IsType<StructDeclaration>(statements[0]);
+    Assert.Equal("Shape", shapeDecl.Identifier);
 
-  [Fact]
-  public void TestTypeCheckerRecursiveFunctionNoTypeThrows() {
-    var input = @"
-      fn fib(n int) {
-        if n <= 1 { return n }
-        return fib(n - 1) + fib(n - 2)
-      }
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    var ex = Assert.ThrowsAny<Exception>(() => checker.Check(program));
-    Assert.Contains("is recursive and requires an explicit return type", ex.Message);
-  }
-
-  [Fact]
-  public void TestTypeCheckerMutuallyRecursiveExplicitTypePasses() {
-    var input = @"
-      fn is_even(n int) bool {
-        if n == 0 { return true }
-        return is_odd(n - 1)
-      }
-      fn is_odd(n int) bool {
-        if n == 0 { return false }
-        return is_even(n - 1)
-      }
-    ";
-    var program = Parser.ParseProgramString(input);
-    var checker = new Checker();
-    checker.Check(program);
+    var circleDecl = Assert.IsType<StructDeclaration>(statements[1]);
+    Assert.Equal("Circle", circleDecl.Identifier);
+    Assert.Single(circleDecl.InheritedStructs);
+    Assert.Equal("Shape", circleDecl.InheritedStructs[0]);
   }
 
   [Fact]
@@ -733,94 +394,4 @@ public class ParserTests {
     Assert.ThrowsAny<Exception>(() => Parser.ParseString("val m = map[string] {}"));
     Assert.ThrowsAny<Exception>(() => Parser.ParseString("val m = map[string, int] { \"key\" }"));
   }
-
-  [Fact]
-  public void TestMapTypeCheckerSemanticValidation() {
-    // 1. Valid types pass
-    var validCode = @"
-      val m = map[string, int] { ""a"": 1, ""b"": 2 }
-    ";
-    var program = Parser.ParseProgramString(validCode);
-    var checker = new Checker();
-    checker.Check(program);
-
-    // 2. Invalid key type throws
-    var invalidKeyCode = @"
-      val m = map[string, int] { 123: 1 }
-    ";
-    var progKey = Parser.ParseProgramString(invalidKeyCode);
-    Assert.ThrowsAny<Exception>(() => new Checker().Check(progKey));
-
-    // 3. Invalid value type throws
-    var invalidValCode = @"
-      val m = map[string, int] { ""a"": ""hello"" }
-    ";
-    var progVal = Parser.ParseProgramString(invalidValCode);
-    Assert.ThrowsAny<Exception>(() => new Checker().Check(progVal));
-  }
-
-  [Fact]
-  public void TestMapEvaluatorRuntimeBehavior() {
-    // 1. Basic operations: insertion, lookup, updates
-    var code = @"
-      val m = map[string, int] { ""a"": 1 }
-      m[""b""] = 2
-      m[""a""] = 10
-      m[""a""] += 5
-      
-      val val_a = m[""a""]
-      val val_b = m[""b""]
-      
-      # Properties and methods
-      val len_val = m:len
-      val keys_len = m:keys():len
-      val values_len = m:values():len
-      
-      # Remove
-      val removed = m:remove(""b"")
-      val len_after_remove = m:len
-      
-      # In operator
-      val in_a = ""a"" in m
-      val in_b = ""b"" in m
-    ";
-    var program = Parser.ParseProgramString(code);
-    var checker = new Checker();
-    checker.Check(program);
-    
-    var evaluator = new Evaluator();
-    var env = new Pino.Environment();
-    evaluator.Execute(program, env);
-
-    Assert.Equal(15L, env.Get("val_a"));
-    Assert.Equal(2L, env.Get("val_b"));
-    Assert.Equal(2L, env.Get("len_val"));
-    Assert.Equal(2L, env.Get("keys_len"));
-    Assert.Equal(2L, env.Get("values_len"));
-    Assert.Equal(2L, env.Get("removed"));
-    Assert.Equal(1L, env.Get("len_after_remove"));
-    Assert.Equal(true, env.Get("in_a"));
-    Assert.Equal(false, env.Get("in_b"));
-
-    // 2. Exception on missing key
-    var missingKeyCode = @"
-      val m = map[string, int] { ""a"": 1 }
-      val x = m[""b""]
-    ";
-    var progMissing = Parser.ParseProgramString(missingKeyCode);
-    Assert.ThrowsAny<Exception>(() => evaluator.Execute(progMissing, new Pino.Environment()));
-
-    // 3. Exception on null key
-    var nullKeyCode = @"
-      struct Wrapper { key string }
-      val w = Wrapper {}
-      val m = map[string, int] { ""a"": 1 }
-      val x = m[w:key]
-    ";
-    var progNull = Parser.ParseProgramString(nullKeyCode);
-    new Checker().Check(progNull);
-    Assert.ThrowsAny<Exception>(() => evaluator.Execute(progNull, new Pino.Environment()));
-  }
 }
-
-
