@@ -61,7 +61,7 @@ class Program {
 
       case "v":
       case "version":
-        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.3.1";
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.3.2";
         Console.WriteLine($"Pino version: {version} (.NET 10)");
         break;
 
@@ -245,6 +245,10 @@ class Program {
       var checker = new Checker();
       checker.Check(program);
       if (useVM) {
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("⚠️ [PinoVM - EXPERIMENTAL]: The PinoVM engine is experimental and currently supports only pure calculation, functions, and basic control flow. Complex structures will not work and will fail.");
+        Console.ResetColor();
+
         var compiler = new Compiler();
         var vmFn = compiler.Compile(program);
         var evaluator = new Evaluator();

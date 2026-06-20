@@ -6,7 +6,7 @@
     <RootNamespace>pino_csharp</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
