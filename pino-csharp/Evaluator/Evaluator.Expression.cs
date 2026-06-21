@@ -176,8 +176,8 @@ public partial class Evaluator {
         if (vec.Elements != null) {
           return vec.Elements.Select(e => Evaluate(e, env)).ToList();
         } else {
-          // Vector init constructor: []type { len: limit, init: expr }
-          var lenVal = Evaluate(vec.Len!, env);
+          // Vector init constructor: []type { len: limit, init: expr } | []type
+          var lenVal = vec.Len == null ? 0 : Evaluate(vec.Len!, env);
           long length = lenVal is long l ? l : Convert.ToInt64(lenVal);
           var initList = new List<object?>();
 

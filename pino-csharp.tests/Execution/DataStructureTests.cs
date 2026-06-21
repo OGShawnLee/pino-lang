@@ -137,6 +137,49 @@ public class DataStructureTests {
   }
 
   [Fact]
+  public void TestVectorOnlyTyping() {
+    var code = @"
+      val items = []int
+
+      items:push(0)
+
+      val n = items[0]
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(0L, env.Get("n"));
+  }
+
+  [Fact]
+  public void TestVectorOnlyTypingComplex() {
+    var code = @"
+      val matrix = [][]int
+      val int_list = []int
+
+      matrix:push(int_list)
+
+      val is_in_matrix = int_list in matrix
+
+      val map_list = []map[int, int]
+      val str_int_map = map[string, int] { ""one"": 1 }
+      
+      map_list:push(str_int_map)
+
+      val one = map_list[0][""one""]
+
+      val fn_list = []fn (int) int
+      val int_fn = fn (n int) => n
+
+      fn_list:push(int_fn)
+
+      val is_fn_in_list = int_fn in fn_list
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(true, env.Get("is_in_matrix"));
+    Assert.Equal(1L, env.Get("one"));
+    Assert.Equal(true, env.Get("is_fn_in_list"));
+  }
+
+  [Fact]
   public void TestVectorLoopSingleVar() {
     var code = @"
       val items = [10, 20, 30]
