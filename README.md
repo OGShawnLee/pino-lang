@@ -4,7 +4,8 @@ A modern, simple, and highly aesthetic programming language designed to make wri
 
 Pino is built with a standalone tree-walk interpreter in **C# (.NET 10)** featuring a robust lexical analyzer, a precedence-climbing parser, and a fully scoped runtime environment.
 
-For a detailed breakdown of the compiler architecture, directory structure, and execution pipeline, please refer to the [ARCHITECTURE.md](./ARCHITECTURE.md) guide.
+* For the official syntax, types, modules, built-ins, and standard library methods, see the **[Language Reference Guide](./LANGUAGE_REFERENCE.md)**.
+* For a detailed breakdown of the compiler architecture, directory structure, and execution pipeline, please refer to the **[Architecture Guide](./ARCHITECTURE.md)**.
 
 ## 🤖 Why the name "Pino"?
 
