@@ -119,6 +119,9 @@ public partial class Checker {
             } else if (colType == "int" || colType == "float") {
               loopVarType = "int";
               keyVarType = "int";
+            } else if (colType == "string") {
+              loopVarType = "string";
+              keyVarType = "int";
             }
             DeclareVariable(id.Name, loopVarType);
             if (!string.IsNullOrEmpty(loop.KeyVar)) {

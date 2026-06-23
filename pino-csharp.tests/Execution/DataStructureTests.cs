@@ -237,4 +237,33 @@ public class DataStructureTests {
     Assert.Contains("a1", result);
     Assert.Contains("b2", result);
   }
+
+  [Fact]
+  public void TestStringLoopSingleVar() {
+    var code = @"
+      val name = ""Shawn""
+      var charsConcat = """"
+      for char in name {
+        charsConcat = charsConcat + char
+      }
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal("Shawn", env.Get("charsConcat"));
+  }
+
+  [Fact]
+  public void TestStringLoopDoubleVar() {
+    var code = @"
+      val name = ""Shawn""
+      var charsConcat = """"
+      var indexSum = 0
+      for index, char in name {
+        indexSum = indexSum + index
+        charsConcat = charsConcat + char
+      }
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal("Shawn", env.Get("charsConcat"));
+    Assert.Equal(10L, env.Get("indexSum")); // 0 + 1 + 2 + 3 + 4 = 10
+  }
 }

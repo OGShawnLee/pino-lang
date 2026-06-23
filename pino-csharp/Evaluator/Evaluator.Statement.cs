@@ -198,6 +198,18 @@ public partial class Evaluator {
               Execute(loop.Body, childEnv);
             } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
           }
+        } else if (collection is string str) {
+          for (int i = 0; i < str.Length; i++) {
+            var item = str[i].ToString();
+            var childEnv = new Environment(env);
+            childEnv.Define(loopVar, item, false);
+            if (!string.IsNullOrEmpty(loop.KeyVar)) {
+              childEnv.Define(loop.KeyVar, (long)i, false);
+            }
+            try {
+              Execute(loop.Body, childEnv);
+            } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
+          }
         } else {
           throw new Exception("RUNTIME ERROR: Cannot iterate over non-iterable object.");
         }
