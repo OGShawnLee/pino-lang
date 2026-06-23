@@ -361,5 +361,32 @@ public class DataStructureTests {
     Assert.Equal("OnState", onState.Struct.Name);
     Assert.Equal("OffState", offState.Struct.Name);
   }
+
+  [Fact]
+  public void TestStructSelfThisImmediateSync() {
+    var code = @"
+      struct Character {
+        hp int
+        self_hp int
+        this_hp int
+
+        fn take_damage(dmg int) {
+          hp = hp - dmg
+          self_hp = self:hp
+          this_hp = this:hp
+        }
+      }
+
+      val c = Character { hp: 100, self_hp: 0, this_hp: 0 }
+      c:take_damage(10)
+      val res_self = c:self_hp
+      val res_this = c:this_hp
+      val res_final = c:hp
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(90L, env.Get("res_self"));
+    Assert.Equal(90L, env.Get("res_this"));
+    Assert.Equal(90L, env.Get("res_final"));
+  }
 }
 

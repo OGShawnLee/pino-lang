@@ -785,10 +785,19 @@ public partial class Evaluator {
   }
 
   private void AssignVariable(IdentifierExpression id, object? value, Environment env) {
+    Environment? targetEnv = null;
     if (id.Distance != -1) {
       env.AssignAt(id.Distance, id.Name, value);
+      targetEnv = env.GetAncestor(id.Distance);
     } else {
       env.Assign(id.Name, value);
+      targetEnv = env.FindEnvDefining(id.Name);
+    }
+
+    if (targetEnv != null && targetEnv.ExistsLocally("self") && targetEnv.Get("self") is PinoStructInstance selfInstance) {
+      if (selfInstance.Fields.ContainsKey(id.Name)) {
+        selfInstance.Fields[id.Name] = value;
+      }
     }
   }
 }

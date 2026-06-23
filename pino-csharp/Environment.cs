@@ -95,6 +95,19 @@ public class Environment {
     box.Value = value;
   }
 
+  public bool ExistsLocally(string name) {
+    return _values.ContainsKey(name);
+  }
+
+  public Environment GetAncestor(int distance) {
+    return Ancestor(distance);
+  }
+
+  public Environment? FindEnvDefining(string name) {
+    if (_values.ContainsKey(name)) return this;
+    return _parent?.FindEnvDefining(name);
+  }
+
   private Environment Ancestor(int distance) {
     var environment = this;
     for (int i = 0; i < distance; i++) {
