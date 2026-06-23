@@ -137,7 +137,7 @@ public class DataStructureTests {
   }
 
   [Fact]
-  public void TestVectorOnlyTyping() {
+  public void TestVectorEmptyInitialization() {
     var code = @"
       val items = []int
 
@@ -150,7 +150,7 @@ public class DataStructureTests {
   }
 
   [Fact]
-  public void TestVectorOnlyTypingComplex() {
+  public void TestVectorEmptyInitializationComplex() {
     var code = @"
       val matrix = [][]int
       val int_list = []int
