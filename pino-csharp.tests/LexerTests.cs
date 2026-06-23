@@ -204,4 +204,28 @@ public class LexerTests {
     Assert.Equal("20", tokens[11].Data);
     Assert.True(tokens[12].IsMarker(MarkerType.BlockEnd));
   }
+
+  [Fact]
+  public void TestRuneLiterals() {
+    var input = "'a' '🌲' '\\n' '\\''";
+    var tokens = Lexer.LexLine(input);
+
+    Assert.Equal(4, tokens.Count);
+
+    Assert.Equal(TokenType.Literal, tokens[0].Type);
+    Assert.Equal(LiteralType.Rune, tokens[0].Literal);
+    Assert.Equal("97", tokens[0].Data); // 'a' code point is 97
+
+    Assert.Equal(TokenType.Literal, tokens[1].Type);
+    Assert.Equal(LiteralType.Rune, tokens[1].Literal);
+    Assert.Equal("127794", tokens[1].Data); // '🌲' code point is 127794
+
+    Assert.Equal(TokenType.Literal, tokens[2].Type);
+    Assert.Equal(LiteralType.Rune, tokens[2].Literal);
+    Assert.Equal("10", tokens[2].Data); // '\n' code point is 10
+
+    Assert.Equal(TokenType.Literal, tokens[3].Type);
+    Assert.Equal(LiteralType.Rune, tokens[3].Literal);
+    Assert.Equal("39", tokens[3].Data); // '\'' code point is 39
+  }
 }

@@ -25,6 +25,8 @@ public partial class Evaluator {
               }
             }
             return str;
+          case LiteralType.Rune:
+            return new PinoRune(int.Parse(lit.Value));
           default:
             return lit.Value;
         }
@@ -644,6 +646,41 @@ public partial class Evaluator {
   private bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;
 
   private object EvaluateBinaryOperation(object? left, OperatorType op, object? right) {
+    // Handle PinoRune operations (excluding 'in' operator, which is handled generically below)
+    if (op != OperatorType.In && (left is PinoRune || right is PinoRune)) {
+      if (op == OperatorType.Addition) {
+        if (left is PinoRune r1 && right is PinoRune r2) return r1.ToString() + r2.ToString();
+        if (left is PinoRune r3 && right is long l) return new PinoRune(r3.CodePoint + (int)l);
+        if (left is long l2 && right is PinoRune r4) return new PinoRune(r4.CodePoint + (int)l2);
+      }
+      if (op == OperatorType.Subtraction) {
+        if (left is PinoRune r5 && right is long l) return new PinoRune(r5.CodePoint - (int)l);
+        if (left is PinoRune r6 && right is PinoRune r7) return (long)(r6.CodePoint - r7.CodePoint);
+      }
+      if (op == OperatorType.Equal) {
+        if (left is PinoRune r8 && right is PinoRune r9) return r8.CodePoint == r9.CodePoint;
+      }
+      if (op == OperatorType.NotEqual) {
+        if (left is PinoRune r10 && right is PinoRune r11) return r10.CodePoint != r11.CodePoint;
+      }
+      if (op == OperatorType.LessThan) {
+        if (left is PinoRune r12 && right is PinoRune r13) return r12.CodePoint < r13.CodePoint;
+      }
+      if (op == OperatorType.LessThanEqual) {
+        if (left is PinoRune r14 && right is PinoRune r15) return r14.CodePoint <= r15.CodePoint;
+      }
+      if (op == OperatorType.GreaterThan) {
+        if (left is PinoRune r16 && right is PinoRune r17) return r16.CodePoint > r17.CodePoint;
+      }
+      if (op == OperatorType.GreaterThanEqual) {
+        if (left is PinoRune r18 && right is PinoRune r19) return r18.CodePoint >= r19.CodePoint;
+      }
+      if (op == OperatorType.Addition && (left is string || right is string)) {
+        return (left?.ToString() ?? "") + (right?.ToString() ?? "");
+      }
+      throw new Exception($"RUNTIME ERROR: Operator '{op}' not supported for type 'rune'.");
+    }
+
     // Handle String Concatenation
     if (op == OperatorType.Addition && (left is string || right is string)) {
       return (left?.ToString() ?? "") + (right?.ToString() ?? "");
@@ -704,6 +741,9 @@ public partial class Evaluator {
           return inList.Contains(left);
         }
         if (right is string inStr) {
+          if (left is PinoRune r) {
+            return inStr.Contains(r.ToString());
+          }
           if (left is not string leftStr) {
             throw new Exception("RUNTIME ERROR: Left side of 'in' operator must be a string when right side is a string.");
           }

@@ -413,6 +413,9 @@ public class VM {
 
   // --- ARITHMETIC / COMPARISON UTILITIES ---
   private object Add(object? left, object? right) {
+    if (left is PinoRune r1 && right is PinoRune r2) return r1.ToString() + r2.ToString();
+    if (left is PinoRune r3 && right is long l1) return new PinoRune(r3.CodePoint + (int)l1);
+    if (left is long l2 && right is PinoRune r4) return new PinoRune(r4.CodePoint + (int)l2);
     if (left is long l && right is long r) {
       return BoxCache.Box(l + r);
     }
@@ -429,6 +432,8 @@ public class VM {
   }
 
   private object Subtract(object? left, object? right) {
+    if (left is PinoRune r1 && right is long l1) return new PinoRune(r1.CodePoint - (int)l1);
+    if (left is PinoRune r2 && right is PinoRune r3) return (long)(r2.CodePoint - r3.CodePoint);
     if (left is long l && right is long r) {
       return BoxCache.Box(l - r);
     }
@@ -483,6 +488,7 @@ public class VM {
   private bool Equal(object? left, object? right) {
     if (left == null && right == null) return true;
     if (left == null || right == null) return false;
+    if (left is PinoRune r1 && right is PinoRune r2) return r1.CodePoint == r2.CodePoint;
     if (left is long l1 && right is long l2) return l1 == l2;
     if (left is double d1 && right is double d2) return d1 == d2;
     if (IsNumeric(left) && IsNumeric(right)) {
@@ -492,6 +498,7 @@ public class VM {
   }
 
   private bool LessThan(object? left, object? right) {
+    if (left is PinoRune r1 && right is PinoRune r2) return r1.CodePoint < r2.CodePoint;
     if (left is long l1 && right is long l2) return l1 < l2;
     if (left is double d1 && right is double d2) return d1 < d2;
     if (left is double || right is double) {
@@ -501,6 +508,7 @@ public class VM {
   }
 
   private bool LessThanEqual(object? left, object? right) {
+    if (left is PinoRune r1 && right is PinoRune r2) return r1.CodePoint <= r2.CodePoint;
     if (left is long l1 && right is long l2) return l1 <= l2;
     if (left is double d1 && right is double d2) return d1 <= d2;
     if (left is double || right is double) {
@@ -510,6 +518,7 @@ public class VM {
   }
 
   private bool GreaterThan(object? left, object? right) {
+    if (left is PinoRune r1 && right is PinoRune r2) return r1.CodePoint > r2.CodePoint;
     if (left is long l1 && right is long l2) return l1 > l2;
     if (left is double d1 && right is double d2) return d1 > d2;
     if (left is double || right is double) {
@@ -519,6 +528,7 @@ public class VM {
   }
 
   private bool GreaterThanEqual(object? left, object? right) {
+    if (left is PinoRune r1 && right is PinoRune r2) return r1.CodePoint >= r2.CodePoint;
     if (left is long l1 && right is long l2) return l1 >= l2;
     if (left is double d1 && right is double d2) return d1 >= d2;
     if (left is double || right is double) {

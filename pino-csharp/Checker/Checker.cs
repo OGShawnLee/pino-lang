@@ -30,6 +30,7 @@ public partial class Checker {
     { "println", "fn(...)" },
     { "readline", "fn(...) string" },
     { "int", "fn(...) int" },
+    { "rune", "fn(any) rune" },
     { "float", "fn(...) float" },
     { "rand", "fn(...) float" },
     { "time", "fn() int" },

@@ -16,7 +16,7 @@ public enum KeywordType {
 }
 
 public enum LiteralType {
-  Boolean, Float, Integer, String
+  Boolean, Float, Integer, String, Rune
 }
 
 public enum MarkerType {

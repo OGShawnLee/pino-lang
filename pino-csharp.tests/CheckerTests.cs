@@ -260,4 +260,47 @@ public class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(badCode2));
   }
+
+  [Fact]
+  public void TestRuneTypeChecker() {
+    // 1. Valid declarations, arithmetic, and parameter passing
+    var code1 = @"
+      val a = 'a'
+      val next = a + 1
+      val dist = 'b' - a
+      val prev = 'b' - 1
+
+      struct Foo {
+        r rune
+      }
+      val f = Foo { r: 'x' }
+
+      fn takes_rune(v rune) {}
+      takes_rune('y')
+    ";
+    CheckCode(code1);
+
+    // 2. Passing int to rune parameter throws
+    var badCode1 = @"
+      fn takes_rune(v rune) {}
+      takes_rune(97)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(badCode1));
+
+    // 3. Passing rune to int parameter throws
+    var badCode2 = @"
+      fn takes_int(v int) {}
+      takes_int('a')
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(badCode2));
+
+    // 4. Initializing struct rune field with int throws
+    var badCode3 = @"
+      struct Foo {
+        r rune
+      }
+      val f = Foo { r: 97 }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(badCode3));
+  }
 }

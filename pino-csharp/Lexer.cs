@@ -99,6 +99,12 @@ public class Lexer {
         continue;
       }
 
+      // 3b. Rune Quote
+      if (c == '\'') {
+        LexRuneLiteral(line, ref index, tokens);
+        continue;
+      }
+
       // 4. Markers (except comment, which is handled above)
       if (Markers.TryGetValue(c, out var markerType) && markerType != MarkerType.Comment && markerType != MarkerType.StrQuote) {
         tokens.Add(new Token(TokenType.Marker, c.ToString(), Marker: markerType));
@@ -276,5 +282,45 @@ public class Lexer {
 
   private static bool IsIdentifierChar(char c) {
     return char.IsLetterOrDigit(c) || c == '_' || c == '$';
+  }
+
+  private static void LexRuneLiteral(string line, ref int index, List<Token> tokens) {
+    int start = index;
+    index++; // Skip opening single quote '
+    if (index >= line.Length) {
+      throw new Exception("Lexer Error: Unterminated rune literal");
+    }
+
+    int codePoint = 0;
+    if (line[index] == '\\') {
+      index++; // Skip backslash
+      if (index >= line.Length) {
+        throw new Exception("Lexer Error: Unterminated escape sequence in rune literal");
+      }
+      char escape = line[index];
+      codePoint = escape switch {
+        'n' => '\n',
+        't' => '\t',
+        'r' => '\r',
+        '\'' => '\'',
+        '\\' => '\\',
+        _ => throw new Exception($"Lexer Error: Invalid escape character '{escape}' in rune literal")
+      };
+      index++;
+    } else {
+      if (char.IsHighSurrogate(line[index]) && index + 1 < line.Length && char.IsLowSurrogate(line[index + 1])) {
+        codePoint = char.ConvertToUtf32(line[index], line[index + 1]);
+        index += 2;
+      } else {
+        codePoint = line[index];
+        index++;
+      }
+    }
+
+    if (index >= line.Length || line[index] != '\'') {
+      throw new Exception($"Lexer Error: Rune literal must end with a single quote: {line.Substring(start, Math.Min(line.Length - start, 5))}");
+    }
+    index++; // Skip closing single quote
+    tokens.Add(new Token(TokenType.Literal, codePoint.ToString(), Literal: LiteralType.Rune));
   }
 }

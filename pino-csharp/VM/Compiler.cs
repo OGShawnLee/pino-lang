@@ -352,6 +352,11 @@ public class Compiler {
         EmitByte((byte)OperationCode.OP_CONSTANT);
         EmitShort((ushort)AddConstant(lit.Value));
         break;
+      case LiteralType.Rune:
+        int cp = int.Parse(lit.Value);
+        EmitByte((byte)OperationCode.OP_CONSTANT);
+        EmitShort((ushort)AddConstant(new PinoRune(cp)));
+        break;
       default:
         EmitByte((byte)OperationCode.OP_NIL);
         break;

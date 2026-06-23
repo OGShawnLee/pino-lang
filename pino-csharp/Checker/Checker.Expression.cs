@@ -219,6 +219,7 @@ public partial class Checker {
           LiteralType.Integer => "int",
           LiteralType.Float => "float",
           LiteralType.String => "string",
+          LiteralType.Rune => "rune",
           _ => "any"
         };
 
@@ -372,9 +373,27 @@ public partial class Checker {
           return "any";
         }
 
+        string leftT = InferType(bin.Left);
+        string rightT = InferType(bin.Right);
+
         if (bin.Operator == OperatorType.Addition) {
-          if (InferType(bin.Left) == "string" || InferType(bin.Right) == "string") {
+          if (leftT == "string" || rightT == "string") {
             return "string";
+          }
+          if (leftT == "rune" && rightT == "rune") {
+            return "string";
+          }
+          if ((leftT == "rune" && rightT == "int") || (leftT == "int" && rightT == "rune")) {
+            return "rune";
+          }
+        }
+
+        if (bin.Operator == OperatorType.Subtraction) {
+          if (leftT == "rune" && rightT == "int") {
+            return "rune";
+          }
+          if (leftT == "rune" && rightT == "rune") {
+            return "int";
           }
         }
 
@@ -385,7 +404,7 @@ public partial class Checker {
           return "bool";
         }
 
-        return InferType(bin.Left);
+        return leftT;
 
       case TernaryExpression tern:
         return InferType(tern.Consequent);

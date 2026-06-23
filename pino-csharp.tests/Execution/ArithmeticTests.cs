@@ -19,4 +19,47 @@ public class ArithmeticTests {
     Assert.Equal(20L, env.Get("y"));
     Assert.Equal(4L, env.Get("z"));
   }
+
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  [InlineData(ExecutionEngine.VM)]
+  public void TestRuneArithmetic(ExecutionEngine engine) {
+    var code = @"
+      val a = 'a'
+      val b = 'b'
+      val next = a + 1
+      val prev = b - 1
+      val dist = b - a
+
+      val is_eq = a == 'a'
+      val is_lt = a < b
+      val is_gt = b > a
+
+      val r_type = type(a)
+      val r_str = str(a)
+
+      val from_int = rune(97)
+      val from_str = rune(""z"")
+      val concat = a + b
+    ";
+    var env = PinoTestRunner.Execute(code, engine);
+    
+    // We expect new PinoRune('a') or codePoint value
+    Assert.Equal(new PinoRune(97), env.Get("a"));
+    Assert.Equal(new PinoRune(98), env.Get("b"));
+    Assert.Equal(new PinoRune(98), env.Get("next"));
+    Assert.Equal(new PinoRune(97), env.Get("prev"));
+    Assert.Equal(1L, env.Get("dist"));
+
+    Assert.Equal(true, env.Get("is_eq"));
+    Assert.Equal(true, env.Get("is_lt"));
+    Assert.Equal(true, env.Get("is_gt"));
+
+    Assert.Equal("rune", env.Get("r_type"));
+    Assert.Equal("a", env.Get("r_str"));
+
+    Assert.Equal(new PinoRune(97), env.Get("from_int"));
+    Assert.Equal(new PinoRune(122), env.Get("from_str"));
+    Assert.Equal("ab", env.Get("concat"));
+  }
 }

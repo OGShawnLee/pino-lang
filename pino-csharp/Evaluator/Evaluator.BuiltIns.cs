@@ -76,6 +76,7 @@ public partial class Evaluator {
       var val = arguments[0];
       if (val == null) return "null";
       if (val is bool) return "bool";
+      if (val is PinoRune) return "rune";
       if (val is long) return "int";
       if (val is double) return "float";
       if (val is string) return "string";
@@ -85,6 +86,25 @@ public partial class Evaluator {
       if (val is IPinoCallable) return "function";
       if (val is PinoEnumValue) return "enum";
       return val.GetType().Name.ToLower();
+    }
+  }
+
+  private class RuneFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      var arg = arguments[0];
+      if (arg == null) return new PinoRune(0);
+      if (arg is PinoRune r) return r;
+      if (arg is long l) return new PinoRune((int)l);
+      if (arg is double d) return new PinoRune((int)d);
+      if (arg is string s) {
+        if (s.Length == 0) return new PinoRune(0);
+        if (char.IsHighSurrogate(s[0]) && s.Length > 1 && char.IsLowSurrogate(s[1])) {
+          return new PinoRune(char.ConvertToUtf32(s[0], s[1]));
+        }
+        return new PinoRune(s[0]);
+      }
+      throw new Exception($"RUNTIME ERROR: Cannot convert type '{arg?.GetType().Name ?? "null"}' to rune.");
     }
   }
 

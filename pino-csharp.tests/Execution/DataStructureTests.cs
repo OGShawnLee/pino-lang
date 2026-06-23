@@ -266,4 +266,21 @@ public class DataStructureTests {
     Assert.Equal("Shawn", env.Get("charsConcat"));
     Assert.Equal(10L, env.Get("indexSum")); // 0 + 1 + 2 + 3 + 4 = 10
   }
+
+  [Fact]
+  public void TestRuneInOperator() {
+    var code = @"
+      val in_str = 'a' in ""abc""
+      val not_in_str = 'z' in ""abc""
+
+      val list = ['a', 'b', 'c']
+      val in_list = 'b' in list
+      val not_in_list = 'x' in list
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(true, env.Get("in_str"));
+    Assert.Equal(false, env.Get("not_in_str"));
+    Assert.Equal(true, env.Get("in_list"));
+    Assert.Equal(false, env.Get("not_in_list"));
+  }
 }

@@ -153,6 +153,7 @@ public partial class Evaluator {
     _globals.Define("println", new PrintlnFunction(), true);
     _globals.Define("readline", new ReadlineFunction(), true);
     _globals.Define("int", new IntFunction(), true);
+    _globals.Define("rune", new RuneFunction(), true);
     _globals.Define("float", new FloatFunction(), true);
     _globals.Define("rand", new RandFunction(), true);
     _globals.Define("time", new TimeFunction(), true);
