@@ -28,15 +28,17 @@ public partial class Checker {
 
       case FunctionDeclaration fnDecl:
         DeclareVariable(fnDecl.Identifier, GetFunctionSignatureString(fnDecl));
-        PushScope();
-        if (_currentStruct != null && !_inStaticMethod) {
-          DeclareVariable("this", _currentStruct.Identifier);
-          DeclareVariable("self", _currentStruct.Identifier);
+        bool isMethod = _currentStruct != null && !_inStaticMethod;
+        if (isMethod) {
+          PushScope();
+          DeclareVariable("this", _currentStruct!.Identifier);
+          DeclareVariable("self", _currentStruct!.Identifier);
           ResolveStructMembers(_currentStruct.Identifier, out var fields, out var _);
           foreach (var field in fields) {
             DeclareVariable(field.Identifier, field.Typing);
           }
         }
+        PushScope();
         foreach (var param in fnDecl.Parameters) {
           DeclareVariable(param.Identifier, param.Typing);
         }
@@ -44,6 +46,9 @@ public partial class Checker {
           CheckStatement(fnDecl.Body);
         }
         PopScope();
+        if (isMethod) {
+          PopScope();
+        }
         InferFunctionReturnType(fnDecl);
         break;
 

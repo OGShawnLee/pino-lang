@@ -287,4 +287,76 @@ public class DataStructureTests {
     Assert.Equal(true, env.Get("in_list"));
     Assert.Equal(false, env.Get("not_in_list"));
   }
+
+  [Fact]
+  public void TestStructSelfThisAndProperties() {
+    var code = @"
+      struct Counter {
+        value int
+
+        fn increment() {
+          value = value + 1
+        }
+
+        fn get_val() int {
+          return self:value
+        }
+
+        fn get_val_this() int {
+          return this:value
+        }
+      }
+
+      val c = Counter { value: 10 }
+      c:increment()
+      val v1 = c:get_val()
+      val v2 = c:get_val_this()
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(11L, env.Get("v1"));
+    Assert.Equal(11L, env.Get("v2"));
+  }
+
+  [Fact]
+  public void TestStructStatePattern() {
+    var code = @"
+      interface State {
+        fn change_state(Context context)
+      }
+
+      struct Context {
+        state State
+
+        fn change_state() {
+          state:change_state(self)
+        }
+      }
+
+      struct OffState {
+        fn change_state(Context context) {
+          context:state = OnState {}
+        } 
+      }
+
+      struct OnState {
+        fn change_state(Context context) {
+          context:state = OffState {}
+        } 
+      }
+
+      val context = Context { state: OffState {} }
+      context:change_state()
+      val onState = context:state
+      context:change_state()
+      val offState = context:state
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    var onState = env.Get("onState") as PinoStructInstance;
+    var offState = env.Get("offState") as PinoStructInstance;
+    Assert.NotNull(onState);
+    Assert.NotNull(offState);
+    Assert.Equal("OnState", onState.Struct.Name);
+    Assert.Equal("OffState", offState.Struct.Name);
+  }
 }
+
