@@ -833,4 +833,4 @@ fn main {
   plaza_district(player)
 }
 
-main()
+

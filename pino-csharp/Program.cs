@@ -244,6 +244,18 @@ class Program {
       var program = Parser.ParseFile(path);
       var checker = new Checker();
       checker.Check(program);
+
+      bool hasMainFunc = false;
+      bool hasExplicitMainCall = false;
+      foreach (var stmt in program.Statements) {
+        if (stmt is FunctionDeclaration fnDecl && fnDecl.Identifier == "main") {
+          hasMainFunc = true;
+        }
+        if (stmt is FunctionCallExpression call && call.Callee == "main") {
+          hasExplicitMainCall = true;
+        }
+      }
+
       if (useVM) {
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine("⚠️ [PinoVM - EXPERIMENTAL]: The PinoVM engine is experimental and currently supports only pure calculation, functions, and basic control flow. Complex structures will not work and will fail.");
@@ -254,9 +266,21 @@ class Program {
         var evaluator = new Evaluator();
         var vm = new VM(evaluator, evaluator.Globals);
         vm.Execute(vmFn);
+
+        if (hasMainFunc && !hasExplicitMainCall) {
+          if (evaluator.Globals.Exists("main") && evaluator.Globals.Get("main") is IPinoCallable mainCallable && mainCallable.Arity == 0) {
+            mainCallable.Call(evaluator, new List<object?>());
+          }
+        }
       } else {
         var evaluator = new Evaluator();
         evaluator.Execute(program);
+
+        if (hasMainFunc && !hasExplicitMainCall) {
+          if (evaluator.Globals.Exists("main") && evaluator.Globals.Get("main") is IPinoCallable mainCallable && mainCallable.Arity == 0) {
+            mainCallable.Call(evaluator, new List<object?>());
+          }
+        }
       }
     } catch (Exception ex) {
       Console.WriteLine(ex.ToString());

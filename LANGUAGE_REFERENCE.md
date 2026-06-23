@@ -280,6 +280,18 @@ match command {
 
 ---
 
+### Program Entry Point (`main()`) & Program Mode
+
+Pino programs can be run in two modes: **Script Mode** and **Program Mode**.
+
+1. **Script Mode** (No `main` function): Top-level statements are evaluated sequentially. This is useful for short scripts, simple tasks, and interactive development.
+2. **Program Mode** (A `fn main()` is defined): If the compiler detects a `main` function in the root file:
+   * **Automatic Entry Point**: The `main()` function is automatically called at the end of compilation/loading. You do not need to call `main()` explicitly at the bottom of the file (and doing so is forbidden to avoid duplicate executions).
+   * **Strict Top-level Rules**: To enforce structured architectures, top-level statements are restricted *only* to declarations (structs, interfaces, functions, enums, imports). Any top-level statements with side-effects (loops, conditionals, assignments, or loose expressions) will throw a **Type Check Error**.
+   * **No Mutable Globals**: Declaring mutable variables with `var` at the top level is forbidden in Program Mode. Only immutable constants (`val`) are allowed as global definitions to avoid dangerous shared mutable state.
+
+---
+
 ## 6. Modules and Imports
 
 Pino supports a clean module system allowing you to import specific elements from other source files using the `from` keyword.
@@ -297,6 +309,9 @@ To access namespaced constants or statics of imported scopes, use the scope reso
 ```pino
 val color = Color::Green
 ```
+
+> [!IMPORTANT]
+> **Module main Restriction**: Imported modules are checked strictly and are **not** allowed to define a `main()` function. Declaring a `main` function in an imported module causes a Type Check Error, keeping library scopes clean.
 
 ---
 

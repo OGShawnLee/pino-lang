@@ -1064,5 +1064,5 @@ fn main {
   readline("Presiona Enter para volver a la terminal principal...")
 }
 
-main()
+
 

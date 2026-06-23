@@ -5,11 +5,12 @@ using System.IO;
 namespace Pino;
 
 public partial class Checker {
-  // Global registries
   private readonly Dictionary<string, StructDeclaration> _structs = new();
   private readonly Dictionary<string, InterfaceDeclaration> _interfaces = new();
   private readonly Dictionary<string, EnumDeclaration> _enums = new();
   private readonly Dictionary<string, FunctionDeclaration> _functions = new();
+
+  public bool IsModule { get; set; } = false;
 
   // Environment/scopes for variable checking
   private readonly Stack<Dictionary<string, string>> _scopes = new();
@@ -100,6 +101,35 @@ public partial class Checker {
       }
     }
 
+    // Strict Program Mode validation when main is defined
+    bool hasMainFunc = _functions.ContainsKey("main");
+    if (hasMainFunc) {
+      if (IsModule) {
+        throw new Exception("TYPE CHECK ERROR: An imported module cannot define a 'main' function. Only the main execution entry file can define 'main()'.");
+      }
+      foreach (var stmt in program.Statements) {
+        if (stmt is StructDeclaration ||
+            stmt is InterfaceDeclaration ||
+            stmt is EnumDeclaration ||
+            stmt is FunctionDeclaration ||
+            stmt is ImportStatement ||
+            stmt is FromImportStatement ||
+            stmt is ModuleDeclaration) {
+          continue;
+        }
+
+        if (stmt is VariableDeclaration varDecl) {
+          if (varDecl.Kind != VariableKind.Constant) {
+            throw new Exception($"TYPE CHECK ERROR: Global variable '{varDecl.Identifier}' must be declared with 'val' (constants only). Global mutable variables 'var' are forbidden when a 'main' function is defined.");
+          }
+          continue;
+        }
+
+        // Forbid any other statements/expressions at top level
+        throw new Exception($"TYPE CHECK ERROR: Statements with side-effects (loops, conditionals, assignments, loose expression calls) are not allowed at the top level when a 'main' function is defined. All execution must start inside 'main()'. Forbidden statement type: '{stmt.GetType().Name}'.");
+      }
+    }
+
     // Pass 2: Check all statements
     foreach (var stmt in program.Statements) {
       CheckStatement(stmt);
@@ -126,7 +156,7 @@ public partial class Checker {
       }
 
       var program = Parser.ParseFile(filePath);
-      var moduleChecker = new Checker();
+      var moduleChecker = new Checker { IsModule = true };
       moduleChecker.Check(program);
 
       _moduleCheckers[moduleName] = moduleChecker;

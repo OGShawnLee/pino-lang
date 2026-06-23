@@ -303,4 +303,49 @@ public class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(badCode3));
   }
+
+  [Fact]
+  public void TestProgramModeTopLevelRestrictions() {
+    // 1. Valid program: main is defined, no side effects, only val globals and declarations
+    var valid = @"
+      val global_val = 100
+      fn main() {
+        println(""Hello"")
+      }
+    ";
+    CheckCode(valid);
+
+    // 2. Invalid: var global declared when main is defined
+    var badGlobalVar = @"
+      var global_var = 100
+      fn main() {}
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(badGlobalVar));
+
+    // 3. Invalid: loose top-level function call when main is defined
+    var badTopLevelCall = @"
+      println(""Oops"")
+      fn main() {}
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(badTopLevelCall));
+
+    // 4. Invalid: loose top-level loop when main is defined
+    var badTopLevelLoop = @"
+      for 5 {}
+      fn main() {}
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(badTopLevelLoop));
+  }
+
+  [Fact]
+  public void TestModuleMainFunctionRestriction() {
+    var source = @"
+      fn main() {
+        println(""I am a module"")
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker { IsModule = true };
+    Assert.ThrowsAny<Exception>(() => checker.Check(program));
+  }
 }
