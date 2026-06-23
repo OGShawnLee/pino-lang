@@ -170,16 +170,36 @@ public class Compiler {
 
   private void CompileLoopStatement(LoopStatement loop) {
     if (loop.Kind == LoopKind.ForIn) {
-      // 1. Evaluate range limit/collection
+      string colType = loop.End?.InferredType ?? "any";
+
+      // 1. Evaluate collection/range limit
       CompileExpression(loop.End!);
 
-      // Define hidden local variables for loop control
+      // Save collection as hidden local variable
+      int collectionSlot = _state.Locals.Count;
+      _state.Locals.Add(new Local("<collection>", _state.ScopeDepth));
+
+      // 2. Get collection length and save as limit
       int limitSlot = _state.Locals.Count;
+      if (colType == "string") {
+        EmitByte((byte)OperationCode.OP_GET_LOCAL);
+        EmitByte((byte)collectionSlot);
+        EmitByte((byte)OperationCode.OP_STRING_LEN);
+      } else if (colType.StartsWith("[]")) {
+        EmitByte((byte)OperationCode.OP_GET_LOCAL);
+        EmitByte((byte)collectionSlot);
+        EmitByte((byte)OperationCode.OP_LIST_LEN);
+      } else {
+        // Range loop: the collection itself is the limit (integer)
+        EmitByte((byte)OperationCode.OP_GET_LOCAL);
+        EmitByte((byte)collectionSlot);
+      }
       _state.Locals.Add(new Local("<limit>", _state.ScopeDepth));
-      
+
+      // 3. Initialize counter to 0L
       int counterSlot = _state.Locals.Count;
       EmitByte((byte)OperationCode.OP_CONSTANT);
-      EmitShort((ushort)AddConstant(0L)); // Initial counter value: 0
+      EmitShort((ushort)AddConstant(0L));
       _state.Locals.Add(new Local("<counter>", _state.ScopeDepth));
 
       int startOffset = _state.Chunk.Code.Count;
@@ -196,19 +216,35 @@ public class Compiler {
 
       // Loop body scope
       BeginScope();
-      
-      // If double variable loop (e.g. for idx, v in range)
+
+      // If double variable loop (e.g. for idx, v in collection)
       if (!string.IsNullOrEmpty(loop.KeyVar)) {
+        // The index is the counter
         EmitByte((byte)OperationCode.OP_GET_LOCAL);
         EmitByte((byte)counterSlot);
         _state.Locals.Add(new Local(loop.KeyVar, _state.ScopeDepth));
       }
 
-      // User loop variable
+      // User loop variable (value at index)
       var id = loop.Begin as IdentifierExpression;
       if (id != null) {
-        EmitByte((byte)OperationCode.OP_GET_LOCAL);
-        EmitByte((byte)counterSlot);
+        if (colType == "string") {
+          EmitByte((byte)OperationCode.OP_GET_LOCAL);
+          EmitByte((byte)collectionSlot);
+          EmitByte((byte)OperationCode.OP_GET_LOCAL);
+          EmitByte((byte)counterSlot);
+          EmitByte((byte)OperationCode.OP_STRING_GET_INDEX);
+        } else if (colType.StartsWith("[]")) {
+          EmitByte((byte)OperationCode.OP_GET_LOCAL);
+          EmitByte((byte)collectionSlot);
+          EmitByte((byte)OperationCode.OP_GET_LOCAL);
+          EmitByte((byte)counterSlot);
+          EmitByte((byte)OperationCode.OP_LIST_GET_INDEX);
+        } else {
+          // Range loop: value is the counter itself
+          EmitByte((byte)OperationCode.OP_GET_LOCAL);
+          EmitByte((byte)counterSlot);
+        }
         _state.Locals.Add(new Local(id.Name, _state.ScopeDepth));
       }
 
@@ -231,10 +267,11 @@ public class Compiler {
       PatchJump(exitJump);
       EmitByte((byte)OperationCode.OP_POP); // Pop comparison result
 
-      // Pop hidden limit and counter
+      // Pop hidden collection, limit and counter from VM stack
       EmitByte((byte)OperationCode.OP_POP);
       EmitByte((byte)OperationCode.OP_POP);
-      _state.Locals.RemoveRange(limitSlot, 2);
+      EmitByte((byte)OperationCode.OP_POP);
+      _state.Locals.RemoveRange(collectionSlot, 3);
     } else if (loop.Kind == LoopKind.ForTimes) {
       // Loop N times
       CompileExpression(loop.Begin!);

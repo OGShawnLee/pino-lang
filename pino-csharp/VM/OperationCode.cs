@@ -28,6 +28,12 @@ public enum OperationCode : byte {
   OP_CALL,
   OP_RETURN,
 
+  // Specialized string and list operations
+  OP_STRING_LEN,
+  OP_STRING_GET_INDEX,
+  OP_LIST_LEN,
+  OP_LIST_GET_INDEX,
+
   // Optimized typed operations (integers)
   OP_ADD_INT,
   OP_SUB_INT,

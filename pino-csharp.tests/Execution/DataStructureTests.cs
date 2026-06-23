@@ -238,8 +238,10 @@ public class DataStructureTests {
     Assert.Contains("b2", result);
   }
 
-  [Fact]
-  public void TestStringLoopSingleVar() {
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  [InlineData(ExecutionEngine.VM)]
+  public void TestStringLoopSingleVar(ExecutionEngine engine) {
     var code = @"
       val name = ""Shawn""
       var charsConcat = """"
@@ -247,12 +249,14 @@ public class DataStructureTests {
         charsConcat = charsConcat + char
       }
     ";
-    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal("Shawn", env.Get("charsConcat"));
   }
 
-  [Fact]
-  public void TestStringLoopDoubleVar() {
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  [InlineData(ExecutionEngine.VM)]
+  public void TestStringLoopDoubleVar(ExecutionEngine engine) {
     var code = @"
       val name = ""Shawn""
       var charsConcat = """"
@@ -262,7 +266,7 @@ public class DataStructureTests {
         charsConcat = charsConcat + char
       }
     ";
-    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal("Shawn", env.Get("charsConcat"));
     Assert.Equal(10L, env.Get("indexSum")); // 0 + 1 + 2 + 3 + 4 = 10
   }

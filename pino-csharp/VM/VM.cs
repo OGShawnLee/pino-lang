@@ -320,6 +320,34 @@ public class VM {
           break;
         }
 
+        case OperationCode.OP_STRING_LEN: {
+          var val = Pop();
+          Push((long)((string)val!).Length);
+          break;
+        }
+
+        case OperationCode.OP_STRING_GET_INDEX: {
+          var indexVal = Pop();
+          var colVal = Pop();
+          long idx = Convert.ToInt64(indexVal);
+          Push(((string)colVal!)[(int)idx].ToString());
+          break;
+        }
+
+        case OperationCode.OP_LIST_LEN: {
+          var val = Pop();
+          Push((long)((List<object?>)val!).Count);
+          break;
+        }
+
+        case OperationCode.OP_LIST_GET_INDEX: {
+          var indexVal = Pop();
+          var colVal = Pop();
+          long idx = Convert.ToInt64(indexVal);
+          Push(((List<object?>)colVal!)[(int)idx]);
+          break;
+        }
+
         case OperationCode.OP_CALL: {
           byte argCount = code[ip++];
           _frames[frameIndex].Ip = ip;
