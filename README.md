@@ -58,8 +58,11 @@ We have designed multiple official variations of our beloved mascot, available i
 * **Kotlin-style Variables**: Clear distinction between mutable (`var`) and immutable (`val`) values.
 * **Kotlin/JS-style String Injections**: Interpolate variables directly in strings using simple `$variable` syntax.
 * **Go & Vlang-style Loops**: Easing block structures by using `for` as the unified keyword for loops (including infinite loops).
+* **Unicode-first Runes**: Native 32-bit Unicode code point type (`rune`) using single quotes `'🌲'` with character arithmetic.
 * **Flexible Syntactic Commas**: Commas are optional in vectors, struct properties, and parameter lists—meaning you write cleaner layouts.
 * **No Unnecessary Parentheses**: Clean control blocks (`if`, `match`, and loop conditions) do not require parentheses around their conditions.
+* **Interfaces & Structural Typing**: Dynamic interface contracts validated statically at type-checking time.
+* **Bytecode VM Engine**: A custom Stack-based Virtual Machine and Bytecode Compiler alongside the Tree-Walk engine.
 
 ---
 
@@ -69,17 +72,20 @@ We have designed multiple official variations of our beloved mascot, available i
 | :--- | :--- | :---: |
 | **Variables** | Constant (`val`) & Mutable (`var`) declarations | `[X]` |
 | **Strings** | Lexical interpolation/injection (`$var`) | `[X]` |
-| **Control Flow** | Unified `for` loop (infinite, range, iterator) | `[X]` |
+| **Rune Type** | 32-bit Unicode points (`'a'`) & code point arithmetic | `[X]` |
+| **Control Flow** | Unified `for` loop (infinite, range, iterator, string decomposition) | `[X]` |
 | | Control escape keywords (`break`, `continue`) | `[X]` |
 | | Conditionals (`if`, `else if`, `else`) | `[X]` |
 | | Case routing (`match`, `when` multi-conditions) | `[X]` |
 | **Functions** | Declarations (`fn`), parameters, and returns | `[X]` |
 | | High-order closures & Anonymous lambdas | `[X]` |
 | **Data Structs** | Custom `struct` & method declarations | `[X]` |
+| | Interfaces (`interface`) & compile-time verification | `[X]` |
 | | Enums (`enum`) & member resolution (`::`) | `[X]` |
 | | Dynamic arrays (`vector`) with `len`/`init` blocks | `[X]` |
 | **Compiler Engine**| Precedence-climbing parser (binary precedence) | `[X]` |
 | | Scoped parent-linked execution Environment | `[X]` |
+| | Bytecode compiler & stacked Virtual Machine (`--vm`) | `[X]` |
 | | Comprehensive xUnit verification suite | `[X]` |
 
 ---
@@ -121,6 +127,23 @@ val empire = "Roman"
 println("$name was the first emperor of the $empire Empire.")
 ```
 
+### Runes & Character Arithmetic
+Pino provides a native `rune` type to represent a 32-bit Unicode code point (equivalent to `char` in Rust/C# or `rune` in Go). Runes are written inside single quotes `'`.
+```pino
+val letter = 'a'
+val pine = '🌲'
+
+# 1. Cast functions
+val r = rune("Hello") # converts first char: 'H'
+val code = rune(65)   # converts ASCII code: 'A'
+
+# 2. Arithmetic rules
+println('a' + 'b') # "ab" (concatenation to string)
+println('A' + 32)  # 'a'  (offset rune)
+println('c' - 'a') # 2    (int distance)
+```
+
+
 ### Functions & Lambdas
 Functions are declared using `fn`. Parentheses are optional if a function has no parameters, and parameters do not require commas. Pino supports standard function blocks, nested closures, and a concise single-line arrow syntax (`=>`).
 
@@ -160,6 +183,29 @@ val pos = Vector2 { x: 3, y: 4 }
 val mag = pos:magnitude_sq()
 println("Magnitude Squared: $mag")
 ```
+
+### Interfaces
+Ensure structural compatibility by defining interfaces. Any struct implementing all methods of an interface can be passed where that interface is expected.
+```pino
+interface Reader {
+  fn read() string
+}
+
+struct Document {
+  content string
+  fn read() string {
+    return content
+  }
+}
+
+fn print_content(r Reader) {
+  println(r:read())
+}
+
+val doc = Document { content: "Pino Lang makes programming joyful!" }
+print_content(doc)
+```
+
 
 ### Vectors & Arrays (with Functional Utilities)
 Pino supports dynamic arrays called vectors. You can declare vectors with explicit type signatures like `[]int` or `[]string`, initialize them dynamically using initializers (with `it` as the implicit index parameter), and apply functional methods.
@@ -207,6 +253,16 @@ for hero in heroes {
 # 3. For Times Loop (Iterating over a range limit)
 for time in 5 {
   println("Iteration $time")
+}
+
+# 4. String Iteration (loops character by character)
+val message = "Pino"
+for char in message {
+  println(char) # Outputs "P", "i", "n", "o"
+}
+
+for idx char in message {
+  println("Index $idx has char $char")
 }
 ```
 
@@ -257,9 +313,14 @@ dotnet build
 
 #### 2. Run a Pino Script
 To run a `.pino` script directly:
-```bash
-dotnet run run main.pino
-```
+*   **Tree-Walk Interpreter** (Default):
+    ```bash
+    dotnet run run main.pino
+    ```
+*   **Bytecode Virtual Machine** (Experimental):
+    ```bash
+    dotnet run run main.pino --vm
+    ```
 
 #### 3. Interactive REPL
 To start the interactive REPL shell:
@@ -267,7 +328,19 @@ To start the interactive REPL shell:
 dotnet run repl
 ```
 
-#### 4. Run the Test Suite
+#### 4. Live Code Watcher
+To automatically monitor and execute the script in real-time on save:
+*   **Tree-Walk Interpreter** (Default):
+    ```bash
+    dotnet run watch main.pino
+    ```
+*   **Bytecode Virtual Machine** (Experimental):
+    ```bash
+    dotnet run watch main.pino --vm
+    ```
+
+
+#### 5. Run the Test Suite
 To execute the compiler verification tests:
 ```bash
 cd pino-csharp.tests
