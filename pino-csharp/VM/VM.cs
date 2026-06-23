@@ -322,7 +322,10 @@ public class VM {
 
         case OperationCode.OP_STRING_LEN: {
           var val = Pop();
-          Push((long)((string)val!).Length);
+          string s = (string)val!;
+          int count = 0;
+          foreach (var _ in s.EnumerateRunes()) count++;
+          Push((long)count);
           break;
         }
 
@@ -330,7 +333,17 @@ public class VM {
           var indexVal = Pop();
           var colVal = Pop();
           long idx = Convert.ToInt64(indexVal);
-          Push(((string)colVal!)[(int)idx].ToString());
+          string s = (string)colVal!;
+          int i = 0;
+          int codePoint = 0;
+          foreach (var r in s.EnumerateRunes()) {
+            if (i == (int)idx) {
+              codePoint = r.Value;
+              break;
+            }
+            i++;
+          }
+          Push(new PinoRune(codePoint));
           break;
         }
 

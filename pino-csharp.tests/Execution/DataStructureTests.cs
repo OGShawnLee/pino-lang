@@ -245,12 +245,15 @@ public class DataStructureTests {
     var code = @"
       val name = ""Shawn""
       var charsConcat = """"
+      var charType = """"
       for char in name {
         charsConcat = charsConcat + char
+        charType = type(char)
       }
     ";
     var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal("Shawn", env.Get("charsConcat"));
+    Assert.Equal("rune", env.Get("charType"));
   }
 
   [Theory]

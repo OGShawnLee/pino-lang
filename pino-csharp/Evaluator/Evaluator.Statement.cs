@@ -199,16 +199,18 @@ public partial class Evaluator {
             } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
           }
         } else if (collection is string str) {
-          for (int i = 0; i < str.Length; i++) {
-            var item = str[i].ToString();
+          long idx = 0;
+          foreach (var r in str.EnumerateRunes()) {
+            var item = new PinoRune(r.Value);
             var childEnv = new Environment(env);
             childEnv.Define(loopVar, item, false);
             if (!string.IsNullOrEmpty(loop.KeyVar)) {
-              childEnv.Define(loop.KeyVar, (long)i, false);
+              childEnv.Define(loop.KeyVar, idx, false);
             }
             try {
               Execute(loop.Body, childEnv);
             } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
+            idx++;
           }
         } else {
           throw new Exception("RUNTIME ERROR: Cannot iterate over non-iterable object.");

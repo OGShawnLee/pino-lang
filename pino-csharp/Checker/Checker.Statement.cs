@@ -125,7 +125,7 @@ public partial class Checker {
               loopVarType = "int";
               keyVarType = "int";
             } else if (colType == "string") {
-              loopVarType = "string";
+              loopVarType = "rune";
               keyVarType = "int";
             }
             DeclareVariable(id.Name, loopVarType);
