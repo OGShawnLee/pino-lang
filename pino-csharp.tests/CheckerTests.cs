@@ -593,4 +593,70 @@ public class CheckerTests {
     ";
     CheckCode(input);
   }
+
+  [Fact]
+  public void TestInterfacePropertiesCompatibilityPasses() {
+    var input = @"
+      interface HasDetails {
+        name string
+        age int
+        fn summary() string
+      }
+
+      struct Person {
+        name string
+        age int
+        fn summary() string {
+          return ""$name $age""
+        }
+      }
+
+      fn print_details(h HasDetails) {
+        println(h:name)
+      }
+
+      val p = Person { name: ""Shawn"", age: 25 }
+      print_details(p)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestInterfacePropertiesMissingFieldThrows() {
+    var input = @"
+      interface HasDetails {
+        name string
+        age int
+      }
+
+      struct Person {
+        name string
+      }
+
+      fn print_details(h HasDetails) {}
+      val p = Person { name: ""Shawn"" }
+      print_details(p)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestInterfacePropertiesTypeMismatchThrows() {
+    var input = @"
+      interface HasDetails {
+        name string
+        age int
+      }
+
+      struct Person {
+        name string
+        age string
+      }
+
+      fn print_details(h HasDetails) {}
+      val p = Person { name: ""Shawn"", age: ""twenty"" }
+      print_details(p)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
 }

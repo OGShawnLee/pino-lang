@@ -46,7 +46,7 @@ public record FunctionDeclaration(string Identifier, List<VariableDeclaration> P
 
 public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<string>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record InterfaceDeclaration(string Identifier, List<FunctionDeclaration> Methods, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record InterfaceDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
 public record EnumDeclaration(string Identifier, List<string> Members, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 

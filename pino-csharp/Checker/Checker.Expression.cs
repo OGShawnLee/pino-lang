@@ -571,7 +571,18 @@ public partial class Checker {
   }
 
   private bool ImplementsInterface(StructDeclaration structDecl, InterfaceDeclaration interfaceDecl) {
-    ResolveStructMembers(structDecl.Identifier, out var _, out var allMethods);
+    ResolveStructMembers(structDecl.Identifier, out var allFields, out var allMethods);
+
+    foreach (var reqField in interfaceDecl.Fields) {
+      var implField = allFields.Find(f => f.Identifier == reqField.Identifier);
+      if (implField == null) {
+        return false;
+      }
+      if (!IsCompatible(implField.Typing, reqField.Typing)) {
+        return false;
+      }
+    }
+
     var instanceMethods = allMethods.Where(m => !m.IsStatic).ToList();
     foreach (var reqMethod in interfaceDecl.Methods) {
       var implMethod = instanceMethods.Find(m => m.Identifier == reqMethod.Identifier);

@@ -195,6 +195,7 @@ public partial class Parser {
     }
 
     var identifier = ConsumeIdentifier(stream);
+    var fields = new List<VariableDeclaration>();
     var methods = new List<FunctionDeclaration>();
 
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
@@ -209,8 +210,12 @@ public partial class Parser {
 
       if (stream.Current.IsKeyword(KeywordType.Function)) {
         methods.Add(ParseInterfaceMethodSignature(stream));
+      } else if (stream.Current.Type == TokenType.Identifier) {
+        var propIdentifier = ConsumeIdentifier(stream);
+        var typing = ConsumeTyping(stream);
+        fields.Add(new VariableDeclaration(VariableKind.Variable, propIdentifier, null, typing));
       } else {
-        throw new Exception($"PARSER: Expected method signature in interface body, got {stream.Current}");
+        throw new Exception($"PARSER: Expected method signature or property declaration in interface body, got {stream.Current}");
       }
 
       if (stream.Current.IsMarker(MarkerType.Comma)) {
@@ -218,7 +223,7 @@ public partial class Parser {
       }
     }
 
-    return new InterfaceDeclaration(identifier, methods, IsPublic: isPublic);
+    return new InterfaceDeclaration(identifier, fields, methods, IsPublic: isPublic);
   }
 
   private static FunctionDeclaration ParseInterfaceMethodSignature(TokenStream stream) {
