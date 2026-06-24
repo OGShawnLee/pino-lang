@@ -73,16 +73,33 @@ public partial class Parser {
     if (!current.IsType(TokenType.Identifier) || !char.IsUpper(current.Data[0])) {
       return false;
     }
-    if (!stream.Peek(1).IsMarker(MarkerType.BlockBegin)) {
+    int offset = 1;
+    if (stream.Peek(offset).IsMarker(MarkerType.BracketBegin)) {
+      int bracketDepth = 0;
+      while (stream.Peek(offset).Type != TokenType.Illegal) {
+        var t = stream.Peek(offset);
+        if (t.IsMarker(MarkerType.BracketBegin)) {
+          bracketDepth++;
+        } else if (t.IsMarker(MarkerType.BracketEnd)) {
+          bracketDepth--;
+          if (bracketDepth == 0) {
+            offset++;
+            break;
+          }
+        }
+        offset++;
+      }
+    }
+    if (!stream.Peek(offset).IsMarker(MarkerType.BlockBegin)) {
       return false;
     }
-    if (stream.Peek(2).IsMarker(MarkerType.BlockEnd)) {
+    if (stream.Peek(offset + 1).IsMarker(MarkerType.BlockEnd)) {
       if (stream.Peek(-1).IsOperator(OperatorType.StaticMemberAccess)) {
         return false;
       }
       return true;
     }
-    return IsStructBlock(stream, 1);
+    return IsStructBlock(stream, offset);
   }
 
   private static bool IsVector(TokenStream stream) {
@@ -314,8 +331,22 @@ public partial class Parser {
 
   private static StructInstanceExpression ParseStructInstance(TokenStream stream) {
     var structName = ConsumeIdentifier(stream);
+    List<string> genericArgs = null;
+    if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
+      stream.Consume(); // consume '['
+      genericArgs = new List<string>();
+      while (!stream.Current.IsMarker(MarkerType.BracketEnd)) {
+        genericArgs.Add(ConsumeTyping(stream));
+        if (stream.Current.IsMarker(MarkerType.Comma)) {
+          stream.Consume();
+        }
+      }
+      if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+        throw new Exception("PARSER: Expected ']' to close generic arguments");
+      }
+    }
     var props = ConsumeProperties(stream);
-    return new StructInstanceExpression(structName, props);
+    return new StructInstanceExpression(structName, props, genericArgs);
   }
 
   private static TernaryExpression ParseTernaryExpression(TokenStream stream) {

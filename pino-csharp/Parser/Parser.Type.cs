@@ -63,6 +63,21 @@ public partial class Parser {
     if (t.Type != TokenType.Identifier) {
       throw new Exception($"PARSER: Expected Typing, got {t}");
     }
-    return t.Data;
+    string typeName = t.Data;
+    if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
+      stream.Consume(); // consume '['
+      var subTypes = new List<string>();
+      while (!stream.Current.IsMarker(MarkerType.BracketEnd)) {
+        subTypes.Add(ConsumeTyping(stream));
+        if (stream.Current.IsMarker(MarkerType.Comma)) {
+          stream.Consume();
+        }
+      }
+      if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+        throw new Exception("PARSER: Expected ']' to close generic type arguments");
+      }
+      typeName += "[" + string.Join(", ", subTypes) + "]";
+    }
+    return typeName;
   }
 }

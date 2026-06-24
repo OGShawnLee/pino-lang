@@ -9,7 +9,7 @@ public partial class Checker {
       case VariableDeclaration varDecl:
         if (varDecl.Kind == VariableKind.Constant || varDecl.Kind == VariableKind.Variable) {
           string valType = varDecl.Value != null ? InferType(varDecl.Value) : "any";
-          string expectedType = varDecl.Typing;
+          string expectedType = NormalizeType(varDecl.Typing);
 
           if (!string.IsNullOrEmpty(expectedType)) {
             if (!IsCompatible(valType, expectedType)) {
@@ -53,6 +53,9 @@ public partial class Checker {
         break;
 
       case StructDeclaration structDecl:
+        if (structDecl.GenericParams != null && structDecl.GenericParams.Count > 0) {
+          break;
+        }
         var oldStruct = _currentStruct;
         var oldStatic = _inStaticMethod;
         _currentStruct = structDecl;

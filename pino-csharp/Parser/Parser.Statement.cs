@@ -165,13 +165,28 @@ public partial class Parser {
     }
 
     var identifier = ConsumeIdentifier(stream);
+    List<string> genericParams = null;
+    if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
+      stream.Consume(); // consume '['
+      genericParams = new List<string>();
+      while (!stream.Current.IsMarker(MarkerType.BracketEnd)) {
+        genericParams.Add(ConsumeIdentifier(stream));
+        if (stream.Current.IsMarker(MarkerType.Comma)) {
+          stream.Consume();
+        }
+      }
+      if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+        throw new Exception("PARSER: Expected ']' to close generic parameters");
+      }
+    }
+
     var fields = new List<VariableDeclaration>();
     var methods = new List<FunctionDeclaration>();
     var inheritedStructs = new List<string>();
 
     ConsumeAttributesAndMethods(stream, fields, methods, inheritedStructs);
 
-    return new StructDeclaration(identifier, fields, methods, inheritedStructs, IsPublic: isPublic);
+    return new StructDeclaration(identifier, fields, methods, inheritedStructs, genericParams, IsPublic: isPublic);
   }
 
   private static InterfaceDeclaration ParseInterfaceDeclaration(TokenStream stream, bool isPublic = false) {

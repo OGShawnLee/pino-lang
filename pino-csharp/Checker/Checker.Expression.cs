@@ -128,21 +128,22 @@ public partial class Checker {
         break;
 
       case StructInstanceExpression inst:
-        var structDecl = FindStruct(inst.StructName);
+        string monomorphizedName = MonomorphizeStructInstance(inst);
+        var structDecl = FindStruct(monomorphizedName);
         if (structDecl == null) {
-          throw new Exception($"TYPE CHECK ERROR: Struct '{inst.StructName}' is not defined.");
+          throw new Exception($"TYPE CHECK ERROR: Struct '{monomorphizedName}' is not defined.");
         } else {
-          ResolveStructMembers(inst.StructName, out var allFields, out var _);
+          ResolveStructMembers(monomorphizedName, out var allFields, out var _);
           foreach (var prop in inst.Properties) {
             var field = allFields.Find(f => f.Identifier == prop.Identifier);
             if (field == null) {
-              throw new Exception($"TYPE CHECK ERROR: Struct '{inst.StructName}' does not have field '{prop.Identifier}'.");
+              throw new Exception($"TYPE CHECK ERROR: Struct '{monomorphizedName}' does not have field '{prop.Identifier}'.");
             }
             if (prop.Value != null) {
               CheckExpression(prop.Value);
               string propType = InferType(prop.Value);
               if (!IsCompatible(propType, field.Typing)) {
-                throw new Exception($"TYPE CHECK ERROR: Cannot assign type '{propType}' to field '{prop.Identifier}' of type '{field.Typing}' in struct '{inst.StructName}'.");
+                throw new Exception($"TYPE CHECK ERROR: Cannot assign type '{propType}' to field '{prop.Identifier}' of type '{field.Typing}' in struct '{monomorphizedName}'.");
               }
             }
           }
@@ -237,7 +238,7 @@ public partial class Checker {
         return "[]any";
 
       case StructInstanceExpression inst:
-        return inst.StructName;
+        return MonomorphizeStructInstance(inst);
 
       case MapExpression map:
         return $"map[{map.KeyType}, {map.ValueType}]";
@@ -480,6 +481,8 @@ public partial class Checker {
   }
 
   private bool IsCompatible(string srcType, string destType) {
+    srcType = NormalizeType(srcType);
+    destType = NormalizeType(destType);
     if (destType == "any" || srcType == "any" || string.IsNullOrEmpty(destType)) {
       return true;
     }

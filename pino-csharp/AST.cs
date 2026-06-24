@@ -44,7 +44,7 @@ public record VariableDeclaration(VariableKind Kind, string Identifier, Expressi
 
 public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<string>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
 public record InterfaceDeclaration(string Identifier, List<FunctionDeclaration> Methods, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
@@ -72,7 +72,16 @@ public record TernaryExpression(Expression Condition, Expression Consequent, Exp
 
 public record VectorExpression(List<Expression>? Elements, Expression? Len = null, Expression? Init = null, string Typing = "") : Expression;
 
-public record StructInstanceExpression(string StructName, List<VariableDeclaration> Properties) : Expression;
+public record StructInstanceExpression : Expression {
+  public string StructName { get; set; }
+  public List<VariableDeclaration> Properties { get; init; }
+  public List<string>? GenericArgs { get; init; }
+  public StructInstanceExpression(string structName, List<VariableDeclaration> properties, List<string>? genericArgs = null) {
+    StructName = structName;
+    Properties = properties;
+    GenericArgs = genericArgs;
+  }
+}
 
 public record FunctionCallExpression(string Callee, List<Expression> Arguments) : Expression;
 

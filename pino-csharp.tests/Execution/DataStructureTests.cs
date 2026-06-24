@@ -388,5 +388,28 @@ public class DataStructureTests {
     Assert.Equal(90L, env.Get("res_this"));
     Assert.Equal(90L, env.Get("res_final"));
   }
+
+  [Fact]
+  public void TestStructGenericsEvaluation() {
+    var code = @"
+      struct Pair[Key Value] {
+        key Key
+        value Value
+      }
+
+      val p1 = Pair[string, int] { key: ""Hello"", value: 42 }
+      val p2 = Pair[int, bool] { key: 100, value: true }
+
+      val p1_key = p1:key
+      val p1_val = p1:value
+      val p2_key = p2:key
+      val p2_val = p2:value
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal("Hello", env.Get("p1_key"));
+    Assert.Equal(42L, env.Get("p1_val"));
+    Assert.Equal(100L, env.Get("p2_key"));
+    Assert.Equal(true, env.Get("p2_val"));
+  }
 }
 
