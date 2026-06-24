@@ -43,7 +43,7 @@ public partial class Checker {
             string leftType = InferType(bin.Left);
             var accessStructDecl = FindStruct(leftType);
             if (accessStructDecl != null) {
-              ResolveStructMembers(leftType, out var _, out var allMethods);
+              ResolveStructMembers(leftType, out var allFields, out var allMethods);
               if (bin.Right is FunctionCallExpression methodCall) {
                 var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
                 if (method != null) {
@@ -61,7 +61,24 @@ public partial class Checker {
                     }
                   }
                 } else {
-                  throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have method '{methodCall.Callee}'.");
+                  var field = allFields.Find(f => f.Identifier == methodCall.Callee);
+                  if (field != null && field.Typing.StartsWith("fn(")) {
+                    if (ParseFunctionSignature(field.Typing, out var paramsList, out var returnType)) {
+                      var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                      if (paramsList != null) {
+                        if (paramsList.Count != memberCallArgTypes.Count) {
+                          throw new Exception($"TYPE CHECK ERROR: Callable field '{field.Identifier}' expected {paramsList.Count} arguments, but got {memberCallArgTypes.Count}.");
+                        }
+                        for (int i = 0; i < paramsList.Count; i++) {
+                          if (!IsCompatible(memberCallArgTypes[i], paramsList[i])) {
+                            throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for callable field '{field.Identifier}' expected type '{paramsList[i]}', but got '{memberCallArgTypes[i]}'.");
+                          }
+                        }
+                      }
+                    }
+                  } else {
+                    throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have method '{methodCall.Callee}'.");
+                  }
                 }
               } else if (bin.Right is IdentifierExpression propId) {
                 var method = allMethods.Find(m => m.Identifier == propId.Name);
@@ -260,6 +277,12 @@ public partial class Checker {
             } else if (bin.Right is FunctionCallExpression methodCall) {
               var method = allMethods.Find(m => m.Identifier == methodCall.Callee && !m.IsStatic);
               if (method != null) return InferFunctionReturnType(method);
+              var field = allFields.Find(f => f.Identifier == methodCall.Callee);
+              if (field != null && field.Typing.StartsWith("fn(")) {
+                if (ParseFunctionSignature(field.Typing, out var _, out var returnType)) {
+                  return returnType;
+                }
+              }
             }
           }
           if (leftType.StartsWith("[]")) {

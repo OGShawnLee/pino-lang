@@ -411,5 +411,71 @@ public class DataStructureTests {
     Assert.Equal(100L, env.Get("p2_key"));
     Assert.Equal(true, env.Get("p2_val"));
   }
-}
 
+  [Fact]
+  public void TestStructCallableFieldsAndBoundMethods() {
+    var code = @"
+      struct Worker {
+        factor int
+        fun fn(int) int
+
+        fn add(n int) int {
+          return n + factor
+        }
+      }
+
+      # 1. Invoking a function-type field
+      val function = fn(n int) => n + 1
+      val w = Worker {
+        factor: 10,
+        fun: function
+      }
+      val result_field_call = w:fun(12)
+
+      # 2. Extracting a bound method reference and invoking it
+      val bound_method = w:add
+      val result_bound_call = bound_method(5)
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(13L, env.Get("result_field_call"));
+    Assert.Equal(15L, env.Get("result_bound_call"));
+  }
+
+  [Fact]
+  public void TestStructBoundMethodStateMutation() {
+    var code = @"
+      struct Mutator {
+        value int
+        fn increment() {
+          value = value + 1
+        }
+      }
+      val m = Mutator { value: 42 }
+      val inc = m:increment
+      inc()
+      val updated_value = m:value
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(43L, env.Get("updated_value"));
+  }
+
+  [Fact]
+  public void TestStructStaticMethodReferencedAsField() {
+    var code = @"
+      struct Calculator {
+        static fn multiply(a int, b int) int {
+          return a * b
+        }
+      }
+      struct Client {
+        op fn(int, int) int
+      }
+      val client = Client {
+        op: Calculator::multiply
+      }
+      val calc_result = client:op(6, 7)
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(42L, env.Get("calc_result"));
+  }
+}

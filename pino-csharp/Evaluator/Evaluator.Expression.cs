@@ -285,7 +285,11 @@ public partial class Evaluator {
       if (rightExpr is FunctionCallExpression methodCall) {
         var methodDecl = instance.Struct.Methods.Find(m => m.Identifier == methodCall.Callee && !m.IsStatic);
         if (methodDecl == null) {
-          throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no instance method '{methodCall.Callee}'.");
+          if (instance.Fields.TryGetValue(methodCall.Callee, out var fieldValue) && fieldValue is IPinoCallable callable) {
+            var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+            return callable.Call(this, methodArgs);
+          }
+          throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no instance method or callable property '{methodCall.Callee}'.");
         }
 
         // Create a method closure environment that has access to all struct instance fields directly
@@ -297,9 +301,9 @@ public partial class Evaluator {
         methodEnv.Define("this", instance, true);
         methodEnv.Define("self", instance, true);
 
-        var callable = new PinoFunction(methodDecl, methodEnv);
-        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
-        var result = callable.Call(this, methodArgs);
+        var callableFunc = new PinoFunction(methodDecl, methodEnv);
+        var methodArgsList = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+        var result = callableFunc.Call(this, methodArgsList);
 
         // Copy back modified fields to struct instance
         foreach (var fieldKey in instance.Fields.Keys.ToList()) {
@@ -314,7 +318,11 @@ public partial class Evaluator {
         if (instance.Fields.ContainsKey(propId.Name)) {
           return instance.Fields[propId.Name];
         }
-        throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no property '{propId.Name}'.");
+        var methodDecl = instance.Struct.Methods.Find(m => m.Identifier == propId.Name && !m.IsStatic);
+        if (methodDecl != null) {
+          return new PinoBoundMethod(instance, methodDecl, env);
+        }
+        throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no property or instance method '{propId.Name}'.");
       }
     } else if (leftVal is Dictionary<object, object?> dict) {
       // Case 5: map:len or map:length

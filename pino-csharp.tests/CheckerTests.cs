@@ -175,6 +175,104 @@ public class CheckerTests {
   }
 
   [Fact]
+  public void TestMethodCallOnMethodTypedField() {
+    var input = @"
+      struct Incrementer {
+        increment fn(int) int
+      }
+
+      val increment = fn(n int) => n + 1
+      val i = Incrementer {
+       increment: increment
+      }
+      i:increment(12)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestTypeCheckerMethodTypedFieldIncompatibleAssignmentThrows() {
+    var input = @"
+      struct Incrementer {
+        increment fn(int) int
+      }
+
+      val increment = fn(n string) => n + 1
+      val i = Incrementer {
+       increment: increment
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestTypeCheckerMethodTypedFieldArgTypeMismatchThrows() {
+    var input = @"
+      struct Incrementer {
+        increment fn(int) int
+      }
+
+      val increment = fn(n int) => n + 1
+      val i = Incrementer {
+       increment: increment
+      }
+
+      i:increment(""not an int"" )
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestTypeCheckerMethodTypedFieldArgCountMismatchThrows() {
+    var input = @"
+      struct Incrementer {
+        increment fn(int) int
+      }
+
+      val increment = fn(n int) => n + 1
+      val i = Incrementer {
+       increment: increment
+      }
+      i:increment(12, 34)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestTypeCheckerNonFunctionFieldCallThrows() {
+    var input = @"
+      struct Calculator {
+        count int
+      }
+      val c = Calculator { count: 0 }
+      c:count(10)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestMethodCallOnMethodTypedStaticFieldThrows() {
+    var input = @"
+      struct Calculator {
+        static fn increment(n int) int {
+          return n + 1
+        }
+      }
+
+      struct Incrementer {
+        increment fn(int) int
+      }
+
+      val i = Incrementer {
+       increment: Calculator::increment
+      }
+
+      i:increment(12)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
   public void TestTypeCheckerRecursiveFunctionExplicitTypePasses() {
     var input = @"
       fn fib(n int) int {

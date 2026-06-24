@@ -54,6 +54,42 @@ public class PinoFunction : IPinoCallable {
   }
 }
 
+// Bound Method Reference
+public class PinoBoundMethod : IPinoCallable {
+  public PinoStructInstance Instance { get; }
+  public FunctionDeclaration Declaration { get; }
+  private readonly Environment _closure;
+
+  public PinoBoundMethod(PinoStructInstance instance, FunctionDeclaration declaration, Environment closure) {
+    Instance = instance;
+    Declaration = declaration;
+    _closure = closure;
+  }
+
+  public int Arity => Declaration.Parameters.Count;
+
+  public object? Call(Evaluator evaluator, List<object?> arguments) {
+    var methodEnv = new Environment(_closure);
+    foreach (var field in Instance.Fields) {
+      methodEnv.Define(field.Key, field.Value, false);
+    }
+
+    methodEnv.Define("this", Instance, true);
+    methodEnv.Define("self", Instance, true);
+
+    var callable = new PinoFunction(Declaration, methodEnv);
+    var result = callable.Call(evaluator, arguments);
+
+    // Copy back modified fields to struct instance
+    foreach (var fieldKey in Instance.Fields.Keys.ToList()) {
+      Instance.Fields[fieldKey] = methodEnv.Get(fieldKey);
+    }
+
+    return result;
+  }
+}
+
+
 // Lambda / Anonymous Function
 public class PinoLambda : IPinoCallable {
   private readonly FunctionLambdaExpression _expression;
