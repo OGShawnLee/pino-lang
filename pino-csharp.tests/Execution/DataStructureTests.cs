@@ -478,4 +478,20 @@ public class DataStructureTests {
     var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
     Assert.Equal(42L, env.Get("calc_result"));
   }
+
+  [Fact]
+  public void TestStructLambdaFieldExecution() {
+    var code = @"
+      struct Incrementer {
+        increment fn(int) int
+      }
+
+      val i = Incrementer {
+        increment: fn (n int) => n + 1
+      }
+      val n = i:increment(10)
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(11L, env.Get("n"));
+  }
 }

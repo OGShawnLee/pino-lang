@@ -273,6 +273,21 @@ public class CheckerTests {
   }
 
   [Fact]
+  public void TestTypeCheckerLambdaAsStructFieldAssignmentPasses() {
+    var input = @"
+      struct Incrementer {
+        increment fn(int) int
+      }
+
+      val i = Incrementer {
+        increment: fn (n int) => n + 1
+      }
+    ";
+    CheckCode(input);
+  }
+
+
+  [Fact]
   public void TestTypeCheckerRecursiveFunctionExplicitTypePasses() {
     var input = @"
       fn fib(n int) int {

@@ -28,6 +28,9 @@ public partial class Parser {
     int nested = 0;
     int offset = braceOffset;
     bool hasPropInit = false;
+    bool afterColon = false;
+    int parenDepth = 0;
+    int bracketDepth = 0;
 
     while (true) {
       var tok = stream.Peek(offset);
@@ -42,10 +45,28 @@ public partial class Parser {
           break;
         }
       } else if (nested == 1) {
-        if (tok.Type == TokenType.Keyword) {
-          return false;
+        if (tok.IsMarker(MarkerType.ParenthesisBegin)) {
+          parenDepth++;
+        } else if (tok.IsMarker(MarkerType.ParenthesisEnd)) {
+          parenDepth--;
+        } else if (tok.IsMarker(MarkerType.BracketBegin)) {
+          bracketDepth++;
+        } else if (tok.IsMarker(MarkerType.BracketEnd)) {
+          bracketDepth--;
+        } else if (tok.IsMarker(MarkerType.Comma)) {
+          if (parenDepth == 0 && bracketDepth == 0) {
+            afterColon = false;
+          }
         }
-        if (tok.Type == TokenType.Operator) {
+        else if (tok.IsOperator(OperatorType.MemberAccess)) {
+          afterColon = true;
+        }
+        else if (tok.Type == TokenType.Keyword) {
+          if (!afterColon) {
+            return false;
+          }
+        }
+        else if (tok.Type == TokenType.Operator) {
           var op = tok.Operator;
           if (op == OperatorType.Assignment ||
               op == OperatorType.AdditionAssignment ||
@@ -53,10 +74,12 @@ public partial class Parser {
               op == OperatorType.MultiplicationAssignment ||
               op == OperatorType.DivisionAssignment ||
               op == OperatorType.ModulusAssignment) {
-            return false;
+            if (!afterColon) {
+              return false;
+            }
           }
         }
-        if (tok.Type == TokenType.Identifier) {
+        else if (tok.Type == TokenType.Identifier) {
           var nextTok = stream.Peek(offset + 1);
           if (nextTok.IsOperator(OperatorType.MemberAccess)) {
             hasPropInit = true;
@@ -193,7 +216,7 @@ public partial class Parser {
       } else if (stream.Current.IsOperator(OperatorType.StaticMemberAccess)) {
         stream.Consume(); // consume '::'
         Expression rightSide;
-        if (IsStructInstance(stream)) {
+        if (allowStruct && IsStructInstance(stream)) {
           rightSide = ParseStructInstance(stream);
         } else if (IsFunctionCall(stream)) {
           rightSide = ParseFunctionCall(stream);
