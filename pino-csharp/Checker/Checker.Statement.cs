@@ -54,6 +54,11 @@ public partial class Checker {
 
       case StructDeclaration structDecl:
         if (structDecl.GenericParams != null && structDecl.GenericParams.Count > 0) {
+          foreach (var param in structDecl.GenericParams) {
+            if (FindStruct(param) != null || FindInterface(param) != null || FindEnum(param) != null || IsPrimitiveType(param)) {
+              throw new Exception($"TYPE CHECK ERROR: Generic parameter '{param}' in struct '{structDecl.Identifier}' conflicts with an existing defined type name.");
+            }
+          }
           break;
         }
         var oldStruct = _currentStruct;
@@ -220,5 +225,9 @@ public partial class Checker {
     } else if (stmt is WhenStatement when) {
       FindReturnStatementsRecursive(when.Body, list);
     }
+  }
+
+  private bool IsPrimitiveType(string name) {
+    return name == "bool" || name == "int" || name == "float" || name == "string" || name == "rune" || name == "any";
   }
 }

@@ -514,6 +514,19 @@ public partial class Checker {
       return true;
     }
 
+    if (srcType.StartsWith("[]") && destType.StartsWith("[]")) {
+      return IsCompatible(srcType.Substring(2), destType.Substring(2));
+    }
+
+    if (srcType.StartsWith("map[") && destType.StartsWith("map[")) {
+      var srcParts = SplitMapTypes(srcType);
+      var destParts = SplitMapTypes(destType);
+      if (srcParts != null && destParts != null) {
+        return IsCompatible(srcParts.Item1, destParts.Item1) &&
+               IsCompatible(srcParts.Item2, destParts.Item2);
+      }
+    }
+
     if ((srcType == "int" || srcType == "float") && (destType == "int" || destType == "float")) {
       return true;
     }

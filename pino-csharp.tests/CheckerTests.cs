@@ -531,4 +531,66 @@ public class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestGenericMapValueTypeMismatchThrows() {
+    var input = @"
+      struct Document {
+        name string
+        page_count int
+      }
+
+      struct Library {
+        catalog map[string, Document]
+      }
+
+      val library_invalid = Library {
+        catalog: map[string, string] {
+          ""001"": ""What""
+        }
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestGenericParameterNameConflictThrows() {
+    var input = @"
+      struct Document {
+        name string
+      }
+
+      struct Library[Document] {
+        catalog map[string, Document]
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestMapInterfaceCompatibilityPasses() {
+    var input = @"
+      interface Greeter {
+        fn greet(name string)
+      }
+      
+      struct User {
+        fn greet(name string) {
+          println(""Hello, "" + name)
+        }
+      }
+      
+      struct Registry {
+        clients map[string, Greeter]
+      }
+      
+      val u = User {}
+      val reg = Registry {
+        clients: map[string, User] {
+          ""client1"": u
+        }
+      }
+    ";
+    CheckCode(input);
+  }
 }
