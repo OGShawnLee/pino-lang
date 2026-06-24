@@ -63,3 +63,6 @@ pino-quest.zip
 # Rust benchmarks
 benchmarks/benchmark_rust
 benchmarks/benchmark_rust.pdb
+
+# Temp Issue Tracking
+issue.md
