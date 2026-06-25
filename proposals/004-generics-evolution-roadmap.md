@@ -79,7 +79,7 @@ Permitir que el compilador deduzca automáticamente los argumentos de tipo gené
 
 ---
 
-### 4.3 Fase 3: Restricciones de Genéricos (`implements` bounds)
+### 4.3 Fase 3: Restricciones de Genéricos (`is` bounds)
 Definir restricciones sobre los parámetros de tipo genéricos para garantizar que ciertos campos o métodos existan en los tipos concretos y puedan ser accedidos de forma segura dentro del cuerpo de la función o estructura genérica.
 
 * **Sintaxis Propuesta**:
@@ -89,7 +89,7 @@ Definir restricciones sobre los parámetros de tipo genéricos para garantizar q
     page_count int
   }
 
-  @generic[Doc implements DocumentShape]
+  @generic[Doc is DocumentShape]
   struct Library {
     catalog map[string, Doc]
 
@@ -102,7 +102,7 @@ Definir restricciones sobre los parámetros de tipo genéricos para garantizar q
   ```
 
 * **Tareas en el Compilador**:
-  * **Parser**: Soportar la palabra clave `implements` dentro de la sintaxis del atributo `@generic[T implements Interfaz]`.
+  * **Parser**: Soportar la palabra clave `is` dentro de la sintaxis del atributo `@generic[T is Interfaz]`.
   * **Checker**:
     * Durante el análisis del cuerpo genérico, tratar al parámetro de tipo `T` como un tipo que posee los campos y firmas definidos por la interfaz especificada en la restricción.
     * En la instanciación o llamada, verificar mediante duck typing (`ImplementsInterface`) que el tipo concreto provisto implementa todos los requerimientos de la interfaz.
