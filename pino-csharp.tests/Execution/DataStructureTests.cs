@@ -324,7 +324,7 @@ public class DataStructureTests {
   public void TestStructStatePattern() {
     var code = @"
       interface State {
-        fn change_state(Context context)
+        fn change_state(context Context)
       }
 
       struct Context {
@@ -336,13 +336,13 @@ public class DataStructureTests {
       }
 
       struct OffState {
-        fn change_state(Context context) {
+        fn change_state(context Context) {
           context:state = OnState {}
         } 
       }
 
       struct OnState {
-        fn change_state(Context context) {
+        fn change_state(context Context) {
           context:state = OffState {}
         } 
       }

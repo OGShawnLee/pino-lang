@@ -72,6 +72,32 @@ public partial class CheckerTests {
   }
 
   [Fact]
+  public void TestAccessOnMissingField() {
+    var input = @"
+      struct Person {
+        age int
+      }
+
+      val p = Person { age: 12 }
+      p:name
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestAccessOnMissingMethod() {
+    var input = @"
+      struct Person {
+        age int
+      }
+
+      val p = Person { age: 12 }
+      p:print()
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
   public void TestMethodCallOnMethodTypedField() {
     var input = @"
       struct Incrementer {

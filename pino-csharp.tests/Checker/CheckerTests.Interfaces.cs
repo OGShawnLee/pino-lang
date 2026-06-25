@@ -48,6 +48,34 @@ public partial class CheckerTests {
   }
 
   [Fact]
+  public void TestAccessOnMissingFieldThrows() {
+    var input = @"
+      interface Person {
+        name string
+      }
+
+      fn print_person(p Person) {
+        println(p:age)
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestAccessOnMissingMethodThrows() {
+    var input = @"
+      interface Person {
+        name string
+      }
+
+      fn print_person(p Person) {
+        p:print()
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
   public void TestMapInterfaceCompatibilityPasses() {
     var input = @"
       interface Greeter {

@@ -42,6 +42,7 @@ public partial class Checker {
           } else if (bin.Operator == OperatorType.MemberAccess) {
             string leftType = InferType(bin.Left);
             var accessStructDecl = FindStruct(leftType);
+            var accessInterfaceDecl = FindInterface(leftType);
             if (accessStructDecl != null) {
               ResolveStructMembers(leftType, out var allFields, out var allMethods);
               if (bin.Right is FunctionCallExpression methodCall) {
@@ -84,6 +85,51 @@ public partial class Checker {
                 var method = allMethods.Find(m => m.Identifier == propId.Name);
                 if (method != null && method.IsStatic) {
                   throw new Exception($"TYPE CHECK ERROR: Cannot access static method '{method.Identifier}' as instance member.");
+                }
+                var field = allFields.Find(f => f.Identifier == propId.Name);
+                if (field == null && method == null) {
+                  throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have field or instance method '{propId.Name}'.");
+                }
+              }
+            } else if (accessInterfaceDecl != null) {
+              if (bin.Right is FunctionCallExpression methodCall) {
+                var method = accessInterfaceDecl.Methods.Find(m => m.Identifier == methodCall.Callee);
+                if (method != null) {
+                  // Validate arguments
+                  var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                  if (method.Parameters.Count != memberCallArgTypes.Count) {
+                    throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of interface '{accessInterfaceDecl.Identifier}' expected {method.Parameters.Count} arguments, but got {memberCallArgTypes.Count}.");
+                  }
+                  for (int i = 0; i < method.Parameters.Count; i++) {
+                    if (!IsCompatible(memberCallArgTypes[i], method.Parameters[i].Typing)) {
+                      throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for interface method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{memberCallArgTypes[i]}'.");
+                    }
+                  }
+                } else {
+                  var field = accessInterfaceDecl.Fields.Find(f => f.Identifier == methodCall.Callee);
+                  if (field != null && field.Typing.StartsWith("fn(")) {
+                    if (ParseFunctionSignature(field.Typing, out var paramsList, out var returnType)) {
+                      var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                      if (paramsList != null) {
+                        if (paramsList.Count != memberCallArgTypes.Count) {
+                          throw new Exception($"TYPE CHECK ERROR: Callable field '{field.Identifier}' of interface '{accessInterfaceDecl.Identifier}' expected {paramsList.Count} arguments, but got {memberCallArgTypes.Count}.");
+                        }
+                        for (int i = 0; i < paramsList.Count; i++) {
+                          if (!IsCompatible(memberCallArgTypes[i], paramsList[i])) {
+                            throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for callable field '{field.Identifier}' of interface '{accessInterfaceDecl.Identifier}' expected type '{paramsList[i]}', but got '{memberCallArgTypes[i]}'.");
+                          }
+                        }
+                      }
+                    }
+                  } else {
+                    throw new Exception($"TYPE CHECK ERROR: Interface '{accessInterfaceDecl.Identifier}' does not have method or callable field '{methodCall.Callee}'.");
+                  }
+                }
+              } else if (bin.Right is IdentifierExpression propId) {
+                var field = accessInterfaceDecl.Fields.Find(f => f.Identifier == propId.Name);
+                var method = accessInterfaceDecl.Methods.Find(m => m.Identifier == propId.Name);
+                if (field == null && method == null) {
+                  throw new Exception($"TYPE CHECK ERROR: Interface '{accessInterfaceDecl.Identifier}' does not have property or method '{propId.Name}'.");
                 }
               }
             }
@@ -267,6 +313,7 @@ public partial class Checker {
         if (bin.Operator == OperatorType.MemberAccess) {
           string leftType = InferType(bin.Left);
           var structDecl = FindStruct(leftType);
+          var interfaceDecl = FindInterface(leftType);
           if (structDecl != null) {
             ResolveStructMembers(leftType, out var allFields, out var allMethods);
             if (bin.Right is IdentifierExpression propId) {
@@ -278,6 +325,24 @@ public partial class Checker {
               var method = allMethods.Find(m => m.Identifier == methodCall.Callee && !m.IsStatic);
               if (method != null) return InferFunctionReturnType(method);
               var field = allFields.Find(f => f.Identifier == methodCall.Callee);
+              if (field != null && field.Typing.StartsWith("fn(")) {
+                if (ParseFunctionSignature(field.Typing, out var _, out var returnType)) {
+                  return returnType;
+                }
+              }
+            }
+          } else if (interfaceDecl != null) {
+            if (bin.Right is IdentifierExpression propId) {
+              var field = interfaceDecl.Fields.Find(f => f.Identifier == propId.Name);
+              if (field != null) return field.Typing;
+              var method = interfaceDecl.Methods.Find(m => m.Identifier == propId.Name);
+              if (method != null) return GetFunctionSignatureString(method);
+            } else if (bin.Right is FunctionCallExpression methodCall) {
+              var method = interfaceDecl.Methods.Find(m => m.Identifier == methodCall.Callee);
+              if (method != null) {
+                return !string.IsNullOrEmpty(method.ReturnType) ? method.ReturnType : "any";
+              }
+              var field = interfaceDecl.Fields.Find(f => f.Identifier == methodCall.Callee);
               if (field != null && field.Typing.StartsWith("fn(")) {
                 if (ParseFunctionSignature(field.Typing, out var _, out var returnType)) {
                   return returnType;
