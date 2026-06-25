@@ -146,6 +146,14 @@ public partial class Evaluator {
         }
         break;
 
+      case LoopKind.While:
+        while (IsTruthy(Evaluate(loop.Begin!, env))) {
+          try {
+            Execute(loop.Body, new Environment(env));
+          } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
+        }
+        break;
+
       case LoopKind.ForTimes:
         var timesVal = Evaluate(loop.Begin!, env);
         long limit = timesVal is long l ? l : Convert.ToInt64(timesVal);

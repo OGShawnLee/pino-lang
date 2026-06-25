@@ -320,6 +320,20 @@ public class Compiler {
       EmitByte((byte)OperationCode.OP_POP);
       EmitByte((byte)OperationCode.OP_POP);
       _state.Locals.RemoveRange(limitSlot, 2);
+    } else if (loop.Kind == LoopKind.While) {
+      int startOffset = _state.Chunk.Code.Count;
+      CompileExpression(loop.Begin!);
+      int exitJump = EmitJump((byte)OperationCode.OP_JUMP_IF_FALSE);
+      EmitByte((byte)OperationCode.OP_POP); // pop comparison result if true
+
+      BeginScope();
+      CompileStatement(loop.Body);
+      EndScope();
+
+      EmitLoop(startOffset);
+
+      PatchJump(exitJump);
+      EmitByte((byte)OperationCode.OP_POP); // pop comparison result if false
     } else if (loop.Kind == LoopKind.Infinite) {
       int startOffset = _state.Chunk.Code.Count;
       BeginScope();

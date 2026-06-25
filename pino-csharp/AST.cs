@@ -17,10 +17,25 @@ public record ReturnStatement(Expression? Argument) : Statement;
 public enum LoopKind {
   ForIn,
   ForTimes,
-  Infinite
+  Infinite,
+  While
 }
 
-public record LoopStatement(LoopKind Kind, Expression? Begin, Expression? End, Statement Body, string? KeyVar = null) : Statement;
+public record LoopStatement : Statement {
+  public LoopKind Kind { get; set; }
+  public Expression? Begin { get; set; }
+  public Expression? End { get; set; }
+  public Statement Body { get; set; }
+  public string? KeyVar { get; set; }
+
+  public LoopStatement(LoopKind kind, Expression? begin, Expression? end, Statement body, string? keyVar = null) {
+    Kind = kind;
+    Begin = begin;
+    End = end;
+    Body = body;
+    KeyVar = keyVar;
+  }
+}
 
 public record IfStatement(Expression Condition, Statement Consequent, Statement? Alternate) : Statement;
 

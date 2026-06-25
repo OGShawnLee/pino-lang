@@ -144,9 +144,20 @@ public partial class Checker {
         } else if (loop.Kind == LoopKind.ForTimes) {
           if (loop.Begin != null) {
             CheckExpression(loop.Begin);
+            string exprType = InferType(loop.Begin);
+            if (exprType == "bool") {
+              loop.Kind = LoopKind.While;
+            }
           }
           PushScope();
-          DeclareVariable("it", "int");
+          if (loop.Kind == LoopKind.ForTimes) {
+            DeclareVariable("it", "int");
+          }
+        } else if (loop.Kind == LoopKind.While) {
+          if (loop.Begin != null) {
+            CheckExpression(loop.Begin);
+          }
+          PushScope();
         } else {
           PushScope();
         }

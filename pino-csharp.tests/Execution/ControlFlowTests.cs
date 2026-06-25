@@ -4,7 +4,7 @@ using Pino;
 
 namespace pino_csharp.tests.Execution;
 
-public class ControlFlowTests {
+public partial class ControlFlowTests {
   [Theory]
   [InlineData(ExecutionEngine.TreeWalk)]
   [InlineData(ExecutionEngine.VM)]
