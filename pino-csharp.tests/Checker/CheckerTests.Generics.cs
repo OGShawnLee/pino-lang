@@ -298,4 +298,113 @@ public partial class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestGenericInterfaces() {
+    var input = @"
+      @generic[T]
+      interface Repository {
+        fn find_by_id(id string) T
+        fn save(entity T)
+      }
+      struct Person {
+        id string
+        name string
+      }
+      struct SQLPersonRepository {
+        fn find_by_id(id string) Person {
+          return Person { id: id, name: ""John"" }
+        }
+        fn save(entity Person) {}
+      }
+      fn check_repo(repo Repository[Person]) {
+        val p = repo:find_by_id(""123"")
+        fn expect_person(per Person) {}
+        expect_person(p)
+      }
+      val r = SQLPersonRepository {}
+      check_repo(r)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestGenericInterfacesInvalid() {
+    var input = @"
+      @generic[T]
+      interface Repository {
+        fn find_by_id(id string) T
+        fn save(entity T)
+      }
+      struct Person {
+        id string
+        name string
+      }
+      struct SQLPersonRepository {
+        fn find_by_id(id string) string {
+          return ""Not a Person""
+        }
+        fn save(entity Person) {}
+      }
+      fn check_repo(repo Repository[Person]) {}
+      val r = SQLPersonRepository {}
+      check_repo(r)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestGenericConstraintUsingGenericInterface() {
+    var input = @"
+      @generic[T]
+      interface Repository {
+        fn find_by_id(id string) T
+        fn save(entity T)
+      }
+      struct Person {
+        id string
+        name string
+      }
+      struct SQLPersonRepository {
+        fn find_by_id(id string) Person {
+          return Person { id: id, name: ""John"" }
+        }
+        fn save(entity Person) {}
+      }
+      @generic[Repo is Repository[Person]]
+      fn process(r Repo) Person {
+        return r:find_by_id(""123"")
+      }
+      val repo = SQLPersonRepository {}
+      val p = process[SQLPersonRepository](repo)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestGenericConstraintUsingGenericInterfaceInvalid() {
+    var input = @"
+      @generic[T]
+      interface Repository {
+        fn find_by_id(id string) T
+        fn save(entity T)
+      }
+      struct Person {
+        id string
+        name string
+      }
+      struct IncompatibleRepository {
+        fn find_by_id(id string) string {
+          return ""Not a Person""
+        }
+      }
+      @generic[Repo is Repository[Person]]
+      fn process(r Repo) Person {
+        return r:find_by_id(""123"")
+      }
+      val repo = IncompatibleRepository {}
+      process[IncompatibleRepository](repo)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
 }

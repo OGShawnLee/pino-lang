@@ -63,6 +63,10 @@ public partial class Checker {
       if (baseStruct != null && baseStruct.GenericParams != null && baseStruct.GenericParams.Count > 0) {
         return MonomorphizeStruct(baseName, substitutedArgs);
       } else {
+        var baseInterface = FindInterface(baseName);
+        if (baseInterface != null && baseInterface.GenericParams != null && baseInterface.GenericParams.Count > 0) {
+          return MonomorphizeInterface(baseName, substitutedArgs);
+        }
         return baseName + "[" + string.Join(", ", substitutedArgs) + "]";
       }
     }
@@ -702,6 +706,76 @@ public partial class Checker {
     return specializedName;
   }
 
+  private string MonomorphizeInterface(string baseName, List<string> concreteArgs) {
+    var baseInterface = FindInterface(baseName);
+    if (baseInterface == null) {
+      throw new Exception($"TYPE CHECK ERROR: Interface '{baseName}' is not defined.");
+    }
+    if (baseInterface.GenericParams == null || baseInterface.GenericParams.Count == 0) {
+      throw new Exception($"TYPE CHECK ERROR: Interface '{baseName}' is not a generic interface.");
+    }
+    if (baseInterface.GenericParams.Count != concreteArgs.Count) {
+      throw new Exception($"TYPE CHECK ERROR: Interface '{baseName}' expects {baseInterface.GenericParams.Count} generic parameters, but got {concreteArgs.Count} arguments.");
+    }
+
+    var cleanArgs = new List<string>();
+    foreach (var arg in concreteArgs) {
+      string clean = arg
+        .Replace("[]", "vector_")
+        .Replace("[", "_")
+        .Replace("]", "_")
+        .Replace(",", "_")
+        .Replace(" ", "_")
+        .Trim('_');
+      while (clean.Contains("__")) {
+        clean = clean.Replace("__", "_");
+      }
+      cleanArgs.Add(clean);
+    }
+    string specializedName = $"{baseName}_{string.Join("_", cleanArgs)}";
+
+    if (_interfaces.ContainsKey(specializedName)) {
+      return specializedName;
+    }
+
+    var subst = new Dictionary<string, string>();
+    for (int i = 0; i < baseInterface.GenericParams.Count; i++) {
+      subst[baseInterface.GenericParams[i].Name] = concreteArgs[i];
+    }
+
+    var specializedFields = new List<VariableDeclaration>();
+    foreach (var field in baseInterface.Fields) {
+      string substitutedTyping = SubstituteType(field.Typing, subst);
+      specializedFields.Add(field with { Typing = substitutedTyping });
+    }
+
+    var specializedMethods = new List<FunctionDeclaration>();
+    foreach (var method in baseInterface.Methods) {
+      var specializedParams = new List<VariableDeclaration>();
+      foreach (var param in method.Parameters) {
+        specializedParams.Add(param with { Typing = SubstituteType(param.Typing, subst) });
+      }
+      string substitutedReturn = SubstituteType(method.ReturnType, subst);
+
+      specializedMethods.Add(method with {
+        Parameters = specializedParams,
+        ReturnType = substitutedReturn
+      });
+    }
+
+    var specializedInterface = new InterfaceDeclaration(
+      specializedName,
+      specializedFields,
+      specializedMethods,
+      GenericParams: null,
+      IsPublic: baseInterface.IsPublic
+    );
+
+    _interfaces[specializedName] = specializedInterface;
+
+    return specializedName;
+  }
+
   private void VerifyGenericConstraints(List<GenericParam> genericParams, List<string> concreteArgs, string targetName) {
     if (genericParams == null || concreteArgs == null) return;
     for (int i = 0; i < Math.Min(genericParams.Count, concreteArgs.Count); i++) {
@@ -709,14 +783,15 @@ public partial class Checker {
       if (string.IsNullOrEmpty(param.Constraint)) continue;
 
       var concreteArg = concreteArgs[i];
-      var interfaceDecl = FindInterface(param.Constraint);
+      string normalizedConstraint = NormalizeType(param.Constraint);
+      var interfaceDecl = FindInterface(normalizedConstraint);
       if (interfaceDecl != null) {
         var structDecl = FindStruct(concreteArg);
         if (structDecl == null || !ImplementsInterface(structDecl, interfaceDecl)) {
           throw new Exception($"TYPE CHECK ERROR: Type '{concreteArg}' does not satisfy generic constraint '{param.Constraint}' for parameter '{param.Name}'.");
         }
       } else {
-        if (!IsCompatible(concreteArg, param.Constraint)) {
+        if (!IsCompatible(concreteArg, normalizedConstraint)) {
           throw new Exception($"TYPE CHECK ERROR: Type '{concreteArg}' does not satisfy generic constraint '{param.Constraint}' for parameter '{param.Name}'.");
         }
       }
