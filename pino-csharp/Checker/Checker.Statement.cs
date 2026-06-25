@@ -27,8 +27,8 @@ public partial class Checker {
         break;
 
       case FunctionDeclaration fnDecl:
-        DeclareVariable(fnDecl.Identifier, GetFunctionSignatureString(fnDecl));
         bool isMethod = _currentStruct != null && !_inStaticMethod;
+        DeclareVariable(fnDecl.Identifier, GetFunctionSignatureString(fnDecl, parentStructName: isMethod ? _currentStruct!.Identifier : null));
         if (isMethod) {
           PushScope();
           DeclareVariable("this", _currentStruct!.Identifier);
@@ -49,7 +49,7 @@ public partial class Checker {
         if (isMethod) {
           PopScope();
         }
-        InferFunctionReturnType(fnDecl);
+        InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
         break;
 
       case StructDeclaration structDecl:

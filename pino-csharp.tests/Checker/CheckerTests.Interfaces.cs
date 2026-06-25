@@ -167,4 +167,41 @@ public partial class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestGenericStructMethodInferenceWithInterfaceCompatibilityThrows() {
+    var input = @"
+      interface DocumentShape {
+        name string
+        page_count int
+        fn read()
+      }
+
+      struct Document {
+        name string
+        page_count int
+      }
+
+      struct Library[Doc] {
+        catalog map[string, Doc]
+
+        fn get_book_by_key(key string) {
+          return catalog[key]
+        }
+
+        static fn reading(doc DocumentShape) {
+          doc:read()
+        }
+      }
+
+      val library = Library {
+        catalog: map[string, Document] {
+          ""001"": Document { name: ""Pino Programming"", page_count: 300 }
+        }
+      }
+      val element = library:get_book_by_key(""001"")
+      Library::reading(element)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
 }

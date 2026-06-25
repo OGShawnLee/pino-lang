@@ -320,10 +320,10 @@ public partial class Checker {
               var field = allFields.Find(f => f.Identifier == propId.Name);
               if (field != null) return field.Typing;
               var method = allMethods.Find(m => m.Identifier == propId.Name && !m.IsStatic);
-              if (method != null) return GetFunctionSignatureString(method);
+              if (method != null) return GetFunctionSignatureString(method, parentStructName: leftType);
             } else if (bin.Right is FunctionCallExpression methodCall) {
               var method = allMethods.Find(m => m.Identifier == methodCall.Callee && !m.IsStatic);
-              if (method != null) return InferFunctionReturnType(method);
+              if (method != null) return InferFunctionReturnType(method, leftType);
               var field = allFields.Find(f => f.Identifier == methodCall.Callee);
               if (field != null && field.Typing.StartsWith("fn(")) {
                 if (ParseFunctionSignature(field.Typing, out var _, out var returnType)) {
@@ -440,10 +440,10 @@ public partial class Checker {
               ResolveStructMembers(modName, out var _, out var allMethods);
               if (bin.Right is IdentifierExpression methodId) {
                 var method = allMethods.Find(m => m.Identifier == methodId.Name && m.IsStatic);
-                if (method != null) return GetFunctionSignatureString(method);
+                if (method != null) return GetFunctionSignatureString(method, parentStructName: modName);
               } else if (bin.Right is FunctionCallExpression methodCall) {
                 var method = allMethods.Find(m => m.Identifier == methodCall.Callee && m.IsStatic);
-                if (method != null) return InferFunctionReturnType(method);
+                if (method != null) return InferFunctionReturnType(method, modName);
               }
               return "any";
             }
@@ -668,7 +668,7 @@ public partial class Checker {
       }
 
       string reqRetType = InferFunctionReturnType(reqMethod);
-      string implRetType = InferFunctionReturnType(implMethod);
+      string implRetType = InferFunctionReturnType(implMethod, structDecl.Identifier);
       if (!IsCompatible(implRetType, reqRetType)) {
         return false;
       }
@@ -700,7 +700,7 @@ public partial class Checker {
     }
   }
 
-  private string InferFunctionReturnType(FunctionDeclaration fn) {
+  private string InferFunctionReturnType(FunctionDeclaration fn, string? parentStructName = null) {
     string fnKey = fn.Identifier ?? "<lambda>";
 
     // Cycle guard must come first — covers BOTH explicit and inferred return type paths.
@@ -725,13 +725,31 @@ public partial class Checker {
         }
 
         PushScope();
+        bool isMethod = parentStructName != null && !fn.IsStatic;
+        if (isMethod) {
+          DeclareVariable("this", parentStructName!);
+          DeclareVariable("self", parentStructName!);
+          ResolveStructMembers(parentStructName!, out var fields, out var _);
+          foreach (var field in fields) {
+            DeclareVariable(field.Identifier, field.Typing);
+          }
+        }
         foreach (var param in fn.Parameters) {
           DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
         }
 
         var returns = FindReturnStatements(fn.Body);
         foreach (var ret in returns) {
+          var oldStruct = _currentStruct;
+          var oldStatic = _inStaticMethod;
+          if (parentStructName != null) {
+            _currentStruct = FindStruct(parentStructName);
+            _inStaticMethod = fn.IsStatic;
+          }
           string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
+          _currentStruct = oldStruct;
+          _inStaticMethod = oldStatic;
+
           if (!IsCompatible(retType, fn.ReturnType)) {
             throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' declared return type '{fn.ReturnType}', but returned '{retType}'.");
           }
@@ -746,6 +764,15 @@ public partial class Checker {
       }
 
       PushScope();
+      bool isMethod2 = parentStructName != null && !fn.IsStatic;
+      if (isMethod2) {
+        DeclareVariable("this", parentStructName!);
+        DeclareVariable("self", parentStructName!);
+        ResolveStructMembers(parentStructName!, out var fields, out var _);
+        foreach (var field in fields) {
+          DeclareVariable(field.Identifier, field.Typing);
+        }
+      }
       foreach (var param in fn.Parameters) {
         DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
       }
@@ -759,7 +786,16 @@ public partial class Checker {
       string firstRetType = "any";
       bool first = true;
       foreach (var ret in returns2) {
+        var oldStruct = _currentStruct;
+        var oldStatic = _inStaticMethod;
+        if (parentStructName != null) {
+          _currentStruct = FindStruct(parentStructName);
+          _inStaticMethod = fn.IsStatic;
+        }
         string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
+        _currentStruct = oldStruct;
+        _inStaticMethod = oldStatic;
+
         if (first) {
           firstRetType = retType;
           first = false;

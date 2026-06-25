@@ -254,7 +254,7 @@ public partial class Checker {
     return "any";
   }
 
-  private string GetFunctionSignatureString(FunctionDeclaration? fn = null, List<VariableDeclaration>? parameters = null, FunctionLambdaExpression? lambda = null) {
+  private string GetFunctionSignatureString(FunctionDeclaration? fn = null, List<VariableDeclaration>? parameters = null, FunctionLambdaExpression? lambda = null, string? parentStructName = null) {
     var paramTypes = new List<string>();
     var paramsList = fn != null ? fn.Parameters : (parameters ?? lambda?.Parameters);
     if (paramsList != null) {
@@ -264,7 +264,7 @@ public partial class Checker {
     }
     string retType = "any";
     if (fn != null) {
-      retType = InferFunctionReturnType(fn);
+      retType = InferFunctionReturnType(fn, parentStructName);
     } else if (lambda != null) {
       PushScope();
       foreach (var param in lambda.Parameters) {
