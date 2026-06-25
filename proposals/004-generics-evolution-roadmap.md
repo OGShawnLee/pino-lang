@@ -38,14 +38,22 @@ Habilitar funciones independientes y métodos estáticos o de instancia para dec
 
 * **Sintaxis Propuesta**:
   ```pino
-  fn map[T, U](list []T, transform fn(T) U) []U {
+  @generic[Entry, Result]
+  fn map(list []Entry, transform fn(Entry) Result) []Result {
     # Algoritmo de transformación reutilizable
+  }
+
+  struct Reader {
+    @generic[Document]
+    static fn read(doc Document) {
+      # Método estático genérico
+    }
   }
   ```
 
 * **Tareas en el Compilador**:
   * **AST**: Añadir la propiedad `GenericParams` (lista de `TypeParameter`) al nodo `FunctionDeclaration`.
-  * **Parser**: Modificar la gramática de funciones para aceptar corchetes de tipo opcionales después del identificador: `fn nombre[T1, T2](parámetros)`.
+  * **Parser**: Dar soporte al prefijo `@generic[T1, T2]` (atributos/decoradores) antes de las declaraciones de funciones, cargándolo temporalmente y adjuntándolo a la firma de la función.
   * **Checker**:
     * En el punto de llamada (ej. `map[int, string](numbers, transform)`), validar que el número de argumentos de tipo coincida con los parámetros genéricos.
     * Clonar el AST de la función, reemplazar los tipos genéricos por los tipos concretos suministrados, y registrar la versión monomorfizada única (ej. `map_int_string`) en el entorno de tipos y en la generación de código.
@@ -81,9 +89,11 @@ Definir restricciones sobre los parámetros de tipo genéricos para garantizar q
     page_count int
   }
 
-  struct Library[Doc implements DocumentShape] {
+  @generic[Doc implements DocumentShape]
+  struct Library {
     catalog map[string, Doc]
 
+    @generic[Doc]
     static fn reading(doc Doc) {
       # Validado estáticamente por el Checker gracias a la restricción!
       println(doc:name)
@@ -92,7 +102,7 @@ Definir restricciones sobre los parámetros de tipo genéricos para garantizar q
   ```
 
 * **Tareas en el Compilador**:
-  * **Parser**: Modificar el parseo de parámetros genéricos para aceptar la palabra clave `implements` seguida de un identificador de interfaz: `[T implements Interfaz]`.
+  * **Parser**: Soportar la palabra clave `implements` dentro de la sintaxis del atributo `@generic[T implements Interfaz]`.
   * **Checker**:
     * Durante el análisis del cuerpo genérico, tratar al parámetro de tipo `T` como un tipo que posee los campos y firmas definidos por la interfaz especificada en la restricción.
     * En la instanciación o llamada, verificar mediante duck typing (`ImplementsInterface`) que el tipo concreto provisto implementa todos los requerimientos de la interfaz.
@@ -104,12 +114,13 @@ Permitir que las interfaces declaren parámetros de tipo, permitiendo una abstra
 
 * **Sintaxis Propuesta**:
   ```pino
-  interface Repository[T] {
+  @generic[T]
+  interface Repository {
     fn find_by_id(id string) T
     fn save(entity T)
   }
   ```
 
 * **Tareas en el Compilador**:
-  * Modificar `InterfaceDeclaration` para soportar parámetros genéricos.
+  * **AST/Parser**: Modificar `InterfaceDeclaration` para permitir el prefijo `@generic[T]` antes de una interfaz.
   * Adaptar las validaciones de compatibilidad de tipos (duck typing) en el Checker para sustituir recursivamente los parámetros genéricos al evaluar si una estructura concreta implementa una interfaz genérica instanciada (ej. si `SqlPersonRepository` implementa `Repository[Person]`).
