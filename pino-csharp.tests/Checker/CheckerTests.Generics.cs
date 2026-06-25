@@ -407,4 +407,39 @@ public partial class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestGenericDeclarationUnconstrainedAccessThrows() {
+    var input = @"
+      @generic[D]
+      fn reading(doc D) {
+        println(doc:name)
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestGenericDeclarationConstrainedAccessPasses() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      @generic[D is DocumentShape]
+      fn reading(doc D) {
+        println(doc:name)
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestStaticMethodUsingInstanceBoundGenericThrows() {
+    var input = @"
+      struct Library[Doc] {
+        static fn read(d Doc) {}
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
 }

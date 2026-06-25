@@ -30,13 +30,41 @@ public partial class Checker {
         bool isMethod = _currentStruct != null && !_inStaticMethod;
         DeclareVariable(fnDecl.Identifier, GetFunctionSignatureString(fnDecl, parentStructName: isMethod ? _currentStruct!.Identifier : null));
 
+        if (_currentStruct != null && _inStaticMethod && _currentStruct.GenericParams != null && _currentStruct.GenericParams.Count > 0) {
+          foreach (var param in fnDecl.Parameters) {
+            if (TypeReferencesGenericParam(param.Typing, _currentStruct.GenericParams)) {
+              throw new Exception($"TYPE CHECK ERROR: Static method '{fnDecl.Identifier}' cannot use instance-bound generic parameter '{param.Typing}' of struct '{_currentStruct.Identifier}'.");
+            }
+          }
+          if (TypeReferencesGenericParam(fnDecl.ReturnType, _currentStruct.GenericParams)) {
+            throw new Exception($"TYPE CHECK ERROR: Static method '{fnDecl.Identifier}' cannot use instance-bound generic parameter '{fnDecl.ReturnType}' of struct '{_currentStruct.Identifier}'.");
+          }
+        }
+
+        var tempDecls = new List<string>();
         if (fnDecl.GenericParams != null && fnDecl.GenericParams.Count > 0) {
           foreach (var param in fnDecl.GenericParams) {
             if (FindStruct(param.Name) != null || FindInterface(param.Name) != null || FindEnum(param.Name) != null || IsPrimitiveType(param.Name)) {
               throw new Exception($"TYPE CHECK ERROR: Generic parameter '{param.Name}' in function '{fnDecl.Identifier}' conflicts with an existing defined type name.");
             }
+            if (!string.IsNullOrEmpty(param.Constraint)) {
+              string normalizedConstraint = NormalizeType(param.Constraint);
+              var constraintInterface = FindInterface(normalizedConstraint);
+              if (constraintInterface != null) {
+                _interfaces[param.Name] = constraintInterface with { Identifier = param.Name };
+              } else {
+                var constraintStruct = FindStruct(normalizedConstraint);
+                if (constraintStruct != null) {
+                  _structs[param.Name] = constraintStruct with { Identifier = param.Name };
+                } else {
+                  _structs[param.Name] = new StructDeclaration(param.Name, new(), new(), new());
+                }
+              }
+            } else {
+              _structs[param.Name] = new StructDeclaration(param.Name, new(), new(), new());
+            }
+            tempDecls.Add(param.Name);
           }
-          break;
         }
 
         if (isMethod) {
@@ -60,16 +88,38 @@ public partial class Checker {
           PopScope();
         }
         InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
+
+        foreach (var name in tempDecls) {
+          _interfaces.Remove(name);
+          _structs.Remove(name);
+        }
         break;
 
       case StructDeclaration structDecl:
+        var structTempDecls = new List<string>();
         if (structDecl.GenericParams != null && structDecl.GenericParams.Count > 0) {
           foreach (var param in structDecl.GenericParams) {
             if (FindStruct(param.Name) != null || FindInterface(param.Name) != null || FindEnum(param.Name) != null || IsPrimitiveType(param.Name)) {
               throw new Exception($"TYPE CHECK ERROR: Generic parameter '{param.Name}' in struct '{structDecl.Identifier}' conflicts with an existing defined type name.");
             }
+            if (!string.IsNullOrEmpty(param.Constraint)) {
+              string normalizedConstraint = NormalizeType(param.Constraint);
+              var constraintInterface = FindInterface(normalizedConstraint);
+              if (constraintInterface != null) {
+                _interfaces[param.Name] = constraintInterface with { Identifier = param.Name };
+              } else {
+                var constraintStruct = FindStruct(normalizedConstraint);
+                if (constraintStruct != null) {
+                  _structs[param.Name] = constraintStruct with { Identifier = param.Name };
+                } else {
+                  _structs[param.Name] = new StructDeclaration(param.Name, new(), new(), new());
+                }
+              }
+            } else {
+              _structs[param.Name] = new StructDeclaration(param.Name, new(), new(), new());
+            }
+            structTempDecls.Add(param.Name);
           }
-          break;
         }
         var oldStruct = _currentStruct;
         var oldStatic = _inStaticMethod;
@@ -81,10 +131,32 @@ public partial class Checker {
         }
         foreach (var method in structDecl.Methods) {
           _inStaticMethod = method.IsStatic;
+
+          var hiddenStructParams = new Dictionary<string, (InterfaceDeclaration?, StructDeclaration?)>();
+          if (method.IsStatic && structDecl.GenericParams != null) {
+            foreach (var p in structDecl.GenericParams) {
+              _interfaces.TryGetValue(p.Name, out var intf);
+              _structs.TryGetValue(p.Name, out var strct);
+              hiddenStructParams[p.Name] = (intf, strct);
+              _interfaces.Remove(p.Name);
+              _structs.Remove(p.Name);
+            }
+          }
+
           CheckStatement(method);
+
+          foreach (var kvp in hiddenStructParams) {
+            if (kvp.Value.Item1 != null) _interfaces[kvp.Key] = kvp.Value.Item1;
+            if (kvp.Value.Item2 != null) _structs[kvp.Key] = kvp.Value.Item2;
+          }
         }
         _currentStruct = oldStruct;
         _inStaticMethod = oldStatic;
+
+        foreach (var name in structTempDecls) {
+          _interfaces.Remove(name);
+          _structs.Remove(name);
+        }
         break;
 
       case InterfaceDeclaration:
@@ -250,5 +322,14 @@ public partial class Checker {
 
   private bool IsPrimitiveType(string name) {
     return name == "bool" || name == "int" || name == "float" || name == "string" || name == "rune" || name == "any";
+  }
+
+  private bool TypeReferencesGenericParam(string typing, List<GenericParam> structGenericParams) {
+    if (string.IsNullOrEmpty(typing) || structGenericParams == null || structGenericParams.Count == 0) return false;
+    foreach (var gp in structGenericParams) {
+      var pattern = $@"\b{gp.Name}\b";
+      if (System.Text.RegularExpressions.Regex.IsMatch(typing, pattern)) return true;
+    }
+    return false;
   }
 }
