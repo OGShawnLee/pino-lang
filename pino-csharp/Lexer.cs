@@ -20,6 +20,7 @@ public class Lexer {
         { "import", KeywordType.Import },
         { "in", KeywordType.In },
         { "interface", KeywordType.Interface },
+        { "is", KeywordType.Is },
         { "for", KeywordType.Loop },
         { "match", KeywordType.Match },
         { "module", KeywordType.Module },
@@ -33,6 +34,7 @@ public class Lexer {
     };
 
   private static readonly Dictionary<char, MarkerType> Markers = new() {
+        { '@', MarkerType.At },
         { '{', MarkerType.BlockBegin },
         { '}', MarkerType.BlockEnd },
         { '[', MarkerType.BracketBegin },

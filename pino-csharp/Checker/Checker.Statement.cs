@@ -29,6 +29,16 @@ public partial class Checker {
       case FunctionDeclaration fnDecl:
         bool isMethod = _currentStruct != null && !_inStaticMethod;
         DeclareVariable(fnDecl.Identifier, GetFunctionSignatureString(fnDecl, parentStructName: isMethod ? _currentStruct!.Identifier : null));
+
+        if (fnDecl.GenericParams != null && fnDecl.GenericParams.Count > 0) {
+          foreach (var param in fnDecl.GenericParams) {
+            if (FindStruct(param.Name) != null || FindInterface(param.Name) != null || FindEnum(param.Name) != null || IsPrimitiveType(param.Name)) {
+              throw new Exception($"TYPE CHECK ERROR: Generic parameter '{param.Name}' in function '{fnDecl.Identifier}' conflicts with an existing defined type name.");
+            }
+          }
+          break;
+        }
+
         if (isMethod) {
           PushScope();
           DeclareVariable("this", _currentStruct!.Identifier);
@@ -55,8 +65,8 @@ public partial class Checker {
       case StructDeclaration structDecl:
         if (structDecl.GenericParams != null && structDecl.GenericParams.Count > 0) {
           foreach (var param in structDecl.GenericParams) {
-            if (FindStruct(param) != null || FindInterface(param) != null || FindEnum(param) != null || IsPrimitiveType(param)) {
-              throw new Exception($"TYPE CHECK ERROR: Generic parameter '{param}' in struct '{structDecl.Identifier}' conflicts with an existing defined type name.");
+            if (FindStruct(param.Name) != null || FindInterface(param.Name) != null || FindEnum(param.Name) != null || IsPrimitiveType(param.Name)) {
+              throw new Exception($"TYPE CHECK ERROR: Generic parameter '{param.Name}' in struct '{structDecl.Identifier}' conflicts with an existing defined type name.");
             }
           }
           break;

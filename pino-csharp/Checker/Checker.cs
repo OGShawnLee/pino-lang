@@ -11,6 +11,7 @@ public partial class Checker {
   private readonly Dictionary<string, EnumDeclaration> _enums = new();
   private readonly Dictionary<string, FunctionDeclaration> _functions = new();
   private readonly List<StructDeclaration> _specializedStructs = new();
+  private readonly List<FunctionDeclaration> _specializedFunctions = new();
 
   public bool IsModule { get; set; } = false;
 
@@ -85,6 +86,7 @@ public partial class Checker {
   public void Check(ProgramStatement program) {
     PushScope();
     _specializedStructs.Clear();
+    _specializedFunctions.Clear();
 
     // Pass 1: Gather global symbols
     foreach (var stmt in program.Statements) {
@@ -139,6 +141,7 @@ public partial class Checker {
     }
 
     program.Statements.InsertRange(0, _specializedStructs);
+    program.Statements.InsertRange(0, _specializedFunctions);
 
     PopScope();
   }

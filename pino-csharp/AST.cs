@@ -55,13 +55,15 @@ public enum VariableKind {
   Property
 }
 
+public record GenericParam(string Name, string? Constraint = null);
+
 public record VariableDeclaration(VariableKind Kind, string Identifier, Expression? Value, string Typing = "", bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false, List<GenericParam>? GenericParams = null) : Declaration(Identifier, IsPublic);
 
-public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<string>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record InterfaceDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record InterfaceDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
 public record EnumDeclaration(string Identifier, List<string> Members, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
@@ -98,7 +100,16 @@ public record StructInstanceExpression : Expression {
   }
 }
 
-public record FunctionCallExpression(string Callee, List<Expression> Arguments) : Expression;
+public record FunctionCallExpression : Expression {
+  public string Callee { get; set; }
+  public List<Expression> Arguments { get; init; }
+  public List<string>? GenericArgs { get; init; }
+  public FunctionCallExpression(string callee, List<Expression> arguments, List<string>? genericArgs = null) {
+    Callee = callee;
+    Arguments = arguments;
+    GenericArgs = genericArgs;
+  }
+}
 
 public record FunctionLambdaExpression(List<VariableDeclaration> Parameters, Statement Body) : Expression;
 

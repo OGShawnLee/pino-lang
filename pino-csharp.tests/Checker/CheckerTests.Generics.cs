@@ -109,4 +109,64 @@ public partial class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestFunctionGenericsExplicitCall() {
+    var input = @"
+      @generic[T, U]
+      fn map(list []T, transform fn(T) U) []U {
+        return []U
+      }
+      val numbers = [1, 2, 3]
+      val strings = map[int, string](numbers, fn(n int) => ""test"")
+      fn expect_strings(s []string) {}
+      expect_strings(strings)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestFunctionGenericsImplicitCall() {
+    var input = @"
+      @generic[T, U]
+      fn map(list []T, transform fn(T) U) []U {
+        return []U
+      }
+      val numbers = [1, 2, 3]
+      val strings = map(numbers, fn(n int) => ""test"")
+      fn expect_strings(s []string) {}
+      expect_strings(strings)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestStructMethodGenerics() {
+    var input = @"
+      struct Reader {
+        @generic[T]
+        static fn read(v T) T {
+          return v
+        }
+      }
+      val res = Reader::read[int](42)
+      fn expect_int(n int) {}
+      expect_int(res)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestStructDecoratorSyntaxAndBounds() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      @generic[Doc is DocumentShape]
+      struct Library {
+        catalog map[string, Doc]
+      }
+    ";
+    CheckCode(input);
+  }
 }

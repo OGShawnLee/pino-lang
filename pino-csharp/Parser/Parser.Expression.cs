@@ -13,7 +13,25 @@ public partial class Parser {
   }
 
   private static bool IsFunctionCall(TokenStream stream) {
-    return stream.Current.IsType(TokenType.Identifier) && stream.IsNext(t => t.IsMarker(MarkerType.ParenthesisBegin));
+    if (!stream.Current.IsType(TokenType.Identifier)) return false;
+    if (stream.IsNext(t => t.IsMarker(MarkerType.ParenthesisBegin))) return true;
+    if (stream.IsNext(t => t.IsMarker(MarkerType.BracketBegin))) {
+      int offset = 2; // skip identifier and '['
+      int bracketDepth = 1;
+      while (true) {
+        var t = stream.Peek(offset);
+        if (t.Type == TokenType.Illegal) return false;
+        if (t.IsMarker(MarkerType.BracketBegin)) bracketDepth++;
+        else if (t.IsMarker(MarkerType.BracketEnd)) {
+          bracketDepth--;
+          if (bracketDepth == 0) {
+            return stream.Peek(offset + 1).IsMarker(MarkerType.ParenthesisBegin);
+          }
+        }
+        offset++;
+      }
+    }
+    return false;
   }
 
   private static bool IsFunctionLambda(TokenStream stream) {
@@ -170,10 +188,10 @@ public partial class Parser {
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
         throw new Exception("PARSER: Expected ')' to close grouped expression");
       }
-    } else if (stream.Current.Type == TokenType.Identifier && stream.Current.Data == "map" && stream.IsNext(t => t.IsMarker(MarkerType.BracketBegin))) {
-      expr = ParseMapExpression(stream);
     } else if (IsFunctionCall(stream)) {
       expr = ParseFunctionCall(stream);
+    } else if (stream.Current.Type == TokenType.Identifier && stream.Current.Data == "map" && stream.IsNext(t => t.IsMarker(MarkerType.BracketBegin))) {
+      expr = ParseMapExpression(stream);
     } else if (IsFunctionLambda(stream)) {
       expr = ParseFunctionLambda(stream);
     } else if (IsVector(stream)) {
@@ -206,9 +224,23 @@ public partial class Parser {
         stream.Consume(); // consume ':'
         var memberName = ConsumeIdentifier(stream);
         Expression rightSide;
-        if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+        if (stream.Current.IsMarker(MarkerType.ParenthesisBegin) || stream.Current.IsMarker(MarkerType.BracketBegin)) {
+          List<string>? genericArgs = null;
+          if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
+            stream.Consume(); // consume '['
+            genericArgs = new List<string>();
+            while (!stream.Current.IsMarker(MarkerType.BracketEnd)) {
+              genericArgs.Add(ConsumeTyping(stream));
+              if (stream.Current.IsMarker(MarkerType.Comma)) {
+                stream.Consume();
+              }
+            }
+            if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+              throw new Exception("PARSER: Expected ']' to close generic arguments in member call");
+            }
+          }
           var args = ConsumeArguments(stream);
-          rightSide = new FunctionCallExpression(memberName, args);
+          rightSide = new FunctionCallExpression(memberName, args, genericArgs);
         } else {
           rightSide = new IdentifierExpression(memberName);
         }
@@ -279,8 +311,22 @@ public partial class Parser {
 
   private static FunctionCallExpression ParseFunctionCall(TokenStream stream) {
     var callee = ConsumeIdentifier(stream);
+    List<string>? genericArgs = null;
+    if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
+      stream.Consume(); // consume '['
+      genericArgs = new List<string>();
+      while (!stream.Current.IsMarker(MarkerType.BracketEnd)) {
+        genericArgs.Add(ConsumeTyping(stream));
+        if (stream.Current.IsMarker(MarkerType.Comma)) {
+          stream.Consume();
+        }
+      }
+      if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+        throw new Exception("PARSER: Expected ']' to close generic arguments in function call");
+      }
+    }
     var args = ConsumeArguments(stream);
-    return new FunctionCallExpression(callee, args);
+    return new FunctionCallExpression(callee, args, genericArgs);
   }
 
   private static FunctionLambdaExpression ParseFunctionLambda(TokenStream stream) {

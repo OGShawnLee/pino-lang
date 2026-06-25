@@ -228,4 +228,27 @@ public class LexerTests {
     Assert.Equal(LiteralType.Rune, tokens[3].Literal);
     Assert.Equal("39", tokens[3].Data); // '\'' code point is 39
   }
+
+  [Fact]
+  public void TestAtAndIsTokens() {
+    var input = "@is @generic T is DocumentShape";
+    var tokens = Lexer.LexLine(input);
+
+    Assert.Equal(7, tokens.Count);
+
+    Assert.True(tokens[0].IsMarker(MarkerType.At));
+    Assert.True(tokens[1].IsKeyword(KeywordType.Is));
+
+    Assert.True(tokens[2].IsMarker(MarkerType.At));
+    Assert.Equal(TokenType.Identifier, tokens[3].Type);
+    Assert.Equal("generic", tokens[3].Data);
+
+    Assert.Equal(TokenType.Identifier, tokens[4].Type);
+    Assert.Equal("T", tokens[4].Data);
+
+    Assert.True(tokens[5].IsKeyword(KeywordType.Is));
+
+    Assert.Equal(TokenType.Identifier, tokens[6].Type);
+    Assert.Equal("DocumentShape", tokens[6].Data);
+  }
 }

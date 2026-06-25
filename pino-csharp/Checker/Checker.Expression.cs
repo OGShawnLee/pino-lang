@@ -51,6 +51,15 @@ public partial class Checker {
                   if (method.IsStatic) {
                     throw new Exception($"TYPE CHECK ERROR: Cannot call static method '{method.Identifier}' of struct '{accessStructDecl.Identifier}' on an instance.");
                   }
+                  
+                  if (method.GenericParams != null && method.GenericParams.Count > 0) {
+                    foreach (var arg in methodCall.Arguments) {
+                      CheckExpression(arg);
+                    }
+                    MonomorphizeMethodCall(accessStructDecl, methodCall);
+                    method = accessStructDecl.Methods.Find(m => m.Identifier == methodCall.Callee) ?? method;
+                  }
+
                   // Validate arguments
                   var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
                   if (method.Parameters.Count != memberCallArgTypes.Count) {
@@ -147,6 +156,15 @@ public partial class Checker {
                   if (!method.IsStatic) {
                     throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
                   }
+                  
+                  if (method.GenericParams != null && method.GenericParams.Count > 0) {
+                    foreach (var arg in methodCall.Arguments) {
+                      CheckExpression(arg);
+                    }
+                    MonomorphizeMethodCall(staticAccessStructDecl, methodCall);
+                    method = staticAccessStructDecl.Methods.Find(m => m.Identifier == methodCall.Callee) ?? method;
+                  }
+
                   // Validate arguments
                   var staticCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
                   if (method.Parameters.Count != staticCallArgTypes.Count) {
@@ -214,11 +232,19 @@ public partial class Checker {
         break;
 
       case FunctionCallExpression call:
+        if (_functions.TryGetValue(call.Callee, out var genericFn) && genericFn.GenericParams != null && genericFn.GenericParams.Count > 0) {
+          foreach (var arg in call.Arguments) {
+            CheckExpression(arg);
+          }
+          MonomorphizeFunctionCall(call);
+        } else {
+          foreach (var arg in call.Arguments) {
+            CheckExpression(arg);
+          }
+        }
+
         Resolve(call, call.Callee);
         var argTypes = call.Arguments.Select(InferType).ToList();
-        foreach (var arg in call.Arguments) {
-          CheckExpression(arg);
-        }
 
         if (_functions.TryGetValue(call.Callee, out var fnDecl)) {
           if (fnDecl.Parameters.Count != argTypes.Count) {
@@ -307,6 +333,9 @@ public partial class Checker {
         return $"map[{map.KeyType}, {map.ValueType}]";
 
       case FunctionCallExpression call:
+        if (_functions.TryGetValue(call.Callee, out var genericFn) && genericFn.GenericParams != null && genericFn.GenericParams.Count > 0) {
+          MonomorphizeFunctionCall(call);
+        }
         return ResolveFunctionReturnType(call.Callee);
 
       case BinaryExpression bin:
@@ -323,7 +352,13 @@ public partial class Checker {
               if (method != null) return GetFunctionSignatureString(method, parentStructName: leftType);
             } else if (bin.Right is FunctionCallExpression methodCall) {
               var method = allMethods.Find(m => m.Identifier == methodCall.Callee && !m.IsStatic);
-              if (method != null) return InferFunctionReturnType(method, leftType);
+              if (method != null) {
+                if (method.GenericParams != null && method.GenericParams.Count > 0) {
+                  MonomorphizeMethodCall(structDecl, methodCall);
+                }
+                var specMethod = structDecl.Methods.Find(m => m.Identifier == methodCall.Callee);
+                return InferFunctionReturnType(specMethod ?? method, leftType);
+              }
               var field = allFields.Find(f => f.Identifier == methodCall.Callee);
               if (field != null && field.Typing.StartsWith("fn(")) {
                 if (ParseFunctionSignature(field.Typing, out var _, out var returnType)) {
@@ -443,7 +478,13 @@ public partial class Checker {
                 if (method != null) return GetFunctionSignatureString(method, parentStructName: modName);
               } else if (bin.Right is FunctionCallExpression methodCall) {
                 var method = allMethods.Find(m => m.Identifier == methodCall.Callee && m.IsStatic);
-                if (method != null) return InferFunctionReturnType(method, modName);
+                if (method != null) {
+                  if (method.GenericParams != null && method.GenericParams.Count > 0) {
+                    MonomorphizeMethodCall(structDecl, methodCall);
+                  }
+                  var specMethod = structDecl.Methods.Find(m => m.Identifier == methodCall.Callee);
+                  return InferFunctionReturnType(specMethod ?? method, modName);
+                }
               }
               return "any";
             }

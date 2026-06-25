@@ -166,7 +166,7 @@ public partial class Checker {
 
     var subst = new Dictionary<string, string>();
     for (int i = 0; i < baseStruct.GenericParams.Count; i++) {
-      subst[baseStruct.GenericParams[i]] = concreteArgs[i];
+      subst[baseStruct.GenericParams[i].Name] = concreteArgs[i];
     }
 
     var specializedFields = new List<VariableDeclaration>();
@@ -321,7 +321,7 @@ public partial class Checker {
           Typing = SubstituteType(vec.Typing, subst)
         };
 
-      case StructInstanceExpression inst:
+      case StructInstanceExpression inst: {
         var props = new List<VariableDeclaration>();
         foreach (var p in inst.Properties) {
           props.Add((VariableDeclaration)SubstituteStatementTypes(p, subst)!);
@@ -337,13 +337,25 @@ public partial class Checker {
           Properties = props,
           GenericArgs = inst.GenericArgs != null ? genArgs : null
         };
+      }
 
-      case FunctionCallExpression call:
+      case FunctionCallExpression call: {
         var args = new List<Expression>();
         foreach (var a in call.Arguments) {
           args.Add(SubstituteExpressionTypes(a, subst)!);
         }
-        return call with { Arguments = args };
+        var genArgs = new List<string>();
+        if (call.GenericArgs != null) {
+          foreach (var ga in call.GenericArgs) {
+            genArgs.Add(SubstituteType(ga, subst));
+          }
+        }
+        return call with {
+          Callee = SubstituteType(call.Callee, subst),
+          Arguments = args,
+          GenericArgs = call.GenericArgs != null ? genArgs : null
+        };
+      }
 
       case FunctionLambdaExpression lambda:
         var lambdaParams = new List<VariableDeclaration>();
@@ -445,7 +457,7 @@ public partial class Checker {
       concreteArgs = inst.GenericArgs.Select(NormalizeType).ToList();
     } else {
       var subst = new Dictionary<string, string>();
-      var genericParamsSet = new HashSet<string>(baseStruct.GenericParams);
+      var genericParamsSet = new HashSet<string>(baseStruct.GenericParams.Select(p => p.Name));
       ResolveStructMembers(inst.StructName, out var allFields, out var _);
 
       foreach (var prop in inst.Properties) {
@@ -459,10 +471,10 @@ public partial class Checker {
       var missing = new List<string>();
       concreteArgs = new List<string>();
       foreach (var param in baseStruct.GenericParams) {
-        if (subst.TryGetValue(param, out var concrete)) {
+        if (subst.TryGetValue(param.Name, out var concrete)) {
           concreteArgs.Add(concrete);
         } else {
-          missing.Add(param);
+          missing.Add(param.Name);
         }
       }
       if (missing.Count > 0) {
@@ -472,6 +484,215 @@ public partial class Checker {
 
     string specializedName = MonomorphizeStruct(inst.StructName, concreteArgs);
     inst.StructName = specializedName;
+    return specializedName;
+  }
+
+  private string MonomorphizeFunction(string baseName, List<string> concreteArgs) {
+    if (!_functions.TryGetValue(baseName, out var baseFn)) {
+      throw new Exception($"TYPE CHECK ERROR: Function '{baseName}' is not defined.");
+    }
+    if (baseFn.GenericParams == null || baseFn.GenericParams.Count == 0) {
+      throw new Exception($"TYPE CHECK ERROR: Function '{baseName}' is not a generic function.");
+    }
+    if (baseFn.GenericParams.Count != concreteArgs.Count) {
+      throw new Exception($"TYPE CHECK ERROR: Function '{baseName}' expects {baseFn.GenericParams.Count} generic parameters, but got {concreteArgs.Count} arguments.");
+    }
+
+    var cleanArgs = new List<string>();
+    foreach (var arg in concreteArgs) {
+      string clean = arg
+        .Replace("[]", "vector_")
+        .Replace("[", "_")
+        .Replace("]", "_")
+        .Replace(",", "_")
+        .Replace(" ", "_")
+        .Trim('_');
+      while (clean.Contains("__")) {
+        clean = clean.Replace("__", "_");
+      }
+      cleanArgs.Add(clean);
+    }
+    string specializedName = $"{baseName}_{string.Join("_", cleanArgs)}";
+
+    if (_functions.ContainsKey(specializedName)) {
+      return specializedName;
+    }
+
+    var subst = new Dictionary<string, string>();
+    for (int i = 0; i < baseFn.GenericParams.Count; i++) {
+      subst[baseFn.GenericParams[i].Name] = concreteArgs[i];
+    }
+
+    var specializedParams = new List<VariableDeclaration>();
+    foreach (var param in baseFn.Parameters) {
+      specializedParams.Add(param with { Typing = SubstituteType(param.Typing, subst) });
+    }
+    string substitutedReturn = SubstituteType(baseFn.ReturnType, subst);
+    var specializedBody = SubstituteStatementTypes(baseFn.Body, subst);
+
+    var specializedFn = new FunctionDeclaration(
+      specializedName,
+      specializedParams,
+      specializedBody,
+      substitutedReturn,
+      IsStatic: baseFn.IsStatic,
+      IsPublic: baseFn.IsPublic,
+      GenericParams: null
+    );
+
+    _functions[specializedName] = specializedFn;
+    _specializedFunctions.Add(specializedFn);
+
+    CheckStatement(specializedFn);
+
+    return specializedName;
+  }
+
+  private string MonomorphizeMethod(StructDeclaration structDecl, FunctionDeclaration baseMethod, List<string> concreteArgs) {
+    if (baseMethod.GenericParams == null || baseMethod.GenericParams.Count == 0) {
+      throw new Exception($"TYPE CHECK ERROR: Method '{baseMethod.Identifier}' is not generic.");
+    }
+    if (baseMethod.GenericParams.Count != concreteArgs.Count) {
+      throw new Exception($"TYPE CHECK ERROR: Method '{baseMethod.Identifier}' expects {baseMethod.GenericParams.Count} generic parameters, but got {concreteArgs.Count} arguments.");
+    }
+
+    var cleanArgs = new List<string>();
+    foreach (var arg in concreteArgs) {
+      string clean = arg
+        .Replace("[]", "vector_")
+        .Replace("[", "_")
+        .Replace("]", "_")
+        .Replace(",", "_")
+        .Replace(" ", "_")
+        .Trim('_');
+      while (clean.Contains("__")) {
+        clean = clean.Replace("__", "_");
+      }
+      cleanArgs.Add(clean);
+    }
+    string specializedName = $"{baseMethod.Identifier}_{string.Join("_", cleanArgs)}";
+
+    if (structDecl.Methods.Any(m => m.Identifier == specializedName)) {
+      return specializedName;
+    }
+
+    var subst = new Dictionary<string, string>();
+    for (int i = 0; i < baseMethod.GenericParams.Count; i++) {
+      subst[baseMethod.GenericParams[i].Name] = concreteArgs[i];
+    }
+
+    var specializedParams = new List<VariableDeclaration>();
+    foreach (var param in baseMethod.Parameters) {
+      specializedParams.Add(param with { Typing = SubstituteType(param.Typing, subst) });
+    }
+    string substitutedReturn = SubstituteType(baseMethod.ReturnType, subst);
+    var specializedBody = SubstituteStatementTypes(baseMethod.Body, subst);
+
+    var specializedMethod = new FunctionDeclaration(
+      specializedName,
+      specializedParams,
+      specializedBody,
+      substitutedReturn,
+      IsStatic: baseMethod.IsStatic,
+      IsPublic: baseMethod.IsPublic,
+      GenericParams: null
+    );
+
+    structDecl.Methods.Add(specializedMethod);
+
+    var oldStruct = _currentStruct;
+    var oldStatic = _inStaticMethod;
+    _currentStruct = structDecl;
+    _inStaticMethod = specializedMethod.IsStatic;
+    CheckStatement(specializedMethod);
+    _currentStruct = oldStruct;
+    _inStaticMethod = oldStatic;
+
+    return specializedName;
+  }
+
+  public string MonomorphizeFunctionCall(FunctionCallExpression call) {
+    if (!_functions.TryGetValue(call.Callee, out var baseFn)) {
+      throw new Exception($"TYPE CHECK ERROR: Function '{call.Callee}' is not defined.");
+    }
+    if (baseFn.GenericParams == null || baseFn.GenericParams.Count == 0) {
+      return call.Callee;
+    }
+
+    List<string> concreteArgs;
+    if (call.GenericArgs != null && call.GenericArgs.Count > 0) {
+      if (call.GenericArgs.Count != baseFn.GenericParams.Count) {
+        throw new Exception($"TYPE CHECK ERROR: Function '{call.Callee}' expects {baseFn.GenericParams.Count} generic parameters, but got {call.GenericArgs.Count} arguments.");
+      }
+      concreteArgs = call.GenericArgs.Select(NormalizeType).ToList();
+    } else {
+      var subst = new Dictionary<string, string>();
+      var genericParamsSet = new HashSet<string>(baseFn.GenericParams.Select(p => p.Name));
+      
+      var argTypes = call.Arguments.Select(InferType).ToList();
+      for (int i = 0; i < Math.Min(baseFn.Parameters.Count, argTypes.Count); i++) {
+        InferGenericParamsFromTypes(baseFn.Parameters[i].Typing, argTypes[i], subst, genericParamsSet);
+      }
+
+      var missing = new List<string>();
+      concreteArgs = new List<string>();
+      foreach (var param in baseFn.GenericParams) {
+        if (subst.TryGetValue(param.Name, out var concrete)) {
+          concreteArgs.Add(concrete);
+        } else {
+          missing.Add(param.Name);
+        }
+      }
+      if (missing.Count > 0) {
+        throw new Exception($"TYPE CHECK ERROR: Could not infer generic parameter(s) '{string.Join(", ", missing)}' for function '{call.Callee}'.");
+      }
+    }
+
+    string specializedName = MonomorphizeFunction(call.Callee, concreteArgs);
+    call.Callee = specializedName;
+    return specializedName;
+  }
+
+  public string MonomorphizeMethodCall(StructDeclaration structDecl, FunctionCallExpression methodCall) {
+    var baseMethod = structDecl.Methods.Find(m => m.Identifier == methodCall.Callee);
+    if (baseMethod == null) {
+      throw new Exception($"TYPE CHECK ERROR: Method '{methodCall.Callee}' is not defined on struct '{structDecl.Identifier}'.");
+    }
+    if (baseMethod.GenericParams == null || baseMethod.GenericParams.Count == 0) {
+      return methodCall.Callee;
+    }
+
+    List<string> concreteArgs;
+    if (methodCall.GenericArgs != null && methodCall.GenericArgs.Count > 0) {
+      if (methodCall.GenericArgs.Count != baseMethod.GenericParams.Count) {
+        throw new Exception($"TYPE CHECK ERROR: Method '{methodCall.Callee}' expects {baseMethod.GenericParams.Count} generic parameters, but got {methodCall.GenericArgs.Count} arguments.");
+      }
+      concreteArgs = methodCall.GenericArgs.Select(NormalizeType).ToList();
+    } else {
+      var subst = new Dictionary<string, string>();
+      var genericParamsSet = new HashSet<string>(baseMethod.GenericParams.Select(p => p.Name));
+      
+      var argTypes = methodCall.Arguments.Select(InferType).ToList();
+      for (int i = 0; i < Math.Min(baseMethod.Parameters.Count, argTypes.Count); i++) {
+        InferGenericParamsFromTypes(baseMethod.Parameters[i].Typing, argTypes[i], subst, genericParamsSet);
+      }
+
+      var missing = new List<string>();
+      concreteArgs = new List<string>();
+      foreach (var param in baseMethod.GenericParams) {
+        if (subst.TryGetValue(param.Name, out var concrete)) {
+          concreteArgs.Add(concrete);
+        } else {
+          missing.Add(param.Name);
+        }
+      }
+      if (missing.Count > 0) {
+        throw new Exception($"TYPE CHECK ERROR: Could not infer generic parameter(s) '{string.Join(", ", missing)}' for method '{methodCall.Callee}'.");
+      }
+    }
+
+    string specializedName = MonomorphizeMethod(structDecl, baseMethod, concreteArgs);
+    methodCall.Callee = specializedName;
     return specializedName;
   }
 }
