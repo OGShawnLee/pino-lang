@@ -166,7 +166,136 @@ public partial class CheckerTests {
       struct Library {
         catalog map[string, Doc]
       }
+      struct Book {
+        name string
+      }
+      val lib = Library[Book] {
+        catalog: map[string, Book] {}
+      }
     ";
     CheckCode(input);
+  }
+
+  [Fact]
+  public void TestStructDecoratorSyntaxAndBoundsInvalid() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      @generic[Doc is DocumentShape]
+      struct Library {
+        catalog map[string, Doc]
+      }
+      struct User {
+        age int
+      }
+      val lib = Library[User] {
+        catalog: map[string, User] {}
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestStructDecoratorSyntaxAndBoundsPrimitiveInvalid() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      @generic[Doc is DocumentShape]
+      struct Library {
+        catalog map[string, Doc]
+      }
+      val lib = Library[int] {
+        catalog: map[string, int] {}
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestFunctionGenericsBounds() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      @generic[Doc is DocumentShape]
+      fn print_doc(d Doc) string {
+        return d:name
+      }
+      struct Book {
+        name string
+      }
+      val b = Book { name: ""The Great Gatsby"" }
+      val name = print_doc[Book](b)
+      fn expect_string(s string) {}
+      expect_string(name)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestFunctionGenericsBoundsInvalid() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      @generic[Doc is DocumentShape]
+      fn print_doc(d Doc) string {
+        return d:name
+      }
+      struct User {
+        age int
+      }
+      val u = User { age: 25 }
+      print_doc[User](u)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestMethodGenericsBounds() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      struct Printer {
+        @generic[Doc is DocumentShape]
+        fn print_doc(d Doc) string {
+          return d:name
+        }
+      }
+      struct Book {
+        name string
+      }
+      val p = Printer {}
+      val b = Book { name: ""Don Quixote"" }
+      val name = p:print_doc[Book](b)
+      fn expect_string(s string) {}
+      expect_string(name)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestMethodGenericsBoundsInvalid() {
+    var input = @"
+      interface DocumentShape {
+        name string
+      }
+      struct Printer {
+        @generic[Doc is DocumentShape]
+        fn print_doc(d Doc) string {
+          return d:name
+        }
+      }
+      struct User {
+        age int
+      }
+      val p = Printer {}
+      val u = User { age: 30 }
+      p:print_doc[User](u)
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
 }

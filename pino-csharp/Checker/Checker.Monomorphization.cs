@@ -144,6 +144,8 @@ public partial class Checker {
       throw new Exception($"TYPE CHECK ERROR: Struct '{baseName}' expects {baseStruct.GenericParams.Count} generic parameters, but got {concreteArgs.Count} arguments.");
     }
 
+    VerifyGenericConstraints(baseStruct.GenericParams, concreteArgs, baseName);
+
     var cleanArgs = new List<string>();
     foreach (var arg in concreteArgs) {
       string clean = arg
@@ -498,6 +500,8 @@ public partial class Checker {
       throw new Exception($"TYPE CHECK ERROR: Function '{baseName}' expects {baseFn.GenericParams.Count} generic parameters, but got {concreteArgs.Count} arguments.");
     }
 
+    VerifyGenericConstraints(baseFn.GenericParams, concreteArgs, baseName);
+
     var cleanArgs = new List<string>();
     foreach (var arg in concreteArgs) {
       string clean = arg
@@ -555,6 +559,8 @@ public partial class Checker {
     if (baseMethod.GenericParams.Count != concreteArgs.Count) {
       throw new Exception($"TYPE CHECK ERROR: Method '{baseMethod.Identifier}' expects {baseMethod.GenericParams.Count} generic parameters, but got {concreteArgs.Count} arguments.");
     }
+
+    VerifyGenericConstraints(baseMethod.GenericParams, concreteArgs, baseMethod.Identifier);
 
     var cleanArgs = new List<string>();
     foreach (var arg in concreteArgs) {
@@ -694,5 +700,26 @@ public partial class Checker {
     string specializedName = MonomorphizeMethod(structDecl, baseMethod, concreteArgs);
     methodCall.Callee = specializedName;
     return specializedName;
+  }
+
+  private void VerifyGenericConstraints(List<GenericParam> genericParams, List<string> concreteArgs, string targetName) {
+    if (genericParams == null || concreteArgs == null) return;
+    for (int i = 0; i < Math.Min(genericParams.Count, concreteArgs.Count); i++) {
+      var param = genericParams[i];
+      if (string.IsNullOrEmpty(param.Constraint)) continue;
+
+      var concreteArg = concreteArgs[i];
+      var interfaceDecl = FindInterface(param.Constraint);
+      if (interfaceDecl != null) {
+        var structDecl = FindStruct(concreteArg);
+        if (structDecl == null || !ImplementsInterface(structDecl, interfaceDecl)) {
+          throw new Exception($"TYPE CHECK ERROR: Type '{concreteArg}' does not satisfy generic constraint '{param.Constraint}' for parameter '{param.Name}'.");
+        }
+      } else {
+        if (!IsCompatible(concreteArg, param.Constraint)) {
+          throw new Exception($"TYPE CHECK ERROR: Type '{concreteArg}' does not satisfy generic constraint '{param.Constraint}' for parameter '{param.Name}'.");
+        }
+      }
+    }
   }
 }
