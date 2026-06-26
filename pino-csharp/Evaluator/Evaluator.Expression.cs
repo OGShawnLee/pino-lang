@@ -563,7 +563,100 @@ public partial class Evaluator {
           }
           return str.Replace(oldStr, newStr);
         }
+        if (methodName == "substring") {
+          if (methodArgs.Count < 1 || methodArgs.Count > 2 || methodArgs[0] is not long start) {
+            throw new Exception("RUNTIME ERROR: substring() expects 1 or 2 integer arguments.");
+          }
+          int startIndex = (int)start;
+          if (methodArgs.Count == 1) {
+            if (startIndex < 0 || startIndex > str.Length) {
+              throw new Exception($"RUNTIME ERROR: Start index {startIndex} out of range for string of length {str.Length}.");
+            }
+            return str.Substring(startIndex);
+          }
+          if (methodArgs[1] is not long length) {
+            throw new Exception("RUNTIME ERROR: substring() expects 1 or 2 integer arguments.");
+          }
+          int len = (int)length;
+          if (startIndex < 0 || len < 0 || startIndex + len > str.Length) {
+            throw new Exception($"RUNTIME ERROR: Substring range [{startIndex}, {startIndex + len}] out of range for string of length {str.Length}.");
+          }
+          return str.Substring(startIndex, len);
+        }
+        if (methodName == "starts_with") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string prefix) {
+            throw new Exception("RUNTIME ERROR: starts_with() expects 1 string argument.");
+          }
+          return str.StartsWith(prefix);
+        }
+        if (methodName == "ends_with") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string suffix) {
+            throw new Exception("RUNTIME ERROR: ends_with() expects 1 string argument.");
+          }
+          return str.EndsWith(suffix);
+        }
+        if (methodName == "index_of") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string sub) {
+            throw new Exception("RUNTIME ERROR: index_of() expects 1 string argument.");
+          }
+          return (long)str.IndexOf(sub);
+        }
+        if (methodName == "trim_start") {
+          if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: trim_start() expects 0 arguments.");
+          return str.TrimStart();
+        }
+        if (methodName == "trim_end") {
+          if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: trim_end() expects 0 arguments.");
+          return str.TrimEnd();
+        }
         throw new Exception($"RUNTIME ERROR: String has no method '{methodName}'.");
+      }
+    } else if (leftVal is PinoRegex regexVal) {
+      if (rightExpr is IdentifierExpression propId) {
+        if (propId.Name == "pattern") {
+          return regexVal.Pattern;
+        }
+        throw new Exception($"RUNTIME ERROR: Regex has no property '{propId.Name}'.");
+      }
+
+      if (rightExpr is FunctionCallExpression methodCall) {
+        var methodName = methodCall.Callee;
+        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+
+        if (methodName == "match_prefix") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string input) {
+            throw new Exception("RUNTIME ERROR: match_prefix() expects 1 string argument.");
+          }
+          var m = System.Text.RegularExpressions.Regex.Match(input, "^" + regexVal.Pattern);
+          return m.Success ? m.Value : "";
+        }
+        if (methodName == "find") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string input) {
+            throw new Exception("RUNTIME ERROR: find() expects 1 string argument.");
+          }
+          var m = regexVal.Value.Match(input);
+          return m.Success ? m.Value : "";
+        }
+        if (methodName == "find_all") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string input) {
+            throw new Exception("RUNTIME ERROR: find_all() expects 1 string argument.");
+          }
+          var matches = regexVal.Value.Matches(input);
+          return matches.Cast<System.Text.RegularExpressions.Match>().Select(m => (object?)m.Value).ToList();
+        }
+        if (methodName == "has_match") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string input) {
+            throw new Exception("RUNTIME ERROR: has_match() expects 1 string argument.");
+          }
+          return regexVal.Value.IsMatch(input);
+        }
+        if (methodName == "replace") {
+          if (methodArgs.Count != 2 || methodArgs[0] is not string input || methodArgs[1] is not string repl) {
+            throw new Exception("RUNTIME ERROR: replace() expects 2 string arguments.");
+          }
+          return regexVal.Value.Replace(input, repl);
+        }
+        throw new Exception($"RUNTIME ERROR: Regex has no method '{methodName}'.");
       }
     }
 

@@ -198,6 +198,7 @@ public partial class Evaluator {
     _globals.Define("type", new TypeFunction(), true);
     _globals.Define("str", new StrFunction(), true);
     _globals.Define("clear", new ClearFunction(), true);
+    _globals.Define("regex", new RegexFunction(), true);
   }
 
   public void Execute(Statement statement) {

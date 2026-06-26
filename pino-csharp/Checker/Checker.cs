@@ -42,7 +42,8 @@ public partial class Checker {
     { "sleep", "fn(int)" },
     { "type", "fn(any) string" },
     { "str", "fn(any) string" },
-    { "clear", "fn()" }
+    { "clear", "fn()" },
+    { "regex", "fn(string) regex" }
   };
 
   public StructDeclaration? FindStruct(string name) {

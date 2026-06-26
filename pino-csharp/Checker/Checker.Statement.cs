@@ -321,7 +321,7 @@ public partial class Checker {
   }
 
   private bool IsPrimitiveType(string name) {
-    return name == "bool" || name == "int" || name == "float" || name == "string" || name == "rune" || name == "any";
+    return name == "bool" || name == "int" || name == "float" || name == "string" || name == "rune" || name == "regex" || name == "any";
   }
 
   private bool TypeReferencesGenericParam(string typing, List<GenericParam> structGenericParams) {

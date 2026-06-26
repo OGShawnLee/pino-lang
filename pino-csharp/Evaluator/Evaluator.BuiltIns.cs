@@ -85,6 +85,7 @@ public partial class Evaluator {
       if (val is PinoStructInstance) return "struct";
       if (val is IPinoCallable) return "function";
       if (val is PinoEnumValue) return "enum";
+      if (val is PinoRegex) return "regex";
       return val.GetType().Name.ToLower();
     }
   }
@@ -126,6 +127,28 @@ public partial class Evaluator {
         // Ignore
       }
       return null;
+    }
+  }
+
+  public class PinoRegex {
+    public System.Text.RegularExpressions.Regex Value { get; }
+    public string Pattern { get; }
+
+    public PinoRegex(string pattern) {
+      Pattern = pattern;
+      Value = new System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.Compiled);
+    }
+
+    public override string ToString() => $"regex(\"{Pattern}\")";
+  }
+
+  private class RegexFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      if (arguments.Count != 1 || arguments[0] is not string pattern) {
+        throw new Exception("RUNTIME ERROR: regex() expects 1 string argument.");
+      }
+      return new PinoRegex(pattern);
     }
   }
 }
