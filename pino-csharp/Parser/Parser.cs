@@ -120,7 +120,9 @@ public partial class Parser {
   public static ProgramStatement ParseFile(string filePath) {
     var tokens = Lexer.LexFile(filePath);
     var stream = new TokenStream(tokens);
-    return ParseProgram(stream);
+    var prog = ParseProgram(stream);
+    prog.FilePath = filePath;
+    return prog;
   }
 
   public static Statement ParseString(string input) {

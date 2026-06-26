@@ -1,0 +1,95 @@
+module Lexer
+
+enum TokenType {
+	Literal
+	Identifier
+	Keyword
+	Marker
+}
+
+val KEYWORD_MAP = map[string, TokenType] {
+	"int": TokenType::Keyword
+	"void": TokenType::Keyword
+	"return": TokenType::Keyword
+}
+
+val MARKER_MAP = map[rune, TokenType] {
+	'(': TokenType::Marker
+	')': TokenType::Marker
+	'{': TokenType::Marker
+	'}': TokenType::Marker
+	';': TokenType::Marker
+}
+
+struct Token {
+	type TokenType
+	value string
+}
+
+fn is_keyword(word string) bool {
+	return word in KEYWORD_MAP
+}
+
+fn is_marker(char rune) bool {
+	return char in MARKER_MAP
+}
+
+fn is_int_literal(word string) bool {
+	if word == "" {
+		return false
+	}
+
+	for char in word {
+		if char < '0' or char > '9' {
+			return false
+		}
+	}
+
+	return true
+}
+
+fn get_token_type(word string) TokenType {
+	if is_keyword(word) {
+		return TokenType::Keyword
+	}
+
+	if is_int_literal(word) {
+		return TokenType::Literal
+	}
+
+	return TokenType::Identifier
+}
+
+fn push_if_token_found(token_list []Token, current_token string) {
+	if current_token == "" {
+		return
+	}
+
+	token_list:push(Token { type: get_token_type(current_token), value: current_token })
+}
+
+pub fn get_token_list(line string) int {
+	val token_list = []Token	
+	var current_token = ""
+
+	for char in line {
+		if char == ' ' {
+			push_if_token_found(token_list, current_token)
+			current_token = ""
+			continue
+		}
+
+		if is_marker(char) {
+			push_if_token_found(token_list, current_token)
+			token_list:push(Token { type: TokenType::Marker, value: str(char) })
+			current_token = ""
+			continue
+		}
+
+		current_token += char
+	}
+
+	push_if_token_found(token_list, current_token)
+
+	return token_list
+}

@@ -8,7 +8,9 @@ public abstract record ASTNode;
 // --- STATEMENTS ---
 public abstract record Statement : ASTNode;
 
-public record ProgramStatement(List<Statement> Statements) : Statement;
+public record ProgramStatement(List<Statement> Statements) : Statement {
+  public string FilePath { get; set; } = "";
+}
 
 public record BlockStatement(List<Statement> Statements) : Statement;
 

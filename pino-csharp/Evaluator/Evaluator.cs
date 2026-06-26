@@ -183,6 +183,7 @@ public partial class Evaluator {
   public Environment Globals => _globals;
   private readonly Dictionary<string, PinoModule> _moduleCache = new();
   private readonly HashSet<string> _currentlyLoadingModules = new();
+  private string _currentFilePath = "";
 
   public Evaluator() {
     // Define built-in functions

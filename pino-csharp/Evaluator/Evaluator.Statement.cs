@@ -8,8 +8,16 @@ public partial class Evaluator {
   public void Execute(Statement statement, Environment env) {
     switch (statement) {
       case ProgramStatement prog:
-        foreach (var stmt in prog.Statements) {
-          Execute(stmt, env);
+        var previousFilePath = _currentFilePath;
+        if (!string.IsNullOrEmpty(prog.FilePath)) {
+          _currentFilePath = prog.FilePath;
+        }
+        try {
+          foreach (var stmt in prog.Statements) {
+            Execute(stmt, env);
+          }
+        } finally {
+          _currentFilePath = previousFilePath;
         }
         break;
 
@@ -254,7 +262,10 @@ public partial class Evaluator {
     }
 
     var filename = moduleName.ToLower() + ".pino";
-    var modulesDir = Path.Combine(System.Environment.CurrentDirectory, "modules");
+    var baseDir = !string.IsNullOrEmpty(_currentFilePath)
+        ? Path.GetDirectoryName(_currentFilePath) ?? System.Environment.CurrentDirectory
+        : System.Environment.CurrentDirectory;
+    var modulesDir = Path.Combine(baseDir, "modules");
     var filePath = Path.Combine(modulesDir, filename);
 
     if (!File.Exists(filePath)) {

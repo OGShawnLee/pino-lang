@@ -25,6 +25,7 @@ public partial class Checker {
   // Cache of checked modules to prevent double-checking
   private readonly Dictionary<string, Checker> _moduleCheckers = new();
   private readonly HashSet<string> _currentlyCheckingModules = new();
+  private string _currentFilePath = "";
 
   // Guard against infinite recursion during return type inference of recursive functions
   private readonly HashSet<string> _inferringFunctions = new();
@@ -84,66 +85,75 @@ public partial class Checker {
   }
 
   public void Check(ProgramStatement program) {
-    PushScope();
-    _specializedStructs.Clear();
-    _specializedFunctions.Clear();
-
-    // Pass 1: Gather global symbols
-    foreach (var stmt in program.Statements) {
-      switch (stmt) {
-        case StructDeclaration structDecl:
-          _structs[structDecl.Identifier] = structDecl;
-          break;
-        case InterfaceDeclaration interfaceDecl:
-          _interfaces[interfaceDecl.Identifier] = interfaceDecl;
-          break;
-        case EnumDeclaration enumDecl:
-          _enums[enumDecl.Identifier] = enumDecl;
-          break;
-        case FunctionDeclaration fnDecl:
-          _functions[fnDecl.Identifier] = fnDecl;
-          break;
-      }
+    var previousFilePath = _currentFilePath;
+    if (!string.IsNullOrEmpty(program.FilePath)) {
+      _currentFilePath = program.FilePath;
     }
 
-    // Strict Program Mode validation when main is defined
-    bool hasMainFunc = _functions.ContainsKey("main");
-    if (hasMainFunc) {
-      if (IsModule) {
-        throw new Exception("TYPE CHECK ERROR: An imported module cannot define a 'main' function. Only the main execution entry file can define 'main()'.");
-      }
+    try {
+      PushScope();
+      _specializedStructs.Clear();
+      _specializedFunctions.Clear();
+
+      // Pass 1: Gather global symbols
       foreach (var stmt in program.Statements) {
-        if (stmt is StructDeclaration ||
-            stmt is InterfaceDeclaration ||
-            stmt is EnumDeclaration ||
-            stmt is FunctionDeclaration ||
-            stmt is ImportStatement ||
-            stmt is FromImportStatement ||
-            stmt is ModuleDeclaration) {
-          continue;
+        switch (stmt) {
+          case StructDeclaration structDecl:
+            _structs[structDecl.Identifier] = structDecl;
+            break;
+          case InterfaceDeclaration interfaceDecl:
+            _interfaces[interfaceDecl.Identifier] = interfaceDecl;
+            break;
+          case EnumDeclaration enumDecl:
+            _enums[enumDecl.Identifier] = enumDecl;
+            break;
+          case FunctionDeclaration fnDecl:
+            _functions[fnDecl.Identifier] = fnDecl;
+            break;
         }
-
-        if (stmt is VariableDeclaration varDecl) {
-          if (varDecl.Kind != VariableKind.Constant) {
-            throw new Exception($"TYPE CHECK ERROR: Global variable '{varDecl.Identifier}' must be declared with 'val' (constants only). Global mutable variables 'var' are forbidden when a 'main' function is defined.");
-          }
-          continue;
-        }
-
-        // Forbid any other statements/expressions at top level
-        throw new Exception($"TYPE CHECK ERROR: Statements with side-effects (loops, conditionals, assignments, loose expression calls) are not allowed at the top level when a 'main' function is defined. All execution must start inside 'main()'. Forbidden statement type: '{stmt.GetType().Name}'.");
       }
+
+      // Strict Program Mode validation when main is defined
+      bool hasMainFunc = _functions.ContainsKey("main");
+      if (hasMainFunc) {
+        if (IsModule) {
+          throw new Exception("TYPE CHECK ERROR: An imported module cannot define a 'main' function. Only the main execution entry file can define 'main()'.");
+        }
+        foreach (var stmt in program.Statements) {
+          if (stmt is StructDeclaration ||
+              stmt is InterfaceDeclaration ||
+              stmt is EnumDeclaration ||
+              stmt is FunctionDeclaration ||
+              stmt is ImportStatement ||
+              stmt is FromImportStatement ||
+              stmt is ModuleDeclaration) {
+            continue;
+          }
+
+          if (stmt is VariableDeclaration varDecl) {
+            if (varDecl.Kind != VariableKind.Constant) {
+              throw new Exception($"TYPE CHECK ERROR: Global variable '{varDecl.Identifier}' must be declared with 'val' (constants only). Global mutable variables 'var' are forbidden when a 'main' function is defined.");
+            }
+            continue;
+          }
+
+          // Forbid any other statements/expressions at top level
+          throw new Exception($"TYPE CHECK ERROR: Statements with side-effects (loops, conditionals, assignments, loose expression calls) are not allowed at the top level when a 'main' function is defined. All execution must start inside 'main()'. Forbidden statement type: '{stmt.GetType().Name}'.");
+        }
+      }
+
+      // Pass 2: Check all statements
+      foreach (var stmt in program.Statements) {
+        CheckStatement(stmt);
+      }
+
+      program.Statements.InsertRange(0, _specializedStructs);
+      program.Statements.InsertRange(0, _specializedFunctions);
+
+      PopScope();
+    } finally {
+      _currentFilePath = previousFilePath;
     }
-
-    // Pass 2: Check all statements
-    foreach (var stmt in program.Statements) {
-      CheckStatement(stmt);
-    }
-
-    program.Statements.InsertRange(0, _specializedStructs);
-    program.Statements.InsertRange(0, _specializedFunctions);
-
-    PopScope();
   }
 
   private void ResolveAndCheckModule(string moduleName) {
@@ -156,7 +166,10 @@ public partial class Checker {
 
     try {
       var filename = moduleName.ToLower() + ".pino";
-      var modulesDir = Path.Combine(System.Environment.CurrentDirectory, "modules");
+      var baseDir = !string.IsNullOrEmpty(_currentFilePath)
+          ? Path.GetDirectoryName(_currentFilePath) ?? System.Environment.CurrentDirectory
+          : System.Environment.CurrentDirectory;
+      var modulesDir = Path.Combine(baseDir, "modules");
       var filePath = Path.Combine(modulesDir, filename);
 
       if (!File.Exists(filePath)) {
