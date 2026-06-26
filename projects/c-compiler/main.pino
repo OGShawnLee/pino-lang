@@ -24,9 +24,9 @@ struct Token {
 	value string
 }
 
- fn is_keyword(word string) bool {
+fn is_keyword(word string) bool {
 	return word in KEYWORD_MAP
- }
+}
 
 fn is_marker(char rune) bool {
 	return char in MARKER_MAP
