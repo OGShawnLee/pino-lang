@@ -629,6 +629,8 @@ public partial class Checker {
       return call.Callee;
     }
 
+    ResolveImplicitLambdas(call.Arguments, baseFn.Parameters, baseFn.GenericParams, call.GenericArgs);
+
     List<string> concreteArgs;
     if (call.GenericArgs != null && call.GenericArgs.Count > 0) {
       if (call.GenericArgs.Count != baseFn.GenericParams.Count) {
@@ -671,6 +673,8 @@ public partial class Checker {
     if (baseMethod.GenericParams == null || baseMethod.GenericParams.Count == 0) {
       return methodCall.Callee;
     }
+
+    ResolveImplicitLambdas(methodCall.Arguments, baseMethod.Parameters, baseMethod.GenericParams, methodCall.GenericArgs);
 
     List<string> concreteArgs;
     if (methodCall.GenericArgs != null && methodCall.GenericArgs.Count > 0) {

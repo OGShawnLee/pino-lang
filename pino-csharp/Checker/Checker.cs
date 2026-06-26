@@ -296,4 +296,56 @@ public partial class Checker {
     return $"fn({string.Join(", ", paramTypes)}) {retType}";
   }
 
+  private void ResolveImplicitLambdaParameters(FunctionLambdaExpression lambda, string expectedType) {
+    if (expectedType.StartsWith("fn(")) {
+      var sig = ParseFnSignature(expectedType);
+      if (sig != null && sig.Params.Count == lambda.Parameters.Count) {
+        for (int i = 0; i < lambda.Parameters.Count; i++) {
+          if (lambda.Parameters[i].Typing == "implicit" || string.IsNullOrEmpty(lambda.Parameters[i].Typing)) {
+            lambda.Parameters[i] = lambda.Parameters[i] with { Typing = sig.Params[i] };
+          }
+        }
+        lambda.InferredType = null;
+      }
+    }
+  }
+
+  private void ResolveImplicitLambdas(List<Expression> arguments, List<VariableDeclaration> parameters, List<GenericParam>? genericParams, List<string>? genericArgs) {
+    var subst = new Dictionary<string, string>();
+    var genericParamsSet = genericParams != null 
+        ? new HashSet<string>(genericParams.Select(p => p.Name)) 
+        : new HashSet<string>();
+
+    if (genericArgs != null && genericParams != null) {
+      for (int i = 0; i < Math.Min(genericParams.Count, genericArgs.Count); i++) {
+        subst[genericParams[i].Name] = NormalizeType(genericArgs[i]);
+      }
+    } else if (genericParams != null && genericParams.Count > 0) {
+      for (int i = 0; i < Math.Min(parameters.Count, arguments.Count); i++) {
+        var arg = arguments[i];
+        if (arg is FunctionLambdaExpression lambda) {
+          bool hasImplicit = lambda.Parameters.Any(p => p.Typing == "implicit" || string.IsNullOrEmpty(p.Typing));
+          if (hasImplicit) continue;
+        }
+        try {
+          string argType = InferType(arg);
+          InferGenericParamsFromTypes(parameters[i].Typing, argType, subst, genericParamsSet);
+        } catch {
+          // Ignore failures during early type inference
+        }
+      }
+    }
+
+    for (int i = 0; i < Math.Min(parameters.Count, arguments.Count); i++) {
+      var arg = arguments[i];
+      if (arg is FunctionLambdaExpression lambda) {
+        string expectedType = parameters[i].Typing;
+        if (genericParams != null && genericParams.Count > 0) {
+          expectedType = SubstituteType(expectedType, subst);
+        }
+        ResolveImplicitLambdaParameters(lambda, expectedType);
+      }
+    }
+  }
 }
+

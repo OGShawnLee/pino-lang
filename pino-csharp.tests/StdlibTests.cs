@@ -366,4 +366,40 @@ public class StdlibTests {
     var output = RunCode(code);
     Assert.Equal("True\nFalse\n", output);
   }
+
+  [Fact]
+  public void TestShorthandLambdaItResolution() {
+    var code = @"
+      var list = [""John"", ""Alice"", ""Bob"", ""Alexander""]
+      var filtered = list:filter(it:len <= 4)
+      filtered:each(println)
+    ";
+    var output = RunCode(code);
+    Assert.Equal("John\nBob\n", output);
+  }
+
+  [Fact]
+  public void TestCustomGenericShorthandLambda() {
+    var code = @"
+      struct Array {
+        @generic[T]
+        static fn where(list []T, predicate fn(T) bool) []T {
+          var res = []T
+          for x in list {
+            if predicate(x) {
+              res:push(x)
+            }
+          }
+          return res
+        }
+      }
+
+      val character_name_list = [""John"", ""Alice"", ""Bob"", ""Alexander""]
+      val short_name_list = Array::where[string](character_name_list, it:len <= 4)
+      short_name_list:each(println)
+    ";
+    var output = RunCode(code);
+    Assert.Equal("John\nBob\n", output);
+  }
 }
+

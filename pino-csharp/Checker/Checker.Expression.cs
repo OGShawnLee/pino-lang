@@ -31,7 +31,9 @@ public partial class Checker {
 
       case BinaryExpression bin: {
           CheckExpression(bin.Left);
-          CheckExpression(bin.Right);
+          if (bin.Operator != OperatorType.MemberAccess && bin.Operator != OperatorType.StaticMemberAccess) {
+            CheckExpression(bin.Right);
+          }
 
           if (bin.Operator == OperatorType.Assignment) {
             string leftType = InferType(bin.Left);
@@ -43,21 +45,27 @@ public partial class Checker {
             string leftType = InferType(bin.Left);
             var accessStructDecl = FindStruct(leftType);
             var accessInterfaceDecl = FindInterface(leftType);
-            if (accessStructDecl != null) {
-              ResolveStructMembers(leftType, out var allFields, out var allMethods);
-              if (bin.Right is FunctionCallExpression methodCall) {
+            if (bin.Right is FunctionCallExpression methodCall) {
+              if (accessStructDecl != null) {
+                ResolveStructMembers(leftType, out var allFields, out var allMethods);
                 var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
                 if (method != null) {
                   if (method.IsStatic) {
                     throw new Exception($"TYPE CHECK ERROR: Cannot call static method '{method.Identifier}' of struct '{accessStructDecl.Identifier}' on an instance.");
                   }
                   
+                  ResolveImplicitLambdas(methodCall.Arguments, method.Parameters, method.GenericParams, methodCall.GenericArgs);
+
                   if (method.GenericParams != null && method.GenericParams.Count > 0) {
                     foreach (var arg in methodCall.Arguments) {
                       CheckExpression(arg);
                     }
                     MonomorphizeMethodCall(accessStructDecl, methodCall);
                     method = accessStructDecl.Methods.Find(m => m.Identifier == methodCall.Callee) ?? method;
+                  } else {
+                    foreach (var arg in methodCall.Arguments) {
+                      CheckExpression(arg);
+                    }
                   }
 
                   // Validate arguments
@@ -74,6 +82,15 @@ public partial class Checker {
                   var field = allFields.Find(f => f.Identifier == methodCall.Callee);
                   if (field != null && field.Typing.StartsWith("fn(")) {
                     if (ParseFunctionSignature(field.Typing, out var paramsList, out var returnType)) {
+                      if (paramsList != null) {
+                        var tempParams = paramsList.Select((p, idx) => new VariableDeclaration(VariableKind.Parameter, $"p{idx}", null, p)).ToList();
+                        ResolveImplicitLambdas(methodCall.Arguments, tempParams, null, null);
+                      }
+                      
+                      foreach (var arg in methodCall.Arguments) {
+                        CheckExpression(arg);
+                      }
+
                       var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
                       if (paramsList != null) {
                         if (paramsList.Count != memberCallArgTypes.Count) {
@@ -90,20 +107,15 @@ public partial class Checker {
                     throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have method '{methodCall.Callee}'.");
                   }
                 }
-              } else if (bin.Right is IdentifierExpression propId) {
-                var method = allMethods.Find(m => m.Identifier == propId.Name);
-                if (method != null && method.IsStatic) {
-                  throw new Exception($"TYPE CHECK ERROR: Cannot access static method '{method.Identifier}' as instance member.");
-                }
-                var field = allFields.Find(f => f.Identifier == propId.Name);
-                if (field == null && method == null) {
-                  throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have field or instance method '{propId.Name}'.");
-                }
-              }
-            } else if (accessInterfaceDecl != null) {
-              if (bin.Right is FunctionCallExpression methodCall) {
+              } else if (accessInterfaceDecl != null) {
                 var method = accessInterfaceDecl.Methods.Find(m => m.Identifier == methodCall.Callee);
                 if (method != null) {
+                  ResolveImplicitLambdas(methodCall.Arguments, method.Parameters, method.GenericParams, methodCall.GenericArgs);
+                  
+                  foreach (var arg in methodCall.Arguments) {
+                    CheckExpression(arg);
+                  }
+
                   // Validate arguments
                   var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
                   if (method.Parameters.Count != memberCallArgTypes.Count) {
@@ -118,6 +130,15 @@ public partial class Checker {
                   var field = accessInterfaceDecl.Fields.Find(f => f.Identifier == methodCall.Callee);
                   if (field != null && field.Typing.StartsWith("fn(")) {
                     if (ParseFunctionSignature(field.Typing, out var paramsList, out var returnType)) {
+                      if (paramsList != null) {
+                        var tempParams = paramsList.Select((p, idx) => new VariableDeclaration(VariableKind.Parameter, $"p{idx}", null, p)).ToList();
+                        ResolveImplicitLambdas(methodCall.Arguments, tempParams, null, null);
+                      }
+
+                      foreach (var arg in methodCall.Arguments) {
+                        CheckExpression(arg);
+                      }
+
                       var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
                       if (paramsList != null) {
                         if (paramsList.Count != memberCallArgTypes.Count) {
@@ -134,11 +155,51 @@ public partial class Checker {
                     throw new Exception($"TYPE CHECK ERROR: Interface '{accessInterfaceDecl.Identifier}' does not have method or callable field '{methodCall.Callee}'.");
                   }
                 }
-              } else if (bin.Right is IdentifierExpression propId) {
-                var field = accessInterfaceDecl.Fields.Find(f => f.Identifier == propId.Name);
-                var method = accessInterfaceDecl.Methods.Find(m => m.Identifier == propId.Name);
-                if (field == null && method == null) {
-                  throw new Exception($"TYPE CHECK ERROR: Interface '{accessInterfaceDecl.Identifier}' does not have property or method '{propId.Name}'.");
+              } else if (leftType.StartsWith("[]")) {
+                string callee = methodCall.Callee;
+                if (callee == "map" || callee == "filter" || callee == "any" || callee == "all" || callee == "each" || callee == "find") {
+                  string elemType = leftType.Substring(2);
+                  if (methodCall.Arguments.Count > 0) {
+                    string expectedSig = callee == "filter" || callee == "any" || callee == "all" || callee == "find"
+                        ? $"fn({elemType}) bool"
+                        : $"fn({elemType}) any";
+                    
+                    var tempParams = new List<VariableDeclaration> {
+                      new VariableDeclaration(VariableKind.Parameter, "it", null, elemType)
+                    };
+                    ResolveImplicitLambdas(methodCall.Arguments, tempParams, null, null);
+                  }
+                }
+
+                foreach (var arg in methodCall.Arguments) {
+                  CheckExpression(arg);
+                }
+              } else {
+                foreach (var arg in methodCall.Arguments) {
+                  CheckExpression(arg);
+                }
+              }
+            } else {
+              CheckExpression(bin.Right);
+              if (accessStructDecl != null) {
+                ResolveStructMembers(leftType, out var allFields, out var allMethods);
+                if (bin.Right is IdentifierExpression propId) {
+                  var method = allMethods.Find(m => m.Identifier == propId.Name);
+                  if (method != null && method.IsStatic) {
+                    throw new Exception($"TYPE CHECK ERROR: Cannot access static method '{method.Identifier}' as instance member.");
+                  }
+                  var field = allFields.Find(f => f.Identifier == propId.Name);
+                  if (field == null && method == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Struct '{accessStructDecl.Identifier}' does not have field or instance method '{propId.Name}'.");
+                  }
+                }
+              } else if (accessInterfaceDecl != null) {
+                if (bin.Right is IdentifierExpression propId) {
+                  var field = accessInterfaceDecl.Fields.Find(f => f.Identifier == propId.Name);
+                  var method = accessInterfaceDecl.Methods.Find(m => m.Identifier == propId.Name);
+                  if (field == null && method == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Interface '{accessInterfaceDecl.Identifier}' does not have property or method '{propId.Name}'.");
+                  }
                 }
               }
             }
@@ -156,6 +217,8 @@ public partial class Checker {
                   if (!method.IsStatic) {
                     throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
                   }
+
+                  ResolveImplicitLambdas(methodCall.Arguments, method.Parameters, method.GenericParams, methodCall.GenericArgs);
                   
                   if (method.GenericParams != null && method.GenericParams.Count > 0) {
                     foreach (var arg in methodCall.Arguments) {
@@ -163,6 +226,10 @@ public partial class Checker {
                     }
                     MonomorphizeMethodCall(staticAccessStructDecl, methodCall);
                     method = staticAccessStructDecl.Methods.Find(m => m.Identifier == methodCall.Callee) ?? method;
+                  } else {
+                    foreach (var arg in methodCall.Arguments) {
+                      CheckExpression(arg);
+                    }
                   }
 
                   // Validate arguments
@@ -176,6 +243,7 @@ public partial class Checker {
                     }
                   }
                 } else if (bin.Right is IdentifierExpression methodId) {
+                  CheckExpression(bin.Right);
                   var method = allMethods.Find(m => m.Identifier == methodId.Name);
                   if (method == null) {
                     throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodId.Name}'.");
@@ -232,12 +300,30 @@ public partial class Checker {
         break;
 
       case FunctionCallExpression call:
-        if (_functions.TryGetValue(call.Callee, out var genericFn) && genericFn.GenericParams != null && genericFn.GenericParams.Count > 0) {
-          foreach (var arg in call.Arguments) {
-            CheckExpression(arg);
+        if (_functions.TryGetValue(call.Callee, out var genericFn)) {
+          ResolveImplicitLambdas(call.Arguments, genericFn.Parameters, genericFn.GenericParams, call.GenericArgs);
+
+          if (genericFn.GenericParams != null && genericFn.GenericParams.Count > 0) {
+            foreach (var arg in call.Arguments) {
+              CheckExpression(arg);
+            }
+            MonomorphizeFunctionCall(call);
+          } else {
+            foreach (var arg in call.Arguments) {
+              CheckExpression(arg);
+            }
           }
-          MonomorphizeFunctionCall(call);
         } else {
+          string calleeType = ResolveIdentifierType(call.Callee);
+          if (calleeType.StartsWith("fn(")) {
+            if (ParseFunctionSignature(calleeType, out var paramsList, out var _)) {
+              if (paramsList != null) {
+                var tempParams = paramsList.Select((p, idx) => new VariableDeclaration(VariableKind.Parameter, $"p{idx}", null, p)).ToList();
+                ResolveImplicitLambdas(call.Arguments, tempParams, null, null);
+              }
+            }
+          }
+
           foreach (var arg in call.Arguments) {
             CheckExpression(arg);
           }

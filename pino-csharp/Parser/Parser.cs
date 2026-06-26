@@ -189,7 +189,7 @@ public partial class Parser {
 
       var expr = ParseExpression(stream);
       if (ContainsUndeclaredIt(expr, stream)) {
-        var param = new VariableDeclaration(VariableKind.Constant, "it", null, "int");
+        var param = new VariableDeclaration(VariableKind.Constant, "it", null, "implicit");
         var lambdaBody = new BlockStatement(new List<Statement> { new ReturnStatement(expr) });
         expr = new FunctionLambdaExpression(new List<VariableDeclaration> { param }, lambdaBody);
       }
