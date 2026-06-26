@@ -5,6 +5,18 @@ namespace Pino;
 
 public partial class Checker {
   private void CheckStatement(Statement statement) {
+    try {
+      CheckStatementInternal(statement);
+    } catch (Exception ex) when (ex is not PinoException) {
+      var msg = ex.Message;
+      if (msg.StartsWith("TYPE CHECK ERROR: ")) {
+        msg = msg.Substring("TYPE CHECK ERROR: ".Length);
+      }
+      throw new PinoException(_currentFilePath, "Type Error", msg, statement.Token ?? new Token(TokenType.Illegal, "") { Line = 1, Column = 1 });
+    }
+  }
+
+  private void CheckStatementInternal(Statement statement) {
     switch (statement) {
       case VariableDeclaration varDecl:
         if (varDecl.Kind == VariableKind.Constant || varDecl.Kind == VariableKind.Variable) {
@@ -261,12 +273,12 @@ public partial class Checker {
         break;
 
       case ImportStatement imp:
-        ResolveAndCheckModule(imp.ModuleName);
+        ResolveAndCheckModule(imp.ModuleName, imp);
         DeclareVariable(imp.ModuleName, "module");
         break;
 
       case FromImportStatement fromImp:
-        ResolveAndCheckModule(fromImp.ModuleName);
+        ResolveAndCheckModule(fromImp.ModuleName, fromImp);
         if (_moduleCheckers.TryGetValue(fromImp.ModuleName, out var modChecker)) {
           foreach (var name in fromImp.Imports) {
             string type = modChecker.ResolveIdentifierType(name);

@@ -8,15 +8,15 @@ public partial class Parser {
     if (stream.Current.Type == TokenType.Identifier && stream.Current.Data == "map") {
       stream.Consume(); // consume 'map'
       if (!stream.Consume().IsMarker(MarkerType.BracketBegin)) {
-        throw new Exception($"PARSER: Expected '[' after 'map' in type signature, got {stream.Current}");
+        throw Error(stream, $"Expected '[' after 'map' in type signature, got {stream.Current}");
       }
       string keyType = ConsumeTyping(stream);
       if (!stream.Consume().IsMarker(MarkerType.Comma)) {
-        throw new Exception($"PARSER: Expected ',' between map types in type signature, got {stream.Current}");
+        throw Error(stream, $"Expected ',' between map types in type signature, got {stream.Current}");
       }
       string valType = ConsumeTyping(stream);
       if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-        throw new Exception($"PARSER: Expected ']' after map types in type signature, got {stream.Current}");
+        throw Error(stream, $"Expected ']' after map types in type signature, got {stream.Current}");
       }
       return $"map[{keyType}, {valType}]";
     }
@@ -24,7 +24,7 @@ public partial class Parser {
     if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
       stream.Consume(); // consume '['
       if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-        throw new Exception($"PARSER: Expected ']' for array type, got {stream.Current}");
+        throw Error(stream, $"Expected ']' for array type, got {stream.Current}");
       }
       string elemType = ConsumeTyping(stream);
       return "[]" + elemType;
@@ -33,7 +33,7 @@ public partial class Parser {
     if (stream.Current.IsKeyword(KeywordType.Function)) {
       stream.Consume(); // consume 'fn'
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisBegin)) {
-        throw new Exception($"PARSER: Expected '(' for function type, got {stream.Current}");
+        throw Error(stream, $"Expected '(' for function type, got {stream.Current}");
       }
 
       var paramTypes = new List<string>();
@@ -45,7 +45,7 @@ public partial class Parser {
       }
 
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
-        throw new Exception($"PARSER: Expected ')' for function type, got {stream.Current}");
+        throw Error(stream, $"Expected ')' for function type, got {stream.Current}");
       }
 
       string returnType = " any";
@@ -61,7 +61,7 @@ public partial class Parser {
 
     var t = stream.Consume();
     if (t.Type != TokenType.Identifier) {
-      throw new Exception($"PARSER: Expected Typing, got {t}");
+      throw Error(stream, $"Expected Typing, got {t}");
     }
     string typeName = t.Data;
     if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
@@ -74,7 +74,7 @@ public partial class Parser {
         }
       }
       if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-        throw new Exception("PARSER: Expected ']' to close generic type arguments");
+        throw Error(stream, "Expected ']' to close generic type arguments");
       }
       typeName += "[" + string.Join(", ", subTypes) + "]";
     }

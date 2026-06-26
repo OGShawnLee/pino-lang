@@ -76,7 +76,7 @@ public class Lexer {
   private static readonly Regex IntRegex = new(@"^-?[0-9]{1,18}(_[0-9]{3})*$");
   private static readonly Regex IdentifierRegex = new(@"^[a-zA-Z_$][a-zA-Z0-9_$]*$");
 
-  public static List<Token> LexLine(string line) {
+  public static List<Token> LexLine(string line, int lineNum = 1) {
     var tokens = new List<Token>();
     var index = 0;
 
@@ -97,19 +97,20 @@ public class Lexer {
 
       // 3. String Quote (String Literals with Potential Injections)
       if (c == '"') {
-        LexStringLiteral(line, ref index, tokens);
+        LexStringLiteral(line, ref index, tokens, lineNum);
         continue;
       }
 
       // 3b. Rune Quote
       if (c == '\'') {
-        LexRuneLiteral(line, ref index, tokens);
+        LexRuneLiteral(line, ref index, tokens, lineNum);
         continue;
       }
 
       // 4. Markers (except comment, which is handled above)
       if (Markers.TryGetValue(c, out var markerType) && markerType != MarkerType.Comment && markerType != MarkerType.StrQuote) {
-        tokens.Add(new Token(TokenType.Marker, c.ToString(), Marker: markerType));
+        var token = new Token(TokenType.Marker, c.ToString(), Marker: markerType) { Line = lineNum, Column = index + 1 };
+        tokens.Add(token);
         index++;
         continue;
       }
@@ -118,7 +119,8 @@ public class Lexer {
       if (index + 1 < line.Length) {
         var dualOp = line.Substring(index, 2);
         if (Operators.TryGetValue(dualOp, out var dualOpType) && !char.IsLetter(dualOp[0])) {
-          tokens.Add(new Token(TokenType.Operator, dualOp, Operator: dualOpType));
+          var token = new Token(TokenType.Operator, dualOp, Operator: dualOpType) { Line = lineNum, Column = index + 1 };
+          tokens.Add(token);
           index += 2;
           continue;
         }
@@ -126,7 +128,8 @@ public class Lexer {
 
       // Single-character Operators
       if (Operators.TryGetValue(c.ToString(), out var opType) && c != 'a' && c != 'o' && c != 'n') { // avoid partial "and", "or", "not"
-        tokens.Add(new Token(TokenType.Operator, c.ToString(), Operator: opType));
+        var token = new Token(TokenType.Operator, c.ToString(), Operator: opType) { Line = lineNum, Column = index + 1 };
+        tokens.Add(token);
         index++;
         continue;
       }
@@ -143,7 +146,10 @@ public class Lexer {
 
       var buffer = line.Substring(bufferStart, index - bufferStart);
       if (!string.IsNullOrEmpty(buffer)) {
-        tokens.Add(GetTokenFromBuffer(buffer));
+        var token = GetTokenFromBuffer(buffer);
+        token.Line = lineNum;
+        token.Column = bufferStart + 1;
+        tokens.Add(token);
       }
     }
 
@@ -152,15 +158,20 @@ public class Lexer {
 
   public static List<Token> LexFile(string filePath) {
     var tokens = new List<Token>();
-    foreach (var line in File.ReadLines(filePath)) {
-      tokens.AddRange(LexLine(line));
+    int lineNum = 1;
+    var lines = File.ReadAllLines(filePath);
+    PinoException.RegisterFileLines(filePath, lines);
+    foreach (var line in lines) {
+      tokens.AddRange(LexLine(line, lineNum));
+      lineNum++;
     }
     return tokens;
   }
 
-  private static void LexStringLiteral(string line, ref int index, List<Token> tokens) {
+  private static void LexStringLiteral(string line, ref int index, List<Token> tokens, int lineNum) {
     var buffer = new StringBuilder();
     bool hasAddedInitialString = false;
+    int colStart = index + 1;
     index++; // Skip opening quote
 
     while (index < line.Length) {
@@ -170,10 +181,13 @@ public class Lexer {
       if (c == '"' && (index == 0 || line[index - 1] != '\\')) {
         index++; // Skip closing quote
         if (!hasAddedInitialString) {
-          tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+          var token = new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String) { Line = lineNum, Column = colStart };
+          tokens.Add(token);
         } else if (buffer.Length > 0) {
-          tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
-          tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+          var opToken = new Token(TokenType.Operator, "+", Operator: OperatorType.Addition) { Line = lineNum, Column = index };
+          tokens.Add(opToken);
+          var token = new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String) { Line = lineNum, Column = index };
+          tokens.Add(token);
         }
         return;
       }
@@ -183,15 +197,21 @@ public class Lexer {
         if (line[index + 1] == '(') {
           // Complex interpolation $(expr)
           if (!hasAddedInitialString) {
-            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+            var token = new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String) { Line = lineNum, Column = colStart };
+            tokens.Add(token);
             hasAddedInitialString = true;
           } else if (buffer.Length > 0) {
-            tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
-            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+            var opToken = new Token(TokenType.Operator, "+", Operator: OperatorType.Addition) { Line = lineNum, Column = index + 1 };
+            tokens.Add(opToken);
+            var token = new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String) { Line = lineNum, Column = index + 1 };
+            tokens.Add(token);
           }
           buffer.Clear();
 
-          tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
+          var outerOp = new Token(TokenType.Operator, "+", Operator: OperatorType.Addition) { Line = lineNum, Column = index + 1 };
+          tokens.Add(outerOp);
+
+          int parenCol = index + 2;
           index += 2; // skip "$("
 
           int depth = 1;
@@ -215,30 +235,40 @@ public class Lexer {
           }
 
           string exprStr = line.Substring(startExpr, index - 1 - startExpr);
-          var exprTokens = LexLine(exprStr);
-          tokens.Add(new Token(TokenType.Marker, "(", Marker: MarkerType.ParenthesisBegin));
+          var exprTokens = LexLine(exprStr, lineNum);
+          foreach (var et in exprTokens) {
+            et.Column += startExpr;
+          }
+          var pBegin = new Token(TokenType.Marker, "(", Marker: MarkerType.ParenthesisBegin) { Line = lineNum, Column = parenCol };
+          tokens.Add(pBegin);
           tokens.AddRange(exprTokens);
-          tokens.Add(new Token(TokenType.Marker, ")", Marker: MarkerType.ParenthesisEnd));
+          var pEnd = new Token(TokenType.Marker, ")", Marker: MarkerType.ParenthesisEnd) { Line = lineNum, Column = index };
+          tokens.Add(pEnd);
           continue;
         } else if (IsIdentifierStart(line[index + 1]) && !char.IsDigit(line[index + 1])) {
           // Simple interpolation $varName
           if (!hasAddedInitialString) {
-            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+            var token = new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String) { Line = lineNum, Column = colStart };
+            tokens.Add(token);
             hasAddedInitialString = true;
           } else if (buffer.Length > 0) {
-            tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
-            tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
+            var opToken = new Token(TokenType.Operator, "+", Operator: OperatorType.Addition) { Line = lineNum, Column = index + 1 };
+            tokens.Add(opToken);
+            var token = new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String) { Line = lineNum, Column = index + 1 };
+            tokens.Add(token);
           }
           buffer.Clear();
 
-          tokens.Add(new Token(TokenType.Operator, "+", Operator: OperatorType.Addition));
+          var outerOp = new Token(TokenType.Operator, "+", Operator: OperatorType.Addition) { Line = lineNum, Column = index + 1 };
+          tokens.Add(outerOp);
           index++; // skip '$'
           int startIdent = index;
           while (index < line.Length && IsIdentifierChar(line[index])) {
             index++;
           }
           string identStr = line.Substring(startIdent, index - startIdent);
-          tokens.Add(new Token(TokenType.Identifier, identStr));
+          var identToken = new Token(TokenType.Identifier, identStr) { Line = lineNum, Column = startIdent + 1 };
+          tokens.Add(identToken);
           continue;
         }
       }
@@ -286,8 +316,9 @@ public class Lexer {
     return char.IsLetterOrDigit(c) || c == '_' || c == '$';
   }
 
-  private static void LexRuneLiteral(string line, ref int index, List<Token> tokens) {
+  private static void LexRuneLiteral(string line, ref int index, List<Token> tokens, int lineNum) {
     int start = index;
+    int colStart = index + 1;
     index++; // Skip opening single quote '
     if (index >= line.Length) {
       throw new Exception("Lexer Error: Unterminated rune literal");
@@ -323,6 +354,7 @@ public class Lexer {
       throw new Exception($"Lexer Error: Rune literal must end with a single quote: {line.Substring(start, Math.Min(line.Length - start, 5))}");
     }
     index++; // Skip closing single quote
-    tokens.Add(new Token(TokenType.Literal, codePoint.ToString(), Literal: LiteralType.Rune));
+    var token = new Token(TokenType.Literal, codePoint.ToString(), Literal: LiteralType.Rune) { Line = lineNum, Column = colStart };
+    tokens.Add(token);
   }
 }

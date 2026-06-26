@@ -282,6 +282,9 @@ class Program {
           }
         }
       }
+    } catch (PinoException pex) {
+      Console.Write(pex.Message);
+      System.Environment.Exit(1);
     } catch (Exception ex) {
       Console.WriteLine(ex.ToString());
     }
@@ -384,6 +387,8 @@ class Program {
         } else if (stmt != null) {
           evaluator.Execute(stmt, globalEnv);
         }
+      } catch (PinoException pex) {
+        Console.Write(pex.Message);
       } catch (Exception ex) {
         Console.WriteLine($"Error: {ex.Message}");
       }

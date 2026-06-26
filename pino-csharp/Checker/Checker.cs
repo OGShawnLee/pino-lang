@@ -118,7 +118,8 @@ public partial class Checker {
       bool hasMainFunc = _functions.ContainsKey("main");
       if (hasMainFunc) {
         if (IsModule) {
-          throw new Exception("TYPE CHECK ERROR: An imported module cannot define a 'main' function. Only the main execution entry file can define 'main()'.");
+          var mainFunc = program.Statements.OfType<FunctionDeclaration>().FirstOrDefault(f => f.Identifier == "main");
+          throw new PinoException(_currentFilePath, "Type Error", "An imported module cannot define a 'main' function. Only the main execution entry file can define 'main()'.", mainFunc?.Token ?? new Token(TokenType.Illegal, "") { Line = 1, Column = 1 });
         }
         foreach (var stmt in program.Statements) {
           if (stmt is StructDeclaration ||
@@ -133,13 +134,13 @@ public partial class Checker {
 
           if (stmt is VariableDeclaration varDecl) {
             if (varDecl.Kind != VariableKind.Constant) {
-              throw new Exception($"TYPE CHECK ERROR: Global variable '{varDecl.Identifier}' must be declared with 'val' (constants only). Global mutable variables 'var' are forbidden when a 'main' function is defined.");
+              throw new PinoException(_currentFilePath, "Type Error", $"Global variable '{varDecl.Identifier}' must be declared with 'val' (constants only). Global mutable variables 'var' are forbidden when a 'main' function is defined.", varDecl.Token ?? new Token(TokenType.Illegal, "") { Line = 1, Column = 1 });
             }
             continue;
           }
 
           // Forbid any other statements/expressions at top level
-          throw new Exception($"TYPE CHECK ERROR: Statements with side-effects (loops, conditionals, assignments, loose expression calls) are not allowed at the top level when a 'main' function is defined. All execution must start inside 'main()'. Forbidden statement type: '{stmt.GetType().Name}'.");
+          throw new PinoException(_currentFilePath, "Type Error", $"Statements with side-effects (loops, conditionals, assignments, loose expression calls) are not allowed at the top level when a 'main' function is defined. All execution must start inside 'main()'. Forbidden statement type: '{stmt.GetType().Name}'.", stmt.Token ?? new Token(TokenType.Illegal, "") { Line = 1, Column = 1 });
         }
       }
 
@@ -157,11 +158,11 @@ public partial class Checker {
     }
   }
 
-  private void ResolveAndCheckModule(string moduleName) {
+  private void ResolveAndCheckModule(string moduleName, ASTNode node) {
     if (_moduleCheckers.ContainsKey(moduleName)) return;
 
     if (_currentlyCheckingModules.Contains(moduleName)) {
-      throw new Exception($"TYPE CHECK ERROR: Circular dependency detected while type checking module '{moduleName}'.");
+      throw new PinoException(_currentFilePath, "Type Error", $"Circular dependency detected while type checking module '{moduleName}'.", node.Token ?? new Token(TokenType.Illegal, "") { Line = 1, Column = 1 });
     }
     _currentlyCheckingModules.Add(moduleName);
 
@@ -174,7 +175,7 @@ public partial class Checker {
       var filePath = Path.Combine(modulesDir, filename);
 
       if (!File.Exists(filePath)) {
-        throw new Exception($"TYPE CHECK ERROR: Module '{moduleName}' not found. Expected file at '{filePath}'.");
+        throw new PinoException(_currentFilePath, "Type Error", $"Module '{moduleName}' not found. Expected file at '{filePath}'.", node.Token ?? new Token(TokenType.Illegal, "") { Line = 1, Column = 1 });
       }
 
       var program = Parser.ParseFile(filePath);

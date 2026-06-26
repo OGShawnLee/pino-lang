@@ -382,9 +382,17 @@ public partial class Checker {
   }
 
   private string InferType(Expression expr) {
-    string type = InferTypeInternal(expr);
-    expr.InferredType = type;
-    return type;
+    try {
+      string type = InferTypeInternal(expr);
+      expr.InferredType = type;
+      return type;
+    } catch (Exception ex) when (ex is not PinoException) {
+      var msg = ex.Message;
+      if (msg.StartsWith("TYPE CHECK ERROR: ")) {
+        msg = msg.Substring("TYPE CHECK ERROR: ".Length);
+      }
+      throw new PinoException(_currentFilePath, "Type Error", msg, expr.Token ?? new Token(TokenType.Illegal, "") { Line = 1, Column = 1 });
+    }
   }
 
   private string InferTypeInternal(Expression expr) {

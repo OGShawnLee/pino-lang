@@ -38,6 +38,10 @@ public record Token(
     OperatorType? Operator = null,
     List<string>? Injections = null
 ) {
+  public int Line { get; set; } = 1;
+  public int Column { get; set; } = 1;
+  public int Length => Data != null ? Data.Length : 1;
+
   public bool IsType(TokenType type) => Type == type;
   public bool IsType(TokenType typeA, TokenType typeB) => Type == typeA || Type == typeB;
 

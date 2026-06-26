@@ -6,13 +6,15 @@ namespace Pino;
 public class TokenStream {
   private readonly List<Token> _tokens;
   private int _index = 0;
+  public string FilePath { get; set; } = "";
   public Stack<HashSet<string>> Scopes { get; } = new();
 
-  public TokenStream(List<Token> tokens) {
+  public TokenStream(List<Token> tokens, string filePath = "") {
     _tokens = tokens;
+    FilePath = filePath;
   }
 
-  public Token Current => _index < _tokens.Count ? _tokens[_index] : new Token(TokenType.Illegal, "");
+  public Token Current => _index < _tokens.Count ? _tokens[_index] : new Token(TokenType.Illegal, "") { Line = _tokens.Count > 0 ? _tokens[^1].Line : 1, Column = _tokens.Count > 0 ? _tokens[^1].Column + _tokens[^1].Length : 1 };
 
   public Token Consume() {
     var token = Current;
@@ -33,7 +35,7 @@ public class TokenStream {
 
   public Token Peek(int offset) {
     var idx = _index + offset;
-    if (idx < 0 || idx >= _tokens.Count) return new Token(TokenType.Illegal, "");
+    if (idx < 0 || idx >= _tokens.Count) return new Token(TokenType.Illegal, "") { Line = _tokens.Count > 0 ? _tokens[^1].Line : 1, Column = _tokens.Count > 0 ? _tokens[^1].Column + _tokens[^1].Length : 1 };
     return _tokens[idx];
   }
 }
@@ -117,9 +119,17 @@ public partial class Parser {
     }
   }
 
+  public static Exception Error(TokenStream stream, Token token, string message, string? hint = null) {
+    return new PinoException(stream.FilePath, "Syntax Error", message, token, hint);
+  }
+
+  public static Exception Error(TokenStream stream, string message, string? hint = null) {
+    return Error(stream, stream.Current, message, hint);
+  }
+
   public static ProgramStatement ParseFile(string filePath) {
     var tokens = Lexer.LexFile(filePath);
-    var stream = new TokenStream(tokens);
+    var stream = new TokenStream(tokens, filePath);
     var prog = ParseProgram(stream);
     prog.FilePath = filePath;
     return prog;
@@ -127,17 +137,21 @@ public partial class Parser {
 
   public static Statement ParseString(string input) {
     var tokens = Lexer.LexLine(input);
-    var stream = new TokenStream(tokens);
+    var stream = new TokenStream(tokens, "<string>");
+    PinoException.RegisterFileLines("<string>", new[] { input });
     return ParseStatement(stream);
   }
 
   public static ProgramStatement ParseProgramString(string input) {
     var tokens = new List<Token>();
     var lines = input.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+    int lineNum = 1;
     foreach (var line in lines) {
-      tokens.AddRange(Lexer.LexLine(line));
+      tokens.AddRange(Lexer.LexLine(line, lineNum));
+      lineNum++;
     }
-    var stream = new TokenStream(tokens);
+    var stream = new TokenStream(tokens, "<string>");
+    PinoException.RegisterFileLines("<string>", lines);
     return ParseProgram(stream);
   }
 
@@ -149,7 +163,7 @@ public partial class Parser {
       var stmt = ParseStatement(stream);
       if (stmt != null) {
         if (stmt is ModuleDeclaration && !first) {
-          throw new Exception("PARSER: 'module' declaration must be the first statement in the file");
+          throw Error(stream, stmt.Token ?? stream.Current, "'module' declaration must be the first statement in the file");
         }
         statements.Add(stmt);
         first = false;
@@ -163,7 +177,7 @@ public partial class Parser {
   private static string ConsumeIdentifier(TokenStream stream) {
     var t = stream.Consume();
     if (t.Type != TokenType.Identifier) {
-      throw new Exception($"PARSER: Expected Identifier, got {t}");
+      throw Error(stream, t, $"Expected Identifier, got '{t.Data}'");
     }
     return t.Data;
   }
@@ -171,13 +185,14 @@ public partial class Parser {
   private static void ConsumeAssignment(TokenStream stream) {
     var t = stream.Consume();
     if (!t.IsOperator(OperatorType.Assignment)) {
-      throw new Exception($"PARSER: Expected '=', got {t}");
+      throw Error(stream, t, $"Expected '=', got '{t.Data}'");
     }
   }
 
   private static List<Expression> ConsumeArguments(TokenStream stream) {
-    if (!stream.Consume().IsMarker(MarkerType.ParenthesisBegin)) {
-      throw new Exception("PARSER: Expected '('");
+    var beginToken = stream.Consume();
+    if (!beginToken.IsMarker(MarkerType.ParenthesisBegin)) {
+      throw Error(stream, beginToken, $"Expected '(', got '{beginToken.Data}'");
     }
 
     var arguments = new List<Expression>();
@@ -208,8 +223,9 @@ public partial class Parser {
       return parameters;
     }
 
-    if (!stream.Consume().IsMarker(MarkerType.ParenthesisBegin)) {
-      throw new Exception("PARSER: Expected '('");
+    var beginToken = stream.Consume();
+    if (!beginToken.IsMarker(MarkerType.ParenthesisBegin)) {
+      throw Error(stream, beginToken, $"Expected '(', got '{beginToken.Data}'");
     }
 
     if (stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {

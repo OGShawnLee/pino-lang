@@ -148,11 +148,24 @@ public partial class Parser {
   }
 
   private static Expression ParseExpression(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
+    var startToken = stream.Current;
+    var expr = ParseExpressionInternal(stream, allowStruct, allowMemberAccess, allowIn);
+    if (expr != null && expr.Token == null) {
+      expr.Token = startToken;
+    }
+    return expr;
+  }
+
+  private static Expression ParseExpressionInternal(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
     return ParseExpressionWithPrecedence(stream, 0, allowStruct, allowMemberAccess, allowIn);
   }
 
   private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
+    var startToken = stream.Current;
     var expression = ParsePrimaryExpression(stream, allowStruct, allowMemberAccess);
+    if (expression != null && expression.Token == null) {
+      expression.Token = startToken;
+    }
 
     while (stream.HasNext && (stream.Current.Type == TokenType.Operator || stream.Current.IsKeyword(KeywordType.In))) {
       var opToken = stream.Current;
@@ -173,7 +186,9 @@ public partial class Parser {
 
       var nextMinPrecedence = IsRightAssociative(opType) ? precedence : precedence + 1;
       var right = ParseExpressionWithPrecedence(stream, nextMinPrecedence, allowStruct, allowMemberAccess, allowIn);
-      expression = new BinaryExpression(expression, opType, right);
+      var binaryExpr = new BinaryExpression(expression, opType, right);
+      binaryExpr.Token = opToken;
+      expression = binaryExpr;
     }
 
     return expression;
@@ -181,12 +196,13 @@ public partial class Parser {
 
   private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true) {
     Expression expr;
+    var startToken = stream.Current;
 
     if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
       stream.Consume();
       expr = ParseExpression(stream, true, true);
       if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
-        throw new Exception("PARSER: Expected ')' to close grouped expression");
+        throw Error(stream, "Expected ')' to close grouped expression");
       }
     } else if (IsFunctionCall(stream)) {
       expr = ParseFunctionCall(stream);
@@ -206,17 +222,24 @@ public partial class Parser {
       var t = stream.Consume();
       expr = new LiteralExpression(t.Data, t.Literal!.Value, t.Injections);
     } else {
-      throw new Exception($"PARSER: Expected expression, got {stream.Current}");
+      throw Error(stream, $"Expected expression, got '{stream.Current.Data}'");
+    }
+
+    if (expr != null && expr.Token == null) {
+      expr.Token = startToken;
     }
 
     while (stream.HasNext) {
+      var opTok = stream.Current;
       if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
         stream.Consume(); // consume '['
         var indexExpr = ParseExpression(stream);
         if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-          throw new Exception("PARSER: Expected ']' to close index access");
+          throw Error(stream, "Expected ']' to close index access");
         }
-        expr = new IndexAccessExpression(expr, indexExpr);
+        var nextExpr = new IndexAccessExpression(expr, indexExpr);
+        nextExpr.Token = opTok;
+        expr = nextExpr;
       } else if (stream.Current.IsOperator(OperatorType.MemberAccess)) {
         if (!allowMemberAccess) {
           break;
@@ -224,6 +247,7 @@ public partial class Parser {
         stream.Consume(); // consume ':'
         var memberName = ConsumeIdentifier(stream);
         Expression rightSide;
+        var rTok = stream.Current;
         if (stream.Current.IsMarker(MarkerType.ParenthesisBegin) || stream.Current.IsMarker(MarkerType.BracketBegin)) {
           List<string>? genericArgs = null;
           if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
@@ -236,27 +260,38 @@ public partial class Parser {
               }
             }
             if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-              throw new Exception("PARSER: Expected ']' to close generic arguments in member call");
+              throw Error(stream, "Expected ']' to close generic arguments in member call");
             }
           }
           var args = ConsumeArguments(stream);
-          rightSide = new FunctionCallExpression(memberName, args, genericArgs);
+          var callExpr = new FunctionCallExpression(memberName, args, genericArgs);
+          callExpr.Token = rTok;
+          rightSide = callExpr;
         } else {
-          rightSide = new IdentifierExpression(memberName);
+          var idExpr = new IdentifierExpression(memberName);
+          idExpr.Token = rTok;
+          rightSide = idExpr;
         }
-        expr = new BinaryExpression(expr, OperatorType.MemberAccess, rightSide);
+        var nextExpr = new BinaryExpression(expr, OperatorType.MemberAccess, rightSide);
+        nextExpr.Token = opTok;
+        expr = nextExpr;
       } else if (stream.Current.IsOperator(OperatorType.StaticMemberAccess)) {
         stream.Consume(); // consume '::'
         Expression rightSide;
+        var rTok = stream.Current;
         if (allowStruct && IsStructInstance(stream)) {
           rightSide = ParseStructInstance(stream);
         } else if (IsFunctionCall(stream)) {
           rightSide = ParseFunctionCall(stream);
         } else {
           var memberName = ConsumeIdentifier(stream);
-          rightSide = new IdentifierExpression(memberName);
+          var idExpr = new IdentifierExpression(memberName);
+          idExpr.Token = rTok;
+          rightSide = idExpr;
         }
-        expr = new BinaryExpression(expr, OperatorType.StaticMemberAccess, rightSide);
+        var nextExpr = new BinaryExpression(expr, OperatorType.StaticMemberAccess, rightSide);
+        nextExpr.Token = opTok;
+        expr = nextExpr;
       } else {
         break;
       }
@@ -310,6 +345,7 @@ public partial class Parser {
   }
 
   private static FunctionCallExpression ParseFunctionCall(TokenStream stream) {
+    var startToken = stream.Current;
     var callee = ConsumeIdentifier(stream);
     List<string>? genericArgs = null;
     if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
@@ -322,16 +358,19 @@ public partial class Parser {
         }
       }
       if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-        throw new Exception("PARSER: Expected ']' to close generic arguments in function call");
+        throw Error(stream, "Expected ']' to close generic arguments in function call");
       }
     }
     var args = ConsumeArguments(stream);
-    return new FunctionCallExpression(callee, args, genericArgs);
+    var call = new FunctionCallExpression(callee, args, genericArgs);
+    call.Token = startToken;
+    return call;
   }
 
   private static FunctionLambdaExpression ParseFunctionLambda(TokenStream stream) {
+    var startToken = stream.Current;
     if (!stream.Consume().IsKeyword(KeywordType.Function)) {
-      throw new Exception("PARSER: Expected 'fn' keyword for lambda");
+      throw Error(stream, "Expected 'fn' keyword for lambda");
     }
 
     var parameters = ConsumeParameters(stream);
@@ -351,12 +390,15 @@ public partial class Parser {
     }
     PopScope(stream);
 
-    return new FunctionLambdaExpression(parameters, body);
+    var lambda = new FunctionLambdaExpression(parameters, body);
+    lambda.Token = startToken;
+    return lambda;
   }
 
   private static VectorExpression ParseVector(TokenStream stream) {
+    var startToken = stream.Current;
     if (!stream.Consume().IsMarker(MarkerType.BracketBegin)) {
-      throw new Exception("PARSER: Expected '[' for vector");
+      throw Error(stream, "Expected '[' for vector");
     }
 
     // Empty vector `[]type` or vector init block `[]type { len: limit, init: expr }`
@@ -370,13 +412,17 @@ public partial class Parser {
         VariableDeclaration? init = props.Find(p => p.Identifier == "init");
 
         if (len == null || init == null) {
-          throw new Exception("PARSER: Empty or invalid vector init block properties");
+          throw Error(stream, "Empty or invalid vector init block properties");
         }
 
-        return new VectorExpression(null, len.Value, init.Value, typing);
+        var vec = new VectorExpression(null, len.Value, init.Value, typing);
+        vec.Token = startToken;
+        return vec;
       }
 
-      return new VectorExpression(null, Typing: typing);
+      var emptyVec = new VectorExpression(null, Typing: typing);
+      emptyVec.Token = startToken;
+      return emptyVec;
     }
 
     // Literal elements: `[1, 2, 3]`
@@ -384,7 +430,9 @@ public partial class Parser {
     while (stream.HasNext) {
       if (stream.Current.IsMarker(MarkerType.BracketEnd)) {
         stream.Consume(); // consume ']'
-        return new VectorExpression(elements);
+        var vec = new VectorExpression(elements);
+        vec.Token = startToken;
+        return vec;
       }
 
       if (stream.Current.IsMarker(MarkerType.Comma)) {
@@ -395,12 +443,13 @@ public partial class Parser {
       elements.Add(ParseExpression(stream));
     }
 
-    throw new Exception("PARSER: Expected ']'");
+    throw Error(stream, "Expected ']'");
   }
 
   private static StructInstanceExpression ParseStructInstance(TokenStream stream) {
+    var startToken = stream.Current;
     var structName = ConsumeIdentifier(stream);
-    List<string> genericArgs = null;
+    List<string>? genericArgs = null;
     if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
       stream.Consume(); // consume '['
       genericArgs = new List<string>();
@@ -411,59 +460,65 @@ public partial class Parser {
         }
       }
       if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-        throw new Exception("PARSER: Expected ']' to close generic arguments");
+        throw Error(stream, "Expected ']' to close generic arguments");
       }
     }
     var props = ConsumeProperties(stream);
-    return new StructInstanceExpression(structName, props, genericArgs);
+    var inst = new StructInstanceExpression(structName, props, genericArgs);
+    inst.Token = startToken;
+    return inst;
   }
 
   private static TernaryExpression ParseTernaryExpression(TokenStream stream) {
+    var startToken = stream.Current;
     if (!stream.Consume().IsKeyword(KeywordType.If)) {
-      throw new Exception("PARSER: Expected 'if' in ternary expression");
+      throw Error(stream, "Expected 'if' in ternary expression");
     }
 
     var condition = ParseExpression(stream);
 
     if (!stream.Consume().IsKeyword(KeywordType.Then)) {
-      throw new Exception("PARSER: Expected 'then' in ternary expression");
+      throw Error(stream, "Expected 'then' in ternary expression");
     }
 
     var consequent = ParseExpression(stream);
 
     if (!stream.Consume().IsKeyword(KeywordType.Else)) {
-      throw new Exception("PARSER: Expected 'else' in ternary expression");
+      throw Error(stream, "Expected 'else' in ternary expression");
     }
 
     var alternate = ParseExpression(stream);
 
-    return new TernaryExpression(condition, consequent, alternate);
+    var tern = new TernaryExpression(condition, consequent, alternate);
+    tern.Token = startToken;
+    return tern;
   }
 
   private static MapExpression ParseMapExpression(TokenStream stream) {
+    var startToken = stream.Current;
     var mapTok = stream.Consume();
     if (mapTok.Type != TokenType.Identifier || mapTok.Data != "map") {
-      throw new Exception("PARSER: Expected 'map' identifier");
+      throw Error(stream, mapTok, "Expected 'map' identifier");
     }
 
     if (!stream.Consume().IsMarker(MarkerType.BracketBegin)) {
-      throw new Exception("PARSER: Expected '[' after 'map'");
+      throw Error(stream, "Expected '[' after 'map'");
     }
 
     var keyType = ConsumeTyping(stream);
 
     if (!stream.Consume().IsMarker(MarkerType.Comma)) {
-      throw new Exception("PARSER: Expected ',' separator in map types");
+      throw Error(stream, "Expected ',' separator in map types");
     }
 
     var valType = ConsumeTyping(stream);
 
     if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-      throw new Exception("PARSER: Expected ']' after map types");
+      throw Error(stream, "Expected ']' after map types");
     }
 
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
-      throw new Exception("PARSER: Expected '{' to start map initializer");
+      throw Error(stream, "Expected '{' to start map initializer");
     }
 
     var entries = new List<KeyValuePair<Expression, Expression>>();
@@ -480,13 +535,15 @@ public partial class Parser {
 
       var keyExpr = ParseExpression(stream, allowStruct: true, allowMemberAccess: false);
       if (!stream.Consume().IsOperator(OperatorType.MemberAccess)) {
-        throw new Exception("PARSER: Expected ':' after map key expression");
+        throw Error(stream, "Expected ':' after map key expression");
       }
       var valExpr = ParseExpression(stream);
 
       entries.Add(new KeyValuePair<Expression, Expression>(keyExpr, valExpr));
     }
 
-    return new MapExpression(keyType, valType, entries);
+    var map = new MapExpression(keyType, valType, entries);
+    map.Token = startToken;
+    return map;
   }
 }

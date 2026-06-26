@@ -6,7 +6,7 @@ namespace Pino;
 public partial class Parser {
   private static List<GenericParam> ParseGenericParamsList(TokenStream stream) {
     if (!stream.Consume().IsMarker(MarkerType.BracketBegin)) {
-      throw new Exception("PARSER: Expected '[' to begin generic parameters");
+      throw Error(stream, "Expected '[' to begin generic parameters");
     }
 
     var list = new List<GenericParam>();
@@ -25,13 +25,22 @@ public partial class Parser {
     }
 
     if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-      throw new Exception("PARSER: Expected ']' to end generic parameters");
+      throw Error(stream, "Expected ']' to end generic parameters");
     }
 
     return list;
   }
 
   private static Statement ParseStatement(TokenStream stream) {
+    var startToken = stream.Current;
+    var stmt = ParseStatementInternal(stream);
+    if (stmt != null && stmt.Token == null) {
+      stmt.Token = startToken;
+    }
+    return stmt;
+  }
+
+  private static Statement ParseStatementInternal(TokenStream stream) {
     List<GenericParam>? genericParams = null;
     bool isPublic = false;
 
@@ -42,7 +51,7 @@ public partial class Parser {
         if (decorator == "generic") {
           genericParams = ParseGenericParamsList(stream);
         } else {
-          throw new Exception($"PARSER: Unknown decorator '@{decorator}'");
+          throw Error(stream, $"Unknown decorator '@{decorator}'");
         }
         continue;
       }
@@ -60,7 +69,7 @@ public partial class Parser {
       switch (current.Keyword) {
         case KeywordType.Variable:
         case KeywordType.Constant:
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to variable declarations");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to variable declarations");
           return ParseVariableDeclaration(stream, isPublic);
         case KeywordType.Function:
           return ParseFunctionDeclaration(stream, genericParams, isPublic);
@@ -69,60 +78,60 @@ public partial class Parser {
         case KeywordType.Interface:
           return ParseInterfaceDeclaration(stream, genericParams, isPublic);
         case KeywordType.Enum:
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to enum declarations");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to enum declarations");
           return ParseEnumDeclaration(stream, isPublic);
         case KeywordType.Module:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'module' declaration");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to module declarations");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'module' declaration");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to module declarations");
           return ParseModuleDeclaration(stream);
         case KeywordType.Import:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'import' statement");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to import statements");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'import' statement");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to import statements");
           return ParseImportStatement(stream);
         case KeywordType.From:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'from ... import' statement");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to from-import statements");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'from ... import' statement");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to from-import statements");
           return ParseFromImportStatement(stream);
         case KeywordType.Return:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'return' statement");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to return statements");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'return' statement");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to return statements");
           return ParseReturnStatement(stream);
         case KeywordType.Loop:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'for' loop");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to loops");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'for' loop");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to loops");
           return ParseLoopStatement(stream);
         case KeywordType.If:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'if' statement");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to if statements");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'if' statement");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to if statements");
           return ParseIfStatement(stream);
         case KeywordType.Break:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'break'");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to break");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'break'");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to break");
           stream.Consume();
           return new IdentifierExpression("break");
         case KeywordType.Continue:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'continue'");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to continue");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'continue'");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to continue");
           stream.Consume();
           return new IdentifierExpression("continue");
         case KeywordType.Match:
-          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'match' statement");
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to match statements");
+          if (isPublic) throw Error(stream, "'pub' cannot prefix 'match' statement");
+          if (genericParams != null) throw Error(stream, "'@generic' cannot be applied to match statements");
           return ParseMatchStatement(stream);
         case KeywordType.Else:
-          throw new Exception("PARSER: Else statement without corresponding If");
+          throw Error(stream, "Else statement without corresponding If");
         case KeywordType.When:
-          throw new Exception("PARSER: When branch outside of Match statement");
+          throw Error(stream, "When branch outside of Match statement");
         case KeywordType.Static:
-          throw new Exception("PARSER: 'static' modifier is only valid inside struct definitions.");
+          throw Error(stream, "'static' modifier is only valid inside struct definitions.");
       }
     }
 
     if (isPublic) {
-      throw new Exception("PARSER: 'pub' can only prefix declarations (var, val, fn, struct, enum)");
+      throw Error(stream, "'pub' can only prefix declarations (var, val, fn, struct, enum)");
     }
     if (genericParams != null) {
-      throw new Exception("PARSER: '@generic' can only prefix declarations (fn, struct, interface)");
+      throw Error(stream, "'@generic' can only prefix declarations (fn, struct, interface)");
     }
 
     if (current.Type == TokenType.Identifier || current.Type == TokenType.Literal || current.Type == TokenType.Marker) {
@@ -137,7 +146,7 @@ public partial class Parser {
 
   private static ModuleDeclaration ParseModuleDeclaration(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.Module)) {
-      throw new Exception("PARSER: Expected 'module' keyword");
+      throw Error(stream, "Expected 'module' keyword");
     }
     var identifier = ConsumeIdentifier(stream);
     return new ModuleDeclaration(identifier);
@@ -145,7 +154,7 @@ public partial class Parser {
 
   private static ImportStatement ParseImportStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.Import)) {
-      throw new Exception("PARSER: Expected 'import' keyword");
+      throw Error(stream, "Expected 'import' keyword");
     }
     var moduleName = ConsumeIdentifier(stream);
     DeclareVariable(stream, moduleName);
@@ -154,11 +163,11 @@ public partial class Parser {
 
   private static FromImportStatement ParseFromImportStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.From)) {
-      throw new Exception("PARSER: Expected 'from' keyword");
+      throw Error(stream, "Expected 'from' keyword");
     }
     var moduleName = ConsumeIdentifier(stream);
     if (!stream.Consume().IsKeyword(KeywordType.Import)) {
-      throw new Exception("PARSER: Expected 'import' keyword after from <ModuleName>");
+      throw Error(stream, "Expected 'import' keyword after from <ModuleName>");
     }
 
     var imports = new List<string>();
@@ -189,7 +198,7 @@ public partial class Parser {
 
   private static FunctionDeclaration ParseFunctionDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Function)) {
-      throw new Exception("PARSER: Expected 'fn' keyword");
+      throw Error(stream, "Expected 'fn' keyword");
     }
 
     var identifier = ConsumeIdentifier(stream);
@@ -217,7 +226,7 @@ public partial class Parser {
 
   private static StructDeclaration ParseStructDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Struct)) {
-      throw new Exception("PARSER: Expected 'struct' keyword");
+      throw Error(stream, "Expected 'struct' keyword");
     }
 
     var identifier = ConsumeIdentifier(stream);
@@ -239,7 +248,7 @@ public partial class Parser {
         }
       }
       if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
-        throw new Exception("PARSER: Expected ']' to close generic parameters");
+        throw Error(stream, "Expected ']' to close generic parameters");
       }
     }
 
@@ -254,7 +263,7 @@ public partial class Parser {
 
   private static InterfaceDeclaration ParseInterfaceDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Interface)) {
-      throw new Exception("PARSER: Expected 'interface' keyword");
+      throw Error(stream, "Expected 'interface' keyword");
     }
 
     var identifier = ConsumeIdentifier(stream);
@@ -262,7 +271,7 @@ public partial class Parser {
     var methods = new List<FunctionDeclaration>();
 
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
-      throw new Exception("PARSER: Expected '{' to start interface body");
+      throw Error(stream, "Expected '{' to start interface body");
     }
 
     while (true) {
@@ -279,7 +288,7 @@ public partial class Parser {
 
         fields.Add(new VariableDeclaration(VariableKind.Property, propIdentifier, null, typing));
       } else {
-        throw new Exception($"PARSER: Expected method signature or property declaration in interface body, got {stream.Current}");
+        throw Error(stream, $"Expected method signature or property declaration in interface body, got {stream.Current}");
       }
 
       if (stream.Current.IsMarker(MarkerType.Comma)) {
@@ -292,7 +301,7 @@ public partial class Parser {
 
   private static FunctionDeclaration ParseInterfaceMethodSignature(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.Function)) {
-      throw new Exception("PARSER: Expected 'fn' keyword for method signature");
+      throw Error(stream, "Expected 'fn' keyword for method signature");
     }
 
     var identifier = ConsumeIdentifier(stream);
@@ -310,7 +319,7 @@ public partial class Parser {
 
   private static EnumDeclaration ParseEnumDeclaration(TokenStream stream, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Enum)) {
-      throw new Exception("PARSER: Expected 'enum' keyword");
+      throw Error(stream, "Expected 'enum' keyword");
     }
 
     var identifier = ConsumeIdentifier(stream);
@@ -321,7 +330,7 @@ public partial class Parser {
 
   private static ReturnStatement ParseReturnStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.Return)) {
-      throw new Exception("PARSER: Expected 'return' keyword");
+      throw Error(stream, "Expected 'return' keyword");
     }
 
     Expression? arg = null;
@@ -334,7 +343,7 @@ public partial class Parser {
 
   private static LoopStatement ParseLoopStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.Loop)) {
-      throw new Exception("PARSER: Expected 'for' keyword");
+      throw Error(stream, "Expected 'for' keyword");
     }
 
     // Infinite loop: for { ... }
@@ -354,19 +363,19 @@ public partial class Parser {
     string? KeyVar = null;
     if (stream.Current.IsMarker(MarkerType.Comma)) {
       if (begin is not IdentifierExpression idKey) {
-        throw new Exception("PARSER: Loop key variable must be an identifier");
+        throw Error(stream, "Loop key variable must be an identifier");
       }
       KeyVar = idKey.Name;
       stream.Consume(); // consume the comma ','
       begin = ParseExpression(stream, allowStruct: false, allowMemberAccess: true, allowIn: false);
       if (begin is not IdentifierExpression) {
-        throw new Exception("PARSER: Loop value variable must be an identifier");
+        throw Error(stream, "Loop value variable must be an identifier");
       }
     }
 
     // For In loop: for i in collection { ... }
     if (!stream.Consume().IsKeyword(KeywordType.In)) {
-      throw new Exception("PARSER: Expected 'in' in loop declaration");
+      throw Error(stream, "Expected 'in' in loop declaration");
     }
 
     var end = ParseExpression(stream, false);
@@ -388,7 +397,7 @@ public partial class Parser {
 
   private static IfStatement ParseIfStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.If)) {
-      throw new Exception("PARSER: Expected 'if' keyword");
+      throw Error(stream, "Expected 'if' keyword");
     }
 
     var condition = ParseExpression(stream, false);
@@ -409,7 +418,7 @@ public partial class Parser {
 
   private static ElseStatement ParseElseStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.Else)) {
-      throw new Exception("PARSER: Expected 'else' keyword");
+      throw Error(stream, "Expected 'else' keyword");
     }
 
     var body = ParseBlock(stream);
@@ -418,13 +427,13 @@ public partial class Parser {
 
   private static MatchStatement ParseMatchStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.Match)) {
-      throw new Exception("PARSER: Expected 'match' keyword");
+      throw Error(stream, "Expected 'match' keyword");
     }
 
     var condition = ParseExpression(stream, false);
 
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
-      throw new Exception("PARSER: Expected '{' after match expression");
+      throw Error(stream, "Expected '{' after match expression");
     }
 
     var branches = new List<WhenStatement>();
@@ -450,7 +459,7 @@ public partial class Parser {
         continue;
       }
 
-      throw new Exception("PARSER: Expected 'when' or 'else' in match statement");
+      throw Error(stream, "Expected 'when' or 'else' in match statement");
     }
 
     return new MatchStatement(condition, branches, alternate);
@@ -458,7 +467,7 @@ public partial class Parser {
 
   private static WhenStatement ParseWhenStatement(TokenStream stream) {
     if (!stream.Consume().IsKeyword(KeywordType.When)) {
-      throw new Exception("PARSER: Expected 'when' keyword");
+      throw Error(stream, "Expected 'when' keyword");
     }
 
     var conditions = new List<Expression>();
@@ -481,7 +490,7 @@ public partial class Parser {
 
   private static BlockStatement ParseBlock(TokenStream stream) {
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
-      throw new Exception("PARSER: Expected '{'");
+      throw Error(stream, "Expected '{'");
     }
 
     PushScope(stream);
@@ -500,7 +509,7 @@ public partial class Parser {
       }
     }
 
-    throw new Exception("PARSER: Expected '}'");
+    throw Error(stream, "Expected '}'");
   }
 
   private static void ConsumeAttributesAndMethods(
@@ -509,7 +518,7 @@ public partial class Parser {
       List<FunctionDeclaration> methods,
       List<string> inheritedStructs) {
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
-      throw new Exception("PARSER: Expected '{'");
+      throw Error(stream, "Expected '{'");
     }
 
     while (true) {
@@ -525,7 +534,7 @@ public partial class Parser {
         if (dec == "generic") {
           methodGenerics = ParseGenericParamsList(stream);
         } else {
-          throw new Exception($"PARSER: Unknown decorator '@{dec}' in struct method");
+          throw Error(stream, $"Unknown decorator '@{dec}' in struct method");
         }
       }
 
@@ -534,7 +543,7 @@ public partial class Parser {
         stream.Consume(); // consume 'static'
         isStatic = true;
         if (!stream.Current.IsKeyword(KeywordType.Function)) {
-          throw new Exception("PARSER: 'static' keyword can only modify function declarations inside structs.");
+          throw Error(stream, "'static' keyword can only modify function declarations inside structs.");
         }
       }
 
@@ -546,10 +555,10 @@ public partial class Parser {
         methods.Add(fn);
       } else {
         if (isStatic) {
-          throw new Exception("PARSER: 'static' modifier cannot be applied to struct fields.");
+          throw Error(stream, "'static' modifier cannot be applied to struct fields.");
         }
         if (methodGenerics != null) {
-          throw new Exception("PARSER: '@generic' cannot be applied to struct fields.");
+          throw Error(stream, "'@generic' cannot be applied to struct fields.");
         }
         var identifier = ConsumeIdentifier(stream);
         if (char.IsUpper(identifier[0])) {
@@ -568,7 +577,7 @@ public partial class Parser {
 
   private static List<string> ConsumeEnumMembers(TokenStream stream) {
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
-      throw new Exception("PARSER: Expected '{'");
+      throw Error(stream, "Expected '{'");
     }
 
     var members = new List<string>();
@@ -588,7 +597,7 @@ public partial class Parser {
 
   private static List<VariableDeclaration> ConsumeProperties(TokenStream stream) {
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
-      throw new Exception("PARSER: Expected '{'");
+      throw Error(stream, "Expected '{'");
     }
 
     var properties = new List<VariableDeclaration>();
@@ -600,7 +609,7 @@ public partial class Parser {
 
       var identifier = ConsumeIdentifier(stream);
       if (!stream.Consume().IsOperator(OperatorType.MemberAccess)) {
-        throw new Exception("PARSER: Expected ':'");
+        throw Error(stream, "Expected ':'");
       }
       var val = ParseExpression(stream);
 
@@ -611,6 +620,6 @@ public partial class Parser {
       }
     }
 
-    throw new Exception("PARSER: Expected '}'");
+    throw Error(stream, "Expected '}'");
   }
 }
