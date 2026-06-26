@@ -29,6 +29,7 @@ This document serves as the definitive reference guide for the syntax, type syst
 8. [Global Built-in Functions](#8-global-built-in-functions)
 9. [Properties and Instance Methods](#9-properties-and-instance-methods)
    * [String Methods](#string-methods)
+   * [Regex Methods](#regex-methods)
    * [Vector Methods](#vector-methods)
    * [Map Methods](#map-methods)
 10. [Execution Engines](#10-execution-engines)
@@ -504,6 +505,12 @@ Clears the standard terminal or console.
 *   **Return**: `null`
 *   **Example**: `clear()`
 
+### `regex(pattern)`
+Compiles a regular expression pattern for matching operations.
+*   **Arguments**: A `string` containing the regex pattern.
+*   **Return**: `regex`
+*   **Example**: `val r = regex("[0-9]+")`
+
 ---
 
 ## 9. Properties and Instance Methods
@@ -548,6 +555,72 @@ Splits the string into a vector of strings using the provided separator.
 Replaces all occurrences of the `old` substring with the `new` string.
 *   **Return**: `string`
 *   **Example**: `"hello world":replace("world", "Pino")` returns `"hello Pino"`.
+
+#### `substring(start int, len int)`
+Extracts a substring starting at `start` index with the specified length `len`.
+*   **Return**: `string`
+*   **Example**: `"hello world":substring(6, 5)` returns `"world"`.
+
+#### `starts_with(prefix string)`
+Checks if the string begins with the specified `prefix` string.
+*   **Return**: `bool`
+*   **Example**: `"pino":starts_with("pi")` returns `true`.
+
+#### `ends_with(suffix string)`
+Checks if the string ends with the specified `suffix` string.
+*   **Return**: `bool`
+*   **Example**: `"pino":ends_with("no")` returns `true`.
+
+#### `index_of(sub string)`
+Returns the zero-based index of the first occurrence of the `sub` substring, or `-1` if not found.
+*   **Return**: `int`
+*   **Example**: `"pino":index_of("in")` returns `1`.
+
+#### `trim_start()`
+Returns a new string with all leading whitespace characters removed.
+*   **Return**: `string`
+*   **Example**: `"  pino":trim_start()` returns `"pino"`.
+
+#### `trim_end()`
+Returns a new string with all trailing whitespace characters removed.
+*   **Return**: `string`
+*   **Example**: `"pino  ":trim_end()` returns `"pino"`.
+
+---
+
+### Regex Methods
+
+Regular expressions of type `regex` have the following methods and properties:
+
+#### `pattern` (Property)
+Returns the original compiled regex pattern string.
+*   **Return**: `string`
+*   **Example**: `regex("[0-9]+"):pattern` returns `"[0-9]+"`.
+
+#### `has_match(text string)`
+Checks if the regular expression pattern matches anywhere in the specified `text`.
+*   **Return**: `bool`
+*   **Example**: `regex("[0-9]+"):has_match("abc123def")` returns `true`.
+
+#### `match_prefix(text string)`
+Attempts to match the pattern anchored specifically to the beginning of the `text` string (equivalent to a `^` anchor).
+*   **Return**: `string` (the matched substring, or `""` if not found).
+*   **Example**: `regex("[0-9]+"):match_prefix("123abc456")` returns `"123"`.
+
+#### `find(text string)`
+Finds the first occurrence of the regular expression pattern anywhere in the specified `text`.
+*   **Return**: `string` (the matched substring, or `""` if not found).
+*   **Example**: `regex("[0-9]+"):find("abc456def")` returns `"456"`.
+
+#### `find_all(text string)`
+Finds all non-overlapping matches of the pattern in the specified `text` string.
+*   **Return**: `[]string`
+*   **Example**: `regex("[0-9]+"):find_all("12abc34def56")` returns `["12", "34", "56"]`.
+
+#### `replace(text string, repl string)`
+Replaces all matches of the regex pattern inside the `text` string with the replacement string `repl`.
+*   **Return**: `string`
+*   **Example**: `regex("[0-9]+"):replace("a12b34c", "X")` returns `"aXbXc"`.
 
 ---
 
