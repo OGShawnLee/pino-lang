@@ -2,7 +2,7 @@ import Lexer
 
 fn main {
 	val program = "int main(void) { return 2; }"
-	val token_list = Lexer::get_token_list(program)
+	val token_list = Lexer::lex(program)
 
 	token_list:each(println)
 }

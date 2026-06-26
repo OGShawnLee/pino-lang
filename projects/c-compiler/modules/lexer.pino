@@ -7,89 +7,55 @@ enum TokenType {
 	Marker
 }
 
-val KEYWORD_MAP = map[string, TokenType] {
-	"int": TokenType::Keyword
-	"void": TokenType::Keyword
-	"return": TokenType::Keyword
-}
-
-val MARKER_MAP = map[rune, TokenType] {
-	'(': TokenType::Marker
-	')': TokenType::Marker
-	'{': TokenType::Marker
-	'}': TokenType::Marker
-	';': TokenType::Marker
-}
-
 struct Token {
 	type TokenType
 	value string
 }
 
-fn is_keyword(word string) bool {
-	return word in KEYWORD_MAP
+struct TokenRule {
+	pattern regex
+	type TokenType
 }
 
-fn is_marker(char rune) bool {
-	return char in MARKER_MAP
-}
+val IDENTIFIER_REGEX = regex("^[a-zA-Z_][a-zA-Z0-9_]*")
+val KEYWORD_REGEX = regex("^(int|void|return)")
+val MARKER_REGEX = regex("^[(){};]")
+val NUMERIC_REGEX = regex("^[0-9]+")
+val WHITE_SPACE_REGEX = regex("^\s+")
+val TOKEN_RULE_LIST = [
+	TokenRule { pattern: KEYWORD_REGEX, type: TokenType::Keyword }
+	TokenRule { pattern: NUMERIC_REGEX, type: TokenType::Literal }
+	TokenRule { pattern: MARKER_REGEX, type: TokenType::Marker }
+	TokenRule { pattern: IDENTIFIER_REGEX, type: TokenType::Identifier }
+]  
 
-fn is_int_literal(word string) bool {
-	if word == "" {
-		return false
-	}
-
-	for char in word {
-		if char < '0' or char > '9' {
-			return false
-		}
-	}
-
-	return true
-}
-
-fn get_token_type(word string) TokenType {
-	if is_keyword(word) {
-		return TokenType::Keyword
-	}
-
-	if is_int_literal(word) {
-		return TokenType::Literal
-	}
-
-	return TokenType::Identifier
-}
-
-fn push_if_token_found(token_list []Token, current_token string) {
-	if current_token == "" {
-		return
-	}
-
-	token_list:push(Token { type: get_token_type(current_token), value: current_token })
-}
-
-pub fn get_token_list(line string) int {
+pub fn lex(line string) []Token {
 	val token_list = []Token	
-	var current_token = ""
 
-	for char in line {
-		if char == ' ' {
-			push_if_token_found(token_list, current_token)
-			current_token = ""
+	for line:len > 0 {	
+		val white_space = WHITE_SPACE_REGEX:match_prefix(line)
+		if white_space != "" {
+			line = line:substring(white_space:len)
 			continue
 		}
 
-		if is_marker(char) {
-			push_if_token_found(token_list, current_token)
-			token_list:push(Token { type: TokenType::Marker, value: str(char) })
-			current_token = ""
-			continue
+		var match_found = false
+
+		for rule in TOKEN_RULE_LIST {
+			val match_str = rule:pattern:match_prefix(line)
+			if match_str != "" {
+				line = line:substring(match_str:len)
+				token_list:push(Token { type: rule:type, value: match_str })
+				match_found = true
+				break
+			}
 		}
 
-		current_token += char
+		if match_found == false {
+			println("LEXER: NO RULE MATCHED FOR '" + line + "'")
+			return []Token
+		}
 	}
-
-	push_if_token_found(token_list, current_token)
 
 	return token_list
 }
