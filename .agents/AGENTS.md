@@ -57,3 +57,16 @@ Then re-run the tests.
 ### 3. PowerShell Commands Chaining
 In Windows PowerShell, chaining commands with `&&` fails. Always use semicolon `;` to chain commands instead.
 
+# 4. Git Commits (Conventional Commits)
+Always write commit messages following the Conventional Commits specification. Key prefixes to use:
+* `feat(scope)`: A new feature (e.g., `feat(vm): add boolean and/or logic support`).
+* `fix(scope)`: A bug fix (e.g., `fix(parser): resolve escape character scanning`).
+* `docs(scope)`: Documentation-only changes (e.g., `docs(README): update vision statement`).
+* `test(scope)`: Adding or modifying test suites (e.g., `test(execution): atomize arithmetic tests`).
+* `refactor(scope)`: Code changes that neither fix bugs nor add features.
+* `chore(scope)`: Changes to the build process or auxiliary tools and libraries (e.g., `chore(agents): update AGENTS.md`).
+* `perf(scope)`: Performance improvements (e.g., `perf(vm): optimize arithmetic operations`).
+* `style(scope)`: Code style changes (e.g., `style(parser): format AST output`).
+* `i18n(scope)`: Internationalization and localization changes.
+* `ci(scope)`: Changes to the CI/CD pipeline (e.g., `ci(github-actions): update workflow`).
+
