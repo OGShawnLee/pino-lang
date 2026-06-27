@@ -1,8 +1,16 @@
-import Lexer
+from Lexer import Result, lex
 
 fn main {
-	val program = "int main(void) { return 2; }"
-	val token_list = Lexer::get_token_list(program)
+	println("Welcome to the Pino C Compiler!")
 
-	token_list:each(println)
+	val program = "int main(void) { return 2; }"
+
+	match lex(program) {
+		when Result::Success(token_list) {
+			token_list:each(println)
+		}
+		when Result::Error(message) {
+			println(message)
+		}
+	}
 }
