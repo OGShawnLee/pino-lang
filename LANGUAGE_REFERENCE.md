@@ -468,6 +468,39 @@ match result_ok {
 }
 ```
 
+#### Generic Unions:
+You can declare generic unions using either the `@generic` decorator prefix or inline brackets:
+```pino
+@generic[T, E]
+union Result {
+    Success(T)
+    Failure(E)
+}
+
+# OR inline:
+union Option[T] {
+    Some(T)
+    None
+}
+```
+
+#### Monomorphization & Type Inference:
+The static checker automatically monomorphizes generic unions at compile/type-check time based on actual payload arguments or context-driven return type signatures:
+```pino
+# Inferred as Option_int at compile time
+val opt = Option::Some(42)
+
+# Matching on generic variants
+match opt {
+    when Option::Some(val) {
+        println("Got some value: $val")
+    }
+    when Option::None {
+        println("Nothing")
+    }
+}
+```
+
 ---
 
 ## 8. Global Built-in Functions

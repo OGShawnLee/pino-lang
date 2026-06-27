@@ -300,7 +300,7 @@ if budget > 10000 {
 }
 
 # Match-When pattern routing
-match readline("Teleport planet: ") {
+match planet {
   when "Earth" {
     println("Status: Alive")
   }
@@ -309,6 +309,37 @@ match readline("Teleport planet: ") {
   }
   else {
     println("Status: Dead")
+  }
+}
+
+# Matching on Tagged Unions
+union Entity {
+  Person(string)
+  Ghost
+}
+val hero = Entity::Person("Alice")
+match hero {
+  when Entity::Person(name) {
+    println("Found person: $name")
+  }
+  when Entity::Ghost {
+    println("Spooky ghost!")
+  }
+}
+
+# Matching on Generic Tagged Unions (with monomorphization)
+@generic[T]
+union Option {
+  Some(T)
+  None
+}
+val opt = Option::Some(42)
+match opt {
+  when Option::Some(value) {
+    println("Value: $value")
+  }
+  when Option::None {
+    println("Nothing found")
   }
 }
 ```
