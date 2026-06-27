@@ -1,6 +1,6 @@
 # RFC 005: Tagged Unions and Pattern Matching Evolution Roadmap in Pino
 
-* **Status**: Proposed
+* **Status**: Implemented
 * **Authors**: Antigravity & OGShawnLee
 * **Date**: 2026-06-26
 
@@ -99,3 +99,24 @@ Complete full pattern typing and static analysis guarantees.
   * **Checker**:
     * Statically type-check nested patterns and guarantee that variables bound inside patterns have concrete types mapped from the matched union variant signature.
     * Perform static exhaustiveness analysis to assert that every variant of a union is covered in a `match` statement, unless an `else` branch is specified.
+
+---
+
+## 5. Implementation Details
+
+All phases described in this RFC have been fully designed, implemented, and verified in the Pino codebase:
+
+* **Phase 1 (Basic Tagged Unions & Evaluator Pattern Matching)**:
+  * The parser parses `union` declarations and variant signatures (with payload types).
+  * The checker treats variant constructors as static member calls (e.g., `Result::Success`).
+  * The evaluator represents variant values using `PinoUnionValue` containing payloads.
+  * Pattern matching recursively unpacks variant values and binds matching fields to local variables during `match` execution.
+
+* **Phase 2 (Generic Unions & Monomorphization)**:
+  * The parser captures generic arguments via the `@generic[...]` decorator or bracket syntax (`union Option[T]`).
+  * In the static type checker, `MonomorphizeUnion` replaces generic types with concrete types, registers the specialized union declarations in the AST/environment, and rewrites AST node types in-place.
+  * Top-down inference resolves generic arguments by combining variant constructor arguments with expected type signatures from variable declarations and function return types.
+
+* **Phase 3 (Pattern Destructuring & Static Exhaustiveness Checks)**:
+  * Patterns are statically type-checked, verifying nested payload types and declaring local variables with concrete monomorphized types.
+  * Static exhaustiveness analysis guarantees that every variant of a union or member of an enum is covered in a `match` statement unless an explicit `else` branch is provided, raising compile-time errors for missing cases.
