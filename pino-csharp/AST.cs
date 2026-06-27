@@ -83,7 +83,12 @@ public abstract record Expression : Statement {
 
 public record LiteralExpression(string Value, LiteralType LiteralType, List<string>? Injections = null) : Expression;
 
-public record IdentifierExpression(string Name) : Expression;
+public record IdentifierExpression : Expression {
+  public string Name { get; set; }
+  public IdentifierExpression(string name) {
+    Name = name;
+  }
+}
 
 public record BinaryExpression(Expression Left, OperatorType Operator, Expression Right) : Expression;
 
@@ -121,9 +126,18 @@ public record MapExpression(string KeyType, string ValueType, List<KeyValuePair<
 
 // --- UNION & PATTERN DEVELOPMENTS ---
 public record UnionVariant(string Identifier, List<string> AssociatedTypes);
-public record UnionDeclaration(string Identifier, List<UnionVariant> Variants, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record UnionDeclaration(string Identifier, List<UnionVariant> Variants, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
 public abstract record Pattern;
 public record LiteralPattern(Expression Value) : Pattern;
 public record IdentifierPattern(string Name) : Pattern;
-public record VariantPattern(string UnionName, string VariantName, List<Pattern> SubPatterns) : Pattern;
+public record VariantPattern : Pattern {
+  public string UnionName { get; set; }
+  public string VariantName { get; init; }
+  public List<Pattern> SubPatterns { get; init; }
+  public VariantPattern(string unionName, string variantName, List<Pattern> subPatterns) {
+    UnionName = unionName;
+    VariantName = variantName;
+    SubPatterns = subPatterns;
+  }
+}

@@ -30,4 +30,42 @@ public partial class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestGenericUnionMonomorphizationSuccess() {
+    var input = @"
+      @generic[T]
+      union Option {
+        Some(T)
+        None
+      }
+
+      val x = Option::Some(42)
+      val y = Option::Some(""hello"")
+
+      fn expect_int(opt Option[int]) {}
+      fn expect_str(opt Option[string]) {}
+
+      expect_int(x)
+      expect_str(y)
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestGenericUnionMonomorphizationMismatchThrows() {
+    var input = @"
+      @generic[T]
+      union Option {
+        Some(T)
+        None
+      }
+
+      val x = Option::Some(""hello"")
+      
+      fn expect_int(opt Option[int]) {}
+      expect_int(x) 
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
 }

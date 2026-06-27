@@ -62,13 +62,16 @@ public partial class Checker {
       var baseStruct = FindStruct(baseName);
       if (baseStruct != null && baseStruct.GenericParams != null && baseStruct.GenericParams.Count > 0) {
         return MonomorphizeStruct(baseName, substitutedArgs);
-      } else {
-        var baseInterface = FindInterface(baseName);
-        if (baseInterface != null && baseInterface.GenericParams != null && baseInterface.GenericParams.Count > 0) {
-          return MonomorphizeInterface(baseName, substitutedArgs);
-        }
-        return baseName + "[" + string.Join(", ", substitutedArgs) + "]";
       }
+      var baseInterface = FindInterface(baseName);
+      if (baseInterface != null && baseInterface.GenericParams != null && baseInterface.GenericParams.Count > 0) {
+        return MonomorphizeInterface(baseName, substitutedArgs);
+      }
+      var baseUnion = FindUnion(baseName);
+      if (baseUnion != null && baseUnion.GenericParams != null && baseUnion.GenericParams.Count > 0) {
+        return MonomorphizeUnion(baseName, substitutedArgs);
+      }
+      return baseName + "[" + string.Join(", ", substitutedArgs) + "]";
     }
     
     return typing;
@@ -798,6 +801,67 @@ public partial class Checker {
     return specializedName;
   }
 
+  private string MonomorphizeUnion(string baseName, List<string> concreteArgs) {
+    var baseUnion = FindUnion(baseName);
+    if (baseUnion == null) {
+      throw new Exception($"TYPE CHECK ERROR: Union '{baseName}' is not defined.");
+    }
+    if (baseUnion.GenericParams == null || baseUnion.GenericParams.Count == 0) {
+      throw new Exception($"TYPE CHECK ERROR: Union '{baseName}' is not a generic union.");
+    }
+    if (baseUnion.GenericParams.Count != concreteArgs.Count) {
+      throw new Exception($"TYPE CHECK ERROR: Union '{baseName}' expects {baseUnion.GenericParams.Count} generic parameters, but got {concreteArgs.Count} arguments.");
+    }
+
+    VerifyGenericConstraints(baseUnion.GenericParams, concreteArgs, baseName);
+
+    var cleanArgs = new List<string>();
+    foreach (var arg in concreteArgs) {
+      string clean = arg
+        .Replace("[]", "vector_")
+        .Replace("[", "_")
+        .Replace("]", "_")
+        .Replace(",", "_")
+        .Replace(" ", "_")
+        .Trim('_');
+      while (clean.Contains("__")) {
+        clean = clean.Replace("__", "_");
+      }
+      cleanArgs.Add(clean);
+    }
+    string specializedName = $"{baseName}_{string.Join("_", cleanArgs)}";
+
+    if (_unions.ContainsKey(specializedName)) {
+      return specializedName;
+    }
+
+    var subst = new Dictionary<string, string>();
+    for (int i = 0; i < baseUnion.GenericParams.Count; i++) {
+      subst[baseUnion.GenericParams[i].Name] = concreteArgs[i];
+    }
+
+    var specializedVariants = new List<UnionVariant>();
+    foreach (var variant in baseUnion.Variants) {
+      var specializedTypes = new List<string>();
+      foreach (var t in variant.AssociatedTypes) {
+        specializedTypes.Add(SubstituteType(t, subst));
+      }
+      specializedVariants.Add(new UnionVariant(variant.Identifier, specializedTypes));
+    }
+
+    var specializedUnion = new UnionDeclaration(
+      specializedName,
+      specializedVariants,
+      GenericParams: null,
+      IsPublic: baseUnion.IsPublic
+    );
+
+    _unions[specializedName] = specializedUnion;
+    _specializedUnions.Add(specializedUnion);
+
+    return specializedName;
+  }
+
   private void VerifyGenericConstraints(List<GenericParam> genericParams, List<string> concreteArgs, string targetName) {
     if (genericParams == null || concreteArgs == null) return;
     for (int i = 0; i < Math.Min(genericParams.Count, concreteArgs.Count); i++) {
@@ -818,5 +882,75 @@ public partial class Checker {
         }
       }
     }
+  }
+
+  private string MonomorphizeUnionAccess(UnionDeclaration unionDecl, string callee, List<string> argTypes, string expectedType) {
+    var variant = unionDecl.Variants.Find(v => v.Identifier == callee);
+    if (variant == null) {
+      throw new Exception($"TYPE CHECK ERROR: Union '{unionDecl.Identifier}' has no variant '{callee}'.");
+    }
+
+    var subst = new Dictionary<string, string>();
+    var genericParamsSet = new HashSet<string>(unionDecl.GenericParams.Select(p => p.Name));
+
+    // 1. Infer from arguments
+    for (int i = 0; i < Math.Min(variant.AssociatedTypes.Count, argTypes.Count); i++) {
+      InferGenericParamsFromTypes(variant.AssociatedTypes[i], argTypes[i], subst, genericParamsSet);
+    }
+
+    // 2. Infer from expected type context if available
+    if (!string.IsNullOrEmpty(expectedType)) {
+      if (expectedType.StartsWith(unionDecl.Identifier + "[")) {
+        int bracketIdx = expectedType.IndexOf('[');
+        if (bracketIdx != -1 && expectedType.EndsWith("]")) {
+          string argsStr = expectedType.Substring(bracketIdx + 1, expectedType.Length - bracketIdx - 2);
+          var subArgs = new List<string>();
+          int start = 0;
+          int depth = 0;
+          for (int i = 0; i < argsStr.Length; i++) {
+            if (argsStr[i] == '[') depth++;
+            else if (argsStr[i] == ']') depth--;
+            else if (argsStr[i] == ',' && depth == 0) {
+              subArgs.Add(argsStr.Substring(start, i - start).Trim());
+              start = i + 1;
+            }
+          }
+          subArgs.Add(argsStr.Substring(start).Trim());
+
+          if (subArgs.Count == unionDecl.GenericParams.Count) {
+            for (int i = 0; i < unionDecl.GenericParams.Count; i++) {
+              string paramName = unionDecl.GenericParams[i].Name;
+              if (!subst.ContainsKey(paramName)) {
+                subst[paramName] = subArgs[i];
+              }
+            }
+          }
+        }
+      } else {
+        var specUnion = FindUnion(expectedType);
+        if (specUnion != null) {
+          for (int vIdx = 0; vIdx < Math.Min(unionDecl.Variants.Count, specUnion.Variants.Count); vIdx++) {
+            var baseVar = unionDecl.Variants[vIdx];
+            var specVar = specUnion.Variants[vIdx];
+            for (int i = 0; i < Math.Min(baseVar.AssociatedTypes.Count, specVar.AssociatedTypes.Count); i++) {
+              InferGenericParamsFromTypes(baseVar.AssociatedTypes[i], specVar.AssociatedTypes[i], subst, genericParamsSet);
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Any still missing fall back to "any"
+    var concreteArgs = new List<string>();
+    foreach (var param in unionDecl.GenericParams) {
+      if (subst.TryGetValue(param.Name, out var concrete)) {
+        concreteArgs.Add(concrete);
+      } else {
+        concreteArgs.Add("any");
+      }
+    }
+
+    // 4. Monomorphize the union and return the specialized name
+    return MonomorphizeUnion(unionDecl.Identifier, concreteArgs);
   }
 }

@@ -48,4 +48,33 @@ public class UnionTests {
     var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
     Assert.Equal("ElseFallback", env.Get("res"));
   }
+
+  [Fact]
+  public void TestGenericUnionMatchExecution() {
+    var code = @"
+      @generic[T]
+      union Option {
+        Some(T)
+        None
+      }
+      var res1 = """"
+      var res2 = """"
+      fn run_test {
+        val o1 = Option::Some(42)
+        val o2 = Option::None
+        match o1 {
+          when Option::Some(v) { res1 = ""Some:"" + str(v) }
+          else { res1 = ""none"" }
+        }
+        match o2 {
+          when Option::Some(v) { res2 = ""Some:"" + str(v) }
+          when Option::None { res2 = ""None"" }
+        }
+      }
+      run_test()
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal("Some:42", env.Get("res1"));
+    Assert.Equal("None", env.Get("res2"));
+  }
 }

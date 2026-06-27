@@ -8,8 +8,8 @@ public partial class Checker {
     switch (statement) {
       case VariableDeclaration varDecl:
         if (varDecl.Kind == VariableKind.Constant || varDecl.Kind == VariableKind.Variable) {
-          string valType = varDecl.Value != null ? InferType(varDecl.Value) : "any";
           string expectedType = NormalizeType(varDecl.Typing);
+          string valType = varDecl.Value != null ? InferType(varDecl.Value, expectedType) : "any";
 
           if (!string.IsNullOrEmpty(expectedType)) {
             if (!IsCompatible(valType, expectedType)) {
@@ -76,18 +76,24 @@ public partial class Checker {
             DeclareVariable(field.Identifier, field.Typing);
           }
         }
-        PushScope();
-        foreach (var param in fnDecl.Parameters) {
-          DeclareVariable(param.Identifier, param.Typing);
-        }
-        if (fnDecl.Body != null) {
-          CheckStatement(fnDecl.Body);
-        }
-        PopScope();
-        if (isMethod) {
+        string previousReturnType = _currentReturnType;
+        _currentReturnType = fnDecl.ReturnType;
+        try {
+          PushScope();
+          foreach (var param in fnDecl.Parameters) {
+            DeclareVariable(param.Identifier, param.Typing);
+          }
+          if (fnDecl.Body != null) {
+            CheckStatement(fnDecl.Body);
+          }
           PopScope();
+          if (isMethod) {
+            PopScope();
+          }
+          InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
+        } finally {
+          _currentReturnType = previousReturnType;
         }
-        InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
 
         foreach (var name in tempDecls) {
           _interfaces.Remove(name);
@@ -186,6 +192,7 @@ public partial class Checker {
 
       case ReturnStatement ret:
         if (ret.Argument != null) {
+          InferType(ret.Argument, _currentReturnType);
           CheckExpression(ret.Argument);
         }
         break;
@@ -361,6 +368,15 @@ public partial class Checker {
         break;
 
       case VariantPattern varPat:
+        {
+          string patternUnionName = varPat.UnionName;
+          var baseUnion = FindUnion(patternUnionName);
+          if (baseUnion != null && baseUnion.GenericParams != null && baseUnion.GenericParams.Count > 0) {
+            if (targetType.StartsWith(patternUnionName + "_")) {
+              varPat.UnionName = targetType;
+            }
+          }
+        }
         var unionDecl = FindUnion(varPat.UnionName);
         if (unionDecl == null) {
           var enumDecl = FindEnum(varPat.UnionName);

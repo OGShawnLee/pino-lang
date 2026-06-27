@@ -72,8 +72,7 @@ public partial class Parser {
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to enum declarations");
           return ParseEnumDeclaration(stream, isPublic);
         case KeywordType.Union:
-          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to union declarations in Phase 1");
-          return ParseUnionDeclaration(stream, isPublic);
+          return ParseUnionDeclaration(stream, genericParams, isPublic);
         case KeywordType.Module:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'module' declaration");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to module declarations");
@@ -482,12 +481,33 @@ public partial class Parser {
     return new WhenStatement(conditions, body);
   }
 
-  private static UnionDeclaration ParseUnionDeclaration(TokenStream stream, bool isPublic = false) {
+  private static UnionDeclaration ParseUnionDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics, bool isPublic = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Union)) {
       throw new Exception("PARSER: Expected 'union' keyword");
     }
 
     var identifier = ConsumeIdentifier(stream);
+    List<GenericParam>? genericParams = decoratorGenerics;
+
+    if (genericParams == null && stream.Current.IsMarker(MarkerType.BracketBegin)) {
+      stream.Consume(); // consume '['
+      genericParams = new List<GenericParam>();
+      while (!stream.Current.IsMarker(MarkerType.BracketEnd)) {
+        var name = ConsumeIdentifier(stream);
+        string? constraint = null;
+        if (stream.Current.IsKeyword(KeywordType.Is)) {
+          stream.Consume(); // consume 'is'
+          constraint = ConsumeTyping(stream);
+        }
+        genericParams.Add(new GenericParam(name, constraint));
+        if (stream.Current.IsMarker(MarkerType.Comma)) {
+          stream.Consume();
+        }
+      }
+      if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+        throw new Exception("PARSER: Expected ']' to close generic parameters");
+      }
+    }
 
     if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
       throw new Exception("PARSER: Expected '{' after union identifier");
@@ -524,7 +544,7 @@ public partial class Parser {
       }
     }
 
-    return new UnionDeclaration(identifier, variants, IsPublic: isPublic);
+    return new UnionDeclaration(identifier, variants, genericParams, IsPublic: isPublic);
   }
 
   private static Pattern ParsePattern(TokenStream stream) {

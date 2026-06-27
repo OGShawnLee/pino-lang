@@ -208,6 +208,12 @@ public partial class Checker {
               string structName = structId.Name;
               var staticAccessUnionDecl = FindUnion(structName);
               if (staticAccessUnionDecl != null) {
+                if (staticAccessUnionDecl.GenericParams != null && staticAccessUnionDecl.GenericParams.Count > 0) {
+                  InferType(bin);
+                  structName = structId.Name;
+                  staticAccessUnionDecl = FindUnion(structName);
+                }
+
                 if (bin.Right is FunctionCallExpression methodCall) {
                   var variant = staticAccessUnionDecl.Variants.Find(v => v.Identifier == methodCall.Callee);
                   if (variant == null) {
@@ -411,12 +417,18 @@ public partial class Checker {
   }
 
   private string InferType(Expression expr) {
-    string type = InferTypeInternal(expr);
+    string type = InferTypeInternal(expr, "");
     expr.InferredType = type;
     return type;
   }
 
-  private string InferTypeInternal(Expression expr) {
+  private string InferType(Expression expr, string expectedType) {
+    string type = InferTypeInternal(expr, expectedType);
+    expr.InferredType = type;
+    return type;
+  }
+
+  private string InferTypeInternal(Expression expr, string expectedType) {
     switch (expr) {
       case LiteralExpression lit:
         return lit.LiteralType switch {
@@ -587,21 +599,42 @@ public partial class Checker {
             }
             var unionDecl = FindUnion(modName);
             if (unionDecl != null) {
-              if (bin.Right is FunctionCallExpression methodCall) {
-                var variant = unionDecl.Variants.Find(v => v.Identifier == methodCall.Callee);
-                if (variant == null) {
-                  throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodCall.Callee}'.");
+              if (unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) {
+                if (bin.Right is FunctionCallExpression methodCall) {
+                  var variant = unionDecl.Variants.Find(v => v.Identifier == methodCall.Callee);
+                  if (variant == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodCall.Callee}'.");
+                  }
+                  var staticCallArgTypes = methodCall.Arguments.Select(arg => InferType(arg)).ToList();
+                  string specUnionName = MonomorphizeUnionAccess(unionDecl, methodCall.Callee, staticCallArgTypes, expectedType);
+                  modId.Name = specUnionName;
+                  return specUnionName;
+                } else if (bin.Right is IdentifierExpression methodId) {
+                  var variant = unionDecl.Variants.Find(v => v.Identifier == methodId.Name);
+                  if (variant == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodId.Name}'.");
+                  }
+                  string specUnionName = MonomorphizeUnionAccess(unionDecl, methodId.Name, new List<string>(), expectedType);
+                  modId.Name = specUnionName;
+                  return specUnionName;
                 }
-                return modName;
-              } else if (bin.Right is IdentifierExpression methodId) {
-                var variant = unionDecl.Variants.Find(v => v.Identifier == methodId.Name);
-                if (variant == null) {
-                  throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodId.Name}'.");
+              } else {
+                if (bin.Right is FunctionCallExpression methodCall) {
+                  var variant = unionDecl.Variants.Find(v => v.Identifier == methodCall.Callee);
+                  if (variant == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodCall.Callee}'.");
+                  }
+                  return modName;
+                } else if (bin.Right is IdentifierExpression methodId) {
+                  var variant = unionDecl.Variants.Find(v => v.Identifier == methodId.Name);
+                  if (variant == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodId.Name}'.");
+                  }
+                  if (variant.AssociatedTypes.Count > 0) {
+                    return $"fn({string.Join(", ", variant.AssociatedTypes)}) {modName}";
+                  }
+                  return modName;
                 }
-                if (variant.AssociatedTypes.Count > 0) {
-                  return $"fn({string.Join(", ", variant.AssociatedTypes)}) {modName}";
-                }
-                return modName;
               }
               return "any";
             }

@@ -13,6 +13,7 @@ public partial class Checker {
   private readonly Dictionary<string, FunctionDeclaration> _functions = new();
   private readonly List<StructDeclaration> _specializedStructs = new();
   private readonly List<FunctionDeclaration> _specializedFunctions = new();
+  private readonly List<UnionDeclaration> _specializedUnions = new();
 
   public bool IsModule { get; set; } = false;
 
@@ -22,6 +23,7 @@ public partial class Checker {
   // Context for current struct and method being checked
   private StructDeclaration? _currentStruct = null;
   private bool _inStaticMethod = false;
+  private string _currentReturnType = "";
 
   // Cache of checked modules to prevent double-checking
   private readonly Dictionary<string, Checker> _moduleCheckers = new();
@@ -109,6 +111,7 @@ public partial class Checker {
       PushScope();
       _specializedStructs.Clear();
       _specializedFunctions.Clear();
+      _specializedUnions.Clear();
 
       // Pass 1: Gather global symbols
       foreach (var stmt in program.Statements) {
@@ -167,6 +170,7 @@ public partial class Checker {
 
       program.Statements.InsertRange(0, _specializedStructs);
       program.Statements.InsertRange(0, _specializedFunctions);
+      program.Statements.InsertRange(0, _specializedUnions);
 
       PopScope();
     } finally {
