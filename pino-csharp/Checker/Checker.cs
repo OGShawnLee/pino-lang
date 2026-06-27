@@ -145,6 +145,7 @@ public partial class Checker {
               stmt is InterfaceDeclaration ||
               stmt is EnumDeclaration ||
               stmt is FunctionDeclaration ||
+              stmt is UnionDeclaration ||
               stmt is ImportStatement ||
               stmt is FromImportStatement ||
               stmt is ModuleDeclaration) {
