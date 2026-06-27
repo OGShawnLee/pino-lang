@@ -81,7 +81,7 @@ public partial class Checker {
         try {
           PushScope();
           foreach (var param in fnDecl.Parameters) {
-            DeclareVariable(param.Identifier, param.Typing);
+            DeclareVariable(param.Identifier, NormalizeType(param.Typing));
           }
           if (fnDecl.Body != null) {
             CheckStatement(fnDecl.Body);
@@ -408,6 +408,7 @@ public partial class Checker {
 
       case VariantPattern varPat:
         {
+          targetType = NormalizeType(targetType);
           string patternUnionName = varPat.UnionName;
           var baseUnion = FindUnion(patternUnionName);
           if (baseUnion != null && baseUnion.GenericParams != null && baseUnion.GenericParams.Count > 0) {

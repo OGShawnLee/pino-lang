@@ -118,4 +118,30 @@ public partial class CheckerTests {
     ";
     CheckCode(input);
   }
+
+  [Fact]
+  public void TestUnionGenericAsParameter() {
+    var input = @"
+      @generic[T]
+      union Container {
+        Value(T)
+      }
+      fn use_container(c Container[int]) {}
+      use_container(Container::Value(42))
+    ";
+    CheckCode(input);
+  }
+
+    [Fact]
+  public void TestUnionGenericAsParameterThrows() {
+    var input = @"
+      @generic[T]
+      union Container {
+        Value(T)
+      }
+      fn use_container(c Container[int]) {}
+      use_container(Container::Value(""not an int""))
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
 }
