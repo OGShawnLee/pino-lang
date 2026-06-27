@@ -91,7 +91,7 @@ public partial class Evaluator {
           consolidatedMethods.Add(method);
         }
 
-        var @struct = new PinoStruct(structDecl.Identifier, consolidatedFields, consolidatedMethods, structDecl.InheritedStructs);
+        var @struct = new PinoStruct(structDecl.Identifier, consolidatedFields, consolidatedMethods, structDecl.InheritedStructs, env);
         env.Define(structDecl.Identifier, @struct, true);
         if (structDecl.IsPublic) {
           env.PublicExports.Add(structDecl.Identifier);

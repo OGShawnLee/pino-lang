@@ -845,6 +845,11 @@ public partial class Checker {
     }
 
     _inferringFunctions.Add(fnKey);
+    var savedScopes = new List<Dictionary<string, string>>();
+    while (_scopes.Count > 1) {
+      savedScopes.Add(_scopes.Pop());
+    }
+
     try {
       if (!string.IsNullOrEmpty(fn.ReturnType)) {
         if (fn.Body == null) {
@@ -936,6 +941,9 @@ public partial class Checker {
       PopScope();
       return firstRetType;
     } finally {
+      for (int i = savedScopes.Count - 1; i >= 0; i--) {
+        _scopes.Push(savedScopes[i]);
+      }
       _inferringFunctions.Remove(fnKey);
     }
   }

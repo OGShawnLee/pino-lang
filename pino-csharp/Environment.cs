@@ -35,6 +35,14 @@ public class Environment {
   }
 
   public void Assign(string name, object? value) {
+    if (this is StructMethodEnvironment structEnv && structEnv.Instance.Fields.ContainsKey(name)) {
+      structEnv.Instance.Fields[name] = value;
+      if (_values.TryGetValue(name, out var b)) {
+        b.Value = value;
+      }
+      return;
+    }
+
     if (_values.TryGetValue(name, out var box)) {
       if (box.IsConstant) {
         throw new Exception($"RUNTIME ERROR: Cannot reassign constant variable '{name}'.");
@@ -52,6 +60,10 @@ public class Environment {
   }
 
   public object? Get(string name) {
+    if (this is StructMethodEnvironment structEnv && structEnv.Instance.Fields.TryGetValue(name, out var fieldVal)) {
+      return fieldVal;
+    }
+
     if (_values.TryGetValue(name, out var box)) {
       return box.Value;
     }
@@ -76,18 +88,30 @@ public class Environment {
   }
 
   public bool Exists(string name) {
+    if (this is StructMethodEnvironment structEnv && structEnv.Instance.Fields.ContainsKey(name)) return true;
     if (_values.ContainsKey(name)) return true;
     if (_parent != null) return _parent.Exists(name);
     return false;
   }
 
   public object? GetAt(int distance, string name) {
-    if (distance == 0) return _values[name].Value;
-    return Ancestor(distance)._values[name].Value;
+    var ancestor = distance == 0 ? this : Ancestor(distance);
+    if (ancestor is StructMethodEnvironment structEnv && structEnv.Instance.Fields.TryGetValue(name, out var fieldVal)) {
+      return fieldVal;
+    }
+    return ancestor._values[name].Value;
   }
 
   public void AssignAt(int distance, string name, object? value) {
     var ancestor = distance == 0 ? this : Ancestor(distance);
+    if (ancestor is StructMethodEnvironment structEnv && structEnv.Instance.Fields.ContainsKey(name)) {
+      structEnv.Instance.Fields[name] = value;
+      if (ancestor._values.TryGetValue(name, out var b)) {
+        b.Value = value;
+      }
+      return;
+    }
+
     var box = ancestor._values[name];
     if (box.IsConstant) {
       throw new Exception($"RUNTIME ERROR: Cannot reassign constant variable '{name}'.");
@@ -96,6 +120,7 @@ public class Environment {
   }
 
   public bool ExistsLocally(string name) {
+    if (this is StructMethodEnvironment structEnv && structEnv.Instance.Fields.ContainsKey(name)) return true;
     return _values.ContainsKey(name);
   }
 
@@ -104,6 +129,7 @@ public class Environment {
   }
 
   public Environment? FindEnvDefining(string name) {
+    if (this is StructMethodEnvironment structEnv && structEnv.Instance.Fields.ContainsKey(name)) return this;
     if (_values.ContainsKey(name)) return this;
     return _parent?.FindEnvDefining(name);
   }
@@ -114,5 +140,13 @@ public class Environment {
       environment = environment._parent ?? throw new Exception($"RUNTIME ERROR: Scope ancestor at distance {distance} not found.");
     }
     return environment;
+  }
+}
+
+public class StructMethodEnvironment : Environment {
+  public PinoStructInstance Instance { get; }
+
+  public StructMethodEnvironment(Environment? parent, PinoStructInstance instance) : base(parent) {
+    Instance = instance;
   }
 }

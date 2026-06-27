@@ -293,7 +293,7 @@ public partial class Evaluator {
         }
 
         // Create a method closure environment that has access to all struct instance fields directly
-        var methodEnv = new Environment(env);
+        var methodEnv = new StructMethodEnvironment(instance.Struct.DefiningEnvironment, instance);
         foreach (var field in instance.Fields) {
           methodEnv.Define(field.Key, field.Value, false);
         }
@@ -305,11 +305,6 @@ public partial class Evaluator {
         var methodArgsList = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
         var result = callableFunc.Call(this, methodArgsList);
 
-        // Copy back modified fields to struct instance
-        foreach (var fieldKey in instance.Fields.Keys.ToList()) {
-          instance.Fields[fieldKey] = methodEnv.Get(fieldKey);
-        }
-
         return result;
       }
 
@@ -320,7 +315,7 @@ public partial class Evaluator {
         }
         var methodDecl = instance.Struct.Methods.Find(m => m.Identifier == propId.Name && !m.IsStatic);
         if (methodDecl != null) {
-          return new PinoBoundMethod(instance, methodDecl, env);
+          return new PinoBoundMethod(instance, methodDecl, instance.Struct.DefiningEnvironment);
         }
         throw new Exception($"RUNTIME ERROR: Struct '{instance.Struct.Name}' has no property or instance method '{propId.Name}'.");
       }
@@ -717,7 +712,7 @@ public partial class Evaluator {
         if (methodDecl == null) {
           throw new Exception($"RUNTIME ERROR: Struct '{structDef.Name}' has no static method '{methodCall.Callee}'.");
         }
-        var callable = new PinoFunction(methodDecl, env);
+        var callable = new PinoFunction(methodDecl, structDef.DefiningEnvironment);
         var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
         return callable.Call(this, methodArgs);
       }
@@ -727,7 +722,7 @@ public partial class Evaluator {
         if (methodDecl == null) {
           throw new Exception($"RUNTIME ERROR: Struct '{structDef.Name}' has no static method '{memberId.Name}'.");
         }
-        return new PinoFunction(methodDecl, env);
+        return new PinoFunction(methodDecl, structDef.DefiningEnvironment);
       }
 
       throw new Exception("RUNTIME ERROR: Right side of '::' for a struct must be a static method name or static method call.");

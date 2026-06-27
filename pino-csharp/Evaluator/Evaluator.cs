@@ -69,7 +69,7 @@ public class PinoBoundMethod : IPinoCallable {
   public int Arity => Declaration.Parameters.Count;
 
   public object? Call(Evaluator evaluator, List<object?> arguments) {
-    var methodEnv = new Environment(_closure);
+    var methodEnv = new StructMethodEnvironment(_closure, Instance);
     foreach (var field in Instance.Fields) {
       methodEnv.Define(field.Key, field.Value, false);
     }
@@ -79,11 +79,6 @@ public class PinoBoundMethod : IPinoCallable {
 
     var callable = new PinoFunction(Declaration, methodEnv);
     var result = callable.Call(evaluator, arguments);
-
-    // Copy back modified fields to struct instance
-    foreach (var fieldKey in Instance.Fields.Keys.ToList()) {
-      Instance.Fields[fieldKey] = methodEnv.Get(fieldKey);
-    }
 
     return result;
   }
@@ -124,12 +119,14 @@ public class PinoStruct {
   public List<VariableDeclaration> Fields { get; }
   public List<FunctionDeclaration> Methods { get; }
   public List<string> InheritedStructs { get; }
+  public Environment DefiningEnvironment { get; }
 
-  public PinoStruct(string name, List<VariableDeclaration> fields, List<FunctionDeclaration> methods, List<string> inheritedStructs) {
+  public PinoStruct(string name, List<VariableDeclaration> fields, List<FunctionDeclaration> methods, List<string> inheritedStructs, Environment definingEnvironment) {
     Name = name;
     Fields = fields;
     Methods = methods;
     InheritedStructs = inheritedStructs;
+    DefiningEnvironment = definingEnvironment;
   }
 }
 
