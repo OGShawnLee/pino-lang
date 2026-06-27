@@ -71,6 +71,9 @@ public partial class Parser {
         case KeywordType.Enum:
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to enum declarations");
           return ParseEnumDeclaration(stream, isPublic);
+        case KeywordType.Union:
+          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to union declarations in Phase 1");
+          return ParseUnionDeclaration(stream, isPublic);
         case KeywordType.Module:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'module' declaration");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to module declarations");
@@ -461,9 +464,9 @@ public partial class Parser {
       throw new Exception("PARSER: Expected 'when' keyword");
     }
 
-    var conditions = new List<Expression>();
+    var conditions = new List<Pattern>();
     while (stream.HasNext) {
-      conditions.Add(ParseExpression(stream, false));
+      conditions.Add(ParsePattern(stream));
 
       if (stream.Current.IsMarker(MarkerType.Comma)) {
         stream.Consume();
@@ -477,6 +480,96 @@ public partial class Parser {
 
     var body = ParseBlock(stream);
     return new WhenStatement(conditions, body);
+  }
+
+  private static UnionDeclaration ParseUnionDeclaration(TokenStream stream, bool isPublic = false) {
+    if (!stream.Consume().IsKeyword(KeywordType.Union)) {
+      throw new Exception("PARSER: Expected 'union' keyword");
+    }
+
+    var identifier = ConsumeIdentifier(stream);
+
+    if (!stream.Consume().IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{' after union identifier");
+    }
+
+    var variants = new List<UnionVariant>();
+    while (true) {
+      if (stream.Current.IsMarker(MarkerType.BlockEnd)) {
+        stream.Consume();
+        break;
+      }
+
+      var variantName = ConsumeIdentifier(stream);
+      var associatedTypes = new List<string>();
+
+      if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+        stream.Consume(); // consume '('
+        while (stream.HasNext && !stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+          associatedTypes.Add(ConsumeTyping(stream));
+          if (stream.Current.IsMarker(MarkerType.Comma)) {
+            stream.Consume();
+          }
+        }
+        if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
+          throw new Exception($"PARSER: Expected ')' in union variant '{variantName}'");
+        }
+      }
+
+      variants.Add(new UnionVariant(variantName, associatedTypes));
+
+      // Optional comma or newline separation between variants
+      if (stream.Current.IsMarker(MarkerType.Comma)) {
+        stream.Consume();
+      }
+    }
+
+    return new UnionDeclaration(identifier, variants, IsPublic: isPublic);
+  }
+
+  private static Pattern ParsePattern(TokenStream stream) {
+    if (stream.Current.Type == TokenType.Identifier) {
+      var id = stream.Current.Data;
+      
+      // Check if it's a static member access (VariantPattern like Entity::Person)
+      if (stream.Peek(1).IsOperator(OperatorType.StaticMemberAccess)) {
+        stream.Consume(); // consume id (UnionName)
+        stream.Consume(); // consume '::'
+        
+        var variantName = ConsumeIdentifier(stream);
+        var subPatterns = new List<Pattern>();
+        
+        if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+          stream.Consume(); // consume '('
+          while (stream.HasNext && !stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+            subPatterns.Add(ParsePattern(stream));
+            if (stream.Current.IsMarker(MarkerType.Comma)) {
+              stream.Consume();
+            }
+          }
+          if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
+            throw new Exception($"PARSER: Expected ')' in variant pattern '{id}::{variantName}'");
+          }
+        }
+        
+        return new VariantPattern(id, variantName, subPatterns);
+      }
+      
+      // Check if it's boolean literal
+      if (id == "true" || id == "false") {
+        var token = stream.Consume();
+        var lit = new LiteralExpression(token.Data, LiteralType.Boolean);
+        return new LiteralPattern(lit);
+      }
+      
+      // Otherwise it is an identifier binding
+      stream.Consume(); // consume the identifier
+      return new IdentifierPattern(id);
+    }
+    
+    // Otherwise parse it as a literal expression pattern
+    var expr = ParseExpression(stream, false);
+    return new LiteralPattern(expr);
   }
 
   private static BlockStatement ParseBlock(TokenStream stream) {

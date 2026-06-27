@@ -145,6 +145,58 @@ public class PinoStructInstance {
   }
 }
 
+// Union Definition
+public class PinoUnion {
+  public string Name { get; }
+  public List<UnionVariant> Variants { get; }
+  public PinoUnion(string name, List<UnionVariant> variants) {
+    Name = name;
+    Variants = variants;
+  }
+}
+
+// Union Variant Constructor
+public class PinoUnionConstructor : IPinoCallable {
+  public string UnionName { get; }
+  public string VariantName { get; }
+  public int Arity { get; }
+
+  public PinoUnionConstructor(string unionName, string variantName, int arity) {
+    UnionName = unionName;
+    VariantName = variantName;
+    Arity = arity;
+  }
+
+  public object? Call(Evaluator evaluator, List<object?> arguments) {
+    return new PinoUnionValue(UnionName, VariantName, arguments);
+  }
+
+  public override string ToString() {
+    return $"<union constructor {UnionName}::{VariantName}>";
+  }
+}
+
+// Union Value representation
+public class PinoUnionValue {
+  public string UnionName { get; }
+  public string VariantName { get; }
+  public List<object?> Payload { get; }
+
+  public PinoUnionValue(string unionName, string variantName, List<object?> payload) {
+    UnionName = unionName;
+    VariantName = variantName;
+    Payload = payload;
+  }
+
+  public override string ToString() {
+    if (Payload.Count == 0) {
+      return $"{UnionName}::{VariantName}";
+    }
+    var payloadStr = string.Join(", ", Payload.Select(p => p?.ToString() ?? "null"));
+    return $"{UnionName}::{VariantName}({payloadStr})";
+  }
+}
+
 // Enum Definition
 public class PinoEnum {
   public string Name { get; }

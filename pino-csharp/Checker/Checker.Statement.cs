@@ -160,6 +160,8 @@ public partial class Checker {
         break;
 
       case InterfaceDeclaration:
+      case EnumDeclaration:
+      case UnionDeclaration:
         break;
 
       case BlockStatement block:
@@ -248,12 +250,23 @@ public partial class Checker {
         break;
 
       case MatchStatement match:
+        string condType = InferType(match.Condition);
         CheckExpression(match.Condition);
         foreach (var branch in match.Branches) {
+          PushScope();
           foreach (var cond in branch.Conditions) {
-            CheckExpression(cond);
+            CheckPattern(cond, condType);
           }
-          CheckStatement(branch.Body);
+          if (branch.Body is BlockStatement block) {
+            PushScope();
+            foreach (var s in block.Statements) {
+              CheckStatement(s);
+            }
+            PopScope();
+          } else {
+            CheckStatement(branch.Body);
+          }
+          PopScope();
         }
         if (match.Alternate != null) {
           CheckStatement(match.Alternate);
@@ -331,5 +344,54 @@ public partial class Checker {
       if (System.Text.RegularExpressions.Regex.IsMatch(typing, pattern)) return true;
     }
     return false;
+  }
+
+  private void CheckPattern(Pattern pattern, string targetType) {
+    switch (pattern) {
+      case LiteralPattern lit:
+        CheckExpression(lit.Value);
+        string litType = InferType(lit.Value);
+        if (!IsCompatible(litType, targetType)) {
+          throw new Exception($"TYPE CHECK ERROR: Match pattern literal type '{litType}' is not compatible with condition type '{targetType}'.");
+        }
+        break;
+
+      case IdentifierPattern id:
+        DeclareVariable(id.Name, targetType);
+        break;
+
+      case VariantPattern varPat:
+        var unionDecl = FindUnion(varPat.UnionName);
+        if (unionDecl == null) {
+          var enumDecl = FindEnum(varPat.UnionName);
+          if (enumDecl != null) {
+            if (!enumDecl.Members.Contains(varPat.VariantName)) {
+              throw new Exception($"TYPE CHECK ERROR: Enum '{varPat.UnionName}' has no member '{varPat.VariantName}'.");
+            }
+            if (varPat.SubPatterns.Count > 0) {
+              throw new Exception($"TYPE CHECK ERROR: Enum member '{varPat.VariantName}' cannot have associated values.");
+            }
+            if (!IsCompatible(varPat.UnionName, targetType)) {
+              throw new Exception($"TYPE CHECK ERROR: Cannot match enum member of type '{varPat.UnionName}' against condition of type '{targetType}'.");
+            }
+            break;
+          }
+          throw new Exception($"TYPE CHECK ERROR: Union '{varPat.UnionName}' is not defined.");
+        }
+        if (!IsCompatible(varPat.UnionName, targetType)) {
+          throw new Exception($"TYPE CHECK ERROR: Cannot match union pattern of type '{varPat.UnionName}' against condition of type '{targetType}'.");
+        }
+        var variant = unionDecl.Variants.Find(v => v.Identifier == varPat.VariantName);
+        if (variant == null) {
+          throw new Exception($"TYPE CHECK ERROR: Union '{varPat.UnionName}' has no variant '{varPat.VariantName}'.");
+        }
+        if (varPat.SubPatterns.Count != variant.AssociatedTypes.Count) {
+          throw new Exception($"TYPE CHECK ERROR: Union variant '{varPat.VariantName}' expects {variant.AssociatedTypes.Count} subpatterns, but pattern has {varPat.SubPatterns.Count}.");
+        }
+        for (int i = 0; i < varPat.SubPatterns.Count; i++) {
+          CheckPattern(varPat.SubPatterns[i], variant.AssociatedTypes[i]);
+        }
+        break;
+    }
   }
 }

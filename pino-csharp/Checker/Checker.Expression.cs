@@ -206,53 +206,82 @@ public partial class Checker {
           } else if (bin.Operator == OperatorType.StaticMemberAccess) {
             if (bin.Left is IdentifierExpression structId) {
               string structName = structId.Name;
-              var staticAccessStructDecl = FindStruct(structName);
-              if (staticAccessStructDecl != null) {
-                ResolveStructMembers(structName, out var _, out var allMethods);
+              var staticAccessUnionDecl = FindUnion(structName);
+              if (staticAccessUnionDecl != null) {
                 if (bin.Right is FunctionCallExpression methodCall) {
-                  var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
-                  if (method == null) {
-                    throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodCall.Callee}'.");
+                  var variant = staticAccessUnionDecl.Variants.Find(v => v.Identifier == methodCall.Callee);
+                  if (variant == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Union '{structName}' has no variant '{methodCall.Callee}'.");
                   }
-                  if (!method.IsStatic) {
-                    throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                  foreach (var arg in methodCall.Arguments) {
+                    CheckExpression(arg);
                   }
-
-                  ResolveImplicitLambdas(methodCall.Arguments, method.Parameters, method.GenericParams, methodCall.GenericArgs);
-                  
-                  if (method.GenericParams != null && method.GenericParams.Count > 0) {
-                    foreach (var arg in methodCall.Arguments) {
-                      CheckExpression(arg);
-                    }
-                    MonomorphizeMethodCall(staticAccessStructDecl, methodCall);
-                    method = staticAccessStructDecl.Methods.Find(m => m.Identifier == methodCall.Callee) ?? method;
-                  } else {
-                    foreach (var arg in methodCall.Arguments) {
-                      CheckExpression(arg);
-                    }
-                  }
-
-                  // Validate arguments
                   var staticCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
-                  if (method.Parameters.Count != staticCallArgTypes.Count) {
-                    throw new Exception($"TYPE CHECK ERROR: Static method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {staticCallArgTypes.Count}.");
+                  if (variant.AssociatedTypes.Count != staticCallArgTypes.Count) {
+                    throw new Exception($"TYPE CHECK ERROR: Variant constructor '{methodCall.Callee}' of union '{structName}' expected {variant.AssociatedTypes.Count} arguments, but got {staticCallArgTypes.Count}.");
                   }
-                  for (int i = 0; i < method.Parameters.Count; i++) {
-                    if (!IsCompatible(staticCallArgTypes[i], method.Parameters[i].Typing)) {
-                      throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for static method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{staticCallArgTypes[i]}'.");
+                  for (int i = 0; i < variant.AssociatedTypes.Count; i++) {
+                    if (!IsCompatible(staticCallArgTypes[i], variant.AssociatedTypes[i])) {
+                      throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for variant constructor '{methodCall.Callee}' expected type '{variant.AssociatedTypes[i]}', but got '{staticCallArgTypes[i]}'.");
                     }
                   }
                 } else if (bin.Right is IdentifierExpression methodId) {
-                  CheckExpression(bin.Right);
-                  var method = allMethods.Find(m => m.Identifier == methodId.Name);
-                  if (method == null) {
-                    throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodId.Name}'.");
-                  }
-                  if (!method.IsStatic) {
-                    throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                  var variant = staticAccessUnionDecl.Variants.Find(v => v.Identifier == methodId.Name);
+                  if (variant == null) {
+                    throw new Exception($"TYPE CHECK ERROR: Union '{structName}' has no variant '{methodId.Name}'.");
                   }
                 } else {
-                  throw new Exception($"TYPE CHECK ERROR: Invalid static member access on struct '{structName}'.");
+                  throw new Exception($"TYPE CHECK ERROR: Invalid static variant access on union '{structName}'.");
+                }
+              } else {
+                var staticAccessStructDecl = FindStruct(structName);
+                if (staticAccessStructDecl != null) {
+                  ResolveStructMembers(structName, out var _, out var allMethods);
+                  if (bin.Right is FunctionCallExpression methodCall) {
+                    var method = allMethods.Find(m => m.Identifier == methodCall.Callee);
+                    if (method == null) {
+                      throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodCall.Callee}'.");
+                    }
+                    if (!method.IsStatic) {
+                      throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                    }
+
+                    ResolveImplicitLambdas(methodCall.Arguments, method.Parameters, method.GenericParams, methodCall.GenericArgs);
+                    
+                    if (method.GenericParams != null && method.GenericParams.Count > 0) {
+                      foreach (var arg in methodCall.Arguments) {
+                        CheckExpression(arg);
+                      }
+                      MonomorphizeMethodCall(staticAccessStructDecl, methodCall);
+                      method = staticAccessStructDecl.Methods.Find(m => m.Identifier == methodCall.Callee) ?? method;
+                    } else {
+                      foreach (var arg in methodCall.Arguments) {
+                        CheckExpression(arg);
+                      }
+                    }
+
+                    // Validate arguments
+                    var staticCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                    if (method.Parameters.Count != staticCallArgTypes.Count) {
+                      throw new Exception($"TYPE CHECK ERROR: Static method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {staticCallArgTypes.Count}.");
+                    }
+                    for (int i = 0; i < method.Parameters.Count; i++) {
+                      if (!IsCompatible(staticCallArgTypes[i], method.Parameters[i].Typing)) {
+                        throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for static method '{method.Identifier}' expected type '{method.Parameters[i].Typing}', but got '{staticCallArgTypes[i]}'.");
+                      }
+                    }
+                  } else if (bin.Right is IdentifierExpression methodId) {
+                    CheckExpression(bin.Right);
+                    var method = allMethods.Find(m => m.Identifier == methodId.Name);
+                    if (method == null) {
+                      throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodId.Name}'.");
+                    }
+                    if (!method.IsStatic) {
+                      throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' of struct '{structName}' is not static.");
+                    }
+                  } else {
+                    throw new Exception($"TYPE CHECK ERROR: Invalid static member access on struct '{structName}'.");
+                  }
                 }
               }
             }
@@ -555,6 +584,26 @@ public partial class Checker {
             string modName = modId.Name;
             if (FindEnum(modName) != null) {
               return modName;
+            }
+            var unionDecl = FindUnion(modName);
+            if (unionDecl != null) {
+              if (bin.Right is FunctionCallExpression methodCall) {
+                var variant = unionDecl.Variants.Find(v => v.Identifier == methodCall.Callee);
+                if (variant == null) {
+                  throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodCall.Callee}'.");
+                }
+                return modName;
+              } else if (bin.Right is IdentifierExpression methodId) {
+                var variant = unionDecl.Variants.Find(v => v.Identifier == methodId.Name);
+                if (variant == null) {
+                  throw new Exception($"TYPE CHECK ERROR: Union '{modName}' has no variant '{methodId.Name}'.");
+                }
+                if (variant.AssociatedTypes.Count > 0) {
+                  return $"fn({string.Join(", ", variant.AssociatedTypes)}) {modName}";
+                }
+                return modName;
+              }
+              return "any";
             }
             var structDecl = FindStruct(modName);
             if (structDecl != null) {

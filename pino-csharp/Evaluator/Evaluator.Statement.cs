@@ -110,6 +110,14 @@ public partial class Evaluator {
         // Checked statically by Checker, ignored during execution.
         break;
 
+      case UnionDeclaration unionDecl:
+        var union = new PinoUnion(unionDecl.Identifier, unionDecl.Variants);
+        env.Define(unionDecl.Identifier, union, true);
+        if (unionDecl.IsPublic) {
+          env.PublicExports.Add(unionDecl.Identifier);
+        }
+        break;
+
       case ModuleDeclaration:
         // Handled during load/resolution, ignored during sequential execution.
         break;
@@ -240,10 +248,14 @@ public partial class Evaluator {
     bool matched = false;
 
     foreach (var branch in match.Branches) {
-      foreach (var condExpr in branch.Conditions) {
-        var condVal = Evaluate(condExpr, env);
-        if (Equals(matchVal, condVal)) {
-          Execute(branch.Body, env);
+      foreach (var condPattern in branch.Conditions) {
+        var bindings = new Dictionary<string, object?>();
+        if (MatchPattern(condPattern, matchVal, env, bindings)) {
+          var branchEnv = new Environment(env);
+          foreach (var bind in bindings) {
+            branchEnv.Define(bind.Key, bind.Value, false);
+          }
+          Execute(branch.Body, branchEnv);
           matched = true;
           break;
         }
@@ -308,6 +320,40 @@ public partial class Evaluator {
       return pinoModule;
     } finally {
       _currentlyLoadingModules.Remove(moduleName);
+    }
+  }
+
+  private bool MatchPattern(Pattern pattern, object? value, Environment env, Dictionary<string, object?> bindings) {
+    switch (pattern) {
+      case LiteralPattern lit:
+        var litVal = Evaluate(lit.Value, env);
+        return Equals(value, litVal);
+
+      case IdentifierPattern id:
+        bindings[id.Name] = value;
+        return true;
+
+      case VariantPattern varPat:
+        if (value is PinoEnumValue enumVal) {
+          return enumVal.EnumName == varPat.UnionName && enumVal.Member == varPat.VariantName;
+        }
+        if (value is PinoUnionValue unionVal) {
+          if (unionVal.UnionName == varPat.UnionName && unionVal.VariantName == varPat.VariantName) {
+            if (varPat.SubPatterns.Count != unionVal.Payload.Count) {
+              return false;
+            }
+            for (int i = 0; i < varPat.SubPatterns.Count; i++) {
+              if (!MatchPattern(varPat.SubPatterns[i], unionVal.Payload[i], env, bindings)) {
+                return false;
+              }
+            }
+            return true;
+          }
+        }
+        return false;
+
+      default:
+        return false;
     }
   }
 }

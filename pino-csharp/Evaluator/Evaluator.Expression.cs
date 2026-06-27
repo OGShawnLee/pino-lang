@@ -736,7 +736,31 @@ public partial class Evaluator {
       return new PinoEnumValue(pinoEnum.Name, memberNameEnum);
     }
 
-    throw new Exception($"RUNTIME ERROR: Target is neither a module, struct, nor an enum.");
+    if (leftVal is PinoUnion unionDef) {
+      if (rightExpr is FunctionCallExpression methodCall) {
+        var variant = unionDef.Variants.Find(v => v.Identifier == methodCall.Callee);
+        if (variant == null) {
+          throw new Exception($"RUNTIME ERROR: Union '{unionDef.Name}' has no variant '{methodCall.Callee}'.");
+        }
+        var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
+        return new PinoUnionValue(unionDef.Name, variant.Identifier, methodArgs);
+      }
+
+      if (rightExpr is IdentifierExpression memberId) {
+        var variant = unionDef.Variants.Find(v => v.Identifier == memberId.Name);
+        if (variant == null) {
+          throw new Exception($"RUNTIME ERROR: Union '{unionDef.Name}' has no variant '{memberId.Name}'.");
+        }
+        if (variant.AssociatedTypes.Count > 0) {
+          return new PinoUnionConstructor(unionDef.Name, variant.Identifier, variant.AssociatedTypes.Count);
+        }
+        return new PinoUnionValue(unionDef.Name, variant.Identifier, new List<object?>());
+      }
+
+      throw new Exception("RUNTIME ERROR: Right side of '::' for a union must be a variant constructor or variant value.");
+    }
+
+    throw new Exception($"RUNTIME ERROR: Target is neither a module, struct, union, nor an enum.");
   }
 
   private bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;

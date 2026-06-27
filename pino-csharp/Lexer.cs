@@ -30,7 +30,8 @@ public class Lexer {
         { "struct", KeywordType.Struct },
         { "then", KeywordType.Then },
         { "var", KeywordType.Variable },
-        { "when", KeywordType.When }
+        { "when", KeywordType.When },
+        { "union", KeywordType.Union }
     };
 
   private static readonly Dictionary<char, MarkerType> Markers = new() {

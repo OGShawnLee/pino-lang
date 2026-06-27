@@ -80,7 +80,8 @@ public class ParserTests {
 
     var branch = matchStmt.Branches[0];
     Assert.Single(branch.Conditions);
-    Assert.Equal("Shawn", Assert.IsType<LiteralExpression>(branch.Conditions[0]).Value);
+    var litPat = Assert.IsType<LiteralPattern>(branch.Conditions[0]);
+    Assert.Equal("Shawn", Assert.IsType<LiteralExpression>(litPat.Value).Value);
 
     var alternate = Assert.IsType<ElseStatement>(matchStmt.Alternate);
     var altBlock = Assert.IsType<BlockStatement>(alternate.Body);

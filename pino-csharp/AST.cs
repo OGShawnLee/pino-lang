@@ -43,7 +43,7 @@ public record IfStatement(Expression Condition, Statement Consequent, Statement?
 
 public record ElseStatement(Statement Body) : Statement;
 
-public record WhenStatement(List<Expression> Conditions, Statement Body) : Statement;
+public record WhenStatement(List<Pattern> Conditions, Statement Body) : Statement;
 
 public record MatchStatement(Expression Condition, List<WhenStatement> Branches, ElseStatement? Alternate) : Statement;
 
@@ -118,3 +118,12 @@ public record FunctionLambdaExpression(List<VariableDeclaration> Parameters, Sta
 public record IndexAccessExpression(Expression Target, Expression Index) : Expression;
 
 public record MapExpression(string KeyType, string ValueType, List<KeyValuePair<Expression, Expression>> Entries) : Expression;
+
+// --- UNION & PATTERN DEVELOPMENTS ---
+public record UnionVariant(string Identifier, List<string> AssociatedTypes);
+public record UnionDeclaration(string Identifier, List<UnionVariant> Variants, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+
+public abstract record Pattern;
+public record LiteralPattern(Expression Value) : Pattern;
+public record IdentifierPattern(string Name) : Pattern;
+public record VariantPattern(string UnionName, string VariantName, List<Pattern> SubPatterns) : Pattern;

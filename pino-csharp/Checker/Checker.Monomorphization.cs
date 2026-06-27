@@ -246,9 +246,9 @@ public partial class Checker {
         return els with { Body = SubstituteStatementTypes(els.Body, subst)! };
 
       case WhenStatement whenStmt:
-        var conditions = new List<Expression>();
+        var conditions = new List<Pattern>();
         foreach (var c in whenStmt.Conditions) {
-          conditions.Add(SubstituteExpressionTypes(c, subst)!);
+          conditions.Add(SubstitutePatternTypes(c, subst)!);
         }
         return whenStmt with {
           Conditions = conditions,
@@ -288,6 +288,24 @@ public partial class Checker {
           return SubstituteExpressionTypes(expr, subst);
         }
         return statement;
+    }
+  }
+
+  private Pattern SubstitutePatternTypes(Pattern pattern, Dictionary<string, string> subst) {
+    switch (pattern) {
+      case LiteralPattern lit:
+        return new LiteralPattern(SubstituteExpressionTypes(lit.Value, subst)!);
+      case IdentifierPattern id:
+        return id;
+      case VariantPattern varPat:
+        var newSubPatterns = new List<Pattern>();
+        foreach (var sp in varPat.SubPatterns) {
+          newSubPatterns.Add(SubstitutePatternTypes(sp, subst));
+        }
+        string newUnionName = SubstituteType(varPat.UnionName, subst);
+        return new VariantPattern(newUnionName, varPat.VariantName, newSubPatterns);
+      default:
+        return pattern;
     }
   }
 

@@ -9,6 +9,7 @@ public partial class Checker {
   private readonly Dictionary<string, StructDeclaration> _structs = new();
   private readonly Dictionary<string, InterfaceDeclaration> _interfaces = new();
   private readonly Dictionary<string, EnumDeclaration> _enums = new();
+  private readonly Dictionary<string, UnionDeclaration> _unions = new();
   private readonly Dictionary<string, FunctionDeclaration> _functions = new();
   private readonly List<StructDeclaration> _specializedStructs = new();
   private readonly List<FunctionDeclaration> _specializedFunctions = new();
@@ -85,6 +86,19 @@ public partial class Checker {
     return null;
   }
 
+  public UnionDeclaration? FindUnion(string name) {
+    if (_unions.TryGetValue(name, out var localUnion)) {
+      return localUnion;
+    }
+    foreach (var modChecker in _moduleCheckers.Values) {
+      var importedUnion = modChecker.FindUnion(name);
+      if (importedUnion != null && importedUnion.IsPublic) {
+        return importedUnion;
+      }
+    }
+    return null;
+  }
+
   public void Check(ProgramStatement program) {
     var previousFilePath = _currentFilePath;
     if (!string.IsNullOrEmpty(program.FilePath)) {
@@ -107,6 +121,9 @@ public partial class Checker {
             break;
           case EnumDeclaration enumDecl:
             _enums[enumDecl.Identifier] = enumDecl;
+            break;
+          case UnionDeclaration unionDecl:
+            _unions[unionDecl.Identifier] = unionDecl;
             break;
           case FunctionDeclaration fnDecl:
             _functions[fnDecl.Identifier] = fnDecl;
