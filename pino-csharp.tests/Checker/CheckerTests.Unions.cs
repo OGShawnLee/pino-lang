@@ -68,4 +68,54 @@ public partial class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestUnionMatchExhaustiveSuccess() {
+    var input = @"
+      union Entity {
+        Person(string)
+        Ghost
+      }
+      fn check(hero Entity) {
+        match hero {
+          when Entity::Person(name) {}
+          when Entity::Ghost {}
+        }
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestUnionMatchMissingVariantThrows() {
+    var input = @"
+      union Entity {
+        Person(string)
+        Ghost
+      }
+      fn check(hero Entity) {
+        match hero {
+          when Entity::Person(name) {}
+        }
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestUnionMatchWithElseSuccess() {
+    var input = @"
+      union Entity {
+        Person(string)
+        Ghost
+      }
+      fn check(hero Entity) {
+        match hero {
+          when Entity::Person(name) {}
+          else {}
+        }
+      }
+    ";
+    CheckCode(input);
+  }
 }
