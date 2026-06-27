@@ -8,6 +8,9 @@
       "include": "#strings"
     },
     {
+      "include": "#decorators"
+    },
+    {
       "include": "#keywords"
     },
     {
@@ -27,6 +30,14 @@
     }
   ],
   "repository": {
+    "decorators": {
+      "patterns": [
+        {
+          "name": "meta.annotation.pino",
+          "match": "@[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
     "comments": {
       "patterns": [
         {
@@ -83,7 +94,7 @@
         },
         {
           "name": "storage.type.pino",
-          "match": "\\b(fn|struct|enum|var|val|interface)\\b"
+          "match": "\\b(fn|struct|enum|var|val|interface|union)\\b"
         },
         {
           "name": "storage.modifier.pino",
