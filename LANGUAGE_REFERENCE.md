@@ -26,6 +26,7 @@ This document serves as the definitive reference guide for the syntax, type syst
    * [Composition and Embedding](#composition-and-embedding)
    * [Structural Interfaces ("Duck Typing")](#structural-interfaces-duck-typing)
    * [Enums](#enums)
+   * [Unions (Sum Types / Tagged Unions)](#unions-sum-types--tagged-unions)
 8. [Global Built-in Functions](#8-global-built-in-functions)
 9. [Properties and Instance Methods](#9-properties-and-instance-methods)
    * [String Methods](#string-methods)
@@ -427,6 +428,44 @@ enum Direction {
 }
 
 val heading = Direction::North
+```
+
+---
+
+### Unions (Sum Types / Tagged Unions)
+
+Unions in Pino are **tagged unions** (also known as *sum types* or *algebraic data types*). Unlike unsafe C-style unions, Pino unions are completely type-safe and represent a value that can be one of several different variants, optionally carrying payloads (associated data) of varying types.
+
+They are defined using the `union` keyword and are consumed safely via **Pattern Matching** (`match-when`).
+
+#### Syntax and Declaration:
+```pino
+pub union Result {
+    Success([]Token)
+    Error(string)
+    Pending # Variant with no payload
+}
+```
+
+#### Instantiation:
+You instantiate a union variant using the scope resolution operator `::`:
+```pino
+val result_ok = Result::Success(token_list)
+val result_err = Result::Error("Unexpected character")
+val result_pending = Result::Pending
+```
+
+#### Safe Destruction with `match`:
+To access the payload data within a union, you must use a `match` expression or statement. The compiler/checker helps guarantee safety by matching against specific variant tags. If you do not want to list every variant explicitly, you can use an `else` block as a wildcard/fallback case:
+```pino
+match result_ok {
+    when Result::Success(tokens) {
+        println("Successfully parsed $(tokens:len) tokens.")
+    }
+    else {
+        println("Something went wrong or is still pending.")
+    }
+}
 ```
 
 ---

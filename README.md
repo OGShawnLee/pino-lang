@@ -1,8 +1,12 @@
 # Pino Lang 🌲
 
-A modern, simple, and highly aesthetic programming language designed to make writing code a joyful experience. Pino brings together the best syntactic elements of **Vlang**, **Go**, **Kotlin**, and **Ruby** into a single, cohesive, and expressive system.
+A modern, simple, and highly aesthetic programming language designed to make writing code a joyful experience. Pino bridges the gap between systems programming and data science. It brings together the best syntactic elements of **Vlang**, **Go**, **Kotlin**, and **Ruby** into a single, cohesive, and expressive system.
 
-Pino is built with a standalone tree-walk interpreter in **C# (.NET 10)** featuring a robust lexical analyzer, a precedence-climbing parser, and a fully scoped runtime environment.
+Pino was born from a unified vision: **To create a highly efficient, type-safe, and clean alternative to Python for Data Science and general scripting, built with a soul.** Inspired by the desire to share a passion for systems and data with a brilliant data science student, Pino balances raw performance with exceptional developer experience.
+
+It achieves this through a dual-engine architecture:
+* **The VM Engine**: A lightweight, self-contained CLI compiler and virtual machine (~6MB compressed, ~12MB uncompressed) that offers a zero-configuration, zero-dependency scripting loop. No heavy toolchains or complex compilers to install—perfect for immediate data manipulation, script execution, and game design.
+* **The Transpiler Engine (Planned)**: Converts Pino ASTs directly to optimized C#/.NET 10 source code, unlocking the world-class RyuJIT compiler, memory safety, and modern hardware-level optimizations for production-grade performance.
 
 * For the official syntax, types, modules, built-ins, and standard library methods, see the **[Language Reference Guide](./LANGUAGE_REFERENCE.md)**.
 * For a detailed breakdown of the compiler architecture, directory structure, and execution pipeline, please refer to the **[Architecture Guide](./ARCHITECTURE.md)**.
@@ -63,7 +67,21 @@ We have designed multiple official variations of our beloved mascot, available i
 * **Flexible Syntactic Commas**: Commas are optional in vectors, struct properties, and parameter lists—meaning you write cleaner layouts.
 * **No Unnecessary Parentheses**: Clean control blocks (`if`, `match`, and loop conditions) do not require parentheses around their conditions.
 * **Interfaces & Structural Typing**: Dynamic interface contracts validated statically at type-checking time.
+* **Type-Safe Tagged Unions (Sum Types)**: Modern `union` definitions that carry heterogeneous payloads, matching the type safety of languages like Rust or Swift.
 * **Bytecode VM Engine**: A custom Stack-based Virtual Machine and Bytecode Compiler alongside the Tree-Walk engine.
+
+---
+
+## 🎯 The Pino Vision: Dual-Engine Strategy & Portability
+
+Pino is designed with a clear, pragmatic vision that balances developer experience (DX) with peak runtime performance through a **Dual-Engine Execution Strategy**:
+
+1. **The Fast Loop (Bytecode VM Engine)**: 
+   * **Purpose**: Local development, instant testing, and rapid scripting.
+   * **Why it shines**: Leveraging the portability of .NET 10.0, the Pino compiler and VM can be packaged into a single, self-contained executable (~6MB compressed, ~12MB uncompressed). This allows developers to run and test Pino code instantly without installing complex, heavy build toolchains, libraries, or compilers (unlike C, C++, or Rust).
+2. **The Production Loop (The Transpiler - Planned)**:
+   * **Purpose**: Maximum, native-speed performance.
+   * **Why it shines**: Transpiles Pino source code directly into optimized C#/.NET code. This enables production-grade binaries to run at native speeds by leveraging the world-class RyuJIT compiler, garbage collector, and modern hardware-level optimizations of .NET 10.0. (Optional for users who already have the .NET 10 runtime installed).
 
 ---
 
@@ -83,6 +101,7 @@ We have designed multiple official variations of our beloved mascot, available i
 | **Data Structs** | Custom `struct` & method declarations | `[X]` |
 | | Interfaces (`interface`) & compile-time verification | `[X]` |
 | | Enums (`enum`) & member resolution (`::`) | `[X]` |
+| | Tagged Unions (`union`) & payload pattern matching | `[X]` |
 | | Dynamic arrays (`vector`) with `len`/`init` blocks | `[X]` |
 | **Compiler Engine**| Precedence-climbing parser (binary precedence) | `[X]` |
 | | Scoped parent-linked execution Environment | `[X]` |

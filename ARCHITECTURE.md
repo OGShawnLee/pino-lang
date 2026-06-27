@@ -4,8 +4,17 @@ This document provides a comprehensive overview of the Pino Lang project structu
 
 ---
 
-## 1. Overview
-Pino is a functional-style, expression-oriented language supporting both top-level scripting and structured program entrypoints (via an automatic parameterless `main` function hook). Key features include:
+## 1. Overview & Unified Vision
+
+Pino is a functional-style, expression-oriented language designed with a dual purpose: providing low-overhead systems and script execution while offering an elegant, type-safe alternative to Python for Data Science. 
+
+The language is built upon two core pillars:
+1. **The Passion and Purpose**: Inspired by a desire to bring people together—specifically born from the goal of helping a brilliant data science student interact with complex computing without wrestling with intimidating, overly complex toolchains—Pino focuses heavily on Developer Experience (DX), clean syntax, and immediate usability.
+2. **Dual-Engine Execution Strategy**:
+   * **The VM Engine (Local Scripting & Iteration)**: Compiles Pino source code to bytecode and executes it via a stack-based virtual machine. Because it is written in C# (.NET 10.0), the entire compiler and runtime can be packaged into a single, self-contained binary (~6MB compressed, ~12MB uncompressed). This offers a zero-configuration, zero-dependency environment ideal for rapid data scripting, prototyping, and game development.
+   * **The Transpiler Engine (Production & Compute)**: Translates Pino ASTs directly into optimized C# source code. This allows projects to achieve native execution speeds, utilizing .NET's RyuJIT compiler and Garbage Collection for heavy data processing workloads.
+
+Key features include:
 * Strong, scoped lexical environments (constants and mutable variables).
 * Struct definition and instantiation with native method bindings, struct embedding, and composition.
 * Structural duck typing for flexible interface compliance checked statically.
@@ -157,3 +166,19 @@ The VM runtime ([VM.cs](pino-csharp/VM/VM.cs)) runs the compiled bytecode chunk.
   * `Slots`: The base stack index where the local variables and parameters of this frame start.
 * **Global Scope Sharing**: Shares the same `Environment` instance as the tree-walk `Evaluator`, allowing seamless access and updates to global variables/constants.
 * **Tree-Walk Interoperability**: VM functions implement `IPinoCallable`. When the Tree-Walk evaluator encounters a call to a compiled VM function, it launches a new VM execution frame locally, runs it, and returns the result to the Tree-Walk engine.
+
+---
+
+## 5. Dual-Engine Execution & Quality Attributes
+
+Pino's architecture is built around two primary execution strategies to address different quality attributes:
+
+### A. The Bytecode VM & Local Development Loop
+* **Zero Configuration**: A developer can run Pino programs instantly. There is no need to configure C++ paths, deal with Rust toolchains, or install complex runtime environments.
+* **Portability (Self-Contained Executable)**: By leveraging .NET 10's self-contained compilation (`PublishSelfContained=true`, `PublishReadyToRun=true`), the entire Pino runtime and compiler can be compiled into a single binary (~6MB when compressed with UPX/LZMA, ~12MB uncompressed). This single binary contains everything needed to parse, type check, compile, and run Pino code.
+* **VM Interpretation Speed**: The custom stack-based Virtual Machine is designed to be lightweight and fast to boot, targeting an execution speed faster than Python (currently measuring 1.5x - 2.5x CPython).
+
+### B. The Transpiler & High-Performance Builds
+* **Peak Execution Speed**: For production deployments or compute-heavy tasks, Pino plans to support a transpilation pipeline. This translates Pino's type-checked AST directly into optimized C# source code.
+* **JIT Optimizations**: By compiling the resulting C# code using the standard .NET SDK, Pino programs gain access to RyuJIT's advanced compilation features, native garbage collection, and modern CPU instruction set optimizations (AVX, SIMD).
+* **Optional Dependency**: Since compilation requires the .NET SDK to build the final executable, this high-performance pathway is completely optional, keeping the core Pino experience simple and zero-friction.
