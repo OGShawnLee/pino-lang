@@ -496,6 +496,8 @@ public class Compiler {
       case OperatorType.LessThanEqual: EmitByte((byte)(isInt ? OperationCode.OP_LESS_EQUAL_INT : OperationCode.OP_LESS_EQUAL)); break;
       case OperatorType.GreaterThan: EmitByte((byte)(isInt ? OperationCode.OP_GREATER_INT : OperationCode.OP_GREATER)); break;
       case OperatorType.GreaterThanEqual: EmitByte((byte)(isInt ? OperationCode.OP_GREATER_EQUAL_INT : OperationCode.OP_GREATER_EQUAL)); break;
+      case OperatorType.And: EmitByte((byte)OperationCode.OP_AND); break;
+      case OperatorType.Or: EmitByte((byte)OperationCode.OP_OR); break;
     }
   }
 

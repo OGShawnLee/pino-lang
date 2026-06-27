@@ -16,6 +16,8 @@ public enum OperationCode : byte {
   OP_LESS_EQUAL,
   OP_GREATER,
   OP_GREATER_EQUAL,
+  OP_AND,
+  OP_OR,
   OP_NOT,
   OP_POP,
   OP_DEFINE_GLOBAL,

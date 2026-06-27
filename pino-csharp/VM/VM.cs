@@ -244,6 +244,20 @@ public class VM {
           break;
         }
 
+        case OperationCode.OP_AND: {
+          var b = _stack[--_stackTop];
+          var a = _stack[_stackTop - 1];
+          _stack[_stackTop - 1] = IsTruthy(a) && IsTruthy(b);
+          break;
+        }
+
+        case OperationCode.OP_OR: {
+          var b = _stack[--_stackTop];
+          var a = _stack[_stackTop - 1];
+          _stack[_stackTop - 1] = IsTruthy(a) || IsTruthy(b);
+          break;
+        }
+
         case OperationCode.OP_NOT:
           _stack[_stackTop - 1] = !IsTruthy(_stack[_stackTop - 1]);
           break;
