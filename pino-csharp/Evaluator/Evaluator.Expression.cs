@@ -37,6 +37,20 @@ public partial class Evaluator {
         if (id.Name == "continue") throw new PinoContinueException();
         return LookUpVariable(id, env);
 
+      case UnaryExpression un: {
+        var rightVal = Evaluate(un.Right, env);
+        if (un.Operator == OperatorType.Not) {
+          if (rightVal is bool b) return !b;
+          throw new Exception($"RUNTIME ERROR: Unary operator 'not' expected boolean operand, got '{rightVal?.GetType()}'.");
+        } else if (un.Operator == OperatorType.Subtraction) {
+          if (rightVal is long l) return -l;
+          if (rightVal is double d) return -d;
+          throw new Exception($"RUNTIME ERROR: Unary operator '-' expected int or float operand, got '{rightVal?.GetType()}'.");
+        } else {
+          throw new Exception($"RUNTIME ERROR: Unsupported unary operator '{un.Operator}'.");
+        }
+      }
+
       case BinaryExpression bin:
         // Handle member access and static member access separately
         if (bin.Operator == OperatorType.MemberAccess) {

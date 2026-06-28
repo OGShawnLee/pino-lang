@@ -98,4 +98,31 @@ public class ArithmeticTests {
     Assert.Equal(false, env.Get("eq_tf"));
     Assert.Equal(true, env.Get("neq_tf"));
   }
+
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  [InlineData(ExecutionEngine.VM)]
+  public void TestUnaryOperators(ExecutionEngine engine) {
+    var code = @"
+      val neg_int = -42
+      val neg_float = -3.14
+      val not_true = not true
+      val not_false = not false
+      val prec_mul = -2 * 3
+      val prec_add = -2 + 3
+      val group_neg = -(2 + 3)
+      val group_not = not (true and false)
+      val not_and_prec = not true and false
+    ";
+    var env = PinoTestRunner.Execute(code, engine);
+    Assert.Equal(-42L, env.Get("neg_int"));
+    Assert.Equal(-3.14, env.Get("neg_float"));
+    Assert.Equal(false, env.Get("not_true"));
+    Assert.Equal(true, env.Get("not_false"));
+    Assert.Equal(-6L, env.Get("prec_mul"));
+    Assert.Equal(1L, env.Get("prec_add"));
+    Assert.Equal(-5L, env.Get("group_neg"));
+    Assert.Equal(true, env.Get("group_not"));
+    Assert.Equal(false, env.Get("not_and_prec"));
+  }
 }

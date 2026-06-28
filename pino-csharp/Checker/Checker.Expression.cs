@@ -407,6 +407,10 @@ public partial class Checker {
           }
         }
         break;
+
+      case UnaryExpression un:
+        CheckExpression(un.Right);
+        break;
     }
 
     try {
@@ -464,6 +468,23 @@ public partial class Checker {
           MonomorphizeFunctionCall(call);
         }
         return ResolveFunctionReturnType(call.Callee);
+
+      case UnaryExpression un: {
+        string rightType = InferType(un.Right);
+        if (un.Operator == OperatorType.Not) {
+          if (!IsCompatible(rightType, "bool")) {
+            throw new Exception($"TYPE CHECK ERROR: Operator 'not' requires operand of type 'bool', but got '{rightType}'.");
+          }
+          return "bool";
+        } else if (un.Operator == OperatorType.Subtraction) {
+          if (!IsCompatible(rightType, "int") && !IsCompatible(rightType, "float")) {
+            throw new Exception($"TYPE CHECK ERROR: Unary operator '-' requires operand of type 'int' or 'float', but got '{rightType}'.");
+          }
+          return rightType;
+        } else {
+          throw new Exception($"TYPE CHECK ERROR: Unsupported unary operator '{un.Operator}'.");
+        }
+      }
 
       case BinaryExpression bin:
         if (bin.Operator == OperatorType.MemberAccess) {

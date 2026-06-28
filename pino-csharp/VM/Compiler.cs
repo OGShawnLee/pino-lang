@@ -353,6 +353,27 @@ public class Compiler {
         CompileIdentifier(id);
         break;
 
+      case UnaryExpression un:
+        if (un.Operator == OperatorType.Not) {
+          CompileExpression(un.Right);
+          EmitByte((byte)OperationCode.OP_NOT);
+        } else if (un.Operator == OperatorType.Subtraction) {
+          if (un.Right.InferredType == "int") {
+            ushort constIdx = (ushort)AddConstant(0L);
+            EmitByte((byte)OperationCode.OP_CONSTANT);
+            EmitShort(constIdx);
+            CompileExpression(un.Right);
+            EmitByte((byte)OperationCode.OP_SUB_INT);
+          } else {
+            ushort constIdx = (ushort)AddConstant(0.0);
+            EmitByte((byte)OperationCode.OP_CONSTANT);
+            EmitShort(constIdx);
+            CompileExpression(un.Right);
+            EmitByte((byte)OperationCode.OP_SUB);
+          }
+        }
+        break;
+
       case BinaryExpression bin:
         CompileBinaryExpression(bin);
         break;

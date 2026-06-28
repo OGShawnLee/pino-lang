@@ -92,6 +92,8 @@ public record IdentifierExpression : Expression {
 
 public record BinaryExpression(Expression Left, OperatorType Operator, Expression Right) : Expression;
 
+public record UnaryExpression(OperatorType Operator, Expression Right) : Expression;
+
 public record TernaryExpression(Expression Condition, Expression Consequent, Expression Alternate) : Expression;
 
 public record VectorExpression(List<Expression>? Elements, Expression? Len = null, Expression? Init = null, string Typing = "") : Expression;

@@ -180,6 +180,12 @@ public partial class Parser {
   }
 
   private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true) {
+    if (stream.Current.IsOperator(OperatorType.Not) || stream.Current.IsOperator(OperatorType.Subtraction)) {
+      var op = stream.Consume().Operator!.Value;
+      var right = ParseExpressionWithPrecedence(stream, 8, allowStruct, allowMemberAccess);
+      return new UnaryExpression(op, right);
+    }
+
     Expression expr;
 
     if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
