@@ -1,6 +1,6 @@
 # RFC 006: Match Expressions in Pino
 
-* **Status**: Proposed
+* **Status**: Implemented
 * **Authors**: Antigravity & OGShawnLee
 * **Date**: 2026-06-28
 
@@ -93,8 +93,8 @@ The AST nodes will be updated to allow `match` to function as an expression:
 
 ### 4.2 Parser Changes
 
-* Update `IsExpression` in [Parser.Expression.cs](file:///c:/Users/OGSha/OneDrive/Escritorio/Developer/Systems%20Programming/Pino/pino-csharp/Parser/Parser.Expression.cs) to recognize `match` as an expression starter.
-* Add `ParseMatchExpression` to [Parser.Expression.cs](file:///c:/Users/OGSha/OneDrive/Escritorio/Developer/Systems%20Programming/Pino/pino-csharp/Parser/Parser.Expression.cs), parsing the condition, opening brace, branch list, optional `else` block, and closing brace.
+* Update `IsExpression` in [Parser.Expression.cs](../pino-csharp/Parser/Parser.Expression.cs) to recognize `match` as an expression starter.
+* Add `ParseMatchExpression` to [Parser.Expression.cs](../pino-csharp/Parser/Parser.Expression.cs), parsing the condition, opening brace, branch list, optional `else` block, and closing brace.
 * In `ParseWhenExpression`:
   * If the parser encounters `=>` after patterns, parse a single expression and store it in `Body`.
   * If the parser encounters `{` after patterns, parse a `BlockStatement` and store it in `Body`.
@@ -128,3 +128,28 @@ The AST nodes will be updated to allow `match` to function as an expression:
 * For arrow branches, compile the expression directly onto the stack.
 * For yield blocks, compile the block statement. The compiler will compile the `yield` expression and then jump to the end of the match block, leaving the yielded value on top of the stack.
 * Ensure all branch execution paths terminate by jumping to the same instruction offset representing the end of the match expression, keeping stack top clean and correctly populated.
+
+---
+
+## 5. Implementation Details
+
+All components of Match Expressions have been fully designed, implemented, and verified in the Pino codebase:
+
+* **AST Integration**:
+  * Instead of a complete rename to avoid code churn, `MatchStatement` was changed to inherit from `Expression` (which itself inherits from `Statement`). This allows the node to act as a first-class expression while remaining fully backwards-compatible as a statement.
+
+* **Parser & Syntax Support**:
+  * `IsExpression` and `ParsePrimaryExpression` in [Parser.Expression.cs](../pino-csharp/Parser/Parser.Expression.cs) were updated to recognize `match` as an expression.
+  * `ParseWhenStatement` and `ParseElseStatement` in [Parser.Statement.cs](../pino-csharp/Parser/Parser.Statement.cs) were updated to consume the arrow `=>` operator followed by a single expression, or a brace `{` followed by a block.
+
+* **Static Type Checking & Validation**:
+  * Cleanly decoupled variable resolving/scope tracking from type inference:
+    * `CheckExpression(MatchStatement)` in [Checker.Expression.cs](../pino-csharp/Checker/Checker.Expression.cs) checks the condition, patterns, and branch bodies under the correct scope hierarchy, ensuring correct runtime distance resolution of parameters/variables.
+    * `InferTypeInternal(MatchStatement)` infers the unified return type of the match and checks pattern exhaustiveness for both unions and enums.
+  * In block-yield branches, `_currentYieldType` is bound during verification to ensure type safety of the `yield` statement.
+  * Monomorphization of match expressions was implemented in `SubstituteExpressionTypes` in [Checker.Monomorphization.cs](../pino-csharp/Checker/Checker.Monomorphization.cs).
+
+* **Runtime Evaluator**:
+  * Inside [Evaluator.Expression.cs](../pino-csharp/Evaluator/Evaluator.Expression.cs), `EvaluateMatch` handles evaluating the condition, matching variant patterns, binding pattern variables inside a nested environment, and evaluating branch bodies.
+  * For block-yield branches, the block is executed, catching `PinoYieldException` to retrieve and return the yielded value.
+  * Statement-level match execution in [Evaluator.Statement.cs](../pino-csharp/Evaluator/Evaluator.Statement.cs) is unified to delegate directly to `EvaluateMatch`.
