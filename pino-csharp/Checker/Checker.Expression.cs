@@ -439,13 +439,17 @@ public partial class Checker {
       case UnaryExpression un:
         CheckExpression(un.Right);
         break;
+
+      case BubbleExpression bub:
+        CheckExpression(bub.Value);
+        break;
+
+      case RecoveryExpression rec:
+        CheckExpression(rec.Value);
+        break;
     }
 
-    try {
-      InferType(expr);
-    } catch {
-      // Ignore failures during early or partial check passes
-    }
+    InferType(expr);
   }
 
   private string InferType(Expression expr) {
@@ -512,6 +516,90 @@ public partial class Checker {
         } else {
           throw new Exception($"TYPE CHECK ERROR: Unsupported unary operator '{un.Operator}'.");
         }
+      }
+
+      case BubbleExpression bub: {
+        string innerType = InferTypeInternal(bub.Value, expectedType);
+        innerType = NormalizeType(innerType);
+        var unionDecl = FindUnion(innerType);
+        if (unionDecl == null) {
+          throw new Exception($"TYPE CHECK ERROR: Cannot use '?' operator on non-union type '{innerType}'.");
+        }
+
+        if (string.IsNullOrEmpty(_currentReturnType)) {
+          throw new Exception("TYPE CHECK ERROR: Cannot use '?' operator in a function without a declared Result or Option return type.");
+        }
+
+        var successVar = unionDecl.Variants.Find(v => v.Identifier == "Success");
+        var failureVar = unionDecl.Variants.Find(v => v.Identifier == "Failure");
+        if (successVar != null && failureVar != null) {
+          string normalizedOuter = NormalizeType(_currentReturnType);
+          var outerUnion = FindUnion(normalizedOuter);
+          if (outerUnion == null || !outerUnion.Variants.Exists(v => v.Identifier == "Success") || !outerUnion.Variants.Exists(v => v.Identifier == "Failure")) {
+            throw new Exception($"TYPE CHECK ERROR: Cannot use '?' bubble operator in a function returning '{_currentReturnType}'. Enclosing function must return a Result.");
+          }
+          string innerErr = failureVar.AssociatedTypes[0];
+          string outerErr = outerUnion.Variants.Find(v => v.Identifier == "Failure")!.AssociatedTypes[0];
+          if (!IsCompatible(innerErr, outerErr)) {
+            throw new Exception($"TYPE CHECK ERROR: Cannot bubble error of type '{innerErr}' in a function expecting error of type '{outerErr}'.");
+          }
+          string successType = successVar.AssociatedTypes[0];
+          return successType;
+        }
+
+        var someVar = unionDecl.Variants.Find(v => v.Identifier == "Some");
+        var noneVar = unionDecl.Variants.Find(v => v.Identifier == "None");
+        if (someVar != null && noneVar != null) {
+          string normalizedOuter = NormalizeType(_currentReturnType);
+          var outerUnion = FindUnion(normalizedOuter);
+          if (outerUnion == null || !outerUnion.Variants.Exists(v => v.Identifier == "Some") || !outerUnion.Variants.Exists(v => v.Identifier == "None")) {
+            throw new Exception($"TYPE CHECK ERROR: Cannot use '?' bubble operator in a function returning '{_currentReturnType}'. Enclosing function must return an Option.");
+          }
+          string successType = someVar.AssociatedTypes[0];
+          return successType;
+        }
+
+        throw new Exception($"TYPE CHECK ERROR: Cannot use '?' operator on union type '{innerType}'. It must be a Result or Option.");
+      }
+
+      case RecoveryExpression rec: {
+        string innerType = InferTypeInternal(rec.Value, expectedType);
+        innerType = NormalizeType(innerType);
+        var unionDecl = FindUnion(innerType);
+        if (unionDecl == null) {
+          throw new Exception($"TYPE CHECK ERROR: Cannot use 'or' block on non-union type '{innerType}'.");
+        }
+
+        string successType = "";
+        string errType = "any";
+
+        var successVar = unionDecl.Variants.Find(v => v.Identifier == "Success");
+        var failureVar = unionDecl.Variants.Find(v => v.Identifier == "Failure");
+        var someVar = unionDecl.Variants.Find(v => v.Identifier == "Some");
+        var noneVar = unionDecl.Variants.Find(v => v.Identifier == "None");
+
+        if (successVar != null && failureVar != null) {
+          successType = successVar.AssociatedTypes[0];
+          errType = failureVar.AssociatedTypes[0];
+        } else if (someVar != null && noneVar != null) {
+          successType = someVar.AssociatedTypes[0];
+          errType = "string";
+        } else {
+          throw new Exception($"TYPE CHECK ERROR: Cannot use 'or' block on union type '{innerType}'. It must be a Result or Option.");
+        }
+
+        var savedYieldType = _currentYieldType;
+        _currentYieldType = successType;
+        PushScope();
+        DeclareVariable("err", errType);
+        try {
+          CheckStatement(rec.Body);
+        } finally {
+          PopScope();
+          _currentYieldType = savedYieldType;
+        }
+
+        return successType;
       }
 
       case BinaryExpression bin:

@@ -1,6 +1,6 @@
 # Pino Lang 🌲
 
-A modern, simple, and highly aesthetic programming language designed to make writing code a joyful experience. Pino bridges the gap between systems programming and data science. It brings together the best syntactic elements of **Vlang**, **Go**, **Kotlin**, and **Ruby** into a single, cohesive, and expressive system.
+A modern, simple, and highly aesthetic programming language designed to make writing code a joyful experience. Pino bridges the gap between systems programming and data science. It brings together the best syntactic elements of **Vlang**, **Go**, **Kotlin**, **Ruby**, **Rust**, and **Zig** into a single, type-safe, cohesive, and expressive system.
 
 Pino was born from a unified vision: **To create a highly efficient, type-safe, and clean alternative to Python for Data Science and general scripting, built with a soul.** Inspired by the desire to share a passion for systems and data with a brilliant data science student, Pino balances raw performance with exceptional developer experience.
 
@@ -341,6 +341,41 @@ match opt {
   when Option::None {
     println("Nothing found")
   }
+}
+```
+
+### Robust Error Handling
+
+Pino provides first-class, type-safe error handling utilizing `Result` and `Option` sum types, the early-return bubble operator `?`, recovery `or` blocks with local `err` bindings, and clean stack-traceable `panic` aborts.
+
+#### 1. Panic (For unrecoverable failures)
+Aborts program execution immediately, displaying a clean red stack backtrace with call frames, and exits the process with code `101`.
+```pino
+fn crash() {
+  panic("Critical database connection timeout!")
+}
+```
+
+#### 2. Suffix Bubble Operator (`?`)
+Unwraps a `Result` or `Option` success value, or automatically bubbles (returns early) the failure variant from the enclosing function. The enclosing function must explicitly declare a compatible `Result` or `Option` return type.
+```pino
+fn divide(a int, b int) Result[int, string] {
+  if b == 0 { return Result::Failure("Division by zero") }
+  return Result::Success(a / b)
+}
+
+fn double_division(a int, b int) Result[int, string] {
+  val num = divide(a, b)? # num is inferred as int (success payload)
+  return Result::Success(num * 2)
+}
+```
+
+#### 3. Suffix Recovery Block (`or`)
+Evaluates the expression. If success, it returns the unwrapped success payload. If failure, it executes the recovery block, injecting a local `err` variable carrying the failure payload, and uses `yield` to return a fallback value to the outer assignment.
+```pino
+val result = divide(10, 0) or {
+  println("Captured error payload: $err")
+  yield -1 # Fallback value assigned to 'result'
 }
 ```
 

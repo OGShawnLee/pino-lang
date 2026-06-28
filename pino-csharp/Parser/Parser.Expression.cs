@@ -154,7 +154,7 @@ public partial class Parser {
   private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
     var expression = ParsePrimaryExpression(stream, allowStruct, allowMemberAccess);
 
-    while (stream.HasNext && (stream.Current.Type == TokenType.Operator || stream.Current.IsKeyword(KeywordType.In))) {
+    while (stream.HasNext && (stream.Current.Type == TokenType.Operator || stream.Current.IsKeyword(KeywordType.In)) && !stream.Current.IsOperator(OperatorType.QuestionMark)) {
       var opToken = stream.Current;
       var opType = opToken.IsKeyword(KeywordType.In) ? OperatorType.In : opToken.Operator!.Value;
       if (opType == OperatorType.MemberAccess && !allowMemberAccess) {
@@ -167,6 +167,13 @@ public partial class Parser {
 
       if (precedence < minPrecedence) {
         break;
+      }
+
+      if (opType == OperatorType.Or && stream.Peek(1).IsMarker(MarkerType.BlockBegin)) {
+        stream.Consume(); // consume 'or'
+        var body = ParseBlock(stream);
+        expression = new RecoveryExpression(expression, body);
+        continue;
       }
 
       stream.Consume(); // consume operator
@@ -263,6 +270,9 @@ public partial class Parser {
           rightSide = new IdentifierExpression(memberName);
         }
         expr = new BinaryExpression(expr, OperatorType.StaticMemberAccess, rightSide);
+      } else if (stream.Current.IsOperator(OperatorType.QuestionMark)) {
+        stream.Consume(); // consume '?'
+        expr = new BubbleExpression(expr);
       } else {
         break;
       }

@@ -51,6 +51,41 @@ public partial class Evaluator {
         }
       }
 
+      case BubbleExpression bub: {
+        var innerVal = Evaluate(bub.Value, env);
+        if (innerVal is PinoUnionValue unionVal) {
+          if (unionVal.VariantName == "Success" || unionVal.VariantName == "Some") {
+            return unionVal.Payload[0];
+          }
+          if (unionVal.VariantName == "Failure" || unionVal.VariantName == "None") {
+            throw new PinoReturnException(innerVal);
+          }
+        }
+        throw new Exception($"RUNTIME ERROR: Suffix '?' operator expected Option or Result, but got '{innerVal}'.");
+      }
+
+      case RecoveryExpression rec: {
+        var innerVal = Evaluate(rec.Value, env);
+        if (innerVal is PinoUnionValue unionVal) {
+          if (unionVal.VariantName == "Success" || unionVal.VariantName == "Some") {
+            return unionVal.Payload[0];
+          }
+          if (unionVal.VariantName == "Failure" || unionVal.VariantName == "None") {
+            var blockEnv = new Environment(env);
+            var errVal = unionVal.VariantName == "Failure" ? unionVal.Payload[0] : "None";
+            blockEnv.Define("err", errVal, false);
+
+            try {
+              Execute(rec.Body, blockEnv);
+            } catch (PinoYieldException yieldEx) {
+              return yieldEx.Value;
+            }
+            return null;
+          }
+        }
+        throw new Exception($"RUNTIME ERROR: Suffix 'or' operator expected Option or Result, but got '{innerVal}'.");
+      }
+
       case BinaryExpression bin:
         // Handle member access and static member access separately
         if (bin.Operator == OperatorType.MemberAccess) {

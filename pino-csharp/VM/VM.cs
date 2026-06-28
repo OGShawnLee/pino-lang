@@ -51,12 +51,17 @@ public class VM {
       Ip = 0,
       Slots = 0
     };
+    _evaluator.CallStack.Push(function.Name);
 
-    var result = Run();
-    if (result == VMResult.OK) {
-      return _stackTop > 0 ? Pop() : null;
+    try {
+      var result = Run();
+      if (result == VMResult.OK) {
+        return _stackTop > 0 ? Pop() : null;
+      }
+      throw new Exception("RUNTIME ERROR: VM execution failed.");
+    } finally {
+      _evaluator.CallStack.Clear();
     }
-    throw new Exception("RUNTIME ERROR: VM execution failed.");
   }
 
   private VMResult Run() {
@@ -394,6 +399,7 @@ public class VM {
 
         case OperationCode.OP_RETURN: {
           var result = Pop();
+          if (_evaluator.CallStack.Count > 0) _evaluator.CallStack.Pop();
           _frameCount--;
           if (_frameCount == 0) {
             Push(result);
@@ -449,6 +455,7 @@ public class VM {
         Ip = 0,
         Slots = _stackTop - argCount - 1
       };
+      _evaluator.CallStack.Push(vmFn.Name);
       return true;
     }
 

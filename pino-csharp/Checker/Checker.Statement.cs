@@ -197,6 +197,17 @@ public partial class Checker {
         }
         break;
 
+      case YieldStatement yield:
+        if (string.IsNullOrEmpty(_currentYieldType)) {
+          throw new Exception("TYPE CHECK ERROR: 'yield' is only allowed inside an error recovery block 'or { ... }'.");
+        }
+        string yieldType = InferType(yield.Value, _currentYieldType);
+        CheckExpression(yield.Value);
+        if (!IsCompatible(yieldType, _currentYieldType)) {
+          throw new Exception($"TYPE CHECK ERROR: Yield statement expected type '{_currentYieldType}', but got '{yieldType}'.");
+        }
+        break;
+
       case LoopStatement loop:
         if (loop.Kind == LoopKind.ForIn) {
           string colType = "any";

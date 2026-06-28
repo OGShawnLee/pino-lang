@@ -12,7 +12,7 @@ public enum TokenType {
 }
 
 public enum KeywordType {
-  As, Break, Constant, Continue, Else, Enum, From, Function, If, Import, In, Interface, Is, Loop, Map, Match, Module, Pub, Return, Static, Struct, Then, Variable, When, Union
+  As, Break, Constant, Continue, Else, Enum, From, Function, If, Import, In, Interface, Is, Loop, Map, Match, Module, Pub, Return, Static, Struct, Then, Variable, When, Union, Yield
 }
 
 public enum LiteralType {
@@ -26,7 +26,7 @@ public enum MarkerType {
 public enum OperatorType {
   Assignment, Addition, AdditionAssignment, Subtraction, SubtractionAssignment,
   Multiplication, MultiplicationAssignment, Division, DivisionAssignment, Modulus, ModulusAssignment,
-  LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, Equal, NotEqual, And, Or, Not, MemberAccess, StaticMemberAccess, Arrow, In
+  LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, Equal, NotEqual, And, Or, Not, MemberAccess, StaticMemberAccess, Arrow, In, QuestionMark
 }
 
 public record Token(

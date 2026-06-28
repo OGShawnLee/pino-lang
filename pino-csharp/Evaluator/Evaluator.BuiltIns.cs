@@ -151,4 +151,23 @@ public partial class Evaluator {
       return new PinoRegex(pattern);
     }
   }
+
+  private class PanicFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      string msg = arguments.Count > 0 ? arguments[0]?.ToString() ?? "" : "";
+      var stack = evaluator.CallStack.ToList();
+      throw new PinoPanicException(msg, stack);
+    }
+  }
+}
+
+public class PinoPanicException : Exception {
+  public string PanicMessage { get; }
+  public List<string> CallStack { get; }
+
+  public PinoPanicException(string message, List<string> callStack) : base(message) {
+    PanicMessage = message;
+    CallStack = callStack;
+  }
 }

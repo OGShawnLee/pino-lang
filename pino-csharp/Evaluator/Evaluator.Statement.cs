@@ -29,6 +29,10 @@ public partial class Evaluator {
         var retVal = ret.Argument != null ? Evaluate(ret.Argument, env) : null;
         throw new PinoReturnException(retVal);
 
+      case YieldStatement yield:
+        var yieldVal = Evaluate(yield.Value, env);
+        throw new PinoYieldException(yieldVal);
+
       case LoopStatement loop:
         ExecuteLoop(loop, env);
         break;

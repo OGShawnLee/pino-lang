@@ -24,6 +24,7 @@ public partial class Checker {
   private StructDeclaration? _currentStruct = null;
   private bool _inStaticMethod = false;
   private string _currentReturnType = "";
+  private string _currentYieldType = "";
 
   // Cache of checked modules to prevent double-checking
   private readonly Dictionary<string, Checker> _moduleCheckers = new();
@@ -46,7 +47,8 @@ public partial class Checker {
     { "type", "fn(any) string" },
     { "str", "fn(any) string" },
     { "clear", "fn()" },
-    { "regex", "fn(string) regex" }
+    { "regex", "fn(string) regex" },
+    { "panic", "fn(string) any" }
   };
 
   public StructDeclaration? FindStruct(string name) {

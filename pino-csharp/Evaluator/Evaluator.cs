@@ -12,6 +12,12 @@ public class PinoReturnException : Exception {
   public override string StackTrace => string.Empty;
 }
 
+public class PinoYieldException : Exception {
+  public object? Value { get; }
+  public PinoYieldException(object? value) => Value = value;
+  public override string StackTrace => string.Empty;
+}
+
 public class PinoBreakException : Exception {
   public override string StackTrace => string.Empty;
 }
@@ -39,18 +45,24 @@ public class PinoFunction : IPinoCallable {
   public int Arity => Declaration.Parameters.Count;
 
   public object? Call(Evaluator evaluator, List<object?> arguments) {
-    var env = new Environment(_closure);
-    for (int i = 0; i < Declaration.Parameters.Count; i++) {
-      env.Define(Declaration.Parameters[i].Identifier, arguments[i], false);
-    }
-
+    string fnName = Declaration.Identifier ?? "<lambda>";
+    evaluator.CallStack.Push(fnName);
     try {
-      evaluator.Execute(Declaration.Body, env);
-    } catch (PinoReturnException ret) {
-      return ret.Value;
-    }
+      var env = new Environment(_closure);
+      for (int i = 0; i < Declaration.Parameters.Count; i++) {
+        env.Define(Declaration.Parameters[i].Identifier, arguments[i], false);
+      }
 
-    return null;
+      try {
+        evaluator.Execute(Declaration.Body, env);
+      } catch (PinoReturnException ret) {
+        return ret.Value;
+      }
+
+      return null;
+    } finally {
+      evaluator.CallStack.Pop();
+    }
   }
 }
 
@@ -98,18 +110,23 @@ public class PinoLambda : IPinoCallable {
   public int Arity => _expression.Parameters.Count;
 
   public object? Call(Evaluator evaluator, List<object?> arguments) {
-    var env = new Environment(_closure);
-    for (int i = 0; i < _expression.Parameters.Count; i++) {
-      env.Define(_expression.Parameters[i].Identifier, arguments[i], false);
-    }
-
+    evaluator.CallStack.Push("<lambda>");
     try {
-      evaluator.Execute(_expression.Body, env);
-    } catch (PinoReturnException ret) {
-      return ret.Value;
-    }
+      var env = new Environment(_closure);
+      for (int i = 0; i < _expression.Parameters.Count; i++) {
+        env.Define(_expression.Parameters[i].Identifier, arguments[i], false);
+      }
 
-    return null;
+      try {
+        evaluator.Execute(_expression.Body, env);
+      } catch (PinoReturnException ret) {
+        return ret.Value;
+      }
+
+      return null;
+    } finally {
+      evaluator.CallStack.Pop();
+    }
   }
 }
 
@@ -233,6 +250,7 @@ public partial class Evaluator {
   private readonly Dictionary<string, PinoModule> _moduleCache = new();
   private readonly HashSet<string> _currentlyLoadingModules = new();
   private string _currentFilePath = "";
+  public Stack<string> CallStack { get; } = new();
 
   public Evaluator() {
     // Define built-in functions
@@ -248,6 +266,7 @@ public partial class Evaluator {
     _globals.Define("str", new StrFunction(), true);
     _globals.Define("clear", new ClearFunction(), true);
     _globals.Define("regex", new RegexFunction(), true);
+    _globals.Define("panic", new PanicFunction(), true);
   }
 
   public void Execute(Statement statement) {

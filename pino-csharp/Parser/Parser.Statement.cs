@@ -89,6 +89,10 @@ public partial class Parser {
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'return' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to return statements");
           return ParseReturnStatement(stream);
+        case KeywordType.Yield:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'yield' statement");
+          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to yield statements");
+          return ParseYieldStatement(stream);
         case KeywordType.Loop:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'for' loop");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to loops");
@@ -332,6 +336,14 @@ public partial class Parser {
     }
 
     return new ReturnStatement(arg);
+  }
+
+  private static YieldStatement ParseYieldStatement(TokenStream stream) {
+    if (!stream.Consume().IsKeyword(KeywordType.Yield)) {
+      throw new Exception("PARSER: Expected 'yield' keyword");
+    }
+    var val = ParseExpression(stream);
+    return new YieldStatement(val);
   }
 
   private static LoopStatement ParseLoopStatement(TokenStream stream) {

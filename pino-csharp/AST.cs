@@ -18,6 +18,8 @@ public record BlockStatement(List<Statement> Statements) : Statement;
 
 public record ReturnStatement(Expression? Argument) : Statement;
 
+public record YieldStatement(Expression Value) : Statement;
+
 public enum LoopKind {
   ForIn,
   ForTimes,
@@ -95,6 +97,10 @@ public record IdentifierExpression : Expression {
 public record BinaryExpression(Expression Left, OperatorType Operator, Expression Right) : Expression;
 
 public record UnaryExpression(OperatorType Operator, Expression Right) : Expression;
+
+public record BubbleExpression(Expression Value) : Expression;
+
+public record RecoveryExpression(Expression Value, Statement Body) : Expression;
 
 public record TernaryExpression(Expression Condition, Expression Consequent, Expression Alternate) : Expression;
 

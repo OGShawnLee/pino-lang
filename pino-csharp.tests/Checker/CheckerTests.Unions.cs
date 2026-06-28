@@ -193,4 +193,156 @@ public partial class CheckerTests {
     ";
     CheckCode(input);
   }
+
+  [Fact]
+  public void TestUnionOrOperatorSuccess() {
+    var input = @"
+      val res = Result::Success(10)
+      val value = res or {
+        return 20
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestUnionOrOperatorFailure() {
+    var input = @"
+      val res = Result::Failure(10)
+      val value = res or {
+        yield 20
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestUnionOrOperatorFailureErrCapturing() {
+    var input = @"
+      fn no_good() Result[string, string] {
+        return Result::Failure(""Something went wrong"")
+      }
+
+      val res = no_good() or {
+        println(err)
+        yield ""fallback""
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestUnionBubbleResultOperator() {
+    var input = @"
+      fn divide(a int, b int) Result[int, string] {
+        if b == 0 {
+          return Result::Failure(""Cannot divide by zero"")
+        }
+        return Result::Success(a / b)
+      }
+
+      fn main() Result[int, string] {
+        val result = divide(10, 0)?
+        return Result::Success(result)
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestUnionBubbleOptionOperator() {
+    var input = @"
+      fn get_val(flag bool) Option[int] {
+        if flag {
+          return Option::Some(10)
+        }
+        return Option::None
+      }
+
+      fn process() Option[int] {
+        val x = get_val(true)?
+        return Option::Some(x + 5)
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestUnionBubbleMismatchingErrorTypes() {
+    var input = @"
+      fn get_str_err() Result[int, string] {
+        return Result::Failure(""error"")
+      }
+
+      # Function expects error of type int, but get_str_err returns error of type string.
+      fn process() Result[int, int] {
+        val x = get_str_err()?
+        return Result::Success(x)
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestUnionBubbleMismatchingErrorTypesComplex() {
+    var input = @"
+      fn divide(a int, b int) Result[int, string] {
+        if b == 0 {
+          return Result::Failure(""Division by zero"")
+        }
+
+        return Result::Success(a / b)
+      }
+
+      fn another_result() Result[string, int] {
+        return Result::Failure(12)
+      }
+
+      fn use_divide(a int, b int) Result[int, string] {
+        val res = divide(a, b)?
+        another_result()?
+        return Result::Success(res)
+      }
+
+      fn main() Result[int, string] {
+        val n = use_divide(10, 0)?
+        println(n)
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestUnionBubbleOptionResultMismatch() {
+    var input = @"
+      fn get_res() Result[int, string] {
+        return Result::Success(10)
+      }
+
+      # Function expects Option[int], but get_res is a Result.
+      fn process() Option[int] {
+        val x = get_res()?
+        return Option::Some(x)
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestUnionYieldMismatchingType() {
+    var input = @"
+      fn get_res() Result[int, string] {
+        return Result::Success(10)
+      }
+
+      fn process() int {
+        # Recovery block yields string, but expected success type of get_res is int.
+        val val = get_res() or {
+          yield ""not an int""
+        }
+        return val
+      }
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
 }

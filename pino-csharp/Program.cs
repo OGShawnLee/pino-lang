@@ -269,7 +269,8 @@ class Program {
 
         if (hasMainFunc && !hasExplicitMainCall) {
           if (evaluator.Globals.Exists("main") && evaluator.Globals.Get("main") is IPinoCallable mainCallable && mainCallable.Arity == 0) {
-            mainCallable.Call(evaluator, new List<object?>());
+            var result = mainCallable.Call(evaluator, new List<object?>());
+            HandleMainResult(result);
           }
         }
       } else {
@@ -278,12 +279,42 @@ class Program {
 
         if (hasMainFunc && !hasExplicitMainCall) {
           if (evaluator.Globals.Exists("main") && evaluator.Globals.Get("main") is IPinoCallable mainCallable && mainCallable.Arity == 0) {
-            mainCallable.Call(evaluator, new List<object?>());
+            var result = mainCallable.Call(evaluator, new List<object?>());
+            HandleMainResult(result);
           }
         }
       }
+    } catch (PinoPanicException ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.Error.WriteLine($"thread 'main' panicked at '{ex.PanicMessage}'");
+      if (ex.CallStack != null && ex.CallStack.Count > 0) {
+        Console.Error.WriteLine("stack backtrace:");
+        int idx = 0;
+        foreach (var frame in ex.CallStack) {
+          Console.Error.WriteLine($"   {idx++}: {frame}");
+        }
+      }
+      Console.ResetColor();
+      System.Environment.Exit(101);
     } catch (Exception ex) {
       Console.WriteLine(ex.ToString());
+    }
+  }
+
+  private static void HandleMainResult(object? result) {
+    if (result is PinoUnionValue unionVal) {
+      if (unionVal.VariantName == "Failure") {
+        Console.ForegroundColor = ConsoleColor.Red;
+        var errPayload = unionVal.Payload.Count > 0 ? unionVal.Payload[0] : "";
+        Console.Error.WriteLine($"Error: {errPayload}");
+        Console.ResetColor();
+        System.Environment.Exit(1);
+      } else if (unionVal.VariantName == "None") {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.Error.WriteLine("Error: Option::None");
+        Console.ResetColor();
+        System.Environment.Exit(1);
+      }
     }
   }
 

@@ -59,6 +59,9 @@ public class Compiler {
         EmitByte((byte)OperationCode.OP_RETURN);
         break;
 
+      case YieldStatement yield:
+        throw new Exception("PinoVM compiler: 'yield' is not supported in bytecode compilation yet.");
+
       case IfStatement ifs:
         CompileIfStatement(ifs);
         break;
@@ -393,6 +396,12 @@ public class Compiler {
         CompileExpression(tern.Alternate);
         PatchJump(elseJump);
         break;
+
+      case BubbleExpression bub:
+        throw new Exception("PinoVM compiler: '?' operator is not supported in bytecode compilation yet.");
+
+      case RecoveryExpression rec:
+        throw new Exception("PinoVM compiler: 'or' recovery block is not supported in bytecode compilation yet.");
 
       default:
         // Emit nil fallback

@@ -31,7 +31,8 @@ public class Lexer {
         { "then", KeywordType.Then },
         { "var", KeywordType.Variable },
         { "when", KeywordType.When },
-        { "union", KeywordType.Union }
+        { "union", KeywordType.Union },
+        { "yield", KeywordType.Yield }
     };
 
   private static readonly Dictionary<char, MarkerType> Markers = new() {
@@ -70,7 +71,8 @@ public class Lexer {
         { "not", OperatorType.Not },
         { ":", OperatorType.MemberAccess },
         { "=>", OperatorType.Arrow },
-        { "::", OperatorType.StaticMemberAccess }
+        { "::", OperatorType.StaticMemberAccess },
+        { "?", OperatorType.QuestionMark }
     };
 
   private static readonly Regex FloatRegex = new(@"^-?[0-9]{1,9}(_[0-9]{3})*\.[0-9]{1,9}(_[0-9]{3})*$");

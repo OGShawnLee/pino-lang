@@ -27,13 +27,14 @@ This document serves as the definitive reference guide for the syntax, type syst
    * [Structural Interfaces ("Duck Typing")](#structural-interfaces-duck-typing)
    * [Enums](#enums)
    * [Unions (Sum Types / Tagged Unions)](#unions-sum-types--tagged-unions)
-8. [Global Built-in Functions](#8-global-built-in-functions)
-9. [Properties and Instance Methods](#9-properties-and-instance-methods)
+8. [Error Handling (Panic, ? operator, and or blocks)](#8-error-handling)
+9. [Global Built-in Functions](#9-global-built-in-functions)
+10. [Properties and Instance Methods](#10-properties-and-instance-methods)
    * [String Methods](#string-methods)
    * [Regex Methods](#regex-methods)
    * [Vector Methods](#vector-methods)
    * [Map Methods](#map-methods)
-10. [Execution Engines](#10-execution-engines)
+11. [Execution Engines](#11-execution-engines)
 
 ---
 
@@ -501,11 +502,167 @@ match opt {
 }
 ```
 
+## 8. Error Handling
+
+Pino provides a modern, type-safe, and highly robust error-handling model inspired by Rust and Zig. Instead of throwing arbitrary unchecked runtime exceptions, Pino encourages handling expected failures explicitly through monadic sum types (`Result` and `Option`), combined with clean compiler-enforced recovery structures.
+
+### The `panic` Mechanism
+
+For truly **unrecoverable errors** (e.g., severe logic bugs, missing crucial assets, or corrupt configurations), Pino offers the global `panic` built-in function:
+
+*   **Behavior**: When invoked, `panic` immediately halts execution, prints a clean red stack backtrace containing all calling stack frames to `stderr`, and exits the process with a non-zero code (`101`).
+*   **Signature**: `panic(message string) any` (returns `any` to satisfy any type context where it is called).
+
+```pino
+fn load_config(path string) {
+    if path == "" {
+        panic("Database configuration path cannot be empty!")
+    }
+}
+```
+
 ---
 
-## 8. Global Built-in Functions
+### The Bubble Operator (`?`)
+
+The suffix operator `?` provides a clean way to bubble up errors through call stacks without manual nesting:
+
+*   **Applicability**: Can only be applied to expressions evaluating to a generic `Result[T, E]` or `Option[T]` union variant.
+*   **Rules & Constraints (Enforced by the `Checker`)**:
+    1.  **Function Scope**: `?` can only be used inside a function body. Using `?` at the global script level is a compile-time error.
+    2.  **Return Type Annotation**: The enclosing function must explicitly declare a `Result` or `Option` return type.
+    3.  **Error Compatibility**: The error type `E1` of the bubbled expression must be statically compatible with the declared error type `E2` of the enclosing function. Attempting to bubble a `string` error in a function returning `Result[int, int]` is a compile-time type error.
+*   **Mechanics**:
+    *   If the expression evaluates to `Success(value)` or `Some(value)`, `?` extracts and evaluates to the inner value `value` (type `T`).
+    *   If it is a `Failure(err)` or `None`, it immediately returns the failure/none variant from the enclosing function.
+
+```pino
+fn divide(a int, b int) Result[int, string] {
+    if b == 0 {
+        return Result::Failure("Zero division")
+    }
+    return Result::Success(a / b)
+}
+
+# The enclosing function declares a compatible Result return type
+fn compute(a int, b int) Result[int, string] {
+    val num = divide(a, b)? # Extracts 'int' success value or bubbles Failure(string) early
+    return Result::Success(num * 10)
+}
+```
+
+---
+
+### Suffix Recovery Blocks (`or`)
+
+The `or` keyword evaluates an expression and, if it fails, redirects execution to a local recovery block:
+
+*   **Injecting the Error**: The recovery block is executed in a child scope where a local variable named `err` is automatically declared. For a `Result[T, E]`, `err` holds the failure payload `E`. For an `Option[T]`, `err` is initialized to the string `"None"`.
+*   **Yielding Fallbacks**: Inside the `or` block, you must either diverge (call `return` or `panic`) or yield a fallback value using the `yield` keyword. The type of the yielded expression must match the expected success type `T` of the outer expression.
+
+```pino
+val result = divide(10, 0) or {
+    println("Captured error: $err") # err is "Zero division"
+    yield -1 # Fallback value assigned to 'result'
+}
+```
+
+---
+
+### Managing Error Type Collisions (Tactics)
+
+When calling functions that return different error types, you cannot bubble them all directly using `?` if they conflict with the enclosing function's declared error channel. 
+
+#### Tactic 1: Manual Mapping with `or`
+Use the `or` block to intercept the foreign error, map/format it into the enclosing function's error type, and return a manual `Failure`:
+
+```pino
+fn get_db_status() Result[string, int] {
+    return Result::Failure(500) # Returns int error
+}
+
+fn initialize() Result[string, string] { # Expects string error
+    # We cannot use get_db_status()? because 'int' is incompatible with 'string'
+    val status = get_db_status() or {
+        return Result::Failure("Database error occurred with status: " + err:to_string())
+    }
+    return Result::Success(status)
+}
+```
+
+#### Tactic 2: Unified Module Error Unions
+Define a unified module-level `union` that represents all possible failures, and use it as the error channel for your module's functions:
+
+```pino
+union AppError {
+    DatabaseError(int)
+    NetworkError(string)
+}
+
+fn query_db() Result[string, AppError] { ... }
+fn fetch_network() Result[string, AppError] { ... }
+
+# Since both return the same error channel, they can be bubbled together seamlessly!
+fn execute() Result[string, AppError] {
+    val db = query_db()?
+    val net = fetch_network()?
+    return Result::Success("Success: $db and $net")
+}
+
+fn handle_app_error(app_error AppError) {
+  match app_error {
+    case AppError::DatabaseError(code) {
+      println("Database error: $code")
+    }
+    case AppError::NetworkError(msg) {
+      println("Network error: $msg")
+    }
+  }
+}
+
+fn main {
+  val res = execute()
+  match res {
+    case Result::Success(message) {
+      println("Success: $message")
+    }
+    case Result::Failure(app_error) {
+      handle_app_error(app_error)
+    }
+  }
+}
+```
+
+---
+
+### The `main()` Entry Point Failure Handler
+
+In Program Mode, if `fn main()` is declared to return a `Result` or `Option`, any bubbled or explicitly returned failure variant is caught by the Pino runtime at the top level:
+
+*   It prints the failure message directly to `stderr` in red.
+*   It terminates execution immediately, returning exit code `1` to the operating system.
+
+This enables you to write clean, linear CLI tools that bubble errors all the way up to `main` for clean terminations:
+
+```pino
+fn main() Result[int, string] {
+    val tokens = lex(program)? # If lex fails, CLI prints error and exits with 1
+    val parsed = parse(tokens)?
+    return Result::Success(0)
+}
+```
+
+---
+
+## 9. Global Built-in Functions
 
 These functions are globally available in any Pino source file without requiring any imports:
+
+### `panic(message)`
+Halts program execution immediately, displaying a clean stack backtrace of call frames, and exits the process.
+*   **Arguments**: A `string` message describing the panic reason.
+*   **Return**: `any` (special type that satisfies any surrounding type check constraints).
+*   **Example**: `panic("Critical database failure!")`
 
 ### `println(args...)`
 Prints one or more expressions to the standard console, separated by spaces and followed by a newline.
@@ -585,7 +742,7 @@ Compiles a regular expression pattern for matching operations.
 
 ---
 
-## 9. Properties and Instance Methods
+## 10. Properties and Instance Methods
 
 Instance methods and properties are invoked using the two-dot member call operator (`:`).
 
@@ -808,7 +965,7 @@ Removes the specified key from the map and returns the value it had associated. 
 
 ---
 
-## 10. Execution Engines
+## 11. Execution Engines
 
 Pino provides two execution engines that operate in parallel to offer advanced compatibility and performance engineering:
 
