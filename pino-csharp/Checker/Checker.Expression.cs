@@ -69,7 +69,11 @@ public partial class Checker {
                   }
 
                   // Validate arguments
-                  var memberCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                  var memberCallArgTypes = new List<string>();
+                  for (int i = 0; i < methodCall.Arguments.Count; i++) {
+                    string expectedArgType = i < method.Parameters.Count ? method.Parameters[i].Typing : "";
+                    memberCallArgTypes.Add(InferType(methodCall.Arguments[i], expectedArgType));
+                  }
                   if (method.Parameters.Count != memberCallArgTypes.Count) {
                     throw new Exception($"TYPE CHECK ERROR: Method '{method.Identifier}' expected {method.Parameters.Count} arguments, but got {memberCallArgTypes.Count}.");
                   }
@@ -209,9 +213,11 @@ public partial class Checker {
               var staticAccessUnionDecl = FindUnion(structName);
               if (staticAccessUnionDecl != null) {
                 if (staticAccessUnionDecl.GenericParams != null && staticAccessUnionDecl.GenericParams.Count > 0) {
-                  InferType(bin);
-                  structName = structId.Name;
-                  staticAccessUnionDecl = FindUnion(structName);
+                  if (structId.Name == staticAccessUnionDecl.Identifier) {
+                    InferType(bin);
+                    structName = structId.Name;
+                    staticAccessUnionDecl = FindUnion(structName);
+                  }
                 }
 
                 if (bin.Right is FunctionCallExpression methodCall) {
@@ -222,7 +228,11 @@ public partial class Checker {
                   foreach (var arg in methodCall.Arguments) {
                     CheckExpression(arg);
                   }
-                  var staticCallArgTypes = methodCall.Arguments.Select(InferType).ToList();
+                  var staticCallArgTypes = new List<string>();
+                  for (int i = 0; i < methodCall.Arguments.Count; i++) {
+                    string expectedArgType = i < variant.AssociatedTypes.Count ? variant.AssociatedTypes[i] : "";
+                    staticCallArgTypes.Add(InferType(methodCall.Arguments[i], expectedArgType));
+                  }
                   if (variant.AssociatedTypes.Count != staticCallArgTypes.Count) {
                     throw new Exception($"TYPE CHECK ERROR: Variant constructor '{methodCall.Callee}' of union '{structName}' expected {variant.AssociatedTypes.Count} arguments, but got {staticCallArgTypes.Count}.");
                   }
@@ -335,19 +345,11 @@ public partial class Checker {
         break;
 
       case FunctionCallExpression call:
-        if (_functions.TryGetValue(call.Callee, out var genericFn)) {
-          ResolveImplicitLambdas(call.Arguments, genericFn.Parameters, genericFn.GenericParams, call.GenericArgs);
+        Resolve(call, call.Callee);
+        _functions.TryGetValue(call.Callee, out var fnDecl);
 
-          if (genericFn.GenericParams != null && genericFn.GenericParams.Count > 0) {
-            foreach (var arg in call.Arguments) {
-              CheckExpression(arg);
-            }
-            MonomorphizeFunctionCall(call);
-          } else {
-            foreach (var arg in call.Arguments) {
-              CheckExpression(arg);
-            }
-          }
+        if (fnDecl != null) {
+          ResolveImplicitLambdas(call.Arguments, fnDecl.Parameters, fnDecl.GenericParams, call.GenericArgs);
         } else {
           string calleeType = ResolveIdentifierType(call.Callee);
           if (calleeType.StartsWith("fn(")) {
@@ -358,16 +360,38 @@ public partial class Checker {
               }
             }
           }
+        }
 
-          foreach (var arg in call.Arguments) {
-            CheckExpression(arg);
+        var argTypes = new List<string>();
+        List<string>? expectedParams = null;
+        if (fnDecl != null) {
+          expectedParams = fnDecl.Parameters.Select(p => p.Typing).ToList();
+        } else {
+          string calleeType = ResolveIdentifierType(call.Callee);
+          if (calleeType.StartsWith("fn(")) {
+            if (ParseFunctionSignature(calleeType, out var paramsList, out var _)) {
+              expectedParams = paramsList;
+            }
           }
         }
 
-        Resolve(call, call.Callee);
-        var argTypes = call.Arguments.Select(InferType).ToList();
+        for (int i = 0; i < call.Arguments.Count; i++) {
+          string expectedArgType = (expectedParams != null && i < expectedParams.Count) ? expectedParams[i] : "";
+          argTypes.Add(InferType(call.Arguments[i], expectedArgType));
+        }
 
-        if (_functions.TryGetValue(call.Callee, out var fnDecl)) {
+        if (fnDecl != null) {
+          if (fnDecl.GenericParams != null && fnDecl.GenericParams.Count > 0) {
+            foreach (var arg in call.Arguments) {
+              CheckExpression(arg);
+            }
+            MonomorphizeFunctionCall(call);
+          } else {
+            foreach (var arg in call.Arguments) {
+              CheckExpression(arg);
+            }
+          }
+
           if (fnDecl.Parameters.Count != argTypes.Count) {
             throw new Exception($"TYPE CHECK ERROR: Function '{call.Callee}' expected {fnDecl.Parameters.Count} arguments, but got {argTypes.Count}.");
           }
@@ -375,6 +399,10 @@ public partial class Checker {
             if (!IsCompatible(argTypes[i], fnDecl.Parameters[i].Typing)) {
               throw new Exception($"TYPE CHECK ERROR: Argument {i + 1} for function '{call.Callee}' expected type '{fnDecl.Parameters[i].Typing}', but got '{argTypes[i]}'.");
             }
+          }
+        } else {
+          foreach (var arg in call.Arguments) {
+            CheckExpression(arg);
           }
         }
         break;
@@ -930,17 +958,47 @@ public partial class Checker {
     }
   }
 
+  private void SetupFunctionScope(FunctionDeclaration fn, string? parentStructName) {
+    PushScope();
+    bool isMethod = parentStructName != null && !fn.IsStatic;
+    if (isMethod) {
+      DeclareVariable("this", parentStructName!);
+      DeclareVariable("self", parentStructName!);
+      ResolveStructMembers(parentStructName!, out var fields, out var _);
+      foreach (var field in fields) {
+        DeclareVariable(field.Identifier, field.Typing);
+      }
+    }
+    foreach (var param in fn.Parameters) {
+      DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
+    }
+  }
+
+  private string InferReturnStatementType(ReturnStatement ret, string expectedType, string? parentStructName, FunctionDeclaration fn) {
+    if (ret.Argument == null) return "any";
+
+    var oldStruct = _currentStruct;
+    var oldStatic = _inStaticMethod;
+    if (parentStructName != null) {
+      _currentStruct = FindStruct(parentStructName);
+      _inStaticMethod = fn.IsStatic;
+    }
+    try {
+      return InferType(ret.Argument, expectedType);
+    } finally {
+      _currentStruct = oldStruct;
+      _inStaticMethod = oldStatic;
+    }
+  }
+
   private string InferFunctionReturnType(FunctionDeclaration fn, string? parentStructName = null) {
     string fnKey = fn.Identifier ?? "<lambda>";
 
-    // Cycle guard must come first — covers BOTH explicit and inferred return type paths.
-    // If we are already inferring this function, it is recursive.
+    // Cycle guard — handles recursion detection for both explicit and implicit return paths.
     if (_inferringFunctions.Contains(fnKey)) {
-      // Explicit return type is already known — return it directly to break the cycle.
       if (!string.IsNullOrEmpty(fn.ReturnType)) {
         return fn.ReturnType;
       }
-      // No annotation — we cannot infer the type of a recursive call.
       throw new Exception(
         $"TYPE CHECK ERROR: Function '{fn.Identifier}' is recursive and requires an explicit return type annotation.\n" +
         $"  Hint: fn {fn.Identifier}({string.Join(" ", fn.Parameters.Select(p => p.Identifier + " " + p.Typing))}) <return_type> {{ ... }}"
@@ -948,102 +1006,58 @@ public partial class Checker {
     }
 
     _inferringFunctions.Add(fnKey);
+    
+    // Temporarily pop scopes except the global/module level so local variables from parent functions do not interfere.
     var savedScopes = new List<Dictionary<string, string>>();
     while (_scopes.Count > 1) {
       savedScopes.Add(_scopes.Pop());
     }
 
     try {
+      // Path A: Function has an explicit return type annotation
       if (!string.IsNullOrEmpty(fn.ReturnType)) {
-        if (fn.Body == null) {
-          return fn.ReturnType;
-        }
+        if (fn.Body == null) return fn.ReturnType;
 
-        PushScope();
-        bool isMethod = parentStructName != null && !fn.IsStatic;
-        if (isMethod) {
-          DeclareVariable("this", parentStructName!);
-          DeclareVariable("self", parentStructName!);
-          ResolveStructMembers(parentStructName!, out var fields, out var _);
-          foreach (var field in fields) {
-            DeclareVariable(field.Identifier, field.Typing);
-          }
-        }
-        foreach (var param in fn.Parameters) {
-          DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
-        }
-
+        SetupFunctionScope(fn, parentStructName);
         var returns = FindReturnStatements(fn.Body);
         foreach (var ret in returns) {
-          var oldStruct = _currentStruct;
-          var oldStatic = _inStaticMethod;
-          if (parentStructName != null) {
-            _currentStruct = FindStruct(parentStructName);
-            _inStaticMethod = fn.IsStatic;
-          }
-          string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
-          _currentStruct = oldStruct;
-          _inStaticMethod = oldStatic;
-
+          string retType = InferReturnStatementType(ret, fn.ReturnType, parentStructName, fn);
           if (!IsCompatible(retType, fn.ReturnType)) {
             throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' declared return type '{fn.ReturnType}', but returned '{retType}'.");
           }
         }
-
         PopScope();
         return fn.ReturnType;
       }
 
-      if (fn.Body == null) {
-        return "any";
-      }
+      // Path B: Function has no return type annotation (infer return type from returns)
+      if (fn.Body == null) return "any";
 
-      PushScope();
-      bool isMethod2 = parentStructName != null && !fn.IsStatic;
-      if (isMethod2) {
-        DeclareVariable("this", parentStructName!);
-        DeclareVariable("self", parentStructName!);
-        ResolveStructMembers(parentStructName!, out var fields, out var _);
-        foreach (var field in fields) {
-          DeclareVariable(field.Identifier, field.Typing);
-        }
-      }
-      foreach (var param in fn.Parameters) {
-        DeclareVariable(param.Identifier, string.IsNullOrEmpty(param.Typing) ? "any" : param.Typing);
-      }
-
+      SetupFunctionScope(fn, parentStructName);
       var returns2 = FindReturnStatements(fn.Body);
       if (returns2.Count == 0) {
         PopScope();
         return "any";
       }
 
-      string firstRetType = "any";
+      string inferredType = "any";
       bool first = true;
       foreach (var ret in returns2) {
-        var oldStruct = _currentStruct;
-        var oldStatic = _inStaticMethod;
-        if (parentStructName != null) {
-          _currentStruct = FindStruct(parentStructName);
-          _inStaticMethod = fn.IsStatic;
-        }
-        string retType = ret.Argument != null ? InferType(ret.Argument) : "any";
-        _currentStruct = oldStruct;
-        _inStaticMethod = oldStatic;
-
+        string retType = InferReturnStatementType(ret, "", parentStructName, fn);
         if (first) {
-          firstRetType = retType;
+          inferredType = retType;
           first = false;
         } else {
-          if (!IsCompatible(retType, firstRetType) && !IsCompatible(firstRetType, retType)) {
-            throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' has conflicting return types '{firstRetType}' and '{retType}'.");
+          if (!IsCompatible(retType, inferredType) && !IsCompatible(inferredType, retType)) {
+            throw new Exception($"TYPE CHECK ERROR: Function '{fn.Identifier}' has conflicting return types '{inferredType}' and '{retType}'.");
           }
         }
       }
 
       PopScope();
-      return firstRetType;
+      return inferredType;
     } finally {
+      // Restore saved scopes
       for (int i = savedScopes.Count - 1; i >= 0; i--) {
         _scopes.Push(savedScopes[i]);
       }

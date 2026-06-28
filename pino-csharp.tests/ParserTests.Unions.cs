@@ -15,7 +15,7 @@ public class ParserUnionsTests {
         Ghost
       }
     ";
-    var program = Parser.ParseProgramString(input);
+    var program = Parser.ParseProgramString(input, injectPrelude: false);
     Assert.Single(program.Statements);
 
     var unionDecl = Assert.IsType<UnionDeclaration>(program.Statements[0]);
@@ -50,7 +50,7 @@ public class ParserUnionsTests {
         }
       }
     ";
-    var program = Parser.ParseProgramString(input);
+    var program = Parser.ParseProgramString(input, injectPrelude: false);
     Assert.Single(program.Statements);
 
     var matchStmt = Assert.IsType<MatchStatement>(program.Statements[0]);

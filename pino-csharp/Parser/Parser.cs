@@ -117,10 +117,48 @@ public partial class Parser {
     }
   }
 
-  public static ProgramStatement ParseFile(string filePath) {
+  private const string PRELUDE_CODE = @"
+@generic[T]
+union Option {
+  Some(T)
+  None
+}
+
+@generic[T, E]
+union Result {
+  Success(T)
+  Failure(E)
+}
+";
+
+  private static List<Token> GetPreludeTokens() {
+    var tokens = new List<Token>();
+    var lines = PRELUDE_CODE.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+    foreach (var line in lines) {
+      tokens.AddRange(Lexer.LexLine(line));
+    }
+    return tokens;
+  }
+
+  private static List<Statement>? _cachedPrelude;
+
+  private static List<Statement> GetPreludeStatements() {
+    if (_cachedPrelude == null) {
+      var tokens = GetPreludeTokens();
+      var stream = new TokenStream(tokens);
+      var prog = ParseProgram(stream, injectPrelude: false);
+      foreach (var stmt in prog.Statements) {
+        stmt.IsPrelude = true;
+      }
+      _cachedPrelude = prog.Statements;
+    }
+    return _cachedPrelude;
+  }
+
+  public static ProgramStatement ParseFile(string filePath, bool injectPrelude = true) {
     var tokens = Lexer.LexFile(filePath);
     var stream = new TokenStream(tokens);
-    var prog = ParseProgram(stream);
+    var prog = ParseProgram(stream, injectPrelude);
     prog.FilePath = filePath;
     return prog;
   }
@@ -131,19 +169,23 @@ public partial class Parser {
     return ParseStatement(stream);
   }
 
-  public static ProgramStatement ParseProgramString(string input) {
+  public static ProgramStatement ParseProgramString(string input, bool injectPrelude = true) {
     var tokens = new List<Token>();
     var lines = input.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
     foreach (var line in lines) {
       tokens.AddRange(Lexer.LexLine(line));
     }
     var stream = new TokenStream(tokens);
-    return ParseProgram(stream);
+    var prog = ParseProgram(stream, injectPrelude);
+    return prog;
   }
 
-  private static ProgramStatement ParseProgram(TokenStream stream) {
+  private static ProgramStatement ParseProgram(TokenStream stream, bool injectPrelude = false) {
     PushScope(stream);
     var statements = new List<Statement>();
+    if (injectPrelude) {
+      statements.AddRange(GetPreludeStatements());
+    }
     bool first = true;
     while (stream.HasNext) {
       var stmt = ParseStatement(stream);

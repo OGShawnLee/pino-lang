@@ -1,4 +1,4 @@
-from Lexer import Result, lex
+from Lexer import lex
 
 fn main {
 	println("Welcome to the Pino C Compiler!")
@@ -9,7 +9,7 @@ fn main {
 		when Result::Success(token_list) {
 			token_list:each(println)
 		}
-		when Result::Error(message) {
+		when Result::Failure(message) {
 			println(message)
 		}
 	}

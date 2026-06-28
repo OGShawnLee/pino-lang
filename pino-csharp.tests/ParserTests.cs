@@ -329,7 +329,7 @@ public class ParserTests {
         }
       }
     ";
-    var program = Parser.ParseProgramString(input);
+    var program = Parser.ParseProgramString(input, injectPrelude: false);
     var structDecl = Assert.IsType<StructDeclaration>(program.Statements[0]);
     Assert.Equal(2, structDecl.Methods.Count);
     
@@ -361,7 +361,7 @@ public class ParserTests {
         radius: 5
       }
     ";
-    var program = Parser.ParseProgramString(input);
+    var program = Parser.ParseProgramString(input, injectPrelude: false);
     var statements = program.Statements;
     var shapeDecl = Assert.IsType<StructDeclaration>(statements[0]);
     Assert.Equal("Shape", shapeDecl.Identifier);

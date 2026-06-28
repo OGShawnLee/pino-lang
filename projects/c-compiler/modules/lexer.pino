@@ -29,12 +29,7 @@ val TOKEN_RULE_LIST = [
 	TokenRule { pattern: IDENTIFIER_REGEX, type: TokenType::Identifier }
 ]
 
-pub union Result {
-	Success([]Token)
-	Error(string)
-}
-
-pub fn lex(line string) Result {
+pub fn lex(line string) Result[[]Token, string] {
 	val token_list = []Token	
 
 	for line:len > 0 {	
@@ -57,7 +52,7 @@ pub fn lex(line string) Result {
 		}
 
 		if match_found == false {
-			return Result::Error("No rule matched for line '$line'")
+			return Result::Failure("No rule matched for line '$line'")
 		}
 	}
 

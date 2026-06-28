@@ -3,7 +3,9 @@ using System.Collections.Generic;
 namespace Pino;
 
 // Base AST Node
-public abstract record ASTNode;
+public abstract record ASTNode {
+  public bool IsPrelude { get; set; } = false;
+}
 
 // --- STATEMENTS ---
 public abstract record Statement : ASTNode;

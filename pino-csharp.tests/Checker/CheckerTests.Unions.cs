@@ -132,7 +132,7 @@ public partial class CheckerTests {
     CheckCode(input);
   }
 
-    [Fact]
+  [Fact]
   public void TestUnionGenericAsParameterThrows() {
     var input = @"
       @generic[T]
@@ -143,5 +143,54 @@ public partial class CheckerTests {
       use_container(Container::Value(""not an int""))
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
+  }
+
+  [Fact]
+  public void TestNativePreludeOptionAndResult() {
+    var input = @"
+      fn check_option(opt Option[int]) bool {
+        match opt {
+          when Option::Some(value) { return true }
+          when Option::None { return false }
+        }
+      }
+
+      fn check_result(res Result[string, int]) string {
+        match res {
+          when Result::Success(value) { return value }
+          when Result::Failure(err) { return ""Error"" }
+        }
+      }
+
+      val opt_val = Option::Some(42)
+
+      val has_val = check_option(opt_val)
+      val message = check_result(Result::Success(""OK""))
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestNativeResult() {
+    var input = @"
+      fn divide(a int, b int) Result[int, string] {
+        if b == 0 {
+          return Result::Failure(""Cannot divide by zero"")
+        }
+        return Result::Success(a / b)
+      }
+
+      val result = divide(10, 2)
+
+      match result {
+        when Result::Success(value) { 
+          println(""Result: $value"") 
+        }
+        when Result::Failure(err) { 
+          println(""Error: $err"") 
+        }
+      }
+    ";
+    CheckCode(input);
   }
 }

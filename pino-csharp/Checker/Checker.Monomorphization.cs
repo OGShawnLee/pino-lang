@@ -417,9 +417,9 @@ public partial class Checker {
 
   private void InferGenericParamsFromTypes(string pattern, string concrete, Dictionary<string, string> subst, HashSet<string> genericParams) {
     if (genericParams.Contains(pattern)) {
-      if (!subst.ContainsKey(pattern)) {
+      if (!subst.ContainsKey(pattern) || subst[pattern] == "any") {
         subst[pattern] = concrete;
-      } else if (subst[pattern] != concrete) {
+      } else if (subst[pattern] != concrete && concrete != "any") {
         if (IsCompatible(concrete, subst[pattern])) {
           // keep existing
         } else if (IsCompatible(subst[pattern], concrete)) {
@@ -901,56 +901,55 @@ public partial class Checker {
     // 2. Infer from expected type context if available
     if (!string.IsNullOrEmpty(expectedType)) {
       if (expectedType.StartsWith(unionDecl.Identifier + "[")) {
-        int bracketIdx = expectedType.IndexOf('[');
-        if (bracketIdx != -1 && expectedType.EndsWith("]")) {
-          string argsStr = expectedType.Substring(bracketIdx + 1, expectedType.Length - bracketIdx - 2);
-          var subArgs = new List<string>();
-          int start = 0;
-          int depth = 0;
-          for (int i = 0; i < argsStr.Length; i++) {
-            if (argsStr[i] == '[') depth++;
-            else if (argsStr[i] == ']') depth--;
-            else if (argsStr[i] == ',' && depth == 0) {
-              subArgs.Add(argsStr.Substring(start, i - start).Trim());
-              start = i + 1;
-            }
-          }
-          subArgs.Add(argsStr.Substring(start).Trim());
+         int bracketIdx = expectedType.IndexOf('[');
+         if (bracketIdx != -1 && expectedType.EndsWith("]")) {
+           string argsStr = expectedType.Substring(bracketIdx + 1, expectedType.Length - bracketIdx - 2);
+           var subArgs = new List<string>();
+           int start = 0;
+           int depth = 0;
+           for (int i = 0; i < argsStr.Length; i++) {
+             if (argsStr[i] == '[') depth++;
+             else if (argsStr[i] == ']') depth--;
+             else if (argsStr[i] == ',' && depth == 0) {
+               subArgs.Add(argsStr.Substring(start, i - start).Trim());
+               start = i + 1;
+             }
+           }
+           subArgs.Add(argsStr.Substring(start).Trim());
 
-          if (subArgs.Count == unionDecl.GenericParams.Count) {
-            for (int i = 0; i < unionDecl.GenericParams.Count; i++) {
-              string paramName = unionDecl.GenericParams[i].Name;
-              if (!subst.ContainsKey(paramName)) {
-                subst[paramName] = subArgs[i];
-              }
-            }
-          }
-        }
-      } else {
-        var specUnion = FindUnion(expectedType);
-        if (specUnion != null) {
-          for (int vIdx = 0; vIdx < Math.Min(unionDecl.Variants.Count, specUnion.Variants.Count); vIdx++) {
-            var baseVar = unionDecl.Variants[vIdx];
-            var specVar = specUnion.Variants[vIdx];
-            for (int i = 0; i < Math.Min(baseVar.AssociatedTypes.Count, specVar.AssociatedTypes.Count); i++) {
-              InferGenericParamsFromTypes(baseVar.AssociatedTypes[i], specVar.AssociatedTypes[i], subst, genericParamsSet);
-            }
-          }
-        }
-      }
-    }
+           if (subArgs.Count == unionDecl.GenericParams.Count) {
+             for (int i = 0; i < unionDecl.GenericParams.Count; i++) {
+               string paramName = unionDecl.GenericParams[i].Name;
+               if (!subst.TryGetValue(paramName, out var existing) || existing == "any") {
+                 subst[paramName] = subArgs[i];
+               }
+             }
+           }
+         }
+       } else {
+         var specUnion = FindUnion(expectedType);
+         if (specUnion != null) {
+           for (int vIdx = 0; vIdx < Math.Min(unionDecl.Variants.Count, specUnion.Variants.Count); vIdx++) {
+             var baseVar = unionDecl.Variants[vIdx];
+             var specVar = specUnion.Variants[vIdx];
+             for (int i = 0; i < Math.Min(baseVar.AssociatedTypes.Count, specVar.AssociatedTypes.Count); i++) {
+               InferGenericParamsFromTypes(baseVar.AssociatedTypes[i], specVar.AssociatedTypes[i], subst, genericParamsSet);
+             }
+           }
+         }
+       }
+     }
 
-    // 3. Any still missing fall back to "any"
-    var concreteArgs = new List<string>();
-    foreach (var param in unionDecl.GenericParams) {
-      if (subst.TryGetValue(param.Name, out var concrete)) {
-        concreteArgs.Add(concrete);
-      } else {
-        concreteArgs.Add("any");
-      }
-    }
+     // 3. Any still missing fall back to "any"
+     var concreteArgs = new List<string>();
+     foreach (var param in unionDecl.GenericParams) {
+       if (subst.TryGetValue(param.Name, out var concrete)) {
+         concreteArgs.Add(concrete);
+       } else {
+         concreteArgs.Add("any");
+       }
+     }
 
-    // 4. Monomorphize the union and return the specialized name
-    return MonomorphizeUnion(unionDecl.Identifier, concreteArgs);
-  }
-}
+     return MonomorphizeUnion(unionDecl.Identifier, concreteArgs);
+   }
+ }
