@@ -447,6 +447,56 @@ public partial class Checker {
       case RecoveryExpression rec:
         CheckExpression(rec.Value);
         break;
+
+      case MatchStatement match:
+        CheckExpression(match.Condition);
+        string condType = InferType(match.Condition);
+        foreach (var branch in match.Branches) {
+          PushScope();
+          foreach (var cond in branch.Conditions) {
+            CheckPattern(cond, condType);
+          }
+          if (branch.Body is BlockStatement block) {
+            var yields = FindYieldStatements(block);
+            string expectedBranchYieldType = "";
+            if (yields.Count > 0) {
+              expectedBranchYieldType = InferType(yields[0].Value);
+            }
+            var savedYield = _currentYieldType;
+            _currentYieldType = expectedBranchYieldType;
+            try {
+              CheckStatement(block);
+            } finally {
+              _currentYieldType = savedYield;
+            }
+          } else if (branch.Body is Expression branchExpr) {
+            CheckExpression(branchExpr);
+          } else {
+            CheckStatement(branch.Body);
+          }
+          PopScope();
+        }
+        if (match.Alternate != null) {
+          if (match.Alternate.Body is BlockStatement block) {
+            var yields = FindYieldStatements(block);
+            string expectedBranchYieldType = "";
+            if (yields.Count > 0) {
+              expectedBranchYieldType = InferType(yields[0].Value);
+            }
+            var savedYield = _currentYieldType;
+            _currentYieldType = expectedBranchYieldType;
+            try {
+              CheckStatement(block);
+            } finally {
+              _currentYieldType = savedYield;
+            }
+          } else if (match.Alternate.Body is Expression altExpr) {
+            CheckExpression(altExpr);
+          } else {
+            CheckStatement(match.Alternate.Body);
+          }
+        }
+        break;
     }
 
     InferType(expr);
@@ -844,6 +894,103 @@ public partial class Checker {
       case TernaryExpression tern:
         return InferType(tern.Consequent);
 
+      case MatchStatement match: {
+        string condType = InferType(match.Condition);
+
+        // Exhaustiveness analysis
+        var unionDecl = FindUnion(condType);
+        if (unionDecl != null) {
+          var allVariants = unionDecl.Variants.Select(v => v.Identifier).ToHashSet();
+          var matchedVariants = new HashSet<string>();
+          foreach (var branch in match.Branches) {
+            foreach (var cond in branch.Conditions) {
+              if (cond is VariantPattern varPat) {
+                if (varPat.UnionName == condType || 
+                    (condType.StartsWith(varPat.UnionName + "_") && FindUnion(varPat.UnionName) != null)) {
+                  matchedVariants.Add(varPat.VariantName);
+                }
+              }
+            }
+          }
+          var missing = allVariants.Except(matchedVariants).ToList();
+          if (missing.Count > 0 && match.Alternate == null) {
+            throw new Exception($"TYPE CHECK ERROR: Match statement on union '{condType}' is not exhaustive. Missing variant(s): {string.Join(", ", missing)}.");
+          }
+        } else {
+          var enumDecl = FindEnum(condType);
+          if (enumDecl != null) {
+            var allMembers = enumDecl.Members.ToHashSet();
+            var matchedMembers = new HashSet<string>();
+            foreach (var branch in match.Branches) {
+              foreach (var cond in branch.Conditions) {
+                if (cond is VariantPattern varPat) {
+                  if (varPat.UnionName == condType) {
+                    matchedMembers.Add(varPat.VariantName);
+                  }
+                }
+              }
+            }
+            var missing = allMembers.Except(matchedMembers).ToList();
+            if (missing.Count > 0 && match.Alternate == null) {
+              throw new Exception($"TYPE CHECK ERROR: Match statement on enum '{condType}' is not exhaustive. Missing member(s): {string.Join(", ", missing)}.");
+            }
+          }
+        }
+
+        // Branch type checking and inference
+        var branchTypes = new List<string>();
+        foreach (var branch in match.Branches) {
+          string bType = "any";
+          if (branch.Body is BlockStatement block) {
+            var yields = FindYieldStatements(block);
+            string expectedBranchYieldType = !string.IsNullOrEmpty(expectedType) ? expectedType : "";
+            if (yields.Count > 0 && string.IsNullOrEmpty(expectedBranchYieldType)) {
+              expectedBranchYieldType = InferType(yields[0].Value);
+            }
+            bType = !string.IsNullOrEmpty(expectedBranchYieldType) ? expectedBranchYieldType : "any";
+          } else if (branch.Body is Expression branchBodyExpr) {
+            bType = InferType(branchBodyExpr, expectedType);
+          } else {
+            bType = "any";
+          }
+          branchTypes.Add(bType);
+        }
+
+        if (match.Alternate != null) {
+          string altType = "any";
+          if (match.Alternate.Body is BlockStatement block) {
+            var yields = FindYieldStatements(block);
+            string expectedBranchYieldType = !string.IsNullOrEmpty(expectedType) ? expectedType : "";
+            if (yields.Count > 0 && string.IsNullOrEmpty(expectedBranchYieldType)) {
+              expectedBranchYieldType = InferType(yields[0].Value);
+            }
+            altType = !string.IsNullOrEmpty(expectedBranchYieldType) ? expectedBranchYieldType : "any";
+          } else if (match.Alternate.Body is Expression altBodyExpr) {
+            altType = InferType(altBodyExpr, expectedType);
+          } else {
+            altType = "any";
+          }
+          branchTypes.Add(altType);
+        }
+
+        // Unify branch types
+        string unifiedType = "any";
+        foreach (var t in branchTypes) {
+          if (t != "any") {
+            unifiedType = t;
+            break;
+          }
+        }
+
+        foreach (var t in branchTypes) {
+          if (t != "any" && !IsCompatible(t, unifiedType) && !IsCompatible(unifiedType, t)) {
+            throw new Exception($"TYPE CHECK ERROR: Match branches have incompatible types '{unifiedType}' and '{t}'.");
+          }
+        }
+
+        return unifiedType;
+      }
+
       case FunctionLambdaExpression lambda:
         return GetFunctionSignatureString(null, lambda.Parameters, lambda);
 
@@ -1150,6 +1297,34 @@ public partial class Checker {
         _scopes.Push(savedScopes[i]);
       }
       _inferringFunctions.Remove(fnKey);
+    }
+  }
+
+  private List<YieldStatement> FindYieldStatements(Statement stmt) {
+    var list = new List<YieldStatement>();
+    FindYieldStatementsRecursive(stmt, list);
+    return list;
+  }
+
+  private void FindYieldStatementsRecursive(Statement stmt, List<YieldStatement> list) {
+    if (stmt == null) return;
+    if (stmt is YieldStatement y) {
+      list.Add(y);
+    } else if (stmt is BlockStatement block) {
+      foreach (var s in block.Statements) {
+        FindYieldStatementsRecursive(s, list);
+      }
+    } else if (stmt is IfStatement ifs) {
+      FindYieldStatementsRecursive(ifs.Consequent, list);
+      if (ifs.Alternate != null) {
+        FindYieldStatementsRecursive(ifs.Alternate, list);
+      }
+    } else if (stmt is ElseStatement els) {
+      FindYieldStatementsRecursive(els.Body, list);
+    } else if (stmt is WhenStatement when) {
+      FindYieldStatementsRecursive(when.Body, list);
+    } else if (stmt is LoopStatement loop) {
+      FindYieldStatementsRecursive(loop.Body, list);
     }
   }
 }

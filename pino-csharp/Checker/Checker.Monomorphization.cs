@@ -410,6 +410,9 @@ public partial class Checker {
           )).ToList()
         };
 
+      case MatchStatement match:
+        return (MatchStatement)SubstituteStatementTypes(match, subst)!;
+
       default:
         return expr;
     }

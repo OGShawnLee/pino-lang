@@ -49,7 +49,7 @@ public record ElseStatement(Statement Body) : Statement;
 
 public record WhenStatement(List<Pattern> Conditions, Statement Body) : Statement;
 
-public record MatchStatement(Expression Condition, List<WhenStatement> Branches, ElseStatement? Alternate) : Statement;
+public record MatchStatement(Expression Condition, List<WhenStatement> Branches, ElseStatement? Alternate) : Expression;
 
 // --- DECLARATIONS ---
 public abstract record Declaration(string Identifier, bool IsPublic = false) : Statement;

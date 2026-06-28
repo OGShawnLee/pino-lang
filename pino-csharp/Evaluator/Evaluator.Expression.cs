@@ -223,6 +223,9 @@ public partial class Evaluator {
         var tCond = Evaluate(tern.Condition, env);
         return IsTruthy(tCond) ? Evaluate(tern.Consequent, env) : Evaluate(tern.Alternate, env);
 
+      case MatchStatement match:
+        return EvaluateMatch(match, env);
+
       case VectorExpression vec:
         if (vec.Elements != null) {
           return vec.Elements.Select(e => Evaluate(e, env)).ToList();
@@ -968,5 +971,47 @@ public partial class Evaluator {
         selfInstance.Fields[id.Name] = value;
       }
     }
+  }
+
+  private object? EvaluateMatch(MatchStatement match, Environment env) {
+    var matchVal = Evaluate(match.Condition, env);
+
+    foreach (var branch in match.Branches) {
+      foreach (var condPattern in branch.Conditions) {
+        var bindings = new Dictionary<string, object?>();
+        if (MatchPattern(condPattern, matchVal, env, bindings)) {
+          var branchEnv = new Environment(env);
+          foreach (var bind in bindings) {
+            branchEnv.Define(bind.Key, bind.Value, false);
+          }
+          
+          if (branch.Body is BlockStatement) {
+            try {
+              Execute(branch.Body, branchEnv);
+            } catch (PinoYieldException yieldEx) {
+              return yieldEx.Value;
+            }
+            return null;
+          } else {
+            return Evaluate((Expression)branch.Body, branchEnv);
+          }
+        }
+      }
+    }
+
+    if (match.Alternate != null) {
+      if (match.Alternate.Body is BlockStatement) {
+        try {
+          Execute(match.Alternate.Body, env);
+        } catch (PinoYieldException yieldEx) {
+          return yieldEx.Value;
+        }
+        return null;
+      } else {
+        return Evaluate((Expression)match.Alternate.Body, env);
+      }
+    }
+
+    return null;
   }
 }

@@ -426,7 +426,13 @@ public partial class Parser {
       throw new Exception("PARSER: Expected 'else' keyword");
     }
 
-    var body = ParseBlock(stream);
+    Statement body;
+    if (stream.Current.IsOperator(OperatorType.Arrow)) {
+      stream.Consume(); // consume '=>'
+      body = ParseExpression(stream);
+    } else {
+      body = ParseBlock(stream);
+    }
     return new ElseStatement(body);
   }
 
@@ -484,12 +490,18 @@ public partial class Parser {
         continue;
       }
 
-      if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
+      if (stream.Current.IsMarker(MarkerType.BlockBegin) || stream.Current.IsOperator(OperatorType.Arrow)) {
         break;
       }
     }
 
-    var body = ParseBlock(stream);
+    Statement body;
+    if (stream.Current.IsOperator(OperatorType.Arrow)) {
+      stream.Consume(); // consume '=>'
+      body = ParseExpression(stream);
+    } else {
+      body = ParseBlock(stream);
+    }
     return new WhenStatement(conditions, body);
   }
 

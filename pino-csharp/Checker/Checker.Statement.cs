@@ -199,7 +199,7 @@ public partial class Checker {
 
       case YieldStatement yield:
         if (string.IsNullOrEmpty(_currentYieldType)) {
-          throw new Exception("TYPE CHECK ERROR: 'yield' is only allowed inside an error recovery block 'or { ... }'.");
+          throw new Exception("TYPE CHECK ERROR: 'yield' is only allowed inside a recovery block 'or { ... }' or a 'match' expression block.");
         }
         string yieldType = InferType(yield.Value, _currentYieldType);
         CheckExpression(yield.Value);
@@ -268,66 +268,8 @@ public partial class Checker {
         break;
 
       case MatchStatement match:
-        string condType = InferType(match.Condition);
-        CheckExpression(match.Condition);
-        foreach (var branch in match.Branches) {
-          PushScope();
-          foreach (var cond in branch.Conditions) {
-            CheckPattern(cond, condType);
-          }
-          if (branch.Body is BlockStatement block) {
-            PushScope();
-            foreach (var s in block.Statements) {
-              CheckStatement(s);
-            }
-            PopScope();
-          } else {
-            CheckStatement(branch.Body);
-          }
-          PopScope();
-        }
-        if (match.Alternate != null) {
-          CheckStatement(match.Alternate);
-        } else {
-          var unionDecl = FindUnion(condType);
-          if (unionDecl != null) {
-            var allVariants = unionDecl.Variants.Select(v => v.Identifier).ToHashSet();
-            var matchedVariants = new HashSet<string>();
-            foreach (var branch in match.Branches) {
-              foreach (var cond in branch.Conditions) {
-                if (cond is VariantPattern varPat) {
-                  if (varPat.UnionName == condType || 
-                      (condType.StartsWith(varPat.UnionName + "_") && FindUnion(varPat.UnionName) != null)) {
-                    matchedVariants.Add(varPat.VariantName);
-                  }
-                }
-              }
-            }
-            var missing = allVariants.Except(matchedVariants).ToList();
-            if (missing.Count > 0) {
-              throw new Exception($"TYPE CHECK ERROR: Match statement on union '{condType}' is not exhaustive. Missing variant(s): {string.Join(", ", missing)}.");
-            }
-          } else {
-            var enumDecl = FindEnum(condType);
-            if (enumDecl != null) {
-              var allMembers = enumDecl.Members.ToHashSet();
-              var matchedMembers = new HashSet<string>();
-              foreach (var branch in match.Branches) {
-                foreach (var cond in branch.Conditions) {
-                  if (cond is VariantPattern varPat) {
-                    if (varPat.UnionName == condType) {
-                      matchedMembers.Add(varPat.VariantName);
-                    }
-                  }
-                }
-              }
-              var missing = allMembers.Except(matchedMembers).ToList();
-              if (missing.Count > 0) {
-                throw new Exception($"TYPE CHECK ERROR: Match statement on enum '{condType}' is not exhaustive. Missing member(s): {string.Join(", ", missing)}.");
-              }
-            }
-          }
-        }
+        CheckExpression(match);
+        InferType(match);
         break;
 
       case ImportStatement imp:

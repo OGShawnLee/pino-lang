@@ -9,6 +9,7 @@ public partial class Parser {
     return IsFunctionLambda(stream) ||
            IsVector(stream) ||
            current.IsKeyword(KeywordType.If) ||
+           current.IsKeyword(KeywordType.Match) ||
            current.IsType(TokenType.Identifier, TokenType.Literal);
   }
 
@@ -213,6 +214,8 @@ public partial class Parser {
       expr = ParseStructInstance(stream);
     } else if (stream.Current.IsKeyword(KeywordType.If)) {
       expr = ParseTernaryExpression(stream);
+    } else if (stream.Current.IsKeyword(KeywordType.Match)) {
+      expr = ParseMatchStatement(stream);
     } else if (stream.Current.Type == TokenType.Identifier) {
       expr = new IdentifierExpression(stream.Consume().Data);
     } else if (stream.Current.Type == TokenType.Literal) {

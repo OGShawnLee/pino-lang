@@ -248,28 +248,7 @@ public partial class Evaluator {
   }
 
   private void ExecuteMatch(MatchStatement match, Environment env) {
-    var matchVal = Evaluate(match.Condition, env);
-    bool matched = false;
-
-    foreach (var branch in match.Branches) {
-      foreach (var condPattern in branch.Conditions) {
-        var bindings = new Dictionary<string, object?>();
-        if (MatchPattern(condPattern, matchVal, env, bindings)) {
-          var branchEnv = new Environment(env);
-          foreach (var bind in bindings) {
-            branchEnv.Define(bind.Key, bind.Value, false);
-          }
-          Execute(branch.Body, branchEnv);
-          matched = true;
-          break;
-        }
-      }
-      if (matched) break;
-    }
-
-    if (!matched && match.Alternate != null) {
-      Execute(match.Alternate, env);
-    }
+    EvaluateMatch(match, env);
   }
 
   private PinoModule ResolveAndLoadModule(string moduleName) {
