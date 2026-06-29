@@ -28,7 +28,7 @@ public partial class Checker {
 
   // Cache of checked modules to prevent double-checking
   private readonly Dictionary<string, Checker> _moduleCheckers = new();
-  private readonly HashSet<string> _currentlyCheckingModules = new();
+  private static readonly HashSet<string> _currentlyCheckingModules = new();
   private string _currentFilePath = "";
 
   // Guard against infinite recursion during return type inference of recursive functions
@@ -52,6 +52,18 @@ public partial class Checker {
   };
 
   public StructDeclaration? FindStruct(string name) {
+    if (name.Contains("::")) {
+      var parts = name.Split("::");
+      var modName = parts[0];
+      var localName = parts[1];
+      if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
+        var imported = modChecker.FindStruct(localName);
+        if (imported != null && imported.IsPublic) {
+          return imported;
+        }
+      }
+      return null;
+    }
     if (_structs.TryGetValue(name, out var localStruct)) {
       return localStruct;
     }
@@ -65,6 +77,18 @@ public partial class Checker {
   }
 
   public InterfaceDeclaration? FindInterface(string name) {
+    if (name.Contains("::")) {
+      var parts = name.Split("::");
+      var modName = parts[0];
+      var localName = parts[1];
+      if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
+        var imported = modChecker.FindInterface(localName);
+        if (imported != null && imported.IsPublic) {
+          return imported;
+        }
+      }
+      return null;
+    }
     if (_interfaces.TryGetValue(name, out var localInterface)) {
       return localInterface;
     }
@@ -78,6 +102,18 @@ public partial class Checker {
   }
 
   public EnumDeclaration? FindEnum(string name) {
+    if (name.Contains("::")) {
+      var parts = name.Split("::");
+      var modName = parts[0];
+      var localName = parts[1];
+      if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
+        var imported = modChecker.FindEnum(localName);
+        if (imported != null && imported.IsPublic) {
+          return imported;
+        }
+      }
+      return null;
+    }
     if (_enums.TryGetValue(name, out var localEnum)) {
       return localEnum;
     }
@@ -91,6 +127,18 @@ public partial class Checker {
   }
 
   public UnionDeclaration? FindUnion(string name) {
+    if (name.Contains("::")) {
+      var parts = name.Split("::");
+      var modName = parts[0];
+      var localName = parts[1];
+      if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
+        var imported = modChecker.FindUnion(localName);
+        if (imported != null && imported.IsPublic) {
+          return imported;
+        }
+      }
+      return null;
+    }
     if (_unions.TryGetValue(name, out var localUnion)) {
       return localUnion;
     }
@@ -202,6 +250,7 @@ public partial class Checker {
       }
 
       var program = Parser.ParseFile(filePath);
+
       var moduleChecker = new Checker { IsModule = true };
       moduleChecker.Check(program);
 

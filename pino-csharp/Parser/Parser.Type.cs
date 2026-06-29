@@ -64,6 +64,14 @@ public partial class Parser {
       throw new Exception($"PARSER: Expected Typing, got {t}");
     }
     string typeName = t.Data;
+    if (stream.Current.IsOperator(OperatorType.StaticMemberAccess)) {
+      stream.Consume(); // consume '::'
+      var nextId = stream.Consume();
+      if (nextId.Type != TokenType.Identifier) {
+        throw new Exception($"PARSER: Expected identifier after '::' in type name, got {nextId}");
+      }
+      typeName += "::" + nextId.Data;
+    }
     if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
       stream.Consume(); // consume '['
       var subTypes = new List<string>();

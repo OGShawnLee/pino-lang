@@ -740,10 +740,14 @@ public partial class Evaluator {
       // Case 3: module::StructInstanceExpression
       if (rightExpr is StructInstanceExpression structInst) {
         var structName = structInst.StructName;
-        if (!module.PublicExports.Contains(structName)) {
+        var lookupName = structName;
+        if (structName.StartsWith(module.Name + "::")) {
+          lookupName = structName.Substring(module.Name.Length + 2);
+        }
+        if (!module.PublicExports.Contains(lookupName)) {
           throw new Exception($"RUNTIME ERROR: Member '{structName}' is not exported by module '{module.Name}' (or is private).");
         }
-        var structDefObj = module.Environment.Get(structName);
+        var structDefObj = module.Environment.Get(lookupName);
         if (structDefObj is not PinoStruct moduleStructDef) {
           throw new Exception($"RUNTIME ERROR: '{structName}' is not a struct.");
         }

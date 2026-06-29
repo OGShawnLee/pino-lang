@@ -288,7 +288,7 @@ public partial class Checker {
                     }
                   } else if (bin.Right is IdentifierExpression methodId) {
                     CheckExpression(bin.Right);
-                    var method = allMethods.Find(m => m.Identifier == methodId.Name);
+                    var method = allMethods.Find(m => m.Identifier == methodId.Name && m.IsStatic);
                     if (method == null) {
                       throw new Exception($"TYPE CHECK ERROR: Struct '{structName}' has no static method '{methodId.Name}'.");
                     }
@@ -297,6 +297,17 @@ public partial class Checker {
                     }
                   } else {
                     throw new Exception($"TYPE CHECK ERROR: Invalid static member access on struct '{structName}'.");
+                  }
+                } else if (_moduleCheckers.TryGetValue(structName, out var modChecker)) {
+                  if (bin.Right is StructInstanceExpression modInst) {
+                    if (!modInst.StructName.StartsWith(structName + "::")) {
+                      modInst.StructName = structName + "::" + modInst.StructName;
+                    }
+                    CheckExpression(modInst);
+                  } else if (bin.Right is FunctionCallExpression modCall) {
+                    foreach (var arg in modCall.Arguments) {
+                      CheckExpression(arg);
+                    }
                   }
                 }
               }
@@ -845,6 +856,9 @@ public partial class Checker {
             }
             if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
               if (bin.Right is StructInstanceExpression modInst) {
+                if (!modInst.StructName.StartsWith(modName + "::")) {
+                  modInst.StructName = modName + "::" + modInst.StructName;
+                }
                 return modInst.StructName;
               }
               if (bin.Right is FunctionCallExpression modCall) {
