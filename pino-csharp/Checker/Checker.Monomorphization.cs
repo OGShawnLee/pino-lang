@@ -173,6 +173,10 @@ public partial class Checker {
       return specializedName;
     }
 
+    // Register placeholder to prevent infinite recursion in recursive generic structs
+    var placeholder = new StructDeclaration(specializedName, new(), new(), null);
+    _structs[specializedName] = placeholder;
+
     var subst = new Dictionary<string, string>();
     for (int i = 0; i < baseStruct.GenericParams.Count; i++) {
       subst[baseStruct.GenericParams[i].Name] = concreteArgs[i];
@@ -837,6 +841,10 @@ public partial class Checker {
     if (_unions.ContainsKey(specializedName)) {
       return specializedName;
     }
+
+    // Register placeholder to prevent infinite recursion in recursive generic unions
+    var placeholder = new UnionDeclaration(specializedName, new());
+    _unions[specializedName] = placeholder;
 
     var subst = new Dictionary<string, string>();
     for (int i = 0; i < baseUnion.GenericParams.Count; i++) {

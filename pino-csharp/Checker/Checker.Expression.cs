@@ -1086,6 +1086,21 @@ public partial class Checker {
       return true;
     }
 
+    if (srcType.Contains('_') && destType.Contains('_')) {
+      var srcParts = srcType.Split('_');
+      var destParts = destType.Split('_');
+      if (srcParts[0] == destParts[0] && srcParts.Length == destParts.Length) {
+        bool match = true;
+        for (int i = 1; i < srcParts.Length; i++) {
+          if (srcParts[i] != destParts[i] && srcParts[i] != "any" && destParts[i] != "any") {
+            match = false;
+            break;
+          }
+        }
+        if (match) return true;
+      }
+    }
+
     if (srcType.StartsWith("[]") && destType.StartsWith("[]")) {
       return IsCompatible(srcType.Substring(2), destType.Substring(2));
     }

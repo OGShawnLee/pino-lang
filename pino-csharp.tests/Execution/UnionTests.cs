@@ -180,5 +180,27 @@ public class UnionTests {
     Assert.Equal("Val:100", env.Get("res1"));
     Assert.Equal("Err:error_msg", env.Get("res2"));
   }
+
+  [Fact]
+  public void TestGenericRecursiveUnion() {
+    var code = @"
+      @generic[T]
+      union List {
+        Cons(T, List[T])
+        Nil
+      }
+      var res = 0
+      fn run_test {
+        val l = List::Cons(42, List::Nil)
+        match l {
+          when List::Cons(v, next) { res = v }
+          else { res = 0 }
+        }
+      }
+      run_test()
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(42L, env.Get("res"));
+  }
 }
 
