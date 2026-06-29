@@ -32,6 +32,7 @@ To avoid compiler parsing errors when writing Pino test code, always follow thes
 - **Do not use brackets** like `[]int {}` for empty vectors; use `[]int`.
 - **Member Methods**: Vectors support `.push(element)`, `.add(element)`, `.map(callback)`, `.filter(callback)`, `.any(callback)`, `.all(callback)`, `.each(callback)`, and `.find(callback)`.
 - **Do not cast variables**: Do not use the following sintax: `val x int = 12` as it is not supported.
+- **Do not name variables as val***: Even though `val` is a convenient short alias for "value", it should never be used as it is a reserved keyword in the Pino syntax for creating mutable variables as oposed to `val`.
 
 ### 3. Shorthand Lambdas (`it`)
 - Shorthand lambdas (e.g. `it:len <= 4`) wrap arguments using the implicit parameter `it`.
@@ -69,4 +70,42 @@ Always write commit messages following the Conventional Commits specification. K
 * `style(scope)`: Code style changes (e.g., `style(parser): format AST output`).
 * `i18n(scope)`: Internationalization and localization changes.
 * `ci(scope)`: Changes to the CI/CD pipeline (e.g., `ci(github-actions): update workflow`).
+
+---
+
+## 📋 Issue & Proposal Documentation Workflow
+* **Issue Redaction**: When the user encounters bugs, the agent must draft the bug report in [issue.md](../issue.md) (which is kept local/untracked) following this template:
+  ````markdown
+  # bug: [Short, descriptive title of the issue]
+
+  ### 📋 Environment Information
+  * **Pino CLI Version**: `vX.Y.Z (commit hash)`
+  * **Operating System**: Windows 11 / macOS / Linux
+  * **Execution Engine**: Tree-Walk / VM
+
+  ---
+
+  ### 📝 Description of the Bug
+  [Clear description of the bug]
+
+  ---
+
+  ### 🚀 Steps to Reproduce
+  ```pino
+  // Minimal reproducible example code
+  ```
+
+  ---
+
+  ### 📉 Expected vs. Actual Behavior
+  * **Actual Behavior**: [What actually happened]
+  * **Expected Behavior**: [What should have happened]
+
+  ---
+
+  ### 💡 Proposed Solution / Theory
+  * [Proposed solution or theory about the root cause]
+  ````
+* **Proposals**: The same collaborative protocol applies to drafting language design improvements or new features in the `proposals/` directory.
+
 
