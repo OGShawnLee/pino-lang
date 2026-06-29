@@ -1,16 +1,58 @@
 from Lexer import lex
 
+union AST {
+	Program([]AST)
+	Function(string, []string, AST)
+	Block([]AST)
+	Return(AST)
+	IntLiteral(int)
+}
+
+fn get_indent(level int) string {
+	var indentation_string = ""
+	for i in level {
+		indentation_string += ' '
+	}
+	return indentation_string
+}
+
+fn print_ast(node AST, depth int) {
+	val indent = get_indent(depth)
+	match node {
+		when AST::Program(statements) {
+			println("$indent Program:")
+			statements:each(fn (statement AST) => print_ast(statement, depth + 1))
+		}
+		when AST::Function(name, params, body) {
+			println("$indent Function: $name")
+			print_ast(body, depth + 1)
+		}
+		when AST::Block(statements) {
+			println("$indent Block:")
+			statements:each(fn (statement AST) => print_ast(statement, depth + 1))
+		}
+		when AST::Return(value) {
+			println("$indent Return:")
+			print_ast(value, depth + 1)
+		}
+		when AST::IntLiteral(number) {
+			println("$indent IntLiteral: $number")
+		}
+	}
+}
+
 fn main {
 	println("Welcome to the Pino C Compiler!")
 
-	val program = "int main(void) { return 2; }"
-
-	match lex(program) {
-		when Result::Success(token_list) {
-			token_list:each(println)
-		}
-		when Result::Failure(message) {
-			println(message)
-		}
+	val input = "int main(void) { return 2; }"
+	val token_stream = lex(input) or {
+		panic(err)
 	}
+	val program = AST::Program([
+		AST::Function("main", ["void"], AST::Block([
+			AST::Return(AST::IntLiteral(2))
+		]))
+	])
+
+	print_ast(program,0 )
 }
