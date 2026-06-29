@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("pino-csharp.tests")]
+
 namespace Pino;
 
 public partial class Checker {
@@ -27,7 +29,7 @@ public partial class Checker {
   private string _currentYieldType = "";
 
   // Cache of checked modules to prevent double-checking
-  private readonly Dictionary<string, Checker> _moduleCheckers = new();
+  internal readonly Dictionary<string, Checker> _moduleCheckers = new();
   private static readonly HashSet<string> _currentlyCheckingModules = new();
   private string _currentFilePath = "";
 
@@ -58,7 +60,10 @@ public partial class Checker {
       var localName = parts[1];
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindStruct(localName);
-        if (imported != null && imported.IsPublic) {
+        if (imported != null) {
+          if (!imported.IsPublic) {
+            throw new Exception($"TYPE CHECK ERROR: Struct '{name}' is not public.");
+          }
           return imported;
         }
       }
@@ -83,7 +88,10 @@ public partial class Checker {
       var localName = parts[1];
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindInterface(localName);
-        if (imported != null && imported.IsPublic) {
+        if (imported != null) {
+          if (!imported.IsPublic) {
+            throw new Exception($"TYPE CHECK ERROR: Interface '{name}' is not public.");
+          }
           return imported;
         }
       }
@@ -108,7 +116,10 @@ public partial class Checker {
       var localName = parts[1];
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindEnum(localName);
-        if (imported != null && imported.IsPublic) {
+        if (imported != null) {
+          if (!imported.IsPublic) {
+            throw new Exception($"TYPE CHECK ERROR: Enum '{name}' is not public.");
+          }
           return imported;
         }
       }
@@ -133,7 +144,10 @@ public partial class Checker {
       var localName = parts[1];
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindUnion(localName);
-        if (imported != null && imported.IsPublic) {
+        if (imported != null) {
+          if (!imported.IsPublic) {
+            throw new Exception($"TYPE CHECK ERROR: Union '{name}' is not public.");
+          }
           return imported;
         }
       }

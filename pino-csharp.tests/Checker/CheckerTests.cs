@@ -134,4 +134,53 @@ public partial class CheckerTests {
     var checker = new Checker { IsModule = true };
     Assert.ThrowsAny<Exception>(() => checker.Check(program));
   }
+
+  [Fact]
+  public void TestNamespacedEntityVisibility() {
+    // 1. Set up private struct Reader and private interface IReader in module Lexer
+    var lexerSource = @"
+      module Lexer
+      struct Reader {
+        fn current() Result[string, string] {
+          return Result::Success(""Value"")
+        }
+      }
+      interface IReader {
+        fn current() Result[string, string]
+      }
+      pub struct BadReader {}
+    ";
+    var lexerProgram = Parser.ParseProgramString(lexerSource);
+    var lexerChecker = new Checker { IsModule = true };
+    lexerChecker.Check(lexerProgram);
+
+    // 2. Main program referencing private Lexer::Reader {}
+    var sourceStruct = @"
+      import Lexer
+      fn main {
+        val r = Lexer::Reader {}
+      }
+    ";
+    var programStruct = Parser.ParseProgramString(sourceStruct);
+    var checkerStruct = new Checker();
+    checkerStruct._moduleCheckers["Lexer"] = lexerChecker;
+
+    var exStruct = Assert.ThrowsAny<Exception>(() => checkerStruct.Check(programStruct));
+    Assert.Contains("Struct 'Lexer::Reader' is not public", exStruct.Message);
+
+    // 3. Main program referencing private Lexer::IReader as parameter type (must call it to check compatibility)
+    var sourceInterface = @"
+      import Lexer
+      fn print(reader Lexer::IReader) {}
+      fn main {
+        print(Lexer::BadReader {})
+      }
+    ";
+    var programInterface = Parser.ParseProgramString(sourceInterface);
+    var checkerInterface = new Checker();
+    checkerInterface._moduleCheckers["Lexer"] = lexerChecker;
+
+    var exInterface = Assert.ThrowsAny<Exception>(() => checkerInterface.Check(programInterface));
+    Assert.Contains("Interface 'Lexer::IReader' is not public", exInterface.Message);
+  }
 }
