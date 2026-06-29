@@ -136,9 +136,6 @@ public partial class Parser {
       return false;
     }
     if (stream.Peek(offset + 1).IsMarker(MarkerType.BlockEnd)) {
-      if (stream.Peek(-1).IsOperator(OperatorType.StaticMemberAccess)) {
-        return false;
-      }
       return true;
     }
     return IsStructBlock(stream, offset);

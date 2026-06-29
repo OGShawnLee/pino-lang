@@ -228,6 +228,22 @@ public class ParserTests {
   }
 
   [Fact]
+  public void TestStaticMemberAccessEmptyStructInitialization() {
+    var input = "val person = Entities::Person {}";
+    var stmt = Parser.ParseString(input);
+    var varDecl = Assert.IsType<VariableDeclaration>(stmt);
+    Assert.Equal("person", varDecl.Identifier);
+
+    var staticMember = Assert.IsType<BinaryExpression>(varDecl.Value);
+    Assert.Equal(OperatorType.StaticMemberAccess, staticMember.Operator);
+    Assert.Equal("Entities", Assert.IsType<IdentifierExpression>(staticMember.Left).Name);
+
+    var structInst = Assert.IsType<StructInstanceExpression>(staticMember.Right);
+    Assert.Equal("Person", structInst.StructName);
+    Assert.Empty(structInst.Properties);
+  }
+
+  [Fact]
   public void TestStaticMemberAccessVsMemberAssignmentAmbiguity() {
     var input = @"if enum_value == Test::Easy {
       person:name = ""Pedro""
