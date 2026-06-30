@@ -411,4 +411,13 @@ public class ParserTests {
     Assert.ThrowsAny<Exception>(() => Parser.ParseString("val m = map[string] {}"));
     Assert.ThrowsAny<Exception>(() => Parser.ParseString("val m = map[string, int] { \"key\" }"));
   }
+
+  [Fact]
+  public void TestStringLiteralEscapeSequences() {
+    var input = "val s = \"hello\\nworld\\twith\\\\backslashes and\\\"quotes\"";
+    var stmt = Parser.ParseString(input);
+    var varDecl = Assert.IsType<VariableDeclaration>(stmt);
+    var lit = Assert.IsType<LiteralExpression>(varDecl.Value);
+    Assert.Equal("hello\nworld\twith\\backslashes and\"quotes", lit.Value);
+  }
 }

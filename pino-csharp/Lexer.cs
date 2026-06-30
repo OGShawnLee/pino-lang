@@ -169,8 +169,8 @@ public class Lexer {
     while (index < line.Length) {
       var c = line[index];
 
-      // Check for closing quote, ignoring escaped quotes \"
-      if (c == '"' && (index == 0 || line[index - 1] != '\\')) {
+      // 1. Check for closing quote
+      if (c == '"') {
         index++; // Skip closing quote
         if (!hasAddedInitialString) {
           tokens.Add(new Token(TokenType.Literal, buffer.ToString(), Literal: LiteralType.String));
@@ -181,8 +181,25 @@ public class Lexer {
         return;
       }
 
-      // Check for string injection $(expr) or $varName, ignoring escaped \$
-      if (c == '$' && (index == 0 || line[index - 1] != '\\') && index + 1 < line.Length) {
+      // 2. Check for escape sequences
+      if (c == '\\' && index + 1 < line.Length) {
+        char next = line[index + 1];
+        switch (next) {
+          case 'n': buffer.Append('\n'); index += 2; continue;
+          case 't': buffer.Append('\t'); index += 2; continue;
+          case 'r': buffer.Append('\r'); index += 2; continue;
+          case '"': buffer.Append('"'); index += 2; continue;
+          case '\\': buffer.Append('\\'); index += 2; continue;
+          case '$': buffer.Append('$'); index += 2; continue;
+          default:
+            buffer.Append(c);
+            index++;
+            continue;
+        }
+      }
+
+      // 3. Check for string injection $(expr) or $varName
+      if (c == '$' && index + 1 < line.Length) {
         if (line[index + 1] == '(') {
           // Complex interpolation $(expr)
           if (!hasAddedInitialString) {
