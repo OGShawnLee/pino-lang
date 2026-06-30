@@ -1,0 +1,91 @@
+module Translator
+
+from Parser import AST
+
+pub union Operand {
+	Immediate(int)
+	Register(string)
+}
+
+pub union Instruction {
+	Mov(Operand, Operand)
+	Ret
+}
+
+pub union Statement {
+	Function(string, []Instruction)
+}
+
+pub union ASTAssembly {
+	Program([]Statement)
+}
+
+fn translate_to_asm_operand(node AST) Result[Operand, string] {
+	return match node {
+		when AST::Constant(value) =>
+			Result::Success(Operand::Immediate(int(value)))
+		else =>
+			Result::Failure("TRANSLATION ERROR: Unable to translate AST to Operand.")
+	}
+}
+
+fn translate_to_asm_instruction(node AST) Result[[]Instruction, string] {
+	match node {
+		when AST::Return(value) {
+			val operation = translate_to_asm_operand(value)?
+			return Result::Success([
+				Instruction::Mov(Operand::Register("rax"), operation),
+				Instruction::Ret()
+			])
+		}
+		else {
+			return Result::Failure("TRANSLATION ERROR: Unable to translate AST to Instruction.")
+		}
+	}
+}
+
+fn translate_fn_body_to_ast_statement(body AST) Result[[]Instruction, string] {
+	match body {
+		when AST::Block(statements) {
+			val instr_list = []Instruction
+			for stmt in statements {
+				val asm_instructions = translate_to_asm_instruction(stmt)?
+				asm_instructions:each(fn (inst Instruction) => instr_list:push(inst))
+			}
+			return Result::Success(instr_list)
+		}
+		else {
+			return Result::Failure("TRANSLATION ERROR: Expected function body to be a Block.")
+		}
+	}
+}
+
+fn translate_to_asm_statement(node AST) Result[Statement, string] {
+	match node {
+		when AST::Function(return_type, name, parameters, body) {
+			return Result::Success(
+				Statement::Function(name, translate_fn_body_to_ast_statement(body)?)
+			)
+		}
+		else {
+			return Result::Failure("TRANSLATION ERROR: Unable to translate AST to Statement.")
+		}
+	}
+}
+
+pub fn translate_ast_to_asm(node AST) Result[ASTAssembly, string] {
+	match node {
+		when AST::Program(statements) {
+			val asm_statements = []Statement
+			for stmt in statements {
+				asm_statements:push(
+					translate_to_asm_statement(stmt)?
+				)
+			}
+			return Result::Success(ASTAssembly::Program(asm_statements))
+		}
+		else {
+			return Result::Failure("TRANSLATION ERROR: Unable to translate AST to Assembly.")
+		}
+	}
+}

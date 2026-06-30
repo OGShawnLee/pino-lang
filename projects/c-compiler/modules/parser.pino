@@ -1,0 +1,109 @@
+module Parser 
+
+from Lexer import TokenType, TokenStream
+
+pub union AST {
+	Program([]AST)
+	Function(string, string, []string, AST)
+	Block([]AST)
+	Constant(string)
+	Return(AST)
+}
+
+fn parse_block(stream TokenStream) Result[AST, string] {
+	stream:expect_and(TokenType::Marker, it:value == "{") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected '{' Marker.")
+	}
+	stream:expect_and(TokenType::Keyword, it:value == "return") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected 'return' Keyword.")
+	}
+	val value_token = stream:expect(TokenType::Literal) or {
+		return Result::Failure("PARSER: Unable to parse block. Expected Literal.")
+	}
+	stream:expect_and(TokenType::Marker, it:value == ";") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected ';' Marker.")
+	}
+	stream:expect_and(TokenType::Marker, it:value == "}") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected '}' Marker.")
+	}
+
+	return Result::Success(
+		AST::Block([
+			AST::Return(
+				AST::Constant(value_token:value)
+			)
+		])
+	)
+}
+
+fn parse_function(stream TokenStream) Result[AST, string] {
+	val return_type_token = stream:expect(TokenType::Keyword) or {
+		return Result::Failure("PARSER: Unable to parse function. Expected return type.");
+	}
+	val name_token = stream:expect(TokenType::Identifier) or {
+		return Result::Failure("PARSER: Unable to parse function. Expected function name.");
+	}
+	stream:expect_and(TokenType::Marker, it:value == "(") or {
+		return Result::Failure("PARSER: Unable to parse function. Expected '(' Marker.")
+	}
+	val parameter_type_token = stream:expect(TokenType::Keyword) or {
+		return Result::Failure("PARSER: Unable to parse function. Expected parameter type.")
+	}
+	stream:expect_and(TokenType::Marker, it:value == ")") or {
+		return Result::Failure("PARSER: Unable to parse function. Expected ')' Marker.")
+	}
+	val function_body = parse_block(stream) or {
+		return Result::Failure("PARSER: Unable to parse function body. $err.")
+	}
+
+	return Result::Success(
+		AST::Function(
+			return_type_token:value,
+			name_token:value,
+			[parameter_type_token:value],
+			function_body
+		)
+	)
+}	
+
+pub fn parse(stream TokenStream) Result[AST, string] {
+	return Result::Success(
+		AST::Program(
+			[parse_function(stream)?]
+		)
+	)
+}
+
+fn get_indent(level int) string {
+	var indentation_string = ""
+	for i in level {
+		indentation_string += ' '
+	}
+	return indentation_string
+}
+
+pub fn print_ast(node AST, depth int) {
+	val indent = get_indent(depth)
+	match node {
+		when AST::Program(statements) {
+			println("$indent Program:":trim())
+			statements:each(fn (statement AST) => print_ast(statement, depth + 1))
+		}
+		when AST::Function(return_type, name, parameters, body) {
+			val parameter_list_str = parameters:join(", ")
+			println("$indent Function $return_type $name($parameter_list_str):":trim())
+			print_ast(body, depth + 1)
+		}
+		when AST::Block(statements) {
+			println("$indent Block:":trim())
+			statements:each(fn (statement AST) => print_ast(statement, depth + 1))
+		}
+		when AST::Return(value) {
+			println("$indent Return:":trim())
+			print_ast(value, depth + 1)
+		}
+		when AST::Constant(value) {
+			println("$indent Constant: $value":trim())
+		}
+	}
+}
