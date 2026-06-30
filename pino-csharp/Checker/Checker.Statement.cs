@@ -385,7 +385,7 @@ public partial class Checker {
             }
             break;
           }
-          throw new Exception($"TYPE CHECK ERROR: Union '{varPat.UnionName}' is not defined.");
+          throw new Exception(FormatNotDefinedError("Union", varPat.UnionName));
         }
         if (!IsCompatible(varPat.UnionName, targetType)) {
           throw new Exception($"TYPE CHECK ERROR: Cannot match union pattern of type '{varPat.UnionName}' against condition of type '{targetType}'.");

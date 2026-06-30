@@ -142,7 +142,7 @@ public partial class Checker {
   private string MonomorphizeStruct(string baseName, List<string> concreteArgs) {
     var baseStruct = FindStruct(baseName);
     if (baseStruct == null) {
-      throw new Exception($"TYPE CHECK ERROR: Struct '{baseName}' is not defined.");
+      throw new Exception(FormatNotDefinedError("Struct", baseName));
     }
     if (baseStruct.GenericParams == null || baseStruct.GenericParams.Count == 0) {
       throw new Exception($"TYPE CHECK ERROR: Struct '{baseName}' is not a generic struct.");
@@ -477,7 +477,7 @@ public partial class Checker {
   private string MonomorphizeStructInstance(StructInstanceExpression inst) {
     var baseStruct = FindStruct(inst.StructName);
     if (baseStruct == null) {
-      throw new Exception($"TYPE CHECK ERROR: Struct '{inst.StructName}' is not defined.");
+      throw new Exception(FormatNotDefinedError("Struct", inst.StructName));
     }
     if (baseStruct.GenericParams == null || baseStruct.GenericParams.Count == 0) {
       return inst.StructName;
@@ -741,7 +741,7 @@ public partial class Checker {
   private string MonomorphizeInterface(string baseName, List<string> concreteArgs) {
     var baseInterface = FindInterface(baseName);
     if (baseInterface == null) {
-      throw new Exception($"TYPE CHECK ERROR: Interface '{baseName}' is not defined.");
+      throw new Exception(FormatNotDefinedError("Interface", baseName));
     }
     if (baseInterface.GenericParams == null || baseInterface.GenericParams.Count == 0) {
       throw new Exception($"TYPE CHECK ERROR: Interface '{baseName}' is not a generic interface.");
@@ -811,7 +811,7 @@ public partial class Checker {
   private string MonomorphizeUnion(string baseName, List<string> concreteArgs) {
     var baseUnion = FindUnion(baseName);
     if (baseUnion == null) {
-      throw new Exception($"TYPE CHECK ERROR: Union '{baseName}' is not defined.");
+      throw new Exception(FormatNotDefinedError("Union", baseName));
     }
     if (baseUnion.GenericParams == null || baseUnion.GenericParams.Count == 0) {
       throw new Exception($"TYPE CHECK ERROR: Union '{baseName}' is not a generic union.");

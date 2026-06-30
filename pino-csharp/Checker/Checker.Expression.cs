@@ -336,7 +336,7 @@ public partial class Checker {
         string monomorphizedName = MonomorphizeStructInstance(inst);
         var structDecl = FindStruct(monomorphizedName);
         if (structDecl == null) {
-          throw new Exception($"TYPE CHECK ERROR: Struct '{monomorphizedName}' is not defined.");
+          throw new Exception(FormatNotDefinedError("Struct", monomorphizedName));
         } else {
           ResolveStructMembers(monomorphizedName, out var allFields, out var _);
           foreach (var prop in inst.Properties) {

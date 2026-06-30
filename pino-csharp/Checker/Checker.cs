@@ -434,5 +434,13 @@ public partial class Checker {
       }
     }
   }
+
+  public static string FormatNotDefinedError(string typeName, string name) {
+    if (name.Contains("::")) {
+      var parts = name.Split("::");
+      return $"TYPE CHECK ERROR: {typeName} '{parts[1]}' is not defined in module '{parts[0]}'.";
+    }
+    return $"TYPE CHECK ERROR: {typeName} '{name}' is not defined.";
+  }
 }
 

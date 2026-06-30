@@ -183,4 +183,28 @@ public partial class CheckerTests {
     var exInterface = Assert.ThrowsAny<Exception>(() => checkerInterface.Check(programInterface));
     Assert.Contains("Interface 'Lexer::IReader' is not public", exInterface.Message);
   }
+
+  [Fact]
+  public void TestNamespacedEntityNotDefined() {
+    var lexerSource = @"
+      module Lexer
+      pub struct BadReader {}
+    ";
+    var lexerProgram = Parser.ParseProgramString(lexerSource);
+    var lexerChecker = new Checker { IsModule = true };
+    lexerChecker.Check(lexerProgram);
+
+    var source = @"
+      import Lexer
+      fn main {
+        val r = Lexer::MissingStruct {}
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker._moduleCheckers["Lexer"] = lexerChecker;
+
+    var ex = Assert.ThrowsAny<Exception>(() => checker.Check(program));
+    Assert.Contains("Struct 'MissingStruct' is not defined in module 'Lexer'", ex.Message);
+  }
 }
