@@ -32,6 +32,9 @@ public partial class Checker {
   internal readonly Dictionary<string, Checker> _moduleCheckers = new();
   private static readonly HashSet<string> _currentlyCheckingModules = new();
   private string _currentFilePath = "";
+  // The resolved modules directory — inherited by child module checkers so
+  // they don't recompute it relative to their own (sub)path.
+  private string? _modulesDir = null;
 
   // Guard against infinite recursion during return type inference of recursive functions
   private readonly HashSet<string> _inferringFunctions = new();
@@ -253,10 +256,19 @@ public partial class Checker {
 
     try {
       var filename = moduleName.ToLower() + ".pino";
-      var baseDir = !string.IsNullOrEmpty(_currentFilePath)
-          ? Path.GetDirectoryName(_currentFilePath) ?? System.Environment.CurrentDirectory
-          : System.Environment.CurrentDirectory;
-      var modulesDir = Path.Combine(baseDir, "modules");
+
+      // Use the already-resolved modules directory if available (propagated from
+      // parent checker), otherwise compute it from the current file path.
+      // This prevents double-appending "modules" when a module file imports
+      // another module (e.g. .../modules/modules/entities.pino).
+      var modulesDir = _modulesDir;
+      if (string.IsNullOrEmpty(modulesDir)) {
+        var baseDir = !string.IsNullOrEmpty(_currentFilePath)
+            ? Path.GetDirectoryName(_currentFilePath) ?? System.Environment.CurrentDirectory
+            : System.Environment.CurrentDirectory;
+        modulesDir = Path.Combine(baseDir, "modules");
+      }
+
       var filePath = Path.Combine(modulesDir, filename);
 
       if (!File.Exists(filePath)) {
@@ -265,7 +277,8 @@ public partial class Checker {
 
       var program = Parser.ParseFile(filePath);
 
-      var moduleChecker = new Checker { IsModule = true };
+      // Propagate the resolved modulesDir so transitive imports resolve correctly.
+      var moduleChecker = new Checker { IsModule = true, _modulesDir = modulesDir };
       moduleChecker.Check(program);
 
       _moduleCheckers[moduleName] = moduleChecker;
