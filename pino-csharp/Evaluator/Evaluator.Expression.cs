@@ -413,6 +413,12 @@ public partial class Evaluator {
         var methodName = methodCall.Callee;
         var methodArgs = methodCall.Arguments.Select(a => Evaluate(a, env)).ToList();
 
+        if (methodName == "join") {
+          if (methodArgs.Count != 1) throw new Exception("RUNTIME ERROR: join() expects 1 argument.");
+          var separator = methodArgs[0]?.ToString() ?? "";
+          return string.Join(separator, list);
+        }
+
         if (methodName == "each") {
           if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
             throw new Exception("RUNTIME ERROR: each() expects a callable argument.");

@@ -745,6 +745,9 @@ public partial class Checker {
               if (callee == "each") {
                 return "any";
               }
+              if (callee == "join") {
+                return "string";
+              }
             }
           }
           if (leftType.StartsWith("map[")) {

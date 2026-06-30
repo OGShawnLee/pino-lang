@@ -494,4 +494,22 @@ public class DataStructureTests {
     var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
     Assert.Equal(11L, env.Get("n"));
   }
+
+  [Fact]
+  public void TestVectorJoinMethod() {
+    var code = @"
+      val list = [""Pino"", ""is"", ""fast""]
+      val joined1 = list:join("" "")
+      val joined2 = list:join(""-"")
+      val empty_list = []string
+      val joined3 = empty_list:join("","")
+      val num_list = [1, 2, 3]
+      val joined4 = num_list:join("", "")
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal("Pino is fast", env.Get("joined1"));
+    Assert.Equal("Pino-is-fast", env.Get("joined2"));
+    Assert.Equal("", env.Get("joined3"));
+    Assert.Equal("1, 2, 3", env.Get("joined4"));
+  }
 }
