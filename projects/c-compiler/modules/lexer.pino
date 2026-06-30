@@ -1,15 +1,95 @@
 module Lexer
 
-enum TokenType {
+pub enum TokenType {
 	Literal
 	Identifier
 	Keyword
 	Marker
 }
 
-struct Token {
+pub struct Token {
 	type TokenType
 	value string
+}
+
+pub union ExpectAndFailure {
+	TokenMismatch(TokenType)
+	PredicateMismatch
+}
+
+pub struct TokenStream {
+	list []Token
+	index int
+
+	fn current() Result[Token, string] {
+		if index < list:len {
+			return Result::Success(list[index])
+		}
+
+		return Result::Failure("LEXER: No more tokens.")
+	}
+
+	fn peek(n int) Result[Token, string] {
+		if index + n < list:len {
+			return Result::Success(list[index + n])
+		}
+
+		return Result::Failure("LEXER: Index out of bounds.")
+	}
+
+	fn next() Result[Token, string] {
+		val curr = self:current()?
+
+		self:index += 1
+
+		return Result::Success(curr)
+	}
+
+	fn expect(type TokenType) Result[Token, string] {
+		val n = self:next()?
+
+		if n:type == type {
+			return Result::Success(n)
+		}
+
+		return Result::Failure("LEXER: Expected token $type, got $(n:type).")
+	}
+
+	fn expect_and(type TokenType, predicate fn (Token) bool) Result[Token, ExpectAndFailure] {
+		val token = self:expect(type) or {
+			return Result::Failure(ExpectAndFailure::TokenMismatch(type))
+		}
+
+		if not predicate(token) {
+			return Result::Failure(ExpectAndFailure::PredicateMismatch)
+		}
+
+		return Result::Success(token)
+	}
+
+	fn is_match(type TokenType) bool {
+		val curr = self:next() or {
+			return false
+		} 
+
+		return curr:type == type
+	}
+
+	fn is_match_and(type TokenType, predicate fn (Token) bool) bool {
+		val curr = self:next() or {
+			return false
+		} 
+
+		return curr:type == type and predicate(curr)
+	}
+
+	fn is_at_end() bool {
+		return index >= list:len
+	}
+
+	static fn new(list []Token) {
+		return TokenStream { list: list, index: 0 }
+	}
 }
 
 struct TokenRule {
@@ -29,7 +109,7 @@ val TOKEN_RULE_LIST = [
 	TokenRule { pattern: IDENTIFIER_REGEX, type: TokenType::Identifier }
 ]
 
-pub fn lex(line string) Result[[]Token, string] {
+pub fn lex(line string) Result[TokenStream, string] {
 	val token_list = []Token	
 
 	for line:len > 0 {	
@@ -51,10 +131,10 @@ pub fn lex(line string) Result[[]Token, string] {
 			}
 		}
 
-		if match_found == false {
+		if not match_found {
 			return Result::Failure("No rule matched for line '$line'")
 		}
 	}
 
-	return Result::Success(token_list)
+	return Result::Success(TokenStream::new(token_list))
 }

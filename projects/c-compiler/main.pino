@@ -1,11 +1,75 @@
-from Lexer import lex
+from Lexer import TokenType, TokenStream, lex
 
 union AST {
 	Program([]AST)
-	Function(string, []string, AST)
+	Function(string, string, []string, AST)
 	Block([]AST)
+	Constant(string)
 	Return(AST)
-	IntLiteral(int)
+}
+
+fn parse_block(stream TokenStream) Result[AST, string] {
+	stream:expect_and(TokenType::Marker, it:value == "{") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected '{' Marker.")
+	}
+	stream:expect_and(TokenType::Keyword, it:value == "return") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected 'return' Keyword.")
+	}
+	val value_token = stream:expect(TokenType::Literal) or {
+		return Result::Failure("PARSER: Unable to parse block. Expected Literal.")
+	}
+	stream:expect_and(TokenType::Marker, it:value == ";") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected ';' Marker.")
+	}
+	stream:expect_and(TokenType::Marker, it:value == "}") or {
+		return Result::Failure("PARSER: Unable to parse block. Expected '}' Marker.")
+	}
+
+	return Result::Success(
+		AST::Block([
+			AST::Return(
+				AST::Constant(value_token:value)
+			)
+		])
+	)
+}
+
+fn parse_function(stream TokenStream) Result[AST, string] {
+	val return_type_token = stream:expect(TokenType::Keyword) or {
+		return Result::Failure("PARSER: Unable to parse function. Expected return type.");
+	}
+	val name_token = stream:expect(TokenType::Identifier) or {
+		return Result::Failure("PARSER: Unable to parse function. Expected function name.");
+	}
+	stream:expect_and(TokenType::Marker, it:value == "(") or {
+		return Result::Failure("PARSER: Unable to parse function. Expected '(' Marker.")
+	}
+	val parameter_type_token = stream:expect(TokenType::Keyword) or {
+		return Result::Failure("PARSER: Unable to parse function. Expected parameter type.")
+	}
+	stream:expect_and(TokenType::Marker, it:value == ")") or {
+		return Result::Failure("PARSER: Unable to parse function. Expected ')' Marker.")
+	}
+	val function_body = parse_block(stream) or {
+		return Result::Failure("PARSER: Unable to parse function body. $err.")
+	}
+
+	return Result::Success(
+		AST::Function(
+			return_type_token:value,
+			name_token:value,
+			[parameter_type_token:value],
+			function_body
+		)
+	)
+}	
+
+fn parse(stream TokenStream) Result[AST, string] {
+	return Result::Success(
+		AST::Program(
+			[parse_function(stream)?]
+		)
+	)
 }
 
 fn get_indent(level int) string {
@@ -20,23 +84,24 @@ fn print_ast(node AST, depth int) {
 	val indent = get_indent(depth)
 	match node {
 		when AST::Program(statements) {
-			println("$indent Program:")
+			println("$indent Program:":trim())
 			statements:each(fn (statement AST) => print_ast(statement, depth + 1))
 		}
-		when AST::Function(name, params, body) {
-			println("$indent Function: $name")
+		when AST::Function(return_type, name, parameters, body) {
+			val parameter_list_str = parameters:join(", ")
+			println("$indent Function $return_type $name($parameter_list_str):":trim())
 			print_ast(body, depth + 1)
 		}
 		when AST::Block(statements) {
-			println("$indent Block:")
+			println("$indent Block:":trim())
 			statements:each(fn (statement AST) => print_ast(statement, depth + 1))
 		}
 		when AST::Return(value) {
-			println("$indent Return:")
+			println("$indent Return:":trim())
 			print_ast(value, depth + 1)
 		}
-		when AST::IntLiteral(number) {
-			println("$indent IntLiteral: $number")
+		when AST::Constant(value) {
+			println("$indent Constant: $value":trim())
 		}
 	}
 }
@@ -44,15 +109,13 @@ fn print_ast(node AST, depth int) {
 fn main {
 	println("Welcome to the Pino C Compiler!")
 
-	val input = "int main(void) { return 2; }"
-	val token_stream = lex(input) or {
+	val program = "int main(void) { return 12; }"
+	val token_stream = lex(program) or {
 		panic(err)
 	}
-	val program = AST::Program([
-		AST::Function("main", ["void"], AST::Block([
-			AST::Return(AST::IntLiteral(2))
-		]))
-	])
+	val program_ast = parse(token_stream) or {
+		panic(err)
+	}
 
-	print_ast(program,0 )
+	print_ast(program_ast, 0)
 }
