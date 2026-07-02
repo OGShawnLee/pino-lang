@@ -214,6 +214,17 @@ public partial class Evaluator {
           throw new Exception("RUNTIME ERROR: Left side of compound assignment must be an identifier or member access.");
         }
 
+        if (bin.Operator == OperatorType.And) {
+          var leftVal = Evaluate(bin.Left, env);
+          if (!IsTruthy(leftVal)) return false;
+          return IsTruthy(Evaluate(bin.Right, env));
+        }
+        if (bin.Operator == OperatorType.Or) {
+          var leftVal = Evaluate(bin.Left, env);
+          if (IsTruthy(leftVal)) return true;
+          return IsTruthy(Evaluate(bin.Right, env));
+        }
+
         var left = Evaluate(bin.Left, env);
         var right = Evaluate(bin.Right, env);
 

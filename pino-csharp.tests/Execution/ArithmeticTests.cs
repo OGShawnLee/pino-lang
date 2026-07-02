@@ -125,4 +125,27 @@ public class ArithmeticTests {
     Assert.Equal(true, env.Get("group_not"));
     Assert.Equal(false, env.Get("not_and_prec"));
   }
+
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  [InlineData(ExecutionEngine.VM)]
+  public void TestBooleanShortCircuit(ExecutionEngine engine) {
+    var code = @"
+      var called = false
+
+      fn should_not_be_called() {
+        called = true
+        return true
+      }
+
+      val res_and = false and should_not_be_called()
+      val res_or = true or should_not_be_called()
+    ";
+
+    var env = PinoTestRunner.Execute(code, engine);
+    Assert.Equal(false, env.Get("res_and"));
+    Assert.Equal(true, env.Get("res_or"));
+    Assert.Equal(false, env.Get("called"));
+  }
 }
+

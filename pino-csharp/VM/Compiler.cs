@@ -508,6 +508,26 @@ public class Compiler {
       }
       return;
     }
+    
+    if (bin.Operator == OperatorType.And) {
+      CompileExpression(bin.Left);
+      int endJump = EmitJump((byte)OperationCode.OP_JUMP_IF_FALSE);
+      EmitByte((byte)OperationCode.OP_POP);
+      CompileExpression(bin.Right);
+      PatchJump(endJump);
+      return;
+    }
+
+    if (bin.Operator == OperatorType.Or) {
+      CompileExpression(bin.Left);
+      int rightBranchJump = EmitJump((byte)OperationCode.OP_JUMP_IF_FALSE);
+      int endJump = EmitJump((byte)OperationCode.OP_JUMP);
+      PatchJump(rightBranchJump);
+      EmitByte((byte)OperationCode.OP_POP);
+      CompileExpression(bin.Right);
+      PatchJump(endJump);
+      return;
+    }
 
     bool isInt = bin.Left.InferredType == "int" && bin.Right.InferredType == "int";
 
@@ -526,8 +546,6 @@ public class Compiler {
       case OperatorType.LessThanEqual: EmitByte((byte)(isInt ? OperationCode.OP_LESS_EQUAL_INT : OperationCode.OP_LESS_EQUAL)); break;
       case OperatorType.GreaterThan: EmitByte((byte)(isInt ? OperationCode.OP_GREATER_INT : OperationCode.OP_GREATER)); break;
       case OperatorType.GreaterThanEqual: EmitByte((byte)(isInt ? OperationCode.OP_GREATER_EQUAL_INT : OperationCode.OP_GREATER_EQUAL)); break;
-      case OperatorType.And: EmitByte((byte)OperationCode.OP_AND); break;
-      case OperatorType.Or: EmitByte((byte)OperationCode.OP_OR); break;
     }
   }
 
