@@ -1,0 +1,69 @@
+from Parser import AST, Statement, Expression
+from Mediator import TACKY, Instruction
+
+fn get_indent(level int) string {
+	var indentation_string = ""
+	for i in level {
+		indentation_string += ' '
+	}
+	return indentation_string
+}
+
+fn print_ast_expression(node Expression, depth int) {
+	val indent = get_indent(depth)
+	match node {
+		when Expression::Constant(value) {
+			println("$indent Constant: $value")
+		}
+		when Expression::Unary(operator, expression) {
+			println("$indent Unary: $operator")
+			print_ast_expression(expression, depth + 1)
+		}
+	}
+}
+
+fn print_ast_statement(node Statement, depth int) {
+	val indent = get_indent(depth)
+	match node {
+		when Statement::Return(value) {
+			println("$indent Return:":trim())
+			print_ast_expression(value, depth + 1)
+		}
+	}
+}
+
+pub fn print_ast(node AST, depth int) {
+	val indent = get_indent(depth)
+	match node {
+		when AST::Program(node) {
+			println("Program:")
+			print_ast(node, depth + 1)
+		}
+		when AST::Function(return_type, name, parameters, body) {
+			val parameter_list_str = parameters:join(", ")
+			println("$indent Function $return_type $name($parameter_list_str):":trim())
+			print_ast_statement(body, depth + 1)
+		}
+	}
+}
+
+fn print_instruction(inst Instruction, depth int) {
+	val indent = get_indent(depth)
+	println("$indent $inst")
+}
+
+pub fn print_tacky(node TACKY, depth int) {
+ val indent = get_indent(depth)
+ match node {
+  when TACKY::Program(node) {
+   println("Program:")
+   print_tacky(node, depth + 1)
+  }
+  when TACKY::Function(name, instructions) {
+   println("$indent $(name):")
+   for instruction in instructions {
+    print_instruction(instruction, depth + 1)
+   }
+  }
+ }
+}

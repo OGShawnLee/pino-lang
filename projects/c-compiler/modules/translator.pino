@@ -1,91 +1,94 @@
 module Translator
 
-from Parser import AST
+from Mediator import TACKY, Instruction, Val, UnaryOperator
+
+pub union ASMUnaryOperator {
+	Neg
+	Not
+}
+
+pub union Reg {
+	AX
+	R10
+}
 
 pub union Operand {
 	Immediate(int)
-	Register(string)
+	Register(Reg)
+	Pseudo(string)
+	Stack(int)
 }
 
-pub union Instruction {
+pub union ASMInstruction {
 	Mov(Operand, Operand)
+	Unary(ASMUnaryOperator, Operand)
+	AllocateStack(int)
 	Ret
 }
 
-pub union Statement {
-	Function(string, []Instruction)
-}
-
 pub union ASTAssembly {
-	Program([]Statement)
+	Program(ASTAssembly)
+	Function(string, []ASMInstruction)
 }
 
-fn translate_to_asm_operand(node AST) Result[Operand, string] {
-	return match node {
-		when AST::Constant(value) =>
-			Result::Success(Operand::Immediate(int(value)))
-		else =>
-			Result::Failure("TRANSLATION ERROR: Unable to translate AST to Operand.")
+fn translate_to_asm_operand(value Val) {
+	return match value {
+		when Val::Constant(content) => Operand::Immediate(int(content))
+		when Val::Var(name) => Operand::Pseudo(name)
 	}
 }
 
-fn translate_to_asm_instruction(node AST) Result[[]Instruction, string] {
-	match node {
-		when AST::Return(value) {
-			val operation = translate_to_asm_operand(value)?
+fn translate_to_asm_operator(operator UnaryOperator) {
+	return match operator {
+		when UnaryOperator::Complement => ASMUnaryOperator::Not
+		when UnaryOperator::Negate => ASMUnaryOperator::Neg
+	}
+}
+
+fn translate_instr_to_asm_instr_list(instr Instruction) Result[[]ASMInstruction, string] {
+	match instr {
+		when Instruction::Ret(value) {
 			return Result::Success([
-				Instruction::Mov(Operand::Register("rax"), operation),
-				Instruction::Ret()
+				ASMInstruction::Mov(
+					translate_to_asm_operand(value)
+					Operand::Register(Reg::AX)
+				),
+				ASMInstruction::Ret()
 			])
 		}
-		else {
-			return Result::Failure("TRANSLATION ERROR: Unable to translate AST to Instruction.")
+		when Instruction::Unary(unary_operator, src, dst) {
+			val dst_operand = translate_to_asm_operand(dst)
+			return Result::Success([
+				ASMInstruction::Mov(
+					translate_to_asm_operand(src),
+					dst_operand
+				),
+				ASMInstruction::Unary(
+					translate_to_asm_operator(unary_operator),
+					dst_operand
+				)
+			])
 		}
 	}
 }
 
-fn translate_fn_body_to_ast_statement(body AST) Result[[]Instruction, string] {
-	match body {
-		when AST::Block(statements) {
-			val instr_list = []Instruction
-			for stmt in statements {
-				val asm_instructions = translate_to_asm_instruction(stmt)?
-				asm_instructions:each(fn (inst Instruction) => instr_list:push(inst))
-			}
-			return Result::Success(instr_list)
-		}
-		else {
-			return Result::Failure("TRANSLATION ERROR: Expected function body to be a Block.")
-		}
-	}
-}
-
-fn translate_to_asm_statement(node AST) Result[Statement, string] {
+pub fn translate_ast_to_asm(node TACKY) Result[ASTAssembly, string] {
 	match node {
-		when AST::Function(return_type, name, parameters, body) {
+		when TACKY::Program(inner_node) {
 			return Result::Success(
-				Statement::Function(name, translate_fn_body_to_ast_statement(body)?)
+				ASTAssembly::Program(translate_ast_to_asm(inner_node)?)
 			)
 		}
-		else {
-			return Result::Failure("TRANSLATION ERROR: Unable to translate AST to Statement.")
-		}
-	}
-}
-
-pub fn translate_ast_to_asm(node AST) Result[ASTAssembly, string] {
-	match node {
-		when AST::Program(statements) {
-			val asm_statements = []Statement
-			for stmt in statements {
-				asm_statements:push(
-					translate_to_asm_statement(stmt)?
-				)
+		when TACKY::Function(name, instructions) {
+			val asm_instructions = []ASMInstruction
+			for instruction in instructions {
+				for asm_instruction in translate_instr_to_asm_instr_list(instruction)? {
+					asm_instructions:push(asm_instruction)
+				}
 			}
-			return Result::Success(ASTAssembly::Program(asm_statements))
-		}
-		else {
-			return Result::Failure("TRANSLATION ERROR: Unable to translate AST to Assembly.")
+			return Result::Success(
+				ASTAssembly::Function(name, asm_instructions)
+			)
 		}
 	}
 }

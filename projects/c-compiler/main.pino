@@ -1,12 +1,17 @@
 from Lexer import TokenType, TokenStream, lex
-from Parser import AST, parse, print_ast
+from Parser import AST, parse
+from Mediator import translate_ast_to_tacky
+from Printer import print_ast, print_tacky
 from Translator import translate_ast_to_asm
 from Compiler import compile_ast_to_asm
 
 fn main {
 	println("Welcome to the Pino C Compiler!")
 
-	val program = "int main(void) { return 2; }"
+	val program = "int main(void) { return ~(-2); }"
+
+	println("C Input: $program")
+
 	val token_stream = lex(program) or {
 		panic(err)
 	}
@@ -14,12 +19,21 @@ fn main {
 		panic(err)
 	}
 	
+	println("Abstract Syntax Tree:")
 	print_ast(program_ast, 0)
 	
-	val assembly_ast = translate_ast_to_asm(program_ast) or {
+	val program_tacky = translate_ast_to_tacky(program_ast) or {
+		panic(err)
+	}
+
+	println("Intermediate Representations (TACKY):")
+	print_tacky(program_tacky, 0)
+
+	val assembly_ast = translate_ast_to_asm(program_tacky) or {
 		panic(err)
 	}
 	val assembly = compile_ast_to_asm(assembly_ast)
 
+	println("ASM Output:")
 	println(assembly)
 }

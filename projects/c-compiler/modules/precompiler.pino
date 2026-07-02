@@ -1,0 +1,85 @@
+module Precompiler
+
+from Translator import ASTAssembly, ASMInstruction, ASMUnaryOperator, Operand, Reg
+
+fn is_stack_operand(operand Operand) {
+	return match operand {
+		when Operand::Stack(n) => true
+		else => false
+	}
+}
+
+fn resolve_pseudo(name string, pseudo_map map[string, int], stack_counter []int) {
+	if name in pseudo_map {
+		return Operand::Stack(pseudo_map[name])
+	}
+
+	stack_counter[0] -= 4
+	pseudo_map[name] = stack_counter[0]
+	return Operand::Stack(stack_counter[0])
+}
+
+fn precompile_asm_operand(operand Operand, pseudo_map map[string, int], stack_counter []int) {
+	return match operand {
+		when Operand::Pseudo(name) => resolve_pseudo(name, pseudo_map, stack_counter)
+		else => operand
+	}
+}
+
+fn precompile_asm_instruction(instr ASMInstruction, pseudo_map map[string, int], stack_counter []int) {
+	return match instr {
+		when ASMInstruction::Mov(dst, src) {
+			val resolved_dst = precompile_asm_operand(dst, pseudo_map, stack_counter)
+			val resolved_src = precompile_asm_operand(src, pseudo_map, stack_counter)
+
+			if is_stack_operand(resolved_dst) and is_stack_operand(resolved_src) {
+				val intermediate_reg = Operand::Register(Reg::R10)
+				return [
+					ASMInstruction::Mov(resolved_dst, intermediate_reg),
+					ASMInstruction::Mov(intermediate_reg, resolved_src)
+				]
+			}
+
+			return [ASMInstruction::Mov(resolved_dst, resolved_src)]
+		}
+		when ASMInstruction::Unary(operator, operand) =>
+			[ASMInstruction::Unary(operator, precompile_asm_operand(operand, pseudo_map, stack_counter))]
+		else => [instr]
+	}
+}
+
+fn precompile_asm_instr_list(instr_list []ASMInstruction) []ASMInstruction {
+	val pseudo_map = map[string, int] {}
+	val stack_counter = [0]
+	val new_instr_list = []ASMInstruction
+
+	for instr in instr_list {
+		for inner_instr in precompile_asm_instruction(instr, pseudo_map, stack_counter) {
+			new_instr_list:push(inner_instr)
+		}
+	}
+
+	val final_instr_list = []ASMInstruction
+	if stack_counter[0] > 0 {
+		final_instr_list:push(
+			ASMInstruction::AllocateStack(stack_counter[0])
+		)
+	}
+
+	for instr in new_instr_list {
+		final_instr_list:push(instr)
+	}
+
+	return final_instr_list
+}
+
+pub fn precompile_asm(node ASTAssembly) ASTAssembly {
+	match node {
+		when ASTAssembly::Program(inner_node) {
+			return ASTAssembly::Program(precompile_asm(inner_node))
+		}
+		when ASTAssembly::Function(name, instr_list) {
+			return ASTAssembly::Function(name, precompile_asm_instr_list(instr_list))
+		}
+	}
+}

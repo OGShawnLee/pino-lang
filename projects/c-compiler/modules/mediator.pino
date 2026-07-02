@@ -1,0 +1,84 @@
+module Mediator
+
+from Parser import AST, Statement, Expression, Operator
+
+pub union UnaryOperator {
+ Complement
+ Negate
+}
+
+pub union Val {
+ Constant(string)
+ Var(string)
+}
+
+pub union Instruction {
+ Ret(Val)
+ Unary(UnaryOperator, Val, Val)
+}
+
+pub union TACKY {
+ Program(TACKY)
+ Function(string, []Instruction)
+}
+
+val counter = [0]
+
+fn rand_name() {
+ val name = "tmp.$(counter[0])"
+ counter[0] += 1
+ return name
+}
+
+fn translate_operator(operator Operator) {
+ return match operator {
+  when Operator::Complement => UnaryOperator::Complement
+  when Operator::Negate => UnaryOperator::Negate
+ }
+}
+
+fn emit_tacky(expr Expression, instructions []Instruction) {
+ match expr {
+  when Expression::Constant(value) {
+   return Val::Constant(value)
+  }
+  when Expression::Unary(operator, inner_expr) {
+   val src = emit_tacky(inner_expr, instructions)
+   val dst_name = rand_name()
+   val dst = Val::Var(dst_name)
+   instructions:push(
+    Instruction::Unary(translate_operator(operator), src, dst)
+   )
+   return dst
+  }
+ }
+}
+
+fn translate_stmt_to_tacky_instructions(stmt Statement) Result[[]Instruction, string] {
+ val instructions = []Instruction
+ match stmt {
+  when Statement::Return(expr) {
+   val result = emit_tacky(expr, instructions)
+   instructions:push(Instruction::Ret(result))
+   return Result::Success(instructions)
+  }
+ }
+}
+
+pub fn translate_ast_to_tacky(node AST) Result[TACKY, string] {
+ match node {
+  when AST::Program(node) {
+   return Result::Success(
+    TACKY::Program(translate_ast_to_tacky(node)?)
+   )
+  }
+  when AST::Function(return_type, name, parameters, body) {
+   return Result::Success(
+    TACKY::Function(
+     name,
+     translate_stmt_to_tacky_instructions(body)?
+    )
+   )
+  }
+ }
+}

@@ -1,6 +1,7 @@
 module Compiler
 
-from Translator import ASTAssembly, Statement, Instruction, Operand
+from Translator import ASTAssembly, ASMInstruction, ASMUnaryOperator, Operand, Reg
+from Precompiler import precompile_asm
 
 struct Vector {
 	@generic[Item, Value]
@@ -13,39 +14,48 @@ struct Vector {
 	}
 }
 
+fn compile_register_to_asm(reg Reg) string {
+	return match reg {
+		when Reg::AX => "%eax"
+		when Reg::R10 => "%r10d"
+	}
+}
+
 fn compile_operand_to_asm(op Operand) string {
 	return match op {
-		when Operand::Immediate(value) => str(value)
-		when Operand::Register(reg) => reg
+		when Operand::Immediate(integer) => "\$$integer"
+		when Operand::Register(reg) => compile_register_to_asm(reg)
+		when Operand::Stack(offset) => "$offset(%rbp)"
+		when Operand::Pseudo(name) => panic("Unresolved pseudo: $name.")
 	}
 }
 
-fn compile_instruction_to_asm(inst Instruction) string {
+fn compile_asm_operator(operator ASMUnaryOperator) {
+	return match operator {
+		when ASMUnaryOperator::Neg => "negl"
+		when ASMUnaryOperator::Not => "notl"
+	}
+}
+
+fn compile_instruction_to_asm(inst ASMInstruction) string {
 	return match inst {
-		when Instruction::Mov(dst, src) => "    mov $(compile_operand_to_asm(dst)), $(compile_operand_to_asm(src))\n"
-		when Instruction::Ret => "    ret\n"
-	}
-}
-
-fn compile_statement_to_asm(stmt Statement) string {
-	match stmt {
-		when Statement::Function(name, instructions) {
-			return Vector::reduce(
-				instructions,
-				".globl _$name\n_$name:\n",
-				fn (inst Instruction, asm string) => asm + compile_instruction_to_asm(inst)
-			)
-		}
+		when ASMInstruction::Mov(dst, src) => "    movl $(compile_operand_to_asm(dst)), $(compile_operand_to_asm(src))\n"
+		when ASMInstruction::Unary(operator, operand) => "    $(compile_asm_operator(operator)) $(compile_operand_to_asm(operand))\n"
+		when ASMInstruction::AllocateStack(size) => "    subq \$$size, %rsp\n"
+		when ASMInstruction::Ret => "    movq %rbp, %rsp\n    popq %rbp\n    ret\n"
 	}
 }
 
 pub fn compile_ast_to_asm(node ASTAssembly) string {
-	return match node {
-		when ASTAssembly::Program(statements) {
+	match precompile_asm(node) {
+		when ASTAssembly::Program(inner_node) {
+			return compile_ast_to_asm(inner_node)
+		}
+		when ASTAssembly::Function(name, instructions) {
 			return Vector::reduce(
-				statements,
-				"",
-				fn (stmt Statement, asm string) => asm + compile_statement_to_asm(stmt)
+				instructions,
+				".globl _$name\n_$name:\n    pushq %rbp\n    movq %rsp, %rbp\n",
+				fn (inst ASMInstruction, asm string) => asm + compile_instruction_to_asm(inst)
 			)
 		}
 	}
