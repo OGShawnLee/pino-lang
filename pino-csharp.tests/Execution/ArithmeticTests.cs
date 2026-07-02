@@ -147,5 +147,66 @@ public class ArithmeticTests {
     Assert.Equal(true, env.Get("res_or"));
     Assert.Equal(false, env.Get("called"));
   }
+
+  [Fact]
+  public void TestUnionEquality() {
+    var code = @"
+      union Foo {
+        A
+        B
+      }
+
+      val is_a_equals_a = Foo::A == Foo::A
+      val is_a_not_equals_b = Foo::A != Foo::B
+      val is_a_equals_b = Foo::A == Foo::B
+      val is_a_not_equals_a = Foo::A != Foo::A
+    ";
+
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(true, env.Get("is_a_equals_a"));
+    Assert.Equal(true, env.Get("is_a_not_equals_b"));
+    Assert.Equal(false, env.Get("is_a_equals_b"));
+    Assert.Equal(false, env.Get("is_a_not_equals_a"));
+  }
+
+    [Fact]
+  public void TestUnionEqualityWithValues() {
+    var code = @"
+      union Data {
+        Int(int)
+        String(string)
+      }
+
+      val is_same_variant_same_data = Data::Int(1) == Data::Int(1)
+      val is_same_variant_different_data = Data::Int(1) == Data::Int(2)
+      val is_different_variant = Data::Int(1) == Data::String(""not-an-int"")
+    ";
+
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(true, env.Get("is_same_variant_same_data"));
+    Assert.Equal(false, env.Get("is_same_variant_different_data"));
+    Assert.Equal(false, env.Get("is_different_variant"));
+  }
+
+  [Fact]
+  public void TestEnumEquality() {
+    var code = @"
+      enum Zap {
+        A
+        B
+      }
+
+      val is_a_equals_a = Zap::A == Zap::A
+      val is_a_not_equals_b = Zap::A != Zap::B
+      val is_a_equals_b = Zap::A == Zap::B
+      val is_a_not_equals_a = Zap::A != Zap::A
+    ";
+
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(true, env.Get("is_a_equals_a"));
+    Assert.Equal(true, env.Get("is_a_not_equals_b"));
+    Assert.Equal(false, env.Get("is_a_equals_b"));
+    Assert.Equal(false, env.Get("is_a_not_equals_a"));
+  }
 }
 

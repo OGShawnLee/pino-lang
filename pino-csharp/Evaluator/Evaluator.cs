@@ -205,6 +205,22 @@ public class PinoUnionValue {
     Payload = payload;
   }
 
+  public override bool Equals(object? obj) {
+    if (obj is not PinoUnionValue other) return false;
+    if (UnionName != other.UnionName || VariantName != other.VariantName) return false;
+    if (Payload.Count != other.Payload.Count) return false;
+    for (int i = 0; i < Payload.Count; i++) {
+      if (!Equals(Payload[i], other.Payload[i])) return false;
+    }
+    return true;
+  }
+
+  public override int GetHashCode() {
+    var hash = HashCode.Combine(UnionName, VariantName);
+    foreach (var item in Payload) hash = HashCode.Combine(hash, item);
+    return hash;
+  }
+
   public override string ToString() {
     if (Payload.Count == 0) {
       return $"{UnionName}::{VariantName}";
