@@ -1,14 +1,14 @@
 from Lexer import TokenType, TokenStream, lex
 from Parser import AST, parse
-from Mediator import translate_ast_to_tacky
-from Printer import print_ast, print_tacky
+from Transformer import translate_ast_to_tacky
+from Printer import print_ast, print_tacky, print_asm
 from Translator import translate_ast_to_asm
 from Compiler import compile_ast_to_asm
 
 fn main {
 	println("Welcome to the Pino C Compiler!")
 
-	val program = "int main(void) { return ~(-2); }"
+	val program = "int main(void) { return 1 * 3; }"
 
 	println("C Input: $program")
 
@@ -32,6 +32,10 @@ fn main {
 	val assembly_ast = translate_ast_to_asm(program_tacky) or {
 		panic(err)
 	}
+
+	println("Raw Assembly AST")
+	print_asm(assembly_ast, 0)
+
 	val assembly = compile_ast_to_asm(assembly_ast)
 
 	println("ASM Output:")

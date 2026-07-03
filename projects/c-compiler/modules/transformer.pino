@@ -1,11 +1,6 @@
-module Mediator
+module Transformer
 
-from Parser import AST, Statement, Expression, Operator
-
-pub union UnaryOperator {
- Complement
- Negate
-}
+from Parser import AST, Statement, Expression, UnaryOperator, BinaryOperator
 
 pub union Val {
  Constant(string)
@@ -15,6 +10,7 @@ pub union Val {
 pub union Instruction {
  Ret(Val)
  Unary(UnaryOperator, Val, Val)
+ Binary(BinaryOperator, Val, Val, Val)
 }
 
 pub union TACKY {
@@ -30,13 +26,6 @@ fn rand_name() {
  return name
 }
 
-fn translate_operator(operator Operator) {
- return match operator {
-  when Operator::Complement => UnaryOperator::Complement
-  when Operator::Negate => UnaryOperator::Negate
- }
-}
-
 fn emit_tacky(expr Expression, instructions []Instruction) {
  match expr {
   when Expression::Constant(value) {
@@ -47,7 +36,17 @@ fn emit_tacky(expr Expression, instructions []Instruction) {
    val dst_name = rand_name()
    val dst = Val::Var(dst_name)
    instructions:push(
-    Instruction::Unary(translate_operator(operator), src, dst)
+    Instruction::Unary(operator, src, dst)
+   )
+   return dst
+  }
+  when Expression::Binary(operator, left, right) {
+   val left_val = emit_tacky(left, instructions)
+   val right_val = emit_tacky(right, instructions)
+   val dst_name = rand_name()
+   val dst = Val::Var(dst_name)
+   instructions:push(
+    Instruction::Binary(operator, left_val, right_val, dst)
    )
    return dst
   }

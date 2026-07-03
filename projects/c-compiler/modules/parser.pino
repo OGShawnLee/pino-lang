@@ -2,14 +2,23 @@ module Parser
 
 from Lexer import TokenType, TokenStream
 
-pub union Operator {
+pub union BinaryOperator {
+	Add
+	Subtract
+	Multiply
+	Divide
+	Remainder
+}
+
+pub union UnaryOperator {
 	Complement
 	Negate
 }
 
 pub union Expression {
 	Constant(string)
-	Unary(Operator, Expression)
+	Unary(UnaryOperator, Expression)
+	Binary(BinaryOperator, Expression, Expression)
 }
 
 pub union Statement {
@@ -21,49 +30,99 @@ pub union AST {
 	Function(string, string, []string, Statement)
 }
 
-fn parse_operator(token Token) Result[Operator, string] {
-	match token:value {
-		when "~" {
-			return Result::Success(Operator::Complement)
-		}
-		when "-" {
-			return Result::Success(Operator::Negate)
-		}
-		else {
-			return Result::Failure("PARSER: Expected operator. Got $(token:value)")
-		}
-	}
+val PRECEDENCE_MAP = map[string, int] {
+	"*": 50
+	"/": 50
+	"%": 50
+	"+": 45
+	"-": 45
 }
 
-fn parse_expression(stream TokenStream) Result[Expression, string] {
+val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
+	"+": BinaryOperator::Add
+	"-": BinaryOperator::Subtract
+	"*": BinaryOperator::Multiply
+	"/": BinaryOperator::Divide
+	"%": BinaryOperator::Remainder
+}
+
+val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
+	"~": UnaryOperator::Complement
+	"-": UnaryOperator::Negate
+}
+
+fn is_binary_operator(token Token) {
+	return token:value in BINARY_OPERATOR_MAP
+}
+
+fn get_precedence(token Token) {
+	if token:value in PRECEDENCE_MAP	{
+		return PRECEDENCE_MAP[token:value]
+	}
+
+	panic("PARSER: Invalid operator: \"$(token:value)\"")
+}
+
+fn parse_unary_operator(token Token) Result[UnaryOperator, string] {
+	if token:value in UNARY_OPERATOR_MAP	{
+		return Result::Success(UNARY_OPERATOR_MAP[token:value])
+	}
+
+	return Result::Failure("PARSER: Expected operator. Got $(token:value)")
+}
+
+fn parse_binary_operator(token Token) Result[BinaryOperator, string] {
+	if token:value in BINARY_OPERATOR_MAP	{
+		return Result::Success(BINARY_OPERATOR_MAP[token:value])
+	}
+
+	return Result::Failure("PARSER: Expected operator. Got $(token:value)")
+}
+
+fn parse_factor(stream TokenStream) Result[Expression, string] {
 	val next_token = stream:next()?
 
 	match next_token:type {
 		when TokenType::Literal {
 			return Result::Success(Expression::Constant(next_token:value))
 		}
-		when TokenType::Operator {
-			val operator = parse_operator(next_token)?
-			val inner_expression = parse_expression(stream)?
+		when TokenType::UnaryOperator {
+			val operator = parse_unary_operator(next_token)?
+			val inner_expression = parse_factor(stream)?
 			return Result::Success(Expression::Unary(operator, inner_expression))
 		}
 		when TokenType::Marker {
 			if next_token:value != "(" {
-				return Result::Failure("PARSER: Unable to parse expression. Expected '(' Marker. Got $(next_token:value)")
+				return Result::Failure("PARSER: Unable to parse factor. Expected '(' Marker. Got $(next_token:value)")
 			}
 
-			val inner_expression = parse_expression(stream)?
+			val inner_expression = parse_expression(stream, 0)?
 
 			stream:expect_and(TokenType::Marker, it:value == ")") or {
-				return Result::Failure("PARSER: Unable to parse expression. Expected ')' Marker.")
+				return Result::Failure("PARSER: Unable to parse factor. Expected ')' Marker.")
 			}
 
 			return Result::Success(inner_expression)
 		}
 		else {
-			return Result::Failure("PARSER: Expected expression. Got $(next_token:value)")
+			return Result::Failure("PARSER: Expected factor. Got $(next_token:value)")
 		}
 	}
+}
+
+fn parse_expression(stream TokenStream, min_prec int) Result[Expression, string] {
+	var left = parse_factor(stream)?
+
+	for stream:is_it(
+		fn (n Token) => is_binary_operator(n) and get_precedence(n) >= min_prec
+	) {
+		val operator_token = stream:next()?  
+		val operator = parse_binary_operator(operator_token)?
+		val right = parse_expression(stream, get_precedence(operator_token) + 1)?
+		left = Expression::Binary(operator, left, right)
+	}
+
+	return Result::Success(left)
 }
 
 fn parse_block(stream TokenStream) Result[Statement, string] {
@@ -73,7 +132,7 @@ fn parse_block(stream TokenStream) Result[Statement, string] {
 	stream:expect_and(TokenType::Keyword, it:value == "return") or {
 		return Result::Failure("PARSER: Unable to parse block. Expected 'return' Keyword.")
 	}
-	val expression = parse_expression(stream)?
+	val expression = parse_expression(stream, 0)?
 	stream:expect_and(TokenType::Marker, it:value == ";") or {
 		return Result::Failure("PARSER: Unable to parse block. Expected ';' Marker.")
 	}

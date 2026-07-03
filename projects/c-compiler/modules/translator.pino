@@ -1,15 +1,24 @@
 module Translator
 
-from Mediator import TACKY, Instruction, Val, UnaryOperator
+from Parser import UnaryOperator, BinaryOperator
+from Transformer import TACKY, Instruction, Val
 
 pub union ASMUnaryOperator {
 	Neg
 	Not
 }
 
+pub union ASMBinaryOperator {
+	Add
+	Sub
+	Mult
+}
+
 pub union Reg {
 	AX
+	DX
 	R10
+	R11
 }
 
 pub union Operand {
@@ -21,6 +30,9 @@ pub union Operand {
 
 pub union ASMInstruction {
 	Mov(Operand, Operand)
+	Binary(ASMBinaryOperator, Operand, Operand)
+	Idiv(Operand)
+	Cdq
 	Unary(ASMUnaryOperator, Operand)
 	AllocateStack(int)
 	Ret
@@ -38,12 +50,56 @@ fn translate_to_asm_operand(value Val) {
 	}
 }
 
-fn translate_to_asm_operator(operator UnaryOperator) {
+fn translate_to_asm_unary_operator(operator UnaryOperator) {
 	return match operator {
 		when UnaryOperator::Complement => ASMUnaryOperator::Not
 		when UnaryOperator::Negate => ASMUnaryOperator::Neg
 	}
 }
+
+fn translate_to_asm_binary_operator(operator BinaryOperator) {
+	return match operator {
+		when BinaryOperator::Add => ASMBinaryOperator::Add
+		when BinaryOperator::Subtract => ASMBinaryOperator::Sub
+		when BinaryOperator::Multiply => ASMBinaryOperator::Mult
+		else => panic("Unable to translate binary operator.")
+	}
+}
+
+fn translate_binary_instr_to_asm_instr(
+	binary_operator BinaryOperator
+	left Val 
+	right Val 
+	dst Val
+) Result[[]ASMInstruction, string] {
+	match binary_operator {
+		when BinaryOperator::Add BinaryOperator::Subtract BinaryOperator::Multiply {
+			val dst_operand = translate_to_asm_operand(dst)
+			val left_operand = translate_to_asm_operand(left)
+			val right_operand = translate_to_asm_operand(right)
+
+			return Result::Success([
+				ASMInstruction::Mov(left_operand, dst_operand),
+				ASMInstruction::Binary(translate_to_asm_binary_operator(binary_operator), right_operand, dst_operand)
+			])
+		}
+		when BinaryOperator::Divide BinaryOperator::Remainder {
+			val dst_operand = translate_to_asm_operand(dst)
+			val left_operand = translate_to_asm_operand(left)
+			val right_operand = translate_to_asm_operand(right)
+			return Result::Success([
+				ASMInstruction::Mov(left_operand, Operand::Register(Reg::AX)),
+				ASMInstruction::Cdq(),
+				ASMInstruction::Idiv(right_operand),
+				ASMInstruction::Mov(
+					if binary_operator == BinaryOperator::Divide then Operand::Register(Reg::AX) else Operand::Register(Reg::DX),
+					dst_operand
+				)
+			])
+		}
+	}
+}
+
 
 fn translate_instr_to_asm_instr_list(instr Instruction) Result[[]ASMInstruction, string] {
 	match instr {
@@ -64,10 +120,13 @@ fn translate_instr_to_asm_instr_list(instr Instruction) Result[[]ASMInstruction,
 					dst_operand
 				),
 				ASMInstruction::Unary(
-					translate_to_asm_operator(unary_operator),
+					translate_to_asm_unary_operator(unary_operator),
 					dst_operand
 				)
 			])
+		}
+		when Instruction::Binary(binary_operator, left, right, dst) {
+			return translate_binary_instr_to_asm_instr(binary_operator, left, right, dst)
 		}
 	}
 }

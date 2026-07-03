@@ -5,16 +5,13 @@ pub enum TokenType {
 	Identifier
 	Keyword
 	Marker
-	Operator
+	UnaryOperator
+	BinaryOperator
 }
 
 pub struct Token {
 	type TokenType
 	value string
-
-	fn is_and(token_type TokenType, predicate fn (Token) bool) bool {
-		return self:type == type and predicate(self)
-	}
 }
 
 pub union ExpectAndFailure {
@@ -72,6 +69,14 @@ pub struct TokenStream {
 		return Result::Success(token)
 	}
 
+	fn is_it(predicate fn (Token) bool) bool {
+		val curr = self:current() or {
+			return false
+		}
+
+		return predicate(curr)
+	}
+
 	fn is_match(type TokenType) bool {
 		val curr = self:current() or {
 			return false
@@ -102,7 +107,8 @@ struct TokenRule {
 	type TokenType
 }
 
-val OPERATOR_REGEX = regex("^(--|-|~)")
+val BINARY_OPERATOR_REGEX = regex("^(\+|\*|/|%)")
+val UNARY_OPERATOR_REGEX = regex("^(--|-|~)")
 val IDENTIFIER_REGEX = regex("^[a-zA-Z_][a-zA-Z0-9_]*")
 val KEYWORD_REGEX = regex("^(int|void|return)")
 val MARKER_REGEX = regex("^[(){};]")
@@ -113,7 +119,8 @@ val TOKEN_RULE_LIST = [
 	TokenRule { pattern: NUMERIC_REGEX, type: TokenType::Literal }
 	TokenRule { pattern: MARKER_REGEX, type: TokenType::Marker }
 	TokenRule { pattern: IDENTIFIER_REGEX, type: TokenType::Identifier }
-	TokenRule { pattern: OPERATOR_REGEX, type: TokenType::Operator }
+	TokenRule { pattern: BINARY_OPERATOR_REGEX, type: TokenType::BinaryOperator }
+	TokenRule { pattern: UNARY_OPERATOR_REGEX, type: TokenType::UnaryOperator }
 ]
 
 pub fn lex(line string) Result[TokenStream, string] {

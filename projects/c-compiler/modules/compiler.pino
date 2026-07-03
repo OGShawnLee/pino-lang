@@ -17,7 +17,9 @@ struct Vector {
 fn compile_register_to_asm(reg Reg) string {
 	return match reg {
 		when Reg::AX => "%eax"
+		when Reg::DX => "%edx"
 		when Reg::R10 => "%r10d"
+		when Reg::R11 => "%r11d"
 	}
 }
 
@@ -30,19 +32,30 @@ fn compile_operand_to_asm(op Operand) string {
 	}
 }
 
-fn compile_asm_operator(operator ASMUnaryOperator) {
+fn compile_asm_unary_operator(operator ASMUnaryOperator) {
 	return match operator {
 		when ASMUnaryOperator::Neg => "negl"
 		when ASMUnaryOperator::Not => "notl"
 	}
 }
 
+fn compile_asm_binary_operator(operator ASMBinaryOperator) {
+	return match operator {
+		when ASMBinaryOperator::Add => "addl"
+		when ASMBinaryOperator::Sub => "subl"
+		when ASMBinaryOperator::Mult => "imull"
+	}
+}
+
 fn compile_instruction_to_asm(inst ASMInstruction) string {
 	return match inst {
 		when ASMInstruction::Mov(dst, src) => "    movl $(compile_operand_to_asm(dst)), $(compile_operand_to_asm(src))\n"
-		when ASMInstruction::Unary(operator, operand) => "    $(compile_asm_operator(operator)) $(compile_operand_to_asm(operand))\n"
+		when ASMInstruction::Unary(operator, operand) => "    $(compile_asm_unary_operator(operator)) $(compile_operand_to_asm(operand))\n"
 		when ASMInstruction::AllocateStack(size) => "    subq \$$size, %rsp\n"
 		when ASMInstruction::Ret => "    movq %rbp, %rsp\n    popq %rbp\n    ret\n"
+		when ASMInstruction::Idiv(operand) => "    idivl $(compile_operand_to_asm(operand))\n"
+		when ASMInstruction::Cdq => "    cdq\n"
+		when ASMInstruction::Binary(operator, src, dst) => "    $(compile_asm_binary_operator(operator)) $(compile_operand_to_asm(src)), $(compile_operand_to_asm(dst))\n"
 	}
 }
 

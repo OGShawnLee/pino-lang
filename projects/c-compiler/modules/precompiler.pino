@@ -9,6 +9,14 @@ fn is_stack_operand(operand Operand) {
 	}
 }
 
+fn is_immediate_operand(operand Operand) {
+	return match operand {
+		when Operand::Immediate(n) => true
+		else => false
+	}
+}
+
+
 fn resolve_pseudo(name string, pseudo_map map[string, int], stack_counter []int) {
 	if name in pseudo_map {
 		return Operand::Stack(pseudo_map[name])
@@ -26,6 +34,43 @@ fn precompile_asm_operand(operand Operand, pseudo_map map[string, int], stack_co
 	}
 }
 
+fn precompile_binary_instr(
+	binary_operator ASMBinaryOperator 
+	src_operand Operand 
+	dst_operand Operand 
+	pseudo_map map[string, int] 
+	stack_counter []int
+) {
+	val resolved_src = precompile_asm_operand(src_operand, pseudo_map, stack_counter)
+	val resolved_dst = precompile_asm_operand(dst_operand, pseudo_map, stack_counter)
+
+	match binary_operator {
+		when ASMBinaryOperator::Add, ASMBinaryOperator::Sub {
+			if is_stack_operand(resolved_src) and is_stack_operand(resolved_dst) {
+				return [
+					ASMInstruction::Mov(resolved_src, Operand::Register(Reg::R10)),
+					ASMInstruction::Binary(binary_operator, Operand::Register(Reg::R10), resolved_dst)
+				]
+			}
+			return [
+				ASMInstruction::Binary(binary_operator, resolved_src, resolved_dst)
+			]
+		}
+		when ASMBinaryOperator::Mult {
+			if is_stack_operand(resolved_dst) {
+				return [
+					ASMInstruction::Mov(resolved_dst, Operand::Register(Reg::R11)),
+					ASMInstruction::Binary(binary_operator, resolved_src, Operand::Register(Reg::R11)),
+					ASMInstruction::Mov(Operand::Register(Reg::R11), resolved_dst)
+				]
+			}
+			return [
+				ASMInstruction::Binary(binary_operator, resolved_src, resolved_dst)
+			]
+		}
+	}
+}
+
 fn precompile_asm_instruction(instr ASMInstruction, pseudo_map map[string, int], stack_counter []int) {
 	return match instr {
 		when ASMInstruction::Mov(dst, src) {
@@ -34,16 +79,28 @@ fn precompile_asm_instruction(instr ASMInstruction, pseudo_map map[string, int],
 
 			if is_stack_operand(resolved_dst) and is_stack_operand(resolved_src) {
 				val intermediate_reg = Operand::Register(Reg::R10)
-				return [
+				yield [
 					ASMInstruction::Mov(resolved_dst, intermediate_reg),
 					ASMInstruction::Mov(intermediate_reg, resolved_src)
 				]
 			}
 
-			return [ASMInstruction::Mov(resolved_dst, resolved_src)]
+			yield [ASMInstruction::Mov(resolved_dst, resolved_src)]
 		}
-		when ASMInstruction::Unary(operator, operand) =>
-			[ASMInstruction::Unary(operator, precompile_asm_operand(operand, pseudo_map, stack_counter))]
+		when ASMInstruction::Unary(operator, dst) =>
+			[ASMInstruction::Unary(operator, precompile_asm_operand(dst, pseudo_map, stack_counter))]
+		when ASMInstruction::Binary(operator, src, dst) =>
+			precompile_binary_instr(operator, src, dst, pseudo_map, stack_counter)
+		when ASMInstruction::Idiv(operand) {
+			if is_immediate_operand(operand) {
+				yield [
+					ASMInstruction::Mov(operand, Operand::Register(Reg::R10)),
+					ASMInstruction::Idiv(Operand::Register(Reg::R10))
+				]
+			}
+
+			yield [ASMInstruction::Idiv(precompile_asm_operand(operand, pseudo_map, stack_counter))]
+		}
 		else => [instr]
 	}
 }
