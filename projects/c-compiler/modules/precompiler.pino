@@ -35,10 +35,10 @@ fn precompile_asm_operand(operand Operand, pseudo_map map[string, int], stack_co
 }
 
 fn precompile_binary_instr(
-	binary_operator ASMBinaryOperator 
-	src_operand Operand 
-	dst_operand Operand 
-	pseudo_map map[string, int] 
+	binary_operator ASMBinaryOperator
+	src_operand Operand
+	dst_operand Operand
+	pseudo_map map[string, int]
 	stack_counter []int
 ) {
 	val resolved_src = precompile_asm_operand(src_operand, pseudo_map, stack_counter)

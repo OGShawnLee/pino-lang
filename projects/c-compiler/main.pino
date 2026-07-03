@@ -18,10 +18,10 @@ fn main {
 	val program_ast = parse(token_stream) or {
 		panic(err)
 	}
-	
+
 	println("Abstract Syntax Tree:")
 	print_ast(program_ast, 0)
-	
+
 	val program_tacky = translate_ast_to_tacky(program_ast) or {
 		panic(err)
 	}

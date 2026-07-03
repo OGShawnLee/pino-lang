@@ -1,4 +1,4 @@
-module Parser 
+module Parser
 
 from Lexer import TokenType, TokenStream
 
@@ -116,7 +116,7 @@ fn parse_expression(stream TokenStream, min_prec int) Result[Expression, string]
 	for stream:is_it(
 		fn (n Token) => is_binary_operator(n) and get_precedence(n) >= min_prec
 	) {
-		val operator_token = stream:next()?  
+		val operator_token = stream:next()?
 		val operator = parse_binary_operator(operator_token)?
 		val right = parse_expression(stream, get_precedence(operator_token) + 1)?
 		left = Expression::Binary(operator, left, right)
@@ -171,7 +171,7 @@ fn parse_function(stream TokenStream) Result[AST, string] {
 			function_body
 		)
 	)
-}	
+}
 
 pub fn parse(stream TokenStream) Result[AST, string] {
 	return Result::Success(

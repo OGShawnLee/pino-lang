@@ -102,17 +102,17 @@ fn print_instruction(inst Instruction, depth int) {
 }
 
 pub fn print_tacky(node TACKY, depth int) {
- val indent = get_indent(depth)
- match node {
-  when TACKY::Program(node) {
-   println("Program:")
-   print_tacky(node, depth + 1)
-  }
-  when TACKY::Function(name, instructions) {
-   println("$indent $(name):")
-   for instruction in instructions {
-    print_instruction(instruction, depth + 1)
-   }
-  }
- }
+	val indent = get_indent(depth)
+	match node {
+		when TACKY::Program(node) {
+			println("Program:")
+			print_tacky(node, depth + 1)
+		}
+		when TACKY::Function(name, instructions) {
+			println("$indent $(name):")
+			for instruction in instructions {
+				print_instruction(instruction, depth + 1)
+			}
+		}
+	}
 }

@@ -68,8 +68,8 @@ fn translate_to_asm_binary_operator(operator BinaryOperator) {
 
 fn translate_binary_instr_to_asm_instr(
 	binary_operator BinaryOperator
-	left Val 
-	right Val 
+	left Val
+	right Val
 	dst Val
 ) Result[[]ASMInstruction, string] {
 	match binary_operator {
