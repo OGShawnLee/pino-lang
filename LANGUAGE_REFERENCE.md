@@ -502,6 +502,35 @@ match opt {
 }
 ```
 
+#### Equality:
+Unions support **structural equality** with the `==` and `!=` operators. Two union values are equal if and only if they share the same variant *and* their associated payloads are recursively equal.
+
+**Plain variants (no payload):**
+```pino
+union Foo {
+  A
+  B
+}
+
+Foo::A == Foo::A  # true  — same variant
+Foo::A == Foo::B  # false — different variants
+Foo::A != Foo::B  # true
+```
+
+**Variants with payload:**
+```pino
+union Data {
+    Int(int)
+    Text(string)
+}
+
+Data::Int(1) == Data::Int(1)       # true  — same variant, same payload
+Data::Int(1) == Data::Int(2)       # false — same variant, different payload
+Data::Int(1) == Data::Text("hi")   # false — different variant
+```
+
+Equality is recursive: if the payload itself contains a union, the same rules apply depth-first.
+
 ## 8. Error Handling
 
 Pino provides a modern, type-safe, and highly robust error-handling model inspired by Rust and Zig. Instead of throwing arbitrary unchecked runtime exceptions, Pino encourages handling expected failures explicitly through monadic sum types (`Result` and `Option`), combined with clean compiler-enforced recovery structures.
