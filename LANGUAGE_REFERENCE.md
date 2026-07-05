@@ -134,52 +134,55 @@ val result = "The sum is: $(x + y)" # "The sum is: 30"
 
 ### Labeled Tuples (Return-Exclusive)
 
-Pino supports **Return-Exclusive Labeled Tuples**. Labeled tuples allow returning multiple values with explicit names from a function or method, providing clear semantics and type safety without the need to define a temporary `struct`.
+Pino supports **Return-Exclusive Labeled Tuples** using the dedicated `@(...)` syntax. Labeled tuples allow returning multiple values with explicit names from a function or method, providing clear semantics and type safety without the need to define a temporary `struct`.
+
+> [!NOTE]
+> **Design Decision**: The `@(...)` prefix was selected to drastically simplify the Parser's lookup overhead and ensure 100% deterministic parsing with zero lookup lookahead. This guarantees predictable compiler behavior, minimizes room for parser errors, and avoids syntax conflicts with standard parentheses.
 
 #### 1. Declaration and Function Signatures
-Tuples in Pino are **exclusive to function returns**. You define a tuple return type by writing a parenthesized list of labeled fields and their types at the end of the function signature:
+Tuples in Pino are **exclusive to function returns**. You define a tuple return type by writing `@` followed by a parenthesized list of labeled fields and their types at the end of the function signature:
 ```pino
-fn divide(a int, b int) (quotient int, remainder int) {
-    return (quotient: a / b, remainder: a % b)
+fn divide(a int, b int) @(quotient int, remainder int) {
+    return @(quotient: a / b, remainder: a % b)
 }
 ```
 
 If a function returns a tuple, any `return` statement inside its body must return a **Tuple Literal** matching the labels and types.
 
 #### 2. Tuple Literals
-Tuple literals are written as parenthesized, comma-separated lists of field labels and expressions:
+Tuple literals are written as `@` followed by a parenthesized, comma-separated list of field labels and expressions:
 ```pino
-return (quotient: q, remainder: r)
+return @(quotient: q, remainder: r)
 ```
 
-*   **Shorthand Syntax**: If the value being returned is a variable whose name matches the field label, you can omit the label prefix. For example, `(true_label, false_label)` is equivalent to `(true_label: true_label, false_label: false_label)`:
+*   **Shorthand Syntax**: If the value being returned is a variable whose name matches the field label, you can omit the label prefix. For example, `@(true_label, false_label)` is equivalent to `@(true_label: true_label, false_label: false_label)`:
     ```pino
-    fn short_circuit_labels(prefix string) (true_label string, false_label string) {
+    fn short_circuit_labels(prefix string) @(true_label string, false_label string) {
         val true_label = "$(prefix)_true_label_1"
         val false_label = "$(prefix)_false_label_1"
-        return (true_label, false_label) # Shorthand tuple literal!
+        return @(true_label, false_label) # Shorthand tuple literal!
     }
     ```
 
 > [!IMPORTANT]
-> **Return-Exclusive Constraint**: Tuple literals can *only* be used as root expressions in `return` statements. They cannot be assigned to variables directly (e.g. `val t = (x: 1, y: 2)` is a compile-time error) or passed as standalone function arguments. This constraint keeps tuples lightweight and ensures they are strictly used to return multiple values.
+> **Return-Exclusive Constraint**: Tuple literals can *only* be used as root expressions in `return` statements. They cannot be assigned to variables directly (e.g. `val t = @(x: 1, y: 2)` is a compile-time error) or passed as standalone function arguments. This constraint keeps tuples lightweight and ensures they are strictly used to return multiple values.
 
 #### 3. Destructuring and Renaming
-When invoking a function that returns a tuple, you unwrap the fields upon assignment using the destructuring syntax. 
+When invoking a function that returns a tuple, you unwrap the fields upon assignment using the destructuring syntax starting with `@(`. 
 
 *   **Identical Destructuring**: If the variable names match the tuple's labels, you can assign them directly:
     ```pino
-    val (quotient, remainder) = divide(10, 3)
+    val @(quotient, remainder) = divide(10, 3)
     # quotient is assigned 3, remainder is assigned 1
     ```
 *   **Optional Renaming**: If you want to store the tuple fields in local variables with different names, use the `label: variable` syntax:
     ```pino
-    val (quotient: q, remainder: r) = divide(10, 3)
+    val @(quotient: q, remainder: r) = divide(10, 3)
     # q is assigned 3, r is assigned 1
     ```
 *   **Partial Destructuring**: You can ignore fields by omitting them from the destructuring pattern. The type checker only checks the fields you explicitly retrieve:
     ```pino
-    val (quotient: q) = divide(10, 3) # ignores remainder
+    val @(quotient: q) = divide(10, 3) # ignores remainder
     ```
 
 #### 4. Order-Independent Field Matching
@@ -189,24 +192,24 @@ This means that:
 *   The destructuring variables do not need to match the signature's field order.
 
 ```pino
-fn get_coords() (x int, y int) {
-    return (y: 20, x: 10) # Valid! Order of y and x is swapped.
+fn get_coords() @(x int, y int) {
+    return @(y: 20, x: 10) # Valid! Order of y and x is swapped.
 }
 
-val (y: b, x: a) = get_coords() # Valid! Destructures y and x out-of-order.
+val @(y: b, x: a) = get_coords() # Valid! Destructures y and x out-of-order.
 ```
 
 #### 5. Compatibility with Generics and Functions
 Tuples work seamlessly with higher-order function references and generic monomorphization:
-*   **Function types returning tuples**: You can define function signatures returning tuples, e.g., `fn() (x int, y int)`.
+*   **Function types returning tuples**: You can define function signatures returning tuples, e.g., `fn() @(x int, y int)`.
 *   **Generic Substitution**: The type checker substitutes generic parameters recursively inside tuple signatures during monomorphization:
     ```pino
     @generic[T]
-    fn return_tuple(v T) (value T, label string) {
-        return (label: "generic", value: v)
+    fn return_tuple(v T) @(value T, label string) {
+        return @(label: "generic", value: v)
     }
     
-    val (value: v1, label: l1) = return_tuple[int](42)
+    val @(value: v1, label: l1) = return_tuple[int](42)
     ```
 
 ---

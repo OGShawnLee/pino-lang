@@ -19,13 +19,13 @@ public partial class Checker {
     if (typing.StartsWith("[]")) {
       return "[]" + SubstituteType(typing.Substring(2), subst);
     }
-    if (typing.StartsWith("(") && typing.EndsWith(")")) {
+    if (typing.StartsWith("@(") && typing.EndsWith(")")) {
       if (TryParseTupleType(typing, out var fields)) {
         var substitutedFields = new List<string>();
         foreach (var field in fields) {
           substitutedFields.Add($"{field.Label}:{SubstituteType(field.Type, subst)}");
         }
-        return $"({string.Join(",", substitutedFields)})";
+        return $"@({string.Join(",", substitutedFields)})";
       }
     }
     if (typing.StartsWith("map[")) {

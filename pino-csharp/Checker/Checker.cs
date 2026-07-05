@@ -471,10 +471,10 @@ public partial class Checker {
   public static bool TryParseTupleType(string typeStr, out List<(string Label, string Type)> fields) {
     fields = new List<(string Label, string Type)>();
     typeStr = typeStr.Trim();
-    if (!typeStr.StartsWith("(") || !typeStr.EndsWith(")")) {
+    if (!typeStr.StartsWith("@(") || !typeStr.EndsWith(")")) {
       return false;
     }
-    string inner = typeStr.Substring(1, typeStr.Length - 2).Trim();
+    string inner = typeStr.Substring(2, typeStr.Length - 3).Trim();
     if (string.IsNullOrEmpty(inner)) {
       return true;
     }

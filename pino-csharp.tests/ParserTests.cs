@@ -423,8 +423,8 @@ public class ParserTests {
 
   [Fact]
   public void TestParseTupleReturnSignatureAndLiteral() {
-    var input = @"fn divide(a int, b int) (quotient int, remainder int) {
-      return (quotient: a / b, remainder: a % b)
+    var input = @"fn divide(a int, b int) @(quotient int, remainder int) {
+      return @(quotient: a / b, remainder: a % b)
     }";
     var stmt = Parser.ParseString(input);
     var fnDecl = Assert.IsType<FunctionDeclaration>(stmt);
@@ -446,7 +446,7 @@ public class ParserTests {
 
   [Fact]
   public void TestParseTupleDestructuring() {
-    var input = "val (quotient, remainder: rem) = divide(10, 3)";
+    var input = "val @(quotient, remainder: rem) = divide(10, 3)";
     var stmt = Parser.ParseString(input);
     var destDecl = Assert.IsType<TupleDestructuringDeclaration>(stmt);
     Assert.Equal(VariableKind.Constant, destDecl.Kind);
@@ -464,7 +464,7 @@ public class ParserTests {
     var varDecl1 = Assert.IsType<VariableDeclaration>(stmt1);
     Assert.IsType<BinaryExpression>(varDecl1.Value);
 
-    var source2 = "val y = (x: 1, y: 2)";
+    var source2 = "val y = @(x: 1, y: 2)";
     var stmt2 = Parser.ParseString(source2);
     var varDecl2 = Assert.IsType<VariableDeclaration>(stmt2);
     Assert.IsType<TupleLiteralExpression>(varDecl2.Value);
@@ -484,7 +484,7 @@ public class ParserTests {
 
   [Fact]
   public void TestParseTupleShorthandLiteral() {
-    var source = "return (true_label, false_label)";
+    var source = "return @(true_label, false_label)";
     var stmt = Parser.ParseString(source);
     var ret = Assert.IsType<ReturnStatement>(stmt);
     var tupleLit = Assert.IsType<TupleLiteralExpression>(ret.Argument);

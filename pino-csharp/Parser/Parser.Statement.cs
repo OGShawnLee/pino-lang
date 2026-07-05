@@ -185,7 +185,8 @@ public partial class Parser {
     var keywordToken = stream.Consume();
     var kind = keywordToken.Keyword == KeywordType.Constant ? VariableKind.Constant : VariableKind.Variable;
 
-    if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+    if (stream.Current.IsMarker(MarkerType.At) && stream.Peek(1).IsMarker(MarkerType.ParenthesisBegin)) {
+      stream.Consume(); // consume '@'
       stream.Consume(); // consume '('
       var fields = new List<TupleDestructureField>();
       while (!stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
@@ -231,7 +232,8 @@ public partial class Parser {
 
     string returnType = "";
     List<VariableDeclaration>? tupleReturnType = null;
-    if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+    if (stream.Current.IsMarker(MarkerType.At) && stream.Peek(1).IsMarker(MarkerType.ParenthesisBegin)) {
+      stream.Consume(); // consume '@'
       stream.Consume(); // consume '('
       tupleReturnType = new List<VariableDeclaration>();
       while (!stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
@@ -249,7 +251,7 @@ public partial class Parser {
       foreach (var field in tupleReturnType) {
         fieldStrings.Add($"{field.Identifier}:{field.Typing}");
       }
-      returnType = $"({string.Join(",", fieldStrings)})";
+      returnType = $"@({string.Join(",", fieldStrings)})";
     } else if (stream.Current.Type == TokenType.Identifier ||
                stream.Current.IsMarker(MarkerType.BracketBegin) ||
                stream.Current.IsKeyword(KeywordType.Function)) {

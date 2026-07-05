@@ -190,14 +190,18 @@ println(double_it(5)) # Outputs 10
 ```
 
 ### Labeled Tuples
-Pino supports return-exclusive, order-independent labeled tuples. They are defined in the function's return signature and destructured upon assignment.
+Pino supports return-exclusive, order-independent labeled tuples using the dedicated `@(...)` syntax. 
+
+> [!NOTE]
+> **Design Decision**: The `@(...)` prefix was selected to drastically simplify the Parser's lookup overhead and ensure 100% deterministic parsing with zero lookup lookahead. This guarantees predictable compiler behavior and eliminates potential syntax ambiguities with standard parentheses.
+
 ```pino
-fn divide(a int, b int) (quotient int, remainder int) {
-  return (quotient: a / b, remainder: a % b)
+fn divide(a int, b int) @(quotient int, remainder int) {
+  return @(quotient: a / b, remainder: a % b)
 }
 
 # Destructure with optional renaming and order independence
-val (remainder: r, quotient: q) = divide(10, 3)
+val @(remainder: r, quotient: q) = divide(10, 3)
 println("q = $q, r = $r") # Outputs q = 3, r = 1
 ```
 

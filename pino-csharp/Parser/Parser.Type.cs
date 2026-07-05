@@ -49,8 +49,9 @@ public partial class Parser {
       }
 
       string returnType = " any";
-      // Optional return type: can start with identifier, bracket '[', keyword 'fn', or parenthesis '(' (for tuples)
-      if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+      // Optional return type: can start with identifier, bracket '[', keyword 'fn', or tuple '@('
+      if (stream.Current.IsMarker(MarkerType.At) && stream.Peek(1).IsMarker(MarkerType.ParenthesisBegin)) {
+        stream.Consume(); // consume '@'
         stream.Consume(); // consume '('
         var tupleFields = new List<string>();
         while (!stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
@@ -64,7 +65,7 @@ public partial class Parser {
         if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
           throw new Exception("PARSER: Expected ')' to close tuple return type in function type definition");
         }
-        returnType = " (" + string.Join(",", tupleFields) + ")";
+        returnType = " @(" + string.Join(",", tupleFields) + ")";
       } else if (stream.Current.Type == TokenType.Identifier ||
                  stream.Current.IsMarker(MarkerType.BracketBegin) ||
                  stream.Current.IsKeyword(KeywordType.Function)) {

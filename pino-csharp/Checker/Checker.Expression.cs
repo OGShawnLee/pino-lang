@@ -554,7 +554,7 @@ public partial class Checker {
           string fieldType = InferType(field.Value);
           fieldStrings.Add($"{field.Label}:{fieldType}");
         }
-        return $"({string.Join(",", fieldStrings)})";
+        return $"@({string.Join(",", fieldStrings)})";
       }
 
       case LiteralExpression lit:
@@ -1119,7 +1119,7 @@ public partial class Checker {
       return true;
     }
 
-    if (srcType.StartsWith("(") && srcType.EndsWith(")") && destType.StartsWith("(") && destType.EndsWith(")")) {
+    if (srcType.StartsWith("@(") && srcType.EndsWith(")") && destType.StartsWith("@(") && destType.EndsWith(")")) {
       if (TryParseTupleType(srcType, out var srcFields) && TryParseTupleType(destType, out var destFields)) {
         if (srcFields.Count != destFields.Count) return false;
         foreach (var destField in destFields) {

@@ -8,63 +8,48 @@ public class TupleTests {
   [Theory]
   [InlineData(ExecutionEngine.TreeWalk)]
   [InlineData(ExecutionEngine.VM)]
-  public void TestBasicTupleReturnAndDestructuring(ExecutionEngine engine) {
+  public void TestTupleBasicReturnAndDestructure(ExecutionEngine engine) {
     var code = @"
-      fn divide(a int, b int) (quotient int, remainder int) {
-        return (quotient: a / b, remainder: a % b)
+      fn divide(a int, b int) @(quotient int, remainder int) {
+        return @(quotient: a / b, remainder: a % b)
       }
-      val (quotient, remainder) = divide(10, 3)
-    ";
-    var env = PinoTestRunner.Execute(code, engine);
-    Assert.Equal(3L, env.Get("quotient"));
-    Assert.Equal(1L, env.Get("remainder"));
-  }
-
-  [Theory]
-  [InlineData(ExecutionEngine.TreeWalk)]
-  [InlineData(ExecutionEngine.VM)]
-  public void TestTupleRenamingOnDestructure(ExecutionEngine engine) {
-    var code = @"
-      fn divide(a int, b int) (quotient int, remainder int) {
-        return (quotient: a / b, remainder: a % b)
-      }
-      val (quotient: q, remainder: r) = divide(10, 3)
+      val @(quotient: q, remainder: r) = divide(10, 3)
+      val @(quotient) = divide(10, 3)
     ";
     var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal(3L, env.Get("q"));
     Assert.Equal(1L, env.Get("r"));
+    Assert.Equal(3L, env.Get("quotient"));
   }
 
   [Theory]
   [InlineData(ExecutionEngine.TreeWalk)]
   [InlineData(ExecutionEngine.VM)]
-  public void TestTuplePartialDestructuring(ExecutionEngine engine) {
+  public void TestTupleDestructureRenaming(ExecutionEngine engine) {
     var code = @"
-      fn divide(a int, b int) (quotient int, remainder int) {
-        return (quotient: a / b, remainder: a % b)
+      fn divide(a int, b int) @(quotient int, remainder int) {
+        return @(quotient: a / b, remainder: a % b)
       }
-      val (quotient: q) = divide(10, 3)
+      val @(quotient: q_val, remainder: r_val) = divide(10, 3)
+    ";
+    var env = PinoTestRunner.Execute(code, engine);
+    Assert.Equal(3L, env.Get("q_val"));
+    Assert.Equal(1L, env.Get("r_val"));
+  }
+
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  [InlineData(ExecutionEngine.VM)]
+  public void TestTupleDestructureIgnoringFields(ExecutionEngine engine) {
+    var code = @"
+      fn divide(a int, b int) @(quotient int, remainder int) {
+        return @(quotient: a / b, remainder: a % b)
+      }
+      val @(quotient: q) = divide(10, 3)
     ";
     var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal(3L, env.Get("q"));
     Assert.ThrowsAny<Exception>(() => env.Get("remainder"));
-  }
-
-  [Fact]
-  public void TestGenericTupleMonomorphization() {
-    var code = @"
-      @generic[T]
-      fn return_tuple(v T) (value T, label string) {
-        return (value: v, label: ""generic"")
-      }
-      val (value: v1, label: l1) = return_tuple[int](42)
-      val (value: v2, label: l2) = return_tuple[string](""hello"")
-    ";
-    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
-    Assert.Equal(42L, env.Get("v1"));
-    Assert.Equal("generic", env.Get("l1"));
-    Assert.Equal("hello", env.Get("v2"));
-    Assert.Equal("generic", env.Get("l2"));
   }
 
   [Theory]
@@ -72,10 +57,10 @@ public class TupleTests {
   [InlineData(ExecutionEngine.VM)]
   public void TestTupleOrderIndependentExecution(ExecutionEngine engine) {
     var code = @"
-      fn get_coords() (x int, y int) {
-        return (y: 20, x: 10)
+      fn get_coords() @(x int, y int) {
+        return @(y: 20, x: 10)
       }
-      val (y: b, x: a) = get_coords()
+      val @(y: b, x: a) = get_coords()
     ";
     var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal(10L, env.Get("a"));
@@ -88,11 +73,11 @@ public class TupleTests {
   public void TestGenericTupleOrderIndependent(ExecutionEngine engine) {
     var code = @"
       @generic[T]
-      fn return_tuple(v T) (value T, label string) {
-        return (label: ""generic"", value: v)
+      fn return_tuple(v T) @(value T, label string) {
+        return @(label: ""generic"", value: v)
       }
-      val (value: v1, label: l1) = return_tuple[int](42)
-      val (label: l2, value: v2) = return_tuple[string](""hello"")
+      val @(value: v1, label: l1) = return_tuple[int](42)
+      val @(label: l2, value: v2) = return_tuple[string](""hello"")
     ";
     var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal(42L, env.Get("v1"));
@@ -106,12 +91,12 @@ public class TupleTests {
   [InlineData(ExecutionEngine.VM)]
   public void TestTupleShorthandLiteralExecution(ExecutionEngine engine) {
     var code = @"
-      fn divide(a int, b int) (quotient int, remainder int) {
+      fn divide(a int, b int) @(quotient int, remainder int) {
         val quotient = a / b
         val remainder = a % b
-        return (quotient, remainder)
+        return @(quotient, remainder)
       }
-      val (remainder: r, quotient: q) = divide(10, 3)
+      val @(remainder: r, quotient: q) = divide(10, 3)
     ";
     var env = PinoTestRunner.Execute(code, engine);
     Assert.Equal(3L, env.Get("q"));
