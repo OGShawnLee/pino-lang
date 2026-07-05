@@ -152,6 +152,15 @@ Tuple literals are written as parenthesized, comma-separated lists of field labe
 return (quotient: q, remainder: r)
 ```
 
+*   **Shorthand Syntax**: If the value being returned is a variable whose name matches the field label, you can omit the label prefix. For example, `(true_label, false_label)` is equivalent to `(true_label: true_label, false_label: false_label)`:
+    ```pino
+    fn short_circuit_labels(prefix string) (true_label string, false_label string) {
+        val true_label = "$(prefix)_true_label_1"
+        val false_label = "$(prefix)_false_label_1"
+        return (true_label, false_label) # Shorthand tuple literal!
+    }
+    ```
+
 > [!IMPORTANT]
 > **Return-Exclusive Constraint**: Tuple literals can *only* be used as root expressions in `return` statements. They cannot be assigned to variables directly (e.g. `val t = (x: 1, y: 2)` is a compile-time error) or passed as standalone function arguments. This constraint keeps tuples lightweight and ensures they are strictly used to return multiple values.
 
