@@ -456,4 +456,29 @@ public class ParserTests {
     Assert.Equal("remainder", destDecl.Fields[1].Label);
     Assert.Equal("rem", destDecl.Fields[1].Identifier);
   }
+
+  [Fact]
+  public void TestParseTupleDisambiguation() {
+    var source1 = "val x = (a + b)";
+    var stmt1 = Parser.ParseString(source1);
+    var varDecl1 = Assert.IsType<VariableDeclaration>(stmt1);
+    Assert.IsType<BinaryExpression>(varDecl1.Value);
+
+    var source2 = "val y = (x: 1, y: 2)";
+    var stmt2 = Parser.ParseString(source2);
+    var varDecl2 = Assert.IsType<VariableDeclaration>(stmt2);
+    Assert.IsType<TupleLiteralExpression>(varDecl2.Value);
+
+    var source3 = "val z = (point:x)";
+    var stmt3 = Parser.ParseString(source3);
+    var varDecl3 = Assert.IsType<VariableDeclaration>(stmt3);
+    var binExpr3 = Assert.IsType<BinaryExpression>(varDecl3.Value);
+    Assert.Equal(OperatorType.MemberAccess, binExpr3.Operator);
+
+    var source4 = "val w = (point:x + 10)";
+    var stmt4 = Parser.ParseString(source4);
+    var varDecl4 = Assert.IsType<VariableDeclaration>(stmt4);
+    var binExpr4 = Assert.IsType<BinaryExpression>(varDecl4.Value);
+    Assert.Equal(OperatorType.Addition, binExpr4.Operator);
+  }
 }
