@@ -189,7 +189,6 @@ public partial class Parser {
     int parenDepth = 0;
     int index = 1;
     bool hasCommaAtDepth1 = false;
-    bool hasColonAtDepth1 = false;
     while (true) {
       var tok = stream.Peek(index);
       if (tok.Type == TokenType.Illegal) break;
@@ -203,13 +202,11 @@ public partial class Parser {
       } else if (parenDepth == 0) {
         if (tok.IsMarker(MarkerType.Comma)) {
           hasCommaAtDepth1 = true;
-        } else if (tok.IsOperator(OperatorType.MemberAccess)) {
-          hasColonAtDepth1 = true;
         }
       }
       index++;
     }
-    return hasColonAtDepth1 && hasCommaAtDepth1;
+    return hasCommaAtDepth1;
   }
 
   private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true) {
@@ -227,10 +224,13 @@ public partial class Parser {
         var fields = new List<TupleField>();
         while (!stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
           var label = ConsumeIdentifier(stream);
-          if (!stream.Consume().IsOperator(OperatorType.MemberAccess)) {
-            throw new Exception("PARSER: Expected ':' in tuple literal");
+          Expression val;
+          if (stream.Current.IsOperator(OperatorType.MemberAccess)) {
+            stream.Consume(); // consume ':'
+            val = ParseExpression(stream);
+          } else {
+            val = new IdentifierExpression(label);
           }
-          var val = ParseExpression(stream);
           fields.Add(new TupleField(label, val));
           if (stream.Current.IsMarker(MarkerType.Comma)) {
             stream.Consume();

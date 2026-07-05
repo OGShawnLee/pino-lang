@@ -481,4 +481,20 @@ public class ParserTests {
     var binExpr4 = Assert.IsType<BinaryExpression>(varDecl4.Value);
     Assert.Equal(OperatorType.Addition, binExpr4.Operator);
   }
+
+  [Fact]
+  public void TestParseTupleShorthandLiteral() {
+    var source = "return (true_label, false_label)";
+    var stmt = Parser.ParseString(source);
+    var ret = Assert.IsType<ReturnStatement>(stmt);
+    var tupleLit = Assert.IsType<TupleLiteralExpression>(ret.Argument);
+    Assert.Equal(2, tupleLit.Fields.Count);
+    Assert.Equal("true_label", tupleLit.Fields[0].Label);
+    var val1 = Assert.IsType<IdentifierExpression>(tupleLit.Fields[0].Value);
+    Assert.Equal("true_label", val1.Name);
+
+    Assert.Equal("false_label", tupleLit.Fields[1].Label);
+    var val2 = Assert.IsType<IdentifierExpression>(tupleLit.Fields[1].Value);
+    Assert.Equal("false_label", val2.Name);
+  }
 }

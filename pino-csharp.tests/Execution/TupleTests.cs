@@ -100,4 +100,21 @@ public class TupleTests {
     Assert.Equal("hello", env.Get("v2"));
     Assert.Equal("generic", env.Get("l2"));
   }
+
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  [InlineData(ExecutionEngine.VM)]
+  public void TestTupleShorthandLiteralExecution(ExecutionEngine engine) {
+    var code = @"
+      fn divide(a int, b int) (quotient int, remainder int) {
+        val quotient = a / b
+        val remainder = a % b
+        return (quotient, remainder)
+      }
+      val (remainder: r, quotient: q) = divide(10, 3)
+    ";
+    var env = PinoTestRunner.Execute(code, engine);
+    Assert.Equal(3L, env.Get("q"));
+    Assert.Equal(1L, env.Get("r"));
+  }
 }
