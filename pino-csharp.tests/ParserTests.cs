@@ -420,4 +420,40 @@ public class ParserTests {
     var lit = Assert.IsType<LiteralExpression>(varDecl.Value);
     Assert.Equal("hello\nworld\twith\\backslashes and\"quotes", lit.Value);
   }
+
+  [Fact]
+  public void TestParseTupleReturnSignatureAndLiteral() {
+    var input = @"fn divide(a int, b int) (quotient int, remainder int) {
+      return (quotient: a / b, remainder: a % b)
+    }";
+    var stmt = Parser.ParseString(input);
+    var fnDecl = Assert.IsType<FunctionDeclaration>(stmt);
+    Assert.Equal("divide", fnDecl.Identifier);
+    Assert.NotNull(fnDecl.TupleReturnType);
+    Assert.Equal(2, fnDecl.TupleReturnType.Count);
+    Assert.Equal("quotient", fnDecl.TupleReturnType[0].Identifier);
+    Assert.Equal("int", fnDecl.TupleReturnType[0].Typing);
+    Assert.Equal("remainder", fnDecl.TupleReturnType[1].Identifier);
+    Assert.Equal("int", fnDecl.TupleReturnType[1].Typing);
+
+    var block = Assert.IsType<BlockStatement>(fnDecl.Body);
+    var ret = Assert.IsType<ReturnStatement>(block.Statements[0]);
+    var tupleLit = Assert.IsType<TupleLiteralExpression>(ret.Argument);
+    Assert.Equal(2, tupleLit.Fields.Count);
+    Assert.Equal("quotient", tupleLit.Fields[0].Label);
+    Assert.Equal("remainder", tupleLit.Fields[1].Label);
+  }
+
+  [Fact]
+  public void TestParseTupleDestructuring() {
+    var input = "val (quotient, remainder: rem) = divide(10, 3)";
+    var stmt = Parser.ParseString(input);
+    var destDecl = Assert.IsType<TupleDestructuringDeclaration>(stmt);
+    Assert.Equal(VariableKind.Constant, destDecl.Kind);
+    Assert.Equal(2, destDecl.Fields.Count);
+    Assert.Equal("quotient", destDecl.Fields[0].Label);
+    Assert.Equal("quotient", destDecl.Fields[0].Identifier);
+    Assert.Equal("remainder", destDecl.Fields[1].Label);
+    Assert.Equal("rem", destDecl.Fields[1].Identifier);
+  }
 }

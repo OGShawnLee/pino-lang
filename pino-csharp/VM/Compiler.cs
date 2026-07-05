@@ -46,6 +46,29 @@ public class Compiler {
         CompileVariableDeclaration(varDecl);
         break;
 
+      case TupleDestructuringDeclaration destDecl: {
+        CompileExpression(destDecl.Value);
+        
+        var labels = destDecl.Fields.Select(f => f.Label).ToList();
+        ushort constIdx = (ushort)AddConstant(labels);
+        EmitByte((byte)OperationCode.OP_UNPACK_TUPLE);
+        EmitShort(constIdx);
+        
+        if (_state.ScopeDepth > 0) {
+          foreach (var field in destDecl.Fields) {
+            _state.Locals.Add(new Local(field.Identifier, _state.ScopeDepth));
+          }
+        } else {
+          for (int i = destDecl.Fields.Count - 1; i >= 0; i--) {
+            var field = destDecl.Fields[i];
+            ushort nameIdx = (ushort)AddConstant(field.Identifier);
+            EmitByte((byte)OperationCode.OP_DEFINE_GLOBAL);
+            EmitShort(nameIdx);
+          }
+        }
+        break;
+      }
+
       case FunctionDeclaration fnDecl:
         CompileFunctionDeclaration(fnDecl);
         break;
@@ -396,6 +419,17 @@ public class Compiler {
         CompileExpression(tern.Alternate);
         PatchJump(elseJump);
         break;
+
+      case TupleLiteralExpression tuple: {
+        foreach (var field in tuple.Fields) {
+          CompileExpression(field.Value);
+        }
+        var labels = tuple.Fields.Select(f => f.Label).ToList();
+        ushort constIdx = (ushort)AddConstant(labels);
+        EmitByte((byte)OperationCode.OP_TUPLE);
+        EmitShort(constIdx);
+        break;
+      }
 
       case BubbleExpression bub:
         throw new Exception("PinoVM compiler: '?' operator is not supported in bytecode compilation yet.");

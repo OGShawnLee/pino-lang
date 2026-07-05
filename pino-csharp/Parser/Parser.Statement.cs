@@ -181,16 +181,44 @@ public partial class Parser {
     return new FromImportStatement(moduleName, imports);
   }
 
-  private static VariableDeclaration ParseVariableDeclaration(TokenStream stream, bool isPublic = false) {
+  private static Statement ParseVariableDeclaration(TokenStream stream, bool isPublic = false) {
     var keywordToken = stream.Consume();
     var kind = keywordToken.Keyword == KeywordType.Constant ? VariableKind.Constant : VariableKind.Variable;
 
-    var identifier = ConsumeIdentifier(stream);
-    ConsumeAssignment(stream);
-    var value = ParseExpression(stream);
+    if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+      stream.Consume(); // consume '('
+      var fields = new List<TupleDestructureField>();
+      while (!stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+        var firstId = ConsumeIdentifier(stream);
+        string label = firstId;
+        string identifier = firstId;
+        if (stream.Current.IsOperator(OperatorType.MemberAccess)) {
+          stream.Consume(); // consume ':'
+          identifier = ConsumeIdentifier(stream);
+        }
+        fields.Add(new TupleDestructureField(label, identifier));
+        if (stream.Current.IsMarker(MarkerType.Comma)) {
+          stream.Consume();
+        }
+      }
+      if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
+        throw new Exception("PARSER: Expected ')' to end tuple destructuring");
+      }
+      ConsumeAssignment(stream);
+      var value = ParseExpression(stream);
 
-    DeclareVariable(stream, identifier);
-    return new VariableDeclaration(kind, identifier, value, IsPublic: isPublic);
+      foreach (var field in fields) {
+        DeclareVariable(stream, field.Identifier);
+      }
+      return new TupleDestructuringDeclaration(kind, fields, value);
+    } else {
+      var identifier = ConsumeIdentifier(stream);
+      ConsumeAssignment(stream);
+      var value = ParseExpression(stream);
+
+      DeclareVariable(stream, identifier);
+      return new VariableDeclaration(kind, identifier, value, IsPublic: isPublic);
+    }
   }
 
   private static FunctionDeclaration ParseFunctionDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {
@@ -202,9 +230,29 @@ public partial class Parser {
     var parameters = ConsumeParameters(stream);
 
     string returnType = "";
-    if (stream.Current.Type == TokenType.Identifier ||
-        stream.Current.IsMarker(MarkerType.BracketBegin) ||
-        stream.Current.IsKeyword(KeywordType.Function)) {
+    List<VariableDeclaration>? tupleReturnType = null;
+    if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
+      stream.Consume(); // consume '('
+      tupleReturnType = new List<VariableDeclaration>();
+      while (!stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+        var fieldId = ConsumeIdentifier(stream);
+        var fieldType = ConsumeTyping(stream);
+        tupleReturnType.Add(new VariableDeclaration(VariableKind.Property, fieldId, null, fieldType));
+        if (stream.Current.IsMarker(MarkerType.Comma)) {
+          stream.Consume();
+        }
+      }
+      if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
+        throw new Exception("PARSER: Expected ')' to close tuple return type");
+      }
+      var fieldStrings = new List<string>();
+      foreach (var field in tupleReturnType) {
+        fieldStrings.Add($"{field.Identifier}:{field.Typing}");
+      }
+      returnType = $"({string.Join(",", fieldStrings)})";
+    } else if (stream.Current.Type == TokenType.Identifier ||
+               stream.Current.IsMarker(MarkerType.BracketBegin) ||
+               stream.Current.IsKeyword(KeywordType.Function)) {
       returnType = ConsumeTyping(stream);
     }
 
@@ -218,7 +266,9 @@ public partial class Parser {
 
     DeclareVariable(stream, identifier);
 
-    return new FunctionDeclaration(identifier, parameters, body, returnType, IsPublic: isPublic, GenericParams: decoratorGenerics);
+    var fnDecl = new FunctionDeclaration(identifier, parameters, body, returnType, IsPublic: isPublic, GenericParams: decoratorGenerics);
+    fnDecl.TupleReturnType = tupleReturnType;
+    return fnDecl;
   }
 
   private static StructDeclaration ParseStructDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {

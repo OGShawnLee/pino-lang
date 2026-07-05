@@ -207,4 +207,118 @@ public partial class CheckerTests {
     var ex = Assert.ThrowsAny<Exception>(() => checker.Check(program));
     Assert.Contains("Struct 'MissingStruct' is not defined in module 'Lexer'", ex.Message);
   }
+
+  [Fact]
+  public void TestTypeCheckerTupleValid() {
+    var source = @"
+      fn get_coords() (x int, y int) {
+        return (x: 10, y: 20)
+      }
+      val (x, y) = get_coords()
+    ";
+    CheckCode(source);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleInvalidReturn() {
+    var source = @"
+      fn get_coords() (x int, y int) {
+        return (x: 10, y: ""not-an-int"")
+      }
+    ";
+    var ex = Assert.ThrowsAny<Exception>(() => CheckCode(source));
+    Assert.Contains("declared return type", ex.Message);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleIllegalContext() {
+    var source = @"
+      val t = (x: 1, y: 2)
+    ";
+    var ex = Assert.ThrowsAny<Exception>(() => CheckCode(source));
+    Assert.Contains("Tuple literals can only be used as a return value", ex.Message);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleDuplicateLabelsReturn() {
+    // Duplicate labels in function declaration (checked at parser or checker, we raise in parser or checker. Our code does not allow parsing duplicate labels or check in checker. Let's test duplicate labels in tuple literal or declaration).
+    var source = @"
+      fn get_coords() (x int, y int) {
+        return (x: 10, x: 20)
+      }
+    ";
+    var ex = Assert.ThrowsAny<Exception>(() => CheckCode(source));
+    Assert.Contains("Duplicate label 'x' in tuple literal.", ex.Message);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleDestructuringMismatch() {
+    var source = @"
+      fn get_coords() (x int, y int) {
+        return (x: 10, y: 20)
+      }
+      val (z) = get_coords()
+    ";
+    var ex = Assert.ThrowsAny<Exception>(() => CheckCode(source));
+    Assert.Contains("Field 'z' does not exist in tuple type", ex.Message);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleDestructuringDuplicateVariables() {
+    var source = @"
+      fn get_coords() (x int, y int) {
+        return (x: 10, y: 20)
+      }
+      val (x: a, y: a) = get_coords()
+    ";
+    var ex = Assert.ThrowsAny<Exception>(() => CheckCode(source));
+    Assert.Contains("Duplicate variable name 'a' in destructuring.", ex.Message);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleReturningFunction() {
+    var source = @"
+      fn get_factory() fn() (x int, y int) {
+        fn generate() (x int, y int) {
+          return (x: 1, y: 2)
+        }
+        return generate
+      }
+      val factory = get_factory()
+      val (x, y) = factory()
+    ";
+    CheckCode(source);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleReturningFunctionInvalid() {
+    var source = @"
+      fn get_factory_invalid() fn() (x int, y int) {
+        fn generate() (a int, b int) {
+          return (a: 1, b: 2)
+        }
+        return generate
+      }
+    ";
+    var ex = Assert.ThrowsAny<Exception>(() => CheckCode(source));
+    Assert.Contains("declared return type 'fn() (x:int,y:int)', but returned 'fn() (a:int,b:int)'", ex.Message);
+  }
+
+  [Fact]
+  public void TestTypeCheckerTupleOrderIndependent() {
+    var source = @"
+      fn get_coords() (x int, y int) {
+        return (y: 20, x: 10)
+      }
+      fn get_factory() fn() (x int, y int) {
+        fn generate() (y int, x int) {
+          return (y: 2, x: 1)
+        }
+        return generate
+      }
+      val factory = get_factory()
+      val (y: b, x: a) = factory()
+    ";
+    CheckCode(source);
+  }
 }

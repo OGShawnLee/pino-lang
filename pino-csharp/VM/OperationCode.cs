@@ -46,5 +46,9 @@ public enum OperationCode : byte {
   OP_LESS_INT,
   OP_LESS_EQUAL_INT,
   OP_GREATER_INT,
-  OP_GREATER_EQUAL_INT
+  OP_GREATER_EQUAL_INT,
+
+  // Tuple operations
+  OP_TUPLE,
+  OP_UNPACK_TUPLE
 }

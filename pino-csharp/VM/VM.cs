@@ -86,6 +86,37 @@ public class VM {
           break;
         }
 
+        case OperationCode.OP_TUPLE: {
+          byte b1 = code[ip++];
+          byte b2 = code[ip++];
+          ushort idx = (ushort)((b1 << 8) | b2);
+          var labels = (List<string>)constants[idx];
+          var fields = new Dictionary<string, object?>();
+          for (int i = labels.Count - 1; i >= 0; i--) {
+            fields[labels[i]] = Pop();
+          }
+          Push(new PinoTupleResult(fields));
+          break;
+        }
+
+        case OperationCode.OP_UNPACK_TUPLE: {
+          byte b1 = code[ip++];
+          byte b2 = code[ip++];
+          ushort idx = (ushort)((b1 << 8) | b2);
+          var labels = (List<string>)constants[idx];
+          var tuple = Pop();
+          if (tuple is not PinoTupleResult tupleRes) {
+            throw new Exception("RUNTIME ERROR: Expected a tuple on top of stack during OP_UNPACK_TUPLE.");
+          }
+          foreach (var label in labels) {
+            if (!tupleRes.Fields.TryGetValue(label, out var val)) {
+              throw new Exception($"RUNTIME ERROR: Field '{label}' not found in tuple.");
+            }
+            Push(val);
+          }
+          break;
+        }
+
         case OperationCode.OP_TRUE:
           Push(true);
           break;

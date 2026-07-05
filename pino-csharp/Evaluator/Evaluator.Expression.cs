@@ -8,6 +8,14 @@ public partial class Evaluator {
   // --- EVALUATING EXPRESSIONS ---
   public object? Evaluate(Expression expression, Environment env) {
     switch (expression) {
+      case TupleLiteralExpression tuple: {
+        var fields = new Dictionary<string, object?>();
+        foreach (var field in tuple.Fields) {
+          fields[field.Label] = Evaluate(field.Value, env);
+        }
+        return new PinoTupleResult(fields);
+      }
+
       case LiteralExpression lit:
         switch (lit.LiteralType) {
           case LiteralType.Boolean:

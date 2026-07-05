@@ -10,6 +10,7 @@ public partial class Parser {
            IsVector(stream) ||
            current.IsKeyword(KeywordType.If) ||
            current.IsKeyword(KeywordType.Match) ||
+           current.IsMarker(MarkerType.ParenthesisBegin) ||
            current.IsType(TokenType.Identifier, TokenType.Literal);
   }
 
@@ -184,6 +185,33 @@ public partial class Parser {
     return expression;
   }
 
+  private static bool IsTupleLiteralLookahead(TokenStream stream) {
+    int parenDepth = 0;
+    int index = 1;
+    bool hasCommaAtDepth1 = false;
+    bool hasColonAtDepth1 = false;
+    while (true) {
+      var tok = stream.Peek(index);
+      if (tok.Type == TokenType.Illegal) break;
+      if (tok.IsMarker(MarkerType.ParenthesisBegin)) {
+        parenDepth++;
+      } else if (tok.IsMarker(MarkerType.ParenthesisEnd)) {
+        if (parenDepth == 0) {
+          break; // matching ')'
+        }
+        parenDepth--;
+      } else if (parenDepth == 0) {
+        if (tok.IsMarker(MarkerType.Comma)) {
+          hasCommaAtDepth1 = true;
+        } else if (tok.IsOperator(OperatorType.MemberAccess)) {
+          hasColonAtDepth1 = true;
+        }
+      }
+      index++;
+    }
+    return hasColonAtDepth1 && hasCommaAtDepth1;
+  }
+
   private static Expression ParsePrimaryExpression(TokenStream stream, bool allowStruct = true, bool allowMemberAccess = true) {
     if (stream.Current.IsOperator(OperatorType.Not) || stream.Current.IsOperator(OperatorType.Subtraction)) {
       var op = stream.Consume().Operator!.Value;
@@ -194,10 +222,30 @@ public partial class Parser {
     Expression expr;
 
     if (stream.Current.IsMarker(MarkerType.ParenthesisBegin)) {
-      stream.Consume();
-      expr = ParseExpression(stream, true, true);
-      if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
-        throw new Exception("PARSER: Expected ')' to close grouped expression");
+      if (IsTupleLiteralLookahead(stream)) {
+        stream.Consume(); // consume '('
+        var fields = new List<TupleField>();
+        while (!stream.Current.IsMarker(MarkerType.ParenthesisEnd)) {
+          var label = ConsumeIdentifier(stream);
+          if (!stream.Consume().IsOperator(OperatorType.MemberAccess)) {
+            throw new Exception("PARSER: Expected ':' in tuple literal");
+          }
+          var val = ParseExpression(stream);
+          fields.Add(new TupleField(label, val));
+          if (stream.Current.IsMarker(MarkerType.Comma)) {
+            stream.Consume();
+          }
+        }
+        if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
+          throw new Exception("PARSER: Expected ')' to close tuple literal");
+        }
+        expr = new TupleLiteralExpression(fields);
+      } else {
+        stream.Consume();
+        expr = ParseExpression(stream, true, true);
+        if (!stream.Consume().IsMarker(MarkerType.ParenthesisEnd)) {
+          throw new Exception("PARSER: Expected ')' to close grouped expression");
+        }
       }
     } else if (IsFunctionCall(stream)) {
       expr = ParseFunctionCall(stream);

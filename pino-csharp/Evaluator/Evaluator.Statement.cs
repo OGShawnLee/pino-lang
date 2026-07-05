@@ -64,6 +64,20 @@ public partial class Evaluator {
         }
         break;
 
+      case TupleDestructuringDeclaration destDecl: {
+        var val = Evaluate(destDecl.Value, env);
+        if (val is not PinoTupleResult tupleRes) {
+          throw new Exception("RUNTIME ERROR: Expected a tuple return value during destructuring.");
+        }
+        foreach (var field in destDecl.Fields) {
+          if (!tupleRes.Fields.TryGetValue(field.Label, out var fieldVal)) {
+            throw new Exception($"RUNTIME ERROR: Field '{field.Label}' not found in tuple.");
+          }
+          env.Define(field.Identifier, fieldVal, destDecl.Kind == VariableKind.Constant);
+        }
+        break;
+      }
+
       case FunctionDeclaration fnDecl:
         var fn = new PinoFunction(fnDecl, env);
         env.Define(fnDecl.Identifier, fn, true);

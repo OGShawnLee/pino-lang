@@ -19,6 +19,15 @@ public partial class Checker {
     if (typing.StartsWith("[]")) {
       return "[]" + SubstituteType(typing.Substring(2), subst);
     }
+    if (typing.StartsWith("(") && typing.EndsWith(")")) {
+      if (TryParseTupleType(typing, out var fields)) {
+        var substitutedFields = new List<string>();
+        foreach (var field in fields) {
+          substitutedFields.Add($"{field.Label}:{SubstituteType(field.Type, subst)}");
+        }
+        return $"({string.Join(",", substitutedFields)})";
+      }
+    }
     if (typing.StartsWith("map[")) {
       var parts = SplitMapTypes(typing);
       if (parts != null) {
@@ -279,6 +288,11 @@ public partial class Checker {
           Value = SubstituteExpressionTypes(varDecl.Value, subst)
         };
 
+      case TupleDestructuringDeclaration destDecl:
+        return destDecl with {
+          Value = SubstituteExpressionTypes(destDecl.Value, subst)!
+        };
+
       case FunctionDeclaration fnDecl:
         var parameters = new List<VariableDeclaration>();
         foreach (var p in fnDecl.Parameters) {
@@ -416,6 +430,14 @@ public partial class Checker {
 
       case MatchStatement match:
         return (MatchStatement)SubstituteStatementTypes(match, subst)!;
+
+      case TupleLiteralExpression tuple: {
+        var fields = new List<TupleField>();
+        foreach (var field in tuple.Fields) {
+          fields.Add(new TupleField(field.Label, SubstituteExpressionTypes(field.Value, subst)!));
+        }
+        return tuple with { Fields = fields };
+      }
 
       default:
         return expr;

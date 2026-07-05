@@ -27,6 +27,7 @@ public partial class Checker {
   private bool _inStaticMethod = false;
   private string _currentReturnType = "";
   private string _currentYieldType = "";
+  private bool _isCheckingReturn = false;
 
   // Cache of checked modules to prevent double-checking
   internal readonly Dictionary<string, Checker> _moduleCheckers = new();
@@ -361,10 +362,21 @@ public partial class Checker {
     // Look up identifier type
     string idType = ResolveIdentifierType(callee);
     if (idType.StartsWith("fn(")) {
-      // Parse return type from signature string
-      int closingParen = idType.LastIndexOf(')');
-      if (closingParen != -1 && closingParen < idType.Length - 1) {
-        return idType.Substring(closingParen + 1).Trim();
+      int depth = 1;
+      int closingParenIdx = -1;
+      for (int i = 3; i < idType.Length; i++) {
+        if (idType[i] == '(') depth++;
+        else if (idType[i] == ')') {
+          depth--;
+          if (depth == 0) {
+            closingParenIdx = i;
+            break;
+          }
+        }
+      }
+      if (closingParenIdx != -1) {
+        string ret = idType.Substring(closingParenIdx + 1).Trim();
+        return string.IsNullOrEmpty(ret) ? "any" : ret;
       }
     }
 
@@ -454,6 +466,51 @@ public partial class Checker {
       return $"TYPE CHECK ERROR: {typeName} '{parts[1]}' is not defined in module '{parts[0]}'.";
     }
     return $"TYPE CHECK ERROR: {typeName} '{name}' is not defined.";
+  }
+
+  public static bool TryParseTupleType(string typeStr, out List<(string Label, string Type)> fields) {
+    fields = new List<(string Label, string Type)>();
+    typeStr = typeStr.Trim();
+    if (!typeStr.StartsWith("(") || !typeStr.EndsWith(")")) {
+      return false;
+    }
+    string inner = typeStr.Substring(1, typeStr.Length - 2).Trim();
+    if (string.IsNullOrEmpty(inner)) {
+      return true;
+    }
+    
+    int braceDepth = 0;
+    int bracketDepth = 0;
+    int parenDepth = 0;
+    var fieldStrings = new List<string>();
+    int lastIndex = 0;
+    
+    for (int i = 0; i < inner.Length; i++) {
+      char c = inner[i];
+      if (c == '{') braceDepth++;
+      else if (c == '}') braceDepth--;
+      else if (c == '[') bracketDepth++;
+      else if (c == ']') bracketDepth--;
+      else if (c == '(') parenDepth++;
+      else if (c == ')') parenDepth--;
+      else if (c == ',' && braceDepth == 0 && bracketDepth == 0 && parenDepth == 0) {
+        fieldStrings.Add(inner.Substring(lastIndex, i - lastIndex).Trim());
+        lastIndex = i + 1;
+      }
+    }
+    fieldStrings.Add(inner.Substring(lastIndex).Trim());
+    
+    foreach (var fieldStr in fieldStrings) {
+      if (string.IsNullOrWhiteSpace(fieldStr)) continue;
+      int colonIdx = fieldStr.IndexOf(':');
+      if (colonIdx == -1) {
+        return false;
+      }
+      string label = fieldStr.Substring(0, colonIdx).Trim();
+      string type = fieldStr.Substring(colonIdx + 1).Trim();
+      fields.Add((label, type));
+    }
+    return true;
   }
 }
 

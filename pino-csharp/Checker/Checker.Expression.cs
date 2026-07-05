@@ -418,14 +418,26 @@ public partial class Checker {
         }
         break;
 
-      case FunctionLambdaExpression lambda:
+      case FunctionLambdaExpression lambda: {
         PushScope();
         foreach (var param in lambda.Parameters) {
           DeclareVariable(param.Identifier, param.Typing);
         }
-        CheckStatement(lambda.Body);
+        string oldReturnType = _currentReturnType;
+        string lambdaRetType = "any";
+        var lambdaReturns = FindReturnStatements(lambda.Body);
+        if (lambdaReturns.Count > 0) {
+          lambdaRetType = lambdaReturns[0].Argument != null ? InferType(lambdaReturns[0].Argument!) : "any";
+        }
+        _currentReturnType = lambdaRetType;
+        try {
+          CheckStatement(lambda.Body);
+        } finally {
+          _currentReturnType = oldReturnType;
+        }
         PopScope();
         break;
+      }
 
       case IndexAccessExpression idx:
         CheckExpression(idx.Target);
@@ -527,6 +539,24 @@ public partial class Checker {
 
   private string InferTypeInternal(Expression expr, string expectedType) {
     switch (expr) {
+      case TupleLiteralExpression tuple: {
+        if (!_isCheckingReturn) {
+          throw new Exception("TYPE CHECK ERROR: Tuple literals can only be used as a return value of a function.");
+        }
+        var seenLabels = new HashSet<string>();
+        foreach (var field in tuple.Fields) {
+          if (!seenLabels.Add(field.Label)) {
+            throw new Exception($"TYPE CHECK ERROR: Duplicate label '{field.Label}' in tuple literal.");
+          }
+        }
+        var fieldStrings = new List<string>();
+        foreach (var field in tuple.Fields) {
+          string fieldType = InferType(field.Value);
+          fieldStrings.Add($"{field.Label}:{fieldType}");
+        }
+        return $"({string.Join(",", fieldStrings)})";
+      }
+
       case LiteralExpression lit:
         return lit.LiteralType switch {
           LiteralType.Boolean => "bool",
@@ -1089,6 +1119,18 @@ public partial class Checker {
       return true;
     }
 
+    if (srcType.StartsWith("(") && srcType.EndsWith(")") && destType.StartsWith("(") && destType.EndsWith(")")) {
+      if (TryParseTupleType(srcType, out var srcFields) && TryParseTupleType(destType, out var destFields)) {
+        if (srcFields.Count != destFields.Count) return false;
+        foreach (var destField in destFields) {
+          int srcFieldIdx = srcFields.FindIndex(f => f.Label == destField.Label);
+          if (srcFieldIdx == -1) return false;
+          if (!IsCompatible(srcFields[srcFieldIdx].Type, destField.Type)) return false;
+        }
+        return true;
+      }
+    }
+
     if (srcType.Contains('_') && destType.Contains('_')) {
       var srcParts = srcType.Split('_');
       var destParts = destType.Split('_');
@@ -1246,15 +1288,18 @@ public partial class Checker {
 
     var oldStruct = _currentStruct;
     var oldStatic = _inStaticMethod;
+    bool oldCheckingReturn = _isCheckingReturn;
     if (parentStructName != null) {
       _currentStruct = FindStruct(parentStructName);
       _inStaticMethod = fn.IsStatic;
     }
+    _isCheckingReturn = true;
     try {
       return InferType(ret.Argument, expectedType);
     } finally {
       _currentStruct = oldStruct;
       _inStaticMethod = oldStatic;
+      _isCheckingReturn = oldCheckingReturn;
     }
   }
 

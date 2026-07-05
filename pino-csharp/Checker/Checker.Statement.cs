@@ -26,6 +26,26 @@ public partial class Checker {
         }
         break;
 
+      case TupleDestructuringDeclaration destDecl: {
+        string valType = InferType(destDecl.Value);
+        if (!TryParseTupleType(valType, out var tupleFields)) {
+          throw new Exception($"TYPE CHECK ERROR: Cannot destructure non-tuple type '{valType}'.");
+        }
+        var seenFields = new HashSet<string>();
+        foreach (var field in destDecl.Fields) {
+          if (!seenFields.Add(field.Identifier)) {
+            throw new Exception($"TYPE CHECK ERROR: Duplicate variable name '{field.Identifier}' in destructuring.");
+          }
+          int idx = tupleFields.FindIndex(f => f.Label == field.Label);
+          if (idx == -1) {
+            throw new Exception($"TYPE CHECK ERROR: Field '{field.Label}' does not exist in tuple type '{valType}'.");
+          }
+          DeclareVariable(field.Identifier, tupleFields[idx].Type);
+        }
+        CheckExpression(destDecl.Value);
+        break;
+      }
+
       case FunctionDeclaration fnDecl:
         bool isMethod = _currentStruct != null && !_inStaticMethod;
         DeclareVariable(fnDecl.Identifier, GetFunctionSignatureString(fnDecl, parentStructName: isMethod ? _currentStruct!.Identifier : null));
@@ -192,8 +212,19 @@ public partial class Checker {
 
       case ReturnStatement ret:
         if (ret.Argument != null) {
-          InferType(ret.Argument, _currentReturnType);
-          CheckExpression(ret.Argument);
+          bool oldCheckingReturn = _isCheckingReturn;
+          _isCheckingReturn = true;
+          try {
+            string retType = InferType(ret.Argument, _currentReturnType);
+            CheckExpression(ret.Argument);
+            if (!string.IsNullOrEmpty(_currentReturnType)) {
+              if (!IsCompatible(retType, _currentReturnType)) {
+                throw new Exception($"TYPE CHECK ERROR: Function declared return type '{_currentReturnType}', but returned '{retType}'.");
+              }
+            }
+          } finally {
+            _isCheckingReturn = oldCheckingReturn;
+          }
         }
         break;
 

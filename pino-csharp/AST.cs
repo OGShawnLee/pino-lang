@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Pino;
 
@@ -65,7 +66,9 @@ public record GenericParam(string Name, string? Constraint = null);
 
 public record VariableDeclaration(VariableKind Kind, string Identifier, Expression? Value, string Typing = "", bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
-public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false, List<GenericParam>? GenericParams = null) : Declaration(Identifier, IsPublic);
+public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false, List<GenericParam>? GenericParams = null) : Declaration(Identifier, IsPublic) {
+  public List<VariableDeclaration>? TupleReturnType { get; set; } = null;
+}
 
 public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
 
@@ -149,5 +152,21 @@ public record VariantPattern : Pattern {
     UnionName = unionName;
     VariantName = variantName;
     SubPatterns = subPatterns;
+  }
+}
+
+// --- TUPLE DEVELOPMENTS ---
+public record TupleField(string Label, Expression Value) : ASTNode;
+public record TupleLiteralExpression(List<TupleField> Fields) : Expression;
+public record TupleDestructureField(string Label, string Identifier);
+public record TupleDestructuringDeclaration(VariableKind Kind, List<TupleDestructureField> Fields, Expression Value) : Statement;
+
+public class PinoTupleResult {
+  public Dictionary<string, object?> Fields { get; }
+  public PinoTupleResult(Dictionary<string, object?> fields) {
+    Fields = fields;
+  }
+  public override string ToString() {
+    return "(" + string.Join(", ", Fields.Select(f => $"{f.Key}: {f.Value}")) + ")";
   }
 }
