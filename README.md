@@ -98,6 +98,7 @@ Pino is designed with a clear, pragmatic vision that balances developer experien
 | | Case routing (`match`, `when` multi-conditions) | `[X]` |
 | **Functions** | Declarations (`fn`), parameters, and returns | `[X]` |
 | | High-order closures & Anonymous lambdas | `[X]` |
+| | Return-exclusive labeled tuples | `[X]` |
 | **Data Structs** | Custom `struct` & method declarations | `[X]` |
 | | Interfaces (`interface`) & compile-time verification | `[X]` |
 | | Enums (`enum`) & member resolution (`::`) | `[X]` |
@@ -107,6 +108,7 @@ Pino is designed with a clear, pragmatic vision that balances developer experien
 | | Scoped parent-linked execution Environment | `[X]` |
 | | Bytecode compiler & stacked Virtual Machine (`--vm`) | `[X]` |
 | | Comprehensive xUnit verification suite | `[X]` |
+| | Labeled tuple support & order-independent checking | `[X]` |
 
 ---
 
@@ -185,6 +187,18 @@ val get_times_it_fn = fn (multiplier int) => fn (it int) => it * multiplier
 
 val double_it = get_times_it_fn(2)
 println(double_it(5)) # Outputs 10
+```
+
+### Labeled Tuples
+Pino supports return-exclusive, order-independent labeled tuples. They are defined in the function's return signature and destructured upon assignment.
+```pino
+fn divide(a int, b int) (quotient int, remainder int) {
+  return (quotient: a / b, remainder: a % b)
+}
+
+# Destructure with optional renaming and order independence
+val (remainder: r, quotient: q) = divide(10, 3)
+println("q = $q, r = $r") # Outputs q = 3, r = 1
 ```
 
 ### Structs & Instances

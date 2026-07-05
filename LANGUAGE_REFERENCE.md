@@ -13,6 +13,7 @@ This document serves as the definitive reference guide for the syntax, type syst
    * [Primitives](#primitive-types)
    * [Ergonomic Rune Arithmetic](#ergonomic-rune-arithmetic)
    * [Strings and Interpolation](#strings-and-interpolation)
+   * [Labeled Tuples (Return-Exclusive)](#labeled-tuples-return-exclusive)
 4. [Collections and Associative Structures](#4-collections-and-associative-structures)
    * [Vectors (Arrays)](#vectors-arrays)
    * [Maps (Dictionaries)](#maps-dictionaries)
@@ -128,6 +129,76 @@ val x = 10
 val y = 20
 val result = "The sum is: $(x + y)" # "The sum is: 30"
 ```
+
+---
+
+### Labeled Tuples (Return-Exclusive)
+
+Pino supports **Return-Exclusive Labeled Tuples**. Labeled tuples allow returning multiple values with explicit names from a function or method, providing clear semantics and type safety without the need to define a temporary `struct`.
+
+#### 1. Declaration and Function Signatures
+Tuples in Pino are **exclusive to function returns**. You define a tuple return type by writing a parenthesized list of labeled fields and their types at the end of the function signature:
+```pino
+fn divide(a int, b int) (quotient int, remainder int) {
+    return (quotient: a / b, remainder: a % b)
+}
+```
+
+If a function returns a tuple, any `return` statement inside its body must return a **Tuple Literal** matching the labels and types.
+
+#### 2. Tuple Literals
+Tuple literals are written as parenthesized, comma-separated lists of field labels and expressions:
+```pino
+return (quotient: q, remainder: r)
+```
+
+> [!IMPORTANT]
+> **Return-Exclusive Constraint**: Tuple literals can *only* be used as root expressions in `return` statements. They cannot be assigned to variables directly (e.g. `val t = (x: 1, y: 2)` is a compile-time error) or passed as standalone function arguments. This constraint keeps tuples lightweight and ensures they are strictly used to return multiple values.
+
+#### 3. Destructuring and Renaming
+When invoking a function that returns a tuple, you unwrap the fields upon assignment using the destructuring syntax. 
+
+*   **Identical Destructuring**: If the variable names match the tuple's labels, you can assign them directly:
+    ```pino
+    val (quotient, remainder) = divide(10, 3)
+    # quotient is assigned 3, remainder is assigned 1
+    ```
+*   **Optional Renaming**: If you want to store the tuple fields in local variables with different names, use the `label: variable` syntax:
+    ```pino
+    val (quotient: q, remainder: r) = divide(10, 3)
+    # q is assigned 3, r is assigned 1
+    ```
+*   **Partial Destructuring**: You can ignore fields by omitting them from the destructuring pattern. The type checker only checks the fields you explicitly retrieve:
+    ```pino
+    val (quotient: q) = divide(10, 3) # ignores remainder
+    ```
+
+#### 4. Order-Independent Field Matching
+Labeled tuples in Pino are **order-independent** both at compile time (type checker) and runtime (virtual machine and tree-walk).
+This means that:
+*   The literal returned inside the function body does not need to match the signature's field order.
+*   The destructuring variables do not need to match the signature's field order.
+
+```pino
+fn get_coords() (x int, y int) {
+    return (y: 20, x: 10) # Valid! Order of y and x is swapped.
+}
+
+val (y: b, x: a) = get_coords() # Valid! Destructures y and x out-of-order.
+```
+
+#### 5. Compatibility with Generics and Functions
+Tuples work seamlessly with higher-order function references and generic monomorphization:
+*   **Function types returning tuples**: You can define function signatures returning tuples, e.g., `fn() (x int, y int)`.
+*   **Generic Substitution**: The type checker substitutes generic parameters recursively inside tuple signatures during monomorphization:
+    ```pino
+    @generic[T]
+    fn return_tuple(v T) (value T, label string) {
+        return (label: "generic", value: v)
+    }
+    
+    val (value: v1, label: l1) = return_tuple[int](42)
+    ```
 
 ---
 
