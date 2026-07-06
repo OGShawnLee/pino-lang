@@ -575,8 +575,9 @@ class Program {
       }
 
       if (tccDir == null) {
-        Console.WriteLine("Error: Bundled TCC compiler not found. Please ensure 'tooling/tcc/tcc.exe' exists.");
-        System.Environment.Exit(1);
+        var targetTccDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc");
+        DownloadTcc(targetTccDir);
+        tccDir = targetTccDir;
       }
 
       var tccPath = Path.Combine(tccDir, "tcc.exe");
@@ -629,6 +630,45 @@ class Program {
       Console.ForegroundColor = ConsoleColor.Red;
       Console.WriteLine($"Error compiling program: {ex.Message}");
       Console.ResetColor();
+      System.Environment.Exit(1);
+    }
+  }
+
+  static void DownloadTcc(string targetDir) {
+    Console.WriteLine("🌲 Bundled TCC compiler not found. Downloading toolchain automatically...");
+    try {
+      using var client = new HttpClient();
+      client.DefaultRequestHeaders.UserAgent.ParseAdd("PinoCompiler-TccDownloader");
+
+      var zipBytes = client.GetByteArrayAsync("https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip").Result;
+
+      using var ms = new MemoryStream(zipBytes);
+      using var archive = new ZipArchive(ms);
+
+      Directory.CreateDirectory(targetDir);
+
+      foreach (var entry in archive.Entries) {
+        var relativePath = entry.FullName;
+        if (relativePath.StartsWith("tcc/")) {
+          var subPath = relativePath.Substring(4);
+          if (string.IsNullOrEmpty(subPath)) continue;
+
+          var destPath = Path.Combine(targetDir, subPath);
+          if (entry.FullName.EndsWith("/")) {
+            Directory.CreateDirectory(destPath);
+          } else {
+            var parentDir = Path.GetDirectoryName(destPath);
+            if (parentDir != null) {
+              Directory.CreateDirectory(parentDir);
+            }
+            entry.ExtractToFile(destPath, overwrite: true);
+          }
+        }
+      }
+
+      Console.WriteLine("🌲 Success! Bundled TCC compiler installed successfully.");
+    } catch (Exception ex) {
+      Console.WriteLine($"Error downloading TCC: {ex.Message}");
       System.Environment.Exit(1);
     }
   }
