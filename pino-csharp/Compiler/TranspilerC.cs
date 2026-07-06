@@ -9,6 +9,11 @@ public class TranspilerC {
     private StringBuilder _sb = new StringBuilder();
     private int _indent = 0;
     private Dictionary<string, string> _varTypes = new Dictionary<string, string>();
+    private Dictionary<string, List<string>> _structFields = new Dictionary<string, List<string>>();
+    private HashSet<string> _currentStructFields = new HashSet<string>();
+    private StringBuilder _tupleSb = new StringBuilder();
+    private HashSet<string> _declaredTuples = new HashSet<string>();
+    private string _currentReturnType = "";
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -24,11 +29,13 @@ public class TranspilerC {
     }
 
     public string Transpile(ProgramStatement program) {
+        _currentReturnType = "";
         _varTypes.Clear();
-        // Output standard headers
-        _sb.AppendLine("#include <stdio.h>");
-        _sb.AppendLine("#include \"runtime/runtime.h\"");
-        _sb.AppendLine();
+        _structFields.Clear();
+        _currentStructFields.Clear();
+        _tupleSb.Clear();
+        _declaredTuples.Clear();
+        _sb.Clear();
 
         var declarations = new List<Declaration>();
         var topLevelStatements = new List<Statement>();
@@ -37,23 +44,59 @@ public class TranspilerC {
             if (stmt is Declaration decl && !(decl is VariableDeclaration)) {
                 declarations.Add(decl);
             } else if (stmt is ModuleDeclaration || stmt is ImportStatement || stmt is FromImportStatement) {
-                // Ignore module imports for Increment 1
+                // Ignore module imports
             } else {
                 topLevelStatements.Add(stmt);
             }
         }
 
-        // Pass 1: Forward declarations of functions
+        // Pass 0: Register all structs and populate their fields dictionary (needed for method translation)
         foreach (var decl in declarations) {
-            if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
-                DeclareFunction(fnDecl);
+            if (decl is StructDeclaration structDecl) {
+                var fields = structDecl.Fields.Select(f => f.Identifier).ToList();
+                _structFields[structDecl.Identifier] = fields;
+            }
+        }
+
+        // Pass 1: Forward declarations of structs, struct methods, and functions
+        var structSb = new StringBuilder();
+        foreach (var decl in declarations) {
+            if (decl is StructDeclaration structDecl) {
+                // Compile struct typedef
+                structSb.AppendLine($"typedef struct {structDecl.Identifier} {structDecl.Identifier};");
+                structSb.AppendLine($"struct {structDecl.Identifier} {{");
+                foreach (var field in structDecl.Fields) {
+                    structSb.AppendLine($"    {MapType(field.Typing)} {field.Identifier};");
+                }
+                structSb.AppendLine("};");
+                structSb.AppendLine();
+
+                // Forward declare instance methods
+                foreach (var method in structDecl.Methods) {
+                    var retType = MapType(method.ReturnType);
+                    var methodParams = $"struct {structDecl.Identifier}* this";
+                    if (method.Parameters.Count > 0) {
+                        methodParams += ", " + string.Join(", ", method.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+                    }
+                    structSb.AppendLine($"{retType} {structDecl.Identifier}_{method.Identifier}({methodParams});");
+                }
+                structSb.AppendLine();
+            } else if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
+                var returnType = MapType(fnDecl.ReturnType);
+                var parameters = string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+                if (string.IsNullOrEmpty(parameters)) parameters = "void";
+                _sb.AppendLine($"{returnType} {fnDecl.Identifier}({parameters});");
             }
         }
         _sb.AppendLine();
 
-        // Pass 2: Implementation of function declarations
+        // Pass 2: Implementation of struct methods and function declarations
         foreach (var decl in declarations) {
-            if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
+            if (decl is StructDeclaration structDecl) {
+                foreach (var method in structDecl.Methods) {
+                    TranspileStructMethod(structDecl.Identifier, method);
+                }
+            } else if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
                 TranspileFunction(fnDecl);
             }
         }
@@ -66,7 +109,6 @@ public class TranspilerC {
             TranspileStatement(stmt);
         }
 
-        // If there was an explicit fn main declaration, inline its body or call it
         var userMain = declarations.FirstOrDefault(d => d is FunctionDeclaration fn && fn.Identifier == "main") as FunctionDeclaration;
         if (userMain != null && userMain.Body != null) {
             TranspileStatement(userMain.Body);
@@ -76,20 +118,23 @@ public class TranspilerC {
         _indent = 0;
         _sb.AppendLine("}");
 
-        return _sb.ToString();
-    }
+        // Combine everything: Headers + Typedef Structs + Tuple Structs + Main Code
+        var finalSb = new StringBuilder();
+        finalSb.AppendLine("#include <stdio.h>");
+        finalSb.AppendLine("#include \"runtime/runtime.h\"");
+        finalSb.AppendLine();
+        finalSb.Append(structSb.ToString());
+        finalSb.Append(_tupleSb.ToString());
+        finalSb.Append(_sb.ToString());
 
-    private void DeclareFunction(FunctionDeclaration fnDecl) {
-        var returnType = MapType(fnDecl.ReturnType);
-        var parameters = string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
-        if (string.IsNullOrEmpty(parameters)) parameters = "void";
-        _sb.AppendLine($"{returnType} {fnDecl.Identifier}({parameters});");
+        return finalSb.ToString();
     }
 
     private void TranspileFunction(FunctionDeclaration fnDecl) {
         var returnType = MapType(fnDecl.ReturnType);
         var identifier = fnDecl.Identifier;
 
+        _currentReturnType = fnDecl.ReturnType;
         _varTypes.Clear();
         foreach (var param in fnDecl.Parameters) {
             _varTypes[param.Identifier] = param.Typing;
@@ -108,15 +153,88 @@ public class TranspilerC {
         _indent--;
         WriteLine("}");
         _sb.AppendLine();
+        _currentReturnType = "";
+    }
+
+    private void TranspileStructMethod(string structName, FunctionDeclaration fnDecl) {
+        var returnType = MapType(fnDecl.ReturnType);
+        var identifier = $"{structName}_{fnDecl.Identifier}";
+
+        _currentReturnType = fnDecl.ReturnType;
+        // Setup method environment
+        _varTypes.Clear();
+        _currentStructFields.Clear();
+        
+        // Add fields to current struct fields
+        if (_structFields.TryGetValue(structName, out var fields)) {
+            foreach (var f in fields) {
+                _currentStructFields.Add(f);
+            }
+        }
+
+        // Add parameters to _varTypes
+        _varTypes["this"] = structName;
+        _varTypes["self"] = structName;
+        foreach (var param in fnDecl.Parameters) {
+            _varTypes[param.Identifier] = param.Typing;
+        }
+
+        var parameters = $"struct {structName}* this";
+        if (fnDecl.Parameters.Count > 0) {
+            parameters += ", " + string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+        }
+
+        WriteLine($"{returnType} {identifier}({parameters}) {{");
+        _indent++;
+
+        if (fnDecl.Body != null) {
+            TranspileStatement(fnDecl.Body);
+        }
+
+        _indent--;
+        WriteLine("}");
+        _sb.AppendLine();
+        
+        _currentStructFields.Clear();
+        _currentReturnType = "";
+    }
+
+    private Dictionary<string, string> ParseTupleFields(string tupleType) {
+        var fields = new Dictionary<string, string>();
+        var content = tupleType.Substring(2, tupleType.Length - 3);
+        var parts = content.Split(',');
+        foreach (var part in parts) {
+            var subparts = part.Split(':');
+            if (subparts.Length == 2) {
+                fields[subparts[0].Trim()] = subparts[1].Trim();
+            }
+        }
+        return fields;
     }
 
     private string MapType(string pinoType) {
+        if (string.IsNullOrEmpty(pinoType)) return "void";
+        if (pinoType.StartsWith("@(")) {
+            var clean = pinoType.Replace("@", "tuple").Replace("(", "").Replace(")", "").Replace(":", "_").Replace(",", "_");
+            if (!_declaredTuples.Contains(pinoType)) {
+                _declaredTuples.Add(pinoType);
+                _tupleSb.AppendLine($"struct {clean} {{");
+                var fields = ParseTupleFields(pinoType);
+                foreach (var kvp in fields) {
+                    _tupleSb.AppendLine($"    {MapType(kvp.Value)} {kvp.Key};");
+                }
+                _tupleSb.AppendLine("};");
+                _tupleSb.AppendLine();
+            }
+            return "struct " + clean;
+        }
         return pinoType switch {
             "int" => "int",
             "float" => "double",
             "bool" => "int",
             "string" => "const char*",
-            _ => "void"
+            "void" => "void",
+            _ => pinoType
         };
     }
 
@@ -152,6 +270,30 @@ public class TranspilerC {
                 WriteIndent();
                 TranspileVariableDeclaration(varDecl);
                 _sb.AppendLine(";");
+                break;
+
+            case TupleDestructuringDeclaration dest:
+                {
+                    var tupleType = dest.Value.InferredType!;
+                    var cStructType = MapType(tupleType);
+                    var tempVar = $"_pino_tup_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                    
+                    WriteIndent();
+                    Write($"{cStructType} {tempVar} = ");
+                    TranspileExpression(dest.Value);
+                    _sb.AppendLine(";");
+
+                    var fieldTypes = ParseTupleFields(tupleType);
+                    foreach (var field in dest.Fields) {
+                        var varType = fieldTypes[field.Label];
+                        var isConst = dest.Kind == VariableKind.Constant;
+                        var prefix = isConst ? "const " : "";
+                        
+                        WriteIndent();
+                        Write($"{prefix}{MapType(varType)} {field.Identifier} = {tempVar}.{field.Label};\n");
+                        _varTypes[field.Identifier] = varType;
+                    }
+                }
                 break;
 
             case IfStatement ifs:
@@ -267,6 +409,37 @@ public class TranspilerC {
                     var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
                     Write("({ char* temp = (char*)pino_malloc(1024); ");
                     Write($"snprintf(temp, 1024, \"{EscapeString(format)}\"{argsStr}); temp; }})");
+                } else if (bin.Operator == OperatorType.MemberAccess) {
+                    if (bin.Right is FunctionCallExpression call) {
+                        var structName = bin.Left.InferredType!;
+                        Write($"{structName}_{call.Callee}(");
+                        
+                        if (bin.Left is IdentifierExpression id && (id.Name == "this" || id.Name == "self")) {
+                            Write("this");
+                        } else {
+                            Write("&");
+                            TranspileExpression(bin.Left);
+                        }
+
+                        for (int i = 0; i < call.Arguments.Count; i++) {
+                            Write(", ");
+                            TranspileExpression(call.Arguments[i]);
+                        }
+                        Write(")");
+                    } else {
+                        TranspileExpression(bin.Left);
+                        if (bin.Left is IdentifierExpression id && (id.Name == "this" || id.Name == "self")) {
+                            Write("->");
+                        } else {
+                            Write(".");
+                        }
+                        
+                        if (bin.Right is IdentifierExpression rightId) {
+                            Write(rightId.Name);
+                        } else {
+                            TranspileExpression(bin.Right);
+                        }
+                    }
                 } else {
                     Write("(");
                     TranspileExpression(bin.Left);
@@ -284,7 +457,11 @@ public class TranspilerC {
                 break;
 
             case IdentifierExpression id:
-                Write(id.Name);
+                if (_currentStructFields.Contains(id.Name) && !_varTypes.ContainsKey(id.Name)) {
+                    Write($"this->{id.Name}");
+                } else {
+                    Write(id.Name);
+                }
                 break;
 
             case TernaryExpression tern:
@@ -295,6 +472,34 @@ public class TranspilerC {
                 Write(" : ");
                 TranspileExpression(tern.Alternate);
                 Write(")");
+                break;
+
+            case StructInstanceExpression inst:
+                Write($"({inst.StructName}){{ ");
+                for (int i = 0; i < inst.Properties.Count; i++) {
+                    if (i > 0) Write(", ");
+                    var prop = inst.Properties[i];
+                    Write($".{prop.Identifier} = ");
+                    TranspileExpression(prop.Value!);
+                }
+                Write(" }");
+                break;
+
+            case TupleLiteralExpression tuple:
+                {
+                    var tupleType = (!string.IsNullOrEmpty(_currentReturnType) && _currentReturnType.StartsWith("@("))
+                        ? _currentReturnType
+                        : tuple.InferredType!;
+                    var structType = MapType(tupleType);
+                    Write($"({structType}){{ ");
+                    for (int i = 0; i < tuple.Fields.Count; i++) {
+                        if (i > 0) Write(", ");
+                        var field = tuple.Fields[i];
+                        Write($".{field.Label} = ");
+                        TranspileExpression(field.Value);
+                    }
+                    Write(" }");
+                }
                 break;
 
             default:
