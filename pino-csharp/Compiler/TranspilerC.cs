@@ -154,6 +154,15 @@ public class TranspilerC {
                 _sb.AppendLine(";");
                 break;
 
+            case IfStatement ifs:
+                TranspileIf(ifs, false);
+                _sb.AppendLine();
+                break;
+
+            case LoopStatement loop:
+                TranspileLoop(loop);
+                break;
+
             case Expression expr: // Since Expression inherits from Statement in AST.cs
                 WriteIndent();
                 TranspileExpression(expr);
@@ -278,6 +287,16 @@ public class TranspilerC {
                 Write(id.Name);
                 break;
 
+            case TernaryExpression tern:
+                Write("(");
+                TranspileExpression(tern.Condition);
+                Write(" ? ");
+                TranspileExpression(tern.Consequent);
+                Write(" : ");
+                TranspileExpression(tern.Alternate);
+                Write(")");
+                break;
+
             default:
                 throw new NotImplementedException($"Expression type {expr.GetType().Name} not implemented in Transpiler.");
         }
@@ -364,6 +383,89 @@ public class TranspilerC {
             OperatorType.Not => "!",
             _ => throw new NotImplementedException($"Unary operator {op} not implemented in Transpiler.")
         };
+    }
+
+    private void TranspileIf(IfStatement ifs, bool isElseIf) {
+        if (!isElseIf) {
+            WriteIndent();
+        }
+        Write("if (");
+        TranspileExpression(ifs.Condition);
+        Write(") ");
+        TranspileBlockOrStatement(ifs.Consequent);
+
+        if (ifs.Alternate != null) {
+            Write(" else ");
+            if (ifs.Alternate is IfStatement innerIf) {
+                TranspileIf(innerIf, true);
+            } else {
+                TranspileBlockOrStatement(ifs.Alternate);
+            }
+        }
+    }
+
+    private void TranspileBlockOrStatement(Statement stmt) {
+        if (stmt is BlockStatement block) {
+            Write("{\n");
+            _indent++;
+            foreach (var child in block.Statements) {
+                TranspileStatement(child);
+            }
+            _indent--;
+            WriteIndent();
+            Write("}");
+        } else {
+            Write("{\n");
+            _indent++;
+            TranspileStatement(stmt);
+            _indent--;
+            WriteIndent();
+            Write("}");
+        }
+    }
+
+    private void TranspileLoop(LoopStatement loop) {
+        switch (loop.Kind) {
+            case LoopKind.Infinite:
+                WriteIndent();
+                Write("while (1) ");
+                TranspileBlockOrStatement(loop.Body);
+                _sb.AppendLine();
+                break;
+
+            case LoopKind.While:
+                WriteIndent();
+                Write("while (");
+                TranspileExpression(loop.Begin!);
+                Write(") ");
+                TranspileBlockOrStatement(loop.Body);
+                _sb.AppendLine();
+                break;
+
+            case LoopKind.ForTimes:
+                WriteIndent();
+                var limitVar = $"_pino_limit_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                Write($"int {limitVar} = ");
+                TranspileExpression(loop.Begin!);
+                Write(";\n");
+                
+                WriteIndent();
+                Write($"for (int it = 0; it < {limitVar}; it++) ");
+                
+                bool hadIt = _varTypes.TryGetValue("it", out var oldIt);
+                _varTypes["it"] = "int";
+                
+                TranspileBlockOrStatement(loop.Body);
+                
+                if (hadIt && oldIt != null) _varTypes["it"] = oldIt;
+                else _varTypes.Remove("it");
+                
+                _sb.AppendLine();
+                break;
+
+            case LoopKind.ForIn:
+                throw new NotImplementedException("ForIn collection loop is not implemented in Increment 3.");
+        }
     }
 
     private string EscapeString(string value) {
