@@ -73,6 +73,16 @@ class Program {
         PlayGame(argList.Count > 1 ? argList[1] : null);
         break;
 
+      case "compile":
+        var compileFileName = argList.Count > 1 ? argList[1] : "main.pino";
+        var compileFilePath = Path.Combine(System.Environment.CurrentDirectory, compileFileName);
+        if (!File.Exists(compileFilePath)) {
+          Console.WriteLine($"Error: File '{compileFileName}' not found.");
+          System.Environment.Exit(1);
+        }
+        CompileFile(compileFilePath);
+        break;
+
       default:
         Console.WriteLine("Invalid command. Type 'help' for usage.");
         break;
@@ -85,6 +95,7 @@ class Program {
     Console.WriteLine("  help, h             : Display this help message");
     Console.WriteLine("  repl                : Start the Pino interactive REPL");
     Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
+    Console.WriteLine("  compile [file-name] : Compile the given .pino file to a native executable (defaults to main.pino)");
     Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
     Console.WriteLine("  play [game-name]    : Launch an interactive console game from the pino.games directory");
     Console.WriteLine("  play update         : Download or update the official Pino games library from GitHub");
@@ -527,6 +538,98 @@ class Program {
       Console.WriteLine($"🌲 Success! Downloaded and installed {count} games in '{targetDir}'.");
     } catch (Exception ex) {
       Console.WriteLine($"Error downloading games: {ex.Message}");
+    }
+  }
+
+  static void CompileFile(string path) {
+    try {
+      var program = Parser.ParseFile(path);
+      var checker = new Checker();
+      checker.Check(program);
+
+      // Transpile to C code
+      var transpiler = new TranspilerC();
+      var cCode = transpiler.Transpile(program);
+
+      var currentDir = System.Environment.CurrentDirectory;
+      var cFilePath = Path.Combine(currentDir, "pino_output.c");
+      File.WriteAllText(cFilePath, cCode);
+      Console.WriteLine($"[SYSTEM] C code generated at: {cFilePath}");
+
+      string? tccDir = null;
+      var dir = new DirectoryInfo(AppContext.BaseDirectory);
+      while (dir != null) {
+        var potentialTcc = Path.Combine(dir.FullName, "tooling", "tcc", "tcc.exe");
+        if (File.Exists(potentialTcc)) {
+          tccDir = Path.Combine(dir.FullName, "tooling", "tcc");
+          break;
+        }
+        dir = dir.Parent;
+      }
+
+      if (tccDir == null) {
+        var localTcc = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc", "tcc.exe");
+        if (File.Exists(localTcc)) {
+          tccDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc");
+        }
+      }
+
+      if (tccDir == null) {
+        Console.WriteLine("Error: Bundled TCC compiler not found. Please ensure 'tooling/tcc/tcc.exe' exists.");
+        System.Environment.Exit(1);
+      }
+
+      var tccPath = Path.Combine(tccDir, "tcc.exe");
+      var runtimeCPath = Path.Combine(tccDir, "..", "..", "runtime", "runtime.c");
+      var runtimeCInfo = new FileInfo(runtimeCPath);
+      if (!runtimeCInfo.Exists) {
+        runtimeCPath = Path.Combine(System.Environment.CurrentDirectory, "runtime", "runtime.c");
+      }
+
+      var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
+      var outputExePath = Path.Combine(currentDir, outputExeName);
+
+      var startInfo = new System.Diagnostics.ProcessStartInfo {
+        FileName = tccPath,
+        Arguments = $"\"{cFilePath}\" \"{runtimeCPath}\" -o \"{outputExePath}\"",
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+      };
+
+      Console.WriteLine($"[SYSTEM] Compiling native binary using TCC...");
+      using var process = System.Diagnostics.Process.Start(startInfo);
+      if (process == null) {
+        Console.WriteLine("Error: Failed to start TCC compiler process.");
+        System.Environment.Exit(1);
+      }
+      process.WaitForExit();
+
+      var stdout = process.StandardOutput.ReadToEnd();
+      var stderr = process.StandardError.ReadToEnd();
+
+      if (process.ExitCode != 0) {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine("[ERROR] TCC compilation failed:");
+        Console.WriteLine(stderr);
+        Console.ResetColor();
+        System.Environment.Exit(1);
+      }
+
+      try {
+        File.Delete(cFilePath);
+      } catch { /* Ignore */ }
+
+      Console.ForegroundColor = ConsoleColor.Green;
+      Console.WriteLine($"[SUCCESS] Compiled native binary successfully: {outputExeName}");
+      Console.ResetColor();
+
+    } catch (Exception ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.WriteLine($"Error compiling program: {ex.Message}");
+      Console.ResetColor();
+      System.Environment.Exit(1);
     }
   }
 }
