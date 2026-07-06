@@ -8,15 +8,24 @@ pub union BinaryOperator {
 	Multiply
 	Divide
 	Remainder
+	And
+	Or
+	Equal
+	NotEqual
+	LessThan
+	LessOrEqual
+	GreaterThan
+	GreaterOrEqual
 }
 
 pub union UnaryOperator {
 	Complement
 	Negate
+	Not
 }
 
 pub union Expression {
-	Constant(string)
+	Constant(int)
 	Unary(UnaryOperator, Expression)
 	Binary(BinaryOperator, Expression, Expression)
 }
@@ -36,6 +45,14 @@ val PRECEDENCE_MAP = map[string, int] {
 	"%": 50
 	"+": 45
 	"-": 45
+	"<": 35
+	"<=": 35
+	">": 35
+	">=": 35
+	"!=": 30
+	"==": 30
+	"&&": 10
+	"||": 5
 }
 
 val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
@@ -44,18 +61,27 @@ val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
 	"*": BinaryOperator::Multiply
 	"/": BinaryOperator::Divide
 	"%": BinaryOperator::Remainder
+	"==": BinaryOperator::Equal
+	"!=": BinaryOperator::NotEqual
+	"<": BinaryOperator::LessThan
+	"<=": BinaryOperator::LessOrEqual
+	">": BinaryOperator::GreaterThan
+	">=": BinaryOperator::GreaterOrEqual
+	"&&": BinaryOperator::And
+	"||": BinaryOperator::Or
 }
 
 val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
 	"~": UnaryOperator::Complement
 	"-": UnaryOperator::Negate
+	"!": UnaryOperator::Not
 }
 
-fn is_binary_operator(token Token) {
+fn is_binary_operator(token Token) bool {
 	return token:value in BINARY_OPERATOR_MAP
 }
 
-fn get_precedence(token Token) {
+fn get_precedence(token Token) int {
 	if token:value in PRECEDENCE_MAP	{
 		return PRECEDENCE_MAP[token:value]
 	}
@@ -84,7 +110,7 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
 
 	match next_token:type {
 		when TokenType::Literal {
-			return Result::Success(Expression::Constant(next_token:value))
+			return Result::Success(Expression::Constant(int(next_token:value)))
 		}
 		when TokenType::UnaryOperator {
 			val operator = parse_unary_operator(next_token)?
@@ -113,13 +139,18 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
 fn parse_expression(stream TokenStream, min_prec int) Result[Expression, string] {
 	var left = parse_factor(stream)?
 
-	for stream:is_it(
-		fn (n Token) => is_binary_operator(n) and get_precedence(n) >= min_prec
-	) {
-		val operator_token = stream:next()?
-		val operator = parse_binary_operator(operator_token)?
-		val right = parse_expression(stream, get_precedence(operator_token) + 1)?
-		left = Expression::Binary(operator, left, right)
+	for {
+		val curr = stream:current() or {
+			break
+		}
+		if is_binary_operator(curr) and get_precedence(curr) >= min_prec {
+			val operator_token = stream:next()?  
+			val operator = parse_binary_operator(operator_token)?
+			val right = parse_expression(stream, get_precedence(operator_token) + 1)?
+			left = Expression::Binary(operator, left, right)
+		} else {
+			break
+		}
 	}
 
 	return Result::Success(left)

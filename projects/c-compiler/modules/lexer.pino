@@ -107,8 +107,8 @@ struct TokenRule {
 	type TokenType
 }
 
-val BINARY_OPERATOR_REGEX = regex("^(\+|\*|/|%)")
-val UNARY_OPERATOR_REGEX = regex("^(--|-|~)")
+val BINARY_OPERATOR_REGEX = regex("^(\+|\*|/|%|&&|\|\||==|!=|<=|>=|<|>)")
+val UNARY_OPERATOR_REGEX = regex("^(--|-|~|!)")
 val IDENTIFIER_REGEX = regex("^[a-zA-Z_][a-zA-Z0-9_]*")
 val KEYWORD_REGEX = regex("^(int|void|return)")
 val MARKER_REGEX = regex("^[(){};]")

@@ -14,6 +14,31 @@ struct Vector {
 	}
 }
 
+fn compile_operand_to_one_byte_reg_asm_alias(operand Operand) {
+	return match operand {
+		when Operand::Register(reg) => 
+			match reg {
+				when Reg::AX => "%al"
+				when Reg::DX => "%dl"
+				when Reg::R10 => "%r10b"
+				when Reg::R11 => "%r11b"
+			}
+		when Operand::Stack(n) => compile_operand_to_asm(operand)
+		else => panic("Invalid '$operand' operand type for one byte register asm alias. Should be a register or stack operand.")
+	}
+}
+
+fn compile_cond_code_to_asm(cond_code CondCode) string {
+	return match cond_code {
+		when CondCode::E => "e"
+		when CondCode::NE => "ne"
+		when CondCode::G => "g"
+		when CondCode::GE => "ge"
+		when CondCode::L => "l"
+		when CondCode::LE => "le"
+	}
+}
+
 fn compile_register_to_asm(reg Reg) string {
 	return match reg {
 		when Reg::AX => "%eax"
@@ -36,6 +61,7 @@ fn compile_asm_unary_operator(operator ASMUnaryOperator) {
 	return match operator {
 		when ASMUnaryOperator::Neg => "negl"
 		when ASMUnaryOperator::Not => "notl"
+		else => panic("Unary operator '$operator' should have been resolved in previous stages.")
 	}
 }
 
@@ -44,6 +70,7 @@ fn compile_asm_binary_operator(operator ASMBinaryOperator) {
 		when ASMBinaryOperator::Add => "addl"
 		when ASMBinaryOperator::Sub => "subl"
 		when ASMBinaryOperator::Mult => "imull"
+		else => panic("Binary operator '$operator' should have been resolved in previous stages.")
 	}
 }
 
@@ -56,6 +83,11 @@ fn compile_instruction_to_asm(inst ASMInstruction) string {
 		when ASMInstruction::Idiv(operand) => "    idivl $(compile_operand_to_asm(operand))\n"
 		when ASMInstruction::Cdq => "    cdq\n"
 		when ASMInstruction::Binary(operator, src, dst) => "    $(compile_asm_binary_operator(operator)) $(compile_operand_to_asm(src)), $(compile_operand_to_asm(dst))\n"
+		when ASMInstruction::Cmp(left, right) => "    cmpl $(compile_operand_to_asm(left)), $(compile_operand_to_asm(right))\n"
+		when ASMInstruction::Jump(label) => "    jmp .L$label\n"
+		when ASMInstruction::JumpCC(cond_code, label) => "    j$(compile_cond_code_to_asm(cond_code)) .L$label\n"
+		when ASMInstruction::SetCC(cond_code, dst) => "    set$(compile_cond_code_to_asm(cond_code)) $(compile_operand_to_one_byte_reg_asm_alias(dst))\n"
+		when ASMInstruction::Label(label) => ".L$label:\n"
 	}
 }
 

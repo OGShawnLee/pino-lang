@@ -3,14 +3,19 @@ module Transformer
 from Parser import AST, Statement, Expression, UnaryOperator, BinaryOperator
 
 pub union Val {
- Constant(string)
- Var(string)
+ Constant(int)
+ Var(string) # identifier
 }
 
 pub union Instruction {
  Ret(Val)
- Unary(UnaryOperator, Val, Val)
- Binary(BinaryOperator, Val, Val, Val)
+ Unary(UnaryOperator, Val, Val) # op, src, dst
+ Binary(BinaryOperator, Val, Val, Val) # op, left, right, dst
+ Copy(Val, Val) # src, dst
+ Jump(string) # target_label
+ JumpIfZero(Val, string) # val, target_label
+ JumpIfNotZero(Val, string) # val, target_label
+ Label(string) # identifier
 }
 
 pub union TACKY {
@@ -18,12 +23,57 @@ pub union TACKY {
  Function(string, []Instruction)
 }
 
+
 val counter = [0]
+val label_counter = [0]
 
 fn rand_name() {
  val name = "tmp.$(counter[0])"
  counter[0] += 1
  return name
+}
+
+fn short_circuit_labels(prefix string) @(true_label string, false_label string) {
+	val true_label = "$(prefix)_true_label_$(label_counter[0])"
+	val false_label = "$(prefix)_false_label_$(label_counter[0])"
+	label_counter[0] += 1
+	return @(true_label, false_label)
+}
+
+fn emit_binary_and(left Expression, right Expression, instructions []Instruction) { 
+	val @(true_label, false_label) = short_circuit_labels("and")
+	
+	val dst = Val::Var(rand_name())
+	val left_val = emit_tacky(left, instructions)
+
+	instructions:push(Instruction::JumpIfZero(left_val, false_label))
+	val right_val = emit_tacky(right, instructions)
+	instructions:push(Instruction::JumpIfZero(right_val, false_label))
+	instructions:push(Instruction::Copy(Val::Constant(1), dst))
+	instructions:push(Instruction::Jump(true_label))
+	instructions:push(Instruction::Label(false_label))
+	instructions:push(Instruction::Copy(Val::Constant(0), dst))
+	instructions:push(Instruction::Label(true_label))
+
+	return dst
+}
+
+fn emit_binary_or(left Expression, right Expression, instructions []Instruction) {
+	val @(true_label, false_label) = short_circuit_labels("or")
+	
+	val dst = Val::Var(rand_name())
+	val left_val = emit_tacky(left, instructions)
+
+	instructions:push(Instruction::JumpIfNotZero(left_val, true_label))
+	val right_val = emit_tacky(right, instructions)
+	instructions:push(Instruction::JumpIfNotZero(right_val, true_label))
+	instructions:push(Instruction::Copy(Val::Constant(0), dst))
+	instructions:push(Instruction::Jump(false_label))
+	instructions:push(Instruction::Label(true_label))
+	instructions:push(Instruction::Copy(Val::Constant(1), dst))
+	instructions:push(Instruction::Label(false_label))
+
+	return dst
 }
 
 fn emit_tacky(expr Expression, instructions []Instruction) {
@@ -35,19 +85,23 @@ fn emit_tacky(expr Expression, instructions []Instruction) {
 	 val src = emit_tacky(inner_expr, instructions)
 	 val dst_name = rand_name()
 	 val dst = Val::Var(dst_name)
-	 instructions:push(
-		Instruction::Unary(operator, src, dst)
-	 )
+	 instructions:push(Instruction::Unary(operator, src, dst))
 	 return dst
 	}
 	when Expression::Binary(operator, left, right) {
+	 if operator == BinaryOperator::And {
+		return emit_binary_and(left, right, instructions)
+	 }
+
+	 if operator == BinaryOperator::Or {
+		return emit_binary_or(left, right, instructions)
+	 }
+
 	 val left_val = emit_tacky(left, instructions)
 	 val right_val = emit_tacky(right, instructions)
 	 val dst_name = rand_name()
 	 val dst = Val::Var(dst_name)
-	 instructions:push(
-		Instruction::Binary(operator, left_val, right_val, dst)
-	 )
+	 instructions:push(Instruction::Binary(operator, left_val, right_val, dst))
 	 return dst
 	}
  }

@@ -52,6 +52,15 @@ fn precompile_binary_instr(
 					ASMInstruction::Binary(binary_operator, Operand::Register(Reg::R10), resolved_dst)
 				]
 			}
+
+			if is_immediate_operand(resolved_dst) {
+				return [
+					ASMInstruction::Mov(resolved_dst, Operand::Register(Reg::R10)),
+					ASMInstruction::Binary(binary_operator, resolved_src, Operand::Register(Reg::R10)),
+					ASMInstruction::Mov(Operand::Register(Reg::R10), resolved_dst)
+				]
+			}
+
 			return [
 				ASMInstruction::Binary(binary_operator, resolved_src, resolved_dst)
 			]
@@ -64,6 +73,15 @@ fn precompile_binary_instr(
 					ASMInstruction::Mov(Operand::Register(Reg::R11), resolved_dst)
 				]
 			}
+
+			if is_immediate_operand(resolved_dst) {
+				return [
+					ASMInstruction::Mov(resolved_dst, Operand::Register(Reg::R11)),
+					ASMInstruction::Binary(binary_operator, resolved_src, Operand::Register(Reg::R11)),
+					ASMInstruction::Mov(Operand::Register(Reg::R11), resolved_dst)
+				]
+			}
+
 			return [
 				ASMInstruction::Binary(binary_operator, resolved_src, resolved_dst)
 			]
@@ -100,6 +118,31 @@ fn precompile_asm_instruction(instr ASMInstruction, pseudo_map map[string, int],
 			}
 
 			yield [ASMInstruction::Idiv(precompile_asm_operand(operand, pseudo_map, stack_counter))]
+		}
+		when ASMInstruction::Cmp(dst, src) {
+			val dst_operand = precompile_asm_operand(dst, pseudo_map, stack_counter)
+			val src_operand = precompile_asm_operand(src, pseudo_map, stack_counter)
+
+			if is_stack_operand(dst_operand) and is_stack_operand(src_operand) {
+				val intermediate_reg = Operand::Register(Reg::R10)
+				yield [
+					ASMInstruction::Mov(dst_operand, intermediate_reg),
+					ASMInstruction::Cmp(intermediate_reg, src_operand)
+				]
+			}
+
+			if is_immediate_operand(src_operand) {
+				yield [
+					ASMInstruction::Mov(dst_operand, Operand::Register(Reg::R10)),
+					ASMInstruction::Cmp(src_operand, Operand::Register(Reg::R10))
+				]
+			}
+
+			yield [ASMInstruction::Cmp(dst_operand, src_operand)]
+		}
+		when ASMInstruction::SetCC(cond_code, operand) {
+			val resolved_operand = precompile_asm_operand(operand, pseudo_map, stack_counter)
+			yield [ASMInstruction::SetCC(cond_code, resolved_operand)]
 		}
 		else => [instr]
 	}

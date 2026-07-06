@@ -3,6 +3,15 @@ module Translator
 from Parser import UnaryOperator, BinaryOperator
 from Transformer import TACKY, Instruction, Val
 
+pub union CondCode {
+	E
+	NE
+	G
+	GE
+	L
+	LE
+}
+
 pub union ASMUnaryOperator {
 	Neg
 	Not
@@ -31,8 +40,13 @@ pub union Operand {
 pub union ASMInstruction {
 	Mov(Operand, Operand)
 	Binary(ASMBinaryOperator, Operand, Operand)
+	Cmp(Operand, Operand)
 	Idiv(Operand)
 	Cdq
+	Jump(string)
+	JumpCC(CondCode, string)
+	SetCC(CondCode, Operand)
+	Label(string)
 	Unary(ASMUnaryOperator, Operand)
 	AllocateStack(int)
 	Ret
@@ -41,6 +55,23 @@ pub union ASMInstruction {
 pub union ASTAssembly {
 	Program(ASTAssembly)
 	Function(string, []ASMInstruction)
+}
+
+val BINARY_OPERATOR_TO_COND_CODE_MAP = map[BinaryOperator, CondCode] {
+	BinaryOperator::GreaterThan: CondCode::G
+	BinaryOperator::LessThan: CondCode::L
+	BinaryOperator::Equal: CondCode::E
+	BinaryOperator::NotEqual: CondCode::NE
+	BinaryOperator::GreaterOrEqual: CondCode::GE
+	BinaryOperator::LessOrEqual: CondCode::LE
+}
+
+fn translate_binary_operator_to_cond_code(binary_operator BinaryOperator) {
+	if binary_operator in BINARY_OPERATOR_TO_COND_CODE_MAP {
+		return BINARY_OPERATOR_TO_COND_CODE_MAP[binary_operator]
+	}
+
+	panic("Cannot translate binary operator $binary_operator to cond code.")
 }
 
 fn translate_to_asm_operand(value Val) {
@@ -54,6 +85,7 @@ fn translate_to_asm_unary_operator(operator UnaryOperator) {
 	return match operator {
 		when UnaryOperator::Complement => ASMUnaryOperator::Not
 		when UnaryOperator::Negate => ASMUnaryOperator::Neg
+		else => panic("Cannot translate unary operator $operator to asm unary operator.")
 	}
 }
 
@@ -62,7 +94,7 @@ fn translate_to_asm_binary_operator(operator BinaryOperator) {
 		when BinaryOperator::Add => ASMBinaryOperator::Add
 		when BinaryOperator::Subtract => ASMBinaryOperator::Sub
 		when BinaryOperator::Multiply => ASMBinaryOperator::Mult
-		else => panic("Unable to translate binary operator.")
+		else => panic("Cannot translate binary operator $operator to asm binary operator.")
 	}
 }
 
@@ -71,23 +103,22 @@ fn translate_binary_instr_to_asm_instr(
 	left Val
 	right Val
 	dst Val
-) Result[[]ASMInstruction, string] {
+) []ASMInstruction {
 	match binary_operator {
 		when BinaryOperator::Add BinaryOperator::Subtract BinaryOperator::Multiply {
 			val dst_operand = translate_to_asm_operand(dst)
 			val left_operand = translate_to_asm_operand(left)
 			val right_operand = translate_to_asm_operand(right)
-
-			return Result::Success([
+			return [
 				ASMInstruction::Mov(left_operand, dst_operand),
 				ASMInstruction::Binary(translate_to_asm_binary_operator(binary_operator), right_operand, dst_operand)
-			])
+			]
 		}
 		when BinaryOperator::Divide BinaryOperator::Remainder {
 			val dst_operand = translate_to_asm_operand(dst)
 			val left_operand = translate_to_asm_operand(left)
 			val right_operand = translate_to_asm_operand(right)
-			return Result::Success([
+			return [
 				ASMInstruction::Mov(left_operand, Operand::Register(Reg::AX)),
 				ASMInstruction::Cdq(),
 				ASMInstruction::Idiv(right_operand),
@@ -95,26 +126,44 @@ fn translate_binary_instr_to_asm_instr(
 					if binary_operator == BinaryOperator::Divide then Operand::Register(Reg::AX) else Operand::Register(Reg::DX),
 					dst_operand
 				)
-			])
+			]
+		}
+		when BinaryOperator::And BinaryOperator::Or {
+			panic("Binary operators '&&' and '||' should have been translated during TACKY generation.")
+		}
+		else {
+			val dst_operand = translate_to_asm_operand(dst)
+			return [
+				ASMInstruction::Cmp(
+					translate_to_asm_operand(right),
+					translate_to_asm_operand(left)
+				),
+				ASMInstruction::Mov(Operand::Immediate(0), dst_operand),
+				ASMInstruction::SetCC(translate_binary_operator_to_cond_code(binary_operator), dst_operand)
+			]
 		}
 	}
 }
 
-
-fn translate_instr_to_asm_instr_list(instr Instruction) Result[[]ASMInstruction, string] {
-	match instr {
-		when Instruction::Ret(value) {
-			return Result::Success([
-				ASMInstruction::Mov(
-					translate_to_asm_operand(value)
-					Operand::Register(Reg::AX)
-				),
-				ASMInstruction::Ret()
-			])
-		}
-		when Instruction::Unary(unary_operator, src, dst) {
+fn translate_unary_instr_to_asm_instr(
+	op	UnaryOperator
+	src Val
+	dst Val
+) []ASMInstruction {
+	match op {
+		when UnaryOperator::Not {
 			val dst_operand = translate_to_asm_operand(dst)
-			return Result::Success([
+			val src_operand = translate_to_asm_operand(src)
+
+			return [
+				ASMInstruction::Cmp(Operand::Immediate(0), src_operand),
+				ASMInstruction::Mov(Operand::Immediate(0), dst_operand),
+				ASMInstruction::SetCC(CondCode::E, dst_operand)
+			]
+		}
+		else {
+			val dst_operand = translate_to_asm_operand(dst)
+			return [
 				ASMInstruction::Mov(
 					translate_to_asm_operand(src),
 					dst_operand
@@ -123,31 +172,53 @@ fn translate_instr_to_asm_instr_list(instr Instruction) Result[[]ASMInstruction,
 					translate_to_asm_unary_operator(unary_operator),
 					dst_operand
 				)
-			])
-		}
-		when Instruction::Binary(binary_operator, left, right, dst) {
-			return translate_binary_instr_to_asm_instr(binary_operator, left, right, dst)
+			]
 		}
 	}
 }
 
-pub fn translate_ast_to_asm(node TACKY) Result[ASTAssembly, string] {
+fn translate_instr_to_asm_instr_list(instr Instruction) []ASMInstruction {
+	return match instr {
+		when Instruction::Ret(value) => [
+			ASMInstruction::Mov(
+				translate_to_asm_operand(value)
+				Operand::Register(Reg::AX)
+			),
+			ASMInstruction::Ret()
+		]
+		when Instruction::Unary(unary_operator, src, dst) =>
+			translate_unary_instr_to_asm_instr(unary_operator, src, dst)
+		when Instruction::Binary(binary_operator, left, right, dst) =>
+			translate_binary_instr_to_asm_instr(binary_operator, left, right, dst)
+		when Instruction::Jump(label) => [ASMInstruction::Jump(label)]
+		when Instruction::JumpIfZero(value, label) => [
+			ASMInstruction::Cmp(Operand::Immediate(0), translate_to_asm_operand(value)),
+			ASMInstruction::JumpCC(CondCode::E, label)
+		]
+		when Instruction::JumpIfNotZero(value, label) => [
+			ASMInstruction::Cmp(Operand::Immediate(0), translate_to_asm_operand(value)),
+			ASMInstruction::JumpCC(CondCode::NE, label)
+		]
+		when Instruction::Label(label) => [ASMInstruction::Label(label)]
+		when Instruction::Copy(src, dst) => [
+			ASMInstruction::Mov(translate_to_asm_operand(src), translate_to_asm_operand(dst))
+		]
+	}
+}
+
+pub fn translate_ast_to_asm(node TACKY) ASTAssembly {
 	match node {
 		when TACKY::Program(inner_node) {
-			return Result::Success(
-				ASTAssembly::Program(translate_ast_to_asm(inner_node)?)
-			)
+			return ASTAssembly::Program(translate_ast_to_asm(inner_node))
 		}
 		when TACKY::Function(name, instructions) {
 			val asm_instructions = []ASMInstruction
 			for instruction in instructions {
-				for asm_instruction in translate_instr_to_asm_instr_list(instruction)? {
+				for asm_instruction in translate_instr_to_asm_instr_list(instruction) {
 					asm_instructions:push(asm_instruction)
 				}
 			}
-			return Result::Success(
-				ASTAssembly::Function(name, asm_instructions)
-			)
+			return ASTAssembly::Function(name, asm_instructions)
 		}
 	}
 }

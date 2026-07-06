@@ -1,6 +1,16 @@
+module Printer
+
 from Parser import AST, Statement, Expression
 from Transformer import TACKY, Instruction
 from Translator import ASTAssembly, ASMInstruction
+
+fn get_indent(level int) string {
+	var indentation_string = ""
+	for i in level {
+		indentation_string += ' '
+	}
+	return indentation_string
+}
 
 fn print_asm_instr(instr ASMInstruction, depth int) {
 	val indent = get_indent(depth)
@@ -26,6 +36,21 @@ fn print_asm_instr(instr ASMInstruction, depth int) {
 		when ASMInstruction::Binary(operator, left, right) {
 			println("$indent $(operator) $(left), $(right)")
 		}
+		when ASMInstruction::Cmp(left, right) {
+			println("$indent cmp $(left), $(right)")
+		}
+		when ASMInstruction::Jump(label) {
+			println("$indent jmp $(label)")
+		}
+		when ASMInstruction::JumpCC(code, label) {
+			println("$indent $(code) $(label)")
+		}
+		when ASMInstruction::SetCC(code, operand) {
+			println("$indent $(code) $(operand)")
+		}
+		when ASMInstruction::Label(label) {
+			println("$indent $(label):")
+		}
 	}
 }
 
@@ -45,13 +70,6 @@ pub fn print_asm(node ASTAssembly, depth int) {
 	}
 } 
 
-fn get_indent(level int) string {
-	var indentation_string = ""
-	for i in level {
-		indentation_string += ' '
-	}
-	return indentation_string
-}
 
 fn print_ast_expression(node Expression, depth int) {
 	val indent = get_indent(depth)
