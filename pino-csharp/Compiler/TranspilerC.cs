@@ -8,6 +8,7 @@ namespace Pino;
 public class TranspilerC {
     private StringBuilder _sb = new StringBuilder();
     private int _indent = 0;
+    private Dictionary<string, string> _varTypes = new Dictionary<string, string>();
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -23,6 +24,7 @@ public class TranspilerC {
     }
 
     public string Transpile(ProgramStatement program) {
+        _varTypes.Clear();
         // Output standard headers
         _sb.AppendLine("#include <stdio.h>");
         _sb.AppendLine("#include \"runtime/runtime.h\"");
@@ -88,6 +90,11 @@ public class TranspilerC {
         var returnType = MapType(fnDecl.ReturnType);
         var identifier = fnDecl.Identifier;
 
+        _varTypes.Clear();
+        foreach (var param in fnDecl.Parameters) {
+            _varTypes[param.Identifier] = param.Typing;
+        }
+
         var parameters = string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
         if (string.IsNullOrEmpty(parameters)) parameters = "void";
 
@@ -123,10 +130,20 @@ public class TranspilerC {
 
             case ReturnStatement ret:
                 WriteIndent();
-                Write("return");
-                if (ret.Argument != null) {
-                    Write(" ");
-                    TranspileExpression(ret.Argument);
+                if (ret.Argument != null && IsStringConcat(ret.Argument)) {
+                    Write("char* pino_ret_temp = (char*)pino_malloc(1024);\n");
+                    var (format, args) = ProcessStringAddition(ret.Argument);
+                    var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                    WriteIndent();
+                    Write($"snprintf(pino_ret_temp, 1024, \"{EscapeString(format)}\"{argsStr});\n");
+                    WriteIndent();
+                    Write("return pino_ret_temp;");
+                } else {
+                    Write("return");
+                    if (ret.Argument != null) {
+                        Write(" ");
+                        TranspileExpression(ret.Argument);
+                    }
                 }
                 _sb.AppendLine(";");
                 break;
@@ -159,12 +176,27 @@ public class TranspilerC {
             typeStr = MapType(varDecl.Value.InferredType);
         }
 
-        Write($"{prefix}{typeStr} {varDecl.Identifier}");
-
-        if (varDecl.Value != null) {
-            Write(" = ");
-            TranspileExpression(varDecl.Value);
+        if (varDecl.Value != null && IsStringConcat(varDecl.Value)) {
+            // String interpolation or addition declaration
+            Write($"{typeStr} {varDecl.Identifier} = (char*)pino_malloc(1024);\n");
+            var (format, args) = ProcessStringAddition(varDecl.Value);
+            var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+            WriteIndent();
+            Write($"snprintf((char*){varDecl.Identifier}, 1024, \"{EscapeString(format)}\"{argsStr})");
+        } else {
+            // Normal declaration
+            Write($"{prefix}{typeStr} {varDecl.Identifier}");
+            if (varDecl.Value != null) {
+                Write(" = ");
+                TranspileExpression(varDecl.Value);
+            }
         }
+
+        // Store type in _varTypes
+        string pinoType = "";
+        if (!string.IsNullOrEmpty(varDecl.Typing)) pinoType = varDecl.Typing;
+        else if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) pinoType = varDecl.Value.InferredType;
+        _varTypes[varDecl.Identifier] = pinoType;
     }
 
     private void TranspileExpression(Expression expr) {
@@ -181,19 +213,25 @@ public class TranspilerC {
                 if (call.Callee == "println") {
                     if (call.Arguments.Count > 0) {
                         var arg = call.Arguments[0];
-                        var type = arg.InferredType;
-                        if (type == "int") {
-                            Write("pino_println_int(");
-                            TranspileExpression(arg);
-                            Write(")");
-                        } else if (type == "float") {
-                            Write("pino_println_float(");
-                            TranspileExpression(arg);
-                            Write(")");
+                        if (IsStringConcat(arg)) {
+                            var (format, args) = ProcessStringAddition(arg);
+                            var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                            Write($"printf(\"{EscapeString(format)}\\n\"{argsStr})");
                         } else {
-                            Write("pino_println_string(");
-                            TranspileExpression(arg);
-                            Write(")");
+                            var type = arg.InferredType;
+                            if (type == "int") {
+                                Write("pino_println_int(");
+                                TranspileExpression(arg);
+                                Write(")");
+                            } else if (type == "float") {
+                                Write("pino_println_float(");
+                                TranspileExpression(arg);
+                                Write(")");
+                            } else {
+                                Write("pino_println_string(");
+                                TranspileExpression(arg);
+                                Write(")");
+                            }
                         }
                     } else {
                         Write("pino_println_string(\"\")");
@@ -209,11 +247,24 @@ public class TranspilerC {
                 break;
 
             case BinaryExpression bin:
-                Write("(");
-                TranspileExpression(bin.Left);
-                Write($" {MapOperator(bin.Operator)} ");
-                TranspileExpression(bin.Right);
-                Write(")");
+                if (bin.Operator == OperatorType.Assignment && IsStringConcat(bin.Right)) {
+                    var (format, args) = ProcessStringAddition(bin.Right);
+                    var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                    Write("snprintf(");
+                    TranspileExpression(bin.Left);
+                    Write($", 1024, \"{EscapeString(format)}\"{argsStr})");
+                } else if (bin.Operator == OperatorType.Addition && bin.InferredType == "string") {
+                    var (format, args) = ProcessStringAddition(bin);
+                    var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                    Write("({ char* temp = (char*)pino_malloc(1024); ");
+                    Write($"snprintf(temp, 1024, \"{EscapeString(format)}\"{argsStr}); temp; }})");
+                } else {
+                    Write("(");
+                    TranspileExpression(bin.Left);
+                    Write($" {MapOperator(bin.Operator)} ");
+                    TranspileExpression(bin.Right);
+                    Write(")");
+                }
                 break;
 
             case UnaryExpression unary:
@@ -230,6 +281,56 @@ public class TranspilerC {
             default:
                 throw new NotImplementedException($"Expression type {expr.GetType().Name} not implemented in Transpiler.");
         }
+    }
+
+    private bool IsStringConcat(Expression expr) {
+        return expr.InferredType == "string" && (
+            (expr is BinaryExpression bin && bin.Operator == OperatorType.Addition) ||
+            (expr is LiteralExpression lit && lit.Injections != null)
+        );
+    }
+
+    private void FlattenStringAddition(Expression expr, List<Expression> operands) {
+        if (expr is BinaryExpression bin && bin.Operator == OperatorType.Addition &&
+            (bin.Left.InferredType == "string" || bin.Right.InferredType == "string")) {
+            FlattenStringAddition(bin.Left, operands);
+            FlattenStringAddition(bin.Right, operands);
+        } else {
+            operands.Add(expr);
+        }
+    }
+
+    private (string formatStr, List<string> args) ProcessStringAddition(Expression expr) {
+        var operands = new List<Expression>();
+        FlattenStringAddition(expr, operands);
+
+        var formatSb = new StringBuilder();
+        var args = new List<string>();
+
+        foreach (var op in operands) {
+            if (op is LiteralExpression lit && lit.LiteralType == LiteralType.String) {
+                var escapedText = lit.Value.Replace("%", "%%");
+                formatSb.Append(escapedText);
+            } else {
+                var type = op.InferredType;
+                var specifier = type switch {
+                    "int" => "%d",
+                    "float" => "%g",
+                    "bool" => "%d",
+                    "string" => "%s",
+                    _ => "%s"
+                };
+                formatSb.Append(specifier);
+                
+                var oldSb = _sb;
+                _sb = new StringBuilder();
+                TranspileExpression(op);
+                args.Add(_sb.ToString());
+                _sb = oldSb;
+            }
+        }
+
+        return (formatSb.ToString(), args);
     }
 
     private string MapOperator(OperatorType op) {
