@@ -32,7 +32,7 @@ public class TranspilerC {
         var topLevelStatements = new List<Statement>();
 
         foreach (var stmt in program.Statements) {
-            if (stmt is Declaration decl) {
+            if (stmt is Declaration decl && !(decl is VariableDeclaration)) {
                 declarations.Add(decl);
             } else if (stmt is ModuleDeclaration || stmt is ImportStatement || stmt is FromImportStatement) {
                 // Ignore module imports for Increment 1
@@ -131,6 +131,12 @@ public class TranspilerC {
                 _sb.AppendLine(";");
                 break;
 
+            case VariableDeclaration varDecl:
+                WriteIndent();
+                TranspileVariableDeclaration(varDecl);
+                _sb.AppendLine(";");
+                break;
+
             case Expression expr: // Since Expression inherits from Statement in AST.cs
                 WriteIndent();
                 TranspileExpression(expr);
@@ -138,7 +144,26 @@ public class TranspilerC {
                 break;
 
             default:
-                throw new NotImplementedException($"Statement type {stmt.GetType().Name} not implemented in Increment 1 Transpiler.");
+                throw new NotImplementedException($"Statement type {stmt.GetType().Name} not implemented in Transpiler.");
+        }
+    }
+
+    private void TranspileVariableDeclaration(VariableDeclaration varDecl) {
+        var isConst = varDecl.Kind == VariableKind.Constant;
+        var prefix = isConst ? "const " : "";
+        
+        string typeStr = "void";
+        if (!string.IsNullOrEmpty(varDecl.Typing)) {
+            typeStr = MapType(varDecl.Typing);
+        } else if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) {
+            typeStr = MapType(varDecl.Value.InferredType);
+        }
+
+        Write($"{prefix}{typeStr} {varDecl.Identifier}");
+
+        if (varDecl.Value != null) {
+            Write(" = ");
+            TranspileExpression(varDecl.Value);
         }
     }
 
@@ -154,13 +179,25 @@ public class TranspilerC {
 
             case FunctionCallExpression call:
                 if (call.Callee == "println") {
-                    Write("pino_println_string(");
                     if (call.Arguments.Count > 0) {
-                        TranspileExpression(call.Arguments[0]);
+                        var arg = call.Arguments[0];
+                        var type = arg.InferredType;
+                        if (type == "int") {
+                            Write("pino_println_int(");
+                            TranspileExpression(arg);
+                            Write(")");
+                        } else if (type == "float") {
+                            Write("pino_println_float(");
+                            TranspileExpression(arg);
+                            Write(")");
+                        } else {
+                            Write("pino_println_string(");
+                            TranspileExpression(arg);
+                            Write(")");
+                        }
                     } else {
-                        Write("\"\"");
+                        Write("pino_println_string(\"\")");
                     }
-                    Write(")");
                 } else {
                     Write($"{call.Callee}(");
                     for (int i = 0; i < call.Arguments.Count; i++) {
@@ -171,9 +208,61 @@ public class TranspilerC {
                 }
                 break;
 
+            case BinaryExpression bin:
+                Write("(");
+                TranspileExpression(bin.Left);
+                Write($" {MapOperator(bin.Operator)} ");
+                TranspileExpression(bin.Right);
+                Write(")");
+                break;
+
+            case UnaryExpression unary:
+                Write(MapUnaryOperator(unary.Operator));
+                Write("(");
+                TranspileExpression(unary.Right);
+                Write(")");
+                break;
+
+            case IdentifierExpression id:
+                Write(id.Name);
+                break;
+
             default:
-                throw new NotImplementedException($"Expression type {expr.GetType().Name} not implemented in Increment 1 Transpiler.");
+                throw new NotImplementedException($"Expression type {expr.GetType().Name} not implemented in Transpiler.");
         }
+    }
+
+    private string MapOperator(OperatorType op) {
+        return op switch {
+            OperatorType.Addition => "+",
+            OperatorType.Subtraction => "-",
+            OperatorType.Multiplication => "*",
+            OperatorType.Division => "/",
+            OperatorType.Modulus => "%",
+            OperatorType.Assignment => "=",
+            OperatorType.AdditionAssignment => "+=",
+            OperatorType.SubtractionAssignment => "-=",
+            OperatorType.MultiplicationAssignment => "*=",
+            OperatorType.DivisionAssignment => "/=",
+            OperatorType.ModulusAssignment => "%=",
+            OperatorType.LessThan => "<",
+            OperatorType.LessThanEqual => "<=",
+            OperatorType.GreaterThan => ">",
+            OperatorType.GreaterThanEqual => ">=",
+            OperatorType.Equal => "==",
+            OperatorType.NotEqual => "!=",
+            OperatorType.And => "&&",
+            OperatorType.Or => "||",
+            _ => throw new NotImplementedException($"Operator {op} not implemented in Transpiler.")
+        };
+    }
+
+    private string MapUnaryOperator(OperatorType op) {
+        return op switch {
+            OperatorType.Subtraction => "-",
+            OperatorType.Not => "!",
+            _ => throw new NotImplementedException($"Unary operator {op} not implemented in Transpiler.")
+        };
     }
 
     private string EscapeString(string value) {
