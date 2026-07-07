@@ -52,7 +52,7 @@ public class StdlibTests {
   public void TestTimeFunction() {
     var code = @"println(type(time()))";
     var output = RunCode(code);
-    Assert.Equal("int\n", output);
+    Assert.Equal("float\n", output);
   }
 
   [Fact]

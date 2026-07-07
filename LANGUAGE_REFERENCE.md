@@ -809,9 +809,9 @@ Generates pseudo-random numbers.
 *   **Example**: `val index = rand(10)` (Returns an integer from 0 to 9).
 
 ### `time()`
-Returns the number of milliseconds elapsed since January 1, 1970, 00:00:00 UTC (Unix Epoch).
+Returns the number of milliseconds elapsed since January 1, 1970, 00:00:00 UTC (Unix Epoch), with fractional precision.
 *   **Arguments**: None.
-*   **Return**: `int`
+*   **Return**: `float`
 *   **Example**: `val start = time()`
 
 ### `sleep(ms)`

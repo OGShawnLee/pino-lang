@@ -9,7 +9,7 @@ void pino_println_string(const char* str);
 void pino_println_int(int val);
 void pino_println_float(double val);
 
-long long pino_time(void);
+double pino_time(void);
 double pino_rand_float(void);
 int pino_rand_int(int limit);
 void pino_sleep(int ms);

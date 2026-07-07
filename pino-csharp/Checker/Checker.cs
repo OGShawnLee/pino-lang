@@ -48,7 +48,7 @@ public partial class Checker {
     { "rune", "fn(any) rune" },
     { "float", "fn(...) float" },
     { "rand", "fn(...) float" },
-    { "time", "fn() int" },
+    { "time", "fn() float" },
     { "sleep", "fn(int)" },
     { "type", "fn(any) string" },
     { "str", "fn(any) string" },

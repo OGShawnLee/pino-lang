@@ -33,16 +33,16 @@ void pino_println_float(double val) {
 #include <unistd.h>
 #endif
 
-long long pino_time(void) {
+double pino_time(void) {
 #ifdef _WIN32
     FILETIME ft;
     GetSystemTimeAsFileTime(&ft);
     unsigned long long ticks = ((unsigned long long)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
-    return (long long)((ticks - 116444736000000000ULL) / 10000);
+    return (double)(ticks - 116444736000000000ULL) / 10000.0;
 #else
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    return (double)tv.tv_sec * 1000.0 + (double)tv.tv_usec / 1000.0;
 #endif
 }
 

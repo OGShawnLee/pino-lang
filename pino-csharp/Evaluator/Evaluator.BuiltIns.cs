@@ -56,7 +56,7 @@ public partial class Evaluator {
   private class TimeFunction : IPinoCallable {
     public int Arity => 0;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
-      return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+      return (double)(DateTime.UtcNow.Ticks - 621355968000000000L) / 10000.0;
     }
   }
 
