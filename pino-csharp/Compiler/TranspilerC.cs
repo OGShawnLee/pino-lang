@@ -38,6 +38,7 @@ public class TranspilerC {
         _currentStructFields.Clear();
         _tupleSb.Clear();
         _declaredTuples.Clear();
+        _declaredTuples.Add("[]string");
         _unions.Clear();
         _enums.Clear();
         _matchResultVars.Clear();
@@ -380,6 +381,7 @@ public class TranspilerC {
             "float" => "double",
             "bool" => "int",
             "string" => "const char*",
+            "regex" => "regex*",
             "void" => "void",
             "any" => "void*",
             "rune" => "int",
@@ -573,6 +575,10 @@ public class TranspilerC {
                     Write(")");
                 } else if (call.Callee == "clear") {
                     Write("pino_clear()");
+                } else if (call.Callee == "regex") {
+                    Write("regex_compile(");
+                    TranspileExpression(call.Arguments[0]);
+                    Write(")");
                 } else {
                     Write($"{call.Callee}(");
                     for (int i = 0; i < call.Arguments.Count; i++) {

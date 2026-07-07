@@ -468,6 +468,7 @@ class Program {
       if (!runtimeCInfo.Exists) {
         runtimeCPath = Path.Combine(System.Environment.CurrentDirectory, "runtime", "runtime.c");
       }
+      var reCPath = Path.Combine(Path.GetDirectoryName(runtimeCPath)!, "re.c");
 
       var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
       var outputExePath = Path.Combine(currentDir, outputExeName);
@@ -483,7 +484,7 @@ class Program {
 
       var startInfo = new System.Diagnostics.ProcessStartInfo {
         FileName = tccPath,
-        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" -o \"{outputExePath}\"",
+        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
         RedirectStandardOutput = true,
         RedirectStandardError = true,
         UseShellExecute = false,
@@ -724,6 +725,7 @@ class Program {
       if (!runtimeCInfo.Exists) {
         runtimeCPath = Path.Combine(System.Environment.CurrentDirectory, "runtime", "runtime.c");
       }
+      var reCPath = Path.Combine(Path.GetDirectoryName(runtimeCPath)!, "re.c");
 
       var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
       var outputExePath = Path.Combine(currentDir, outputExeName);
@@ -739,7 +741,7 @@ class Program {
 
       var startInfo = new System.Diagnostics.ProcessStartInfo {
         FileName = tccPath,
-        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" -o \"{outputExePath}\"",
+        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
         RedirectStandardOutput = true,
         RedirectStandardError = true,
         UseShellExecute = false,
@@ -747,6 +749,7 @@ class Program {
       };
 
       Console.WriteLine($"[SYSTEM] Compiling native binary using TCC...");
+      Console.WriteLine($"[DEBUG] TCC Arguments: {startInfo.Arguments}");
       using var process = System.Diagnostics.Process.Start(startInfo);
       if (process == null) {
         Console.WriteLine("Error: Failed to start TCC compiler process.");

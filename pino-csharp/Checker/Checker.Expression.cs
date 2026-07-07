@@ -819,6 +819,23 @@ public partial class Checker {
               }
             }
           }
+          if (leftType == "regex") {
+            if (bin.Right is IdentifierExpression regId && regId.Name == "pattern") {
+              return "string";
+            }
+            if (bin.Right is FunctionCallExpression methodCall) {
+              string callee = methodCall.Callee;
+              if (callee == "has_match") {
+                return "bool";
+              }
+              if (callee == "match_prefix" || callee == "find" || callee == "replace") {
+                return "string";
+              }
+              if (callee == "find_all") {
+                return "[]string";
+              }
+            }
+          }
           return "any";
         }
 
