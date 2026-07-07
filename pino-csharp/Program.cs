@@ -11,10 +11,16 @@ namespace pino_csharp;
 class Program {
   static void Main(string[] args) {
     bool useVM = false;
+    bool watchCompile = false;
     var argList = new List<string>(args);
     if (argList.Contains("--vm")) {
       useVM = true;
       argList.Remove("--vm");
+    }
+    if (argList.Contains("-c") || argList.Contains("--compile")) {
+      watchCompile = true;
+      argList.Remove("-c");
+      argList.Remove("--compile");
     }
 
     if (argList.Count == 0) {
@@ -56,7 +62,7 @@ class Program {
           Console.WriteLine($"Error: File '{watchFileName}' not found.");
           System.Environment.Exit(1);
         }
-        WatchFile(watchFilePath, useVM);
+        WatchFile(watchFilePath, useVM, watchCompile);
         break;
 
       case "v":
@@ -339,7 +345,7 @@ class Program {
     }
   }
 
-  static void WatchFile(string path, bool useVM = false) {
+  static void WatchFile(string path, bool useVM = false, bool watchCompile = false) {
     var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
     if (string.IsNullOrEmpty(exePath)) {
       throw new Exception("RUNTIME ERROR: Could not locate pino-csharp executable path.");
@@ -364,19 +370,25 @@ class Program {
           }
         }
 
-        SafeClearConsole();
-        Console.WriteLine($"[Pino Watcher] Monitoring '{Path.GetFileName(path)}'... Press Ctrl+C to stop.\n");
+        if (watchCompile) {
+          SafeClearConsole();
+          Console.WriteLine($"[Pino Watcher] Monitoring and compiling '{Path.GetFileName(path)}'... Press Ctrl+C to stop.\n");
+          CompileAndRunWatch(path);
+        } else {
+          SafeClearConsole();
+          Console.WriteLine($"[Pino Watcher] Monitoring '{Path.GetFileName(path)}'... Press Ctrl+C to stop.\n");
 
-        var startInfo = new System.Diagnostics.ProcessStartInfo {
-          FileName = exePath,
-          Arguments = $"run \"{path}\"{(useVM ? " --vm" : "")}",
-          UseShellExecute = false
-        };
+          var startInfo = new System.Diagnostics.ProcessStartInfo {
+            FileName = exePath,
+            Arguments = $"run \"{path}\"{(useVM ? " --vm" : "")}",
+            UseShellExecute = false
+          };
 
-        try {
-          childProcess = System.Diagnostics.Process.Start(startInfo);
-        } catch (Exception ex) {
-          Console.WriteLine($"[Pino Watcher] Error starting process: {ex.Message}");
+          try {
+            childProcess = System.Diagnostics.Process.Start(startInfo);
+          } catch (Exception ex) {
+            Console.WriteLine($"[Pino Watcher] Error starting process: {ex.Message}");
+          }
         }
       }
     }
@@ -401,6 +413,124 @@ class Program {
 
     while (true) {
       System.Threading.Thread.Sleep(1000);
+    }
+  }
+
+  static void CompileAndRunWatch(string path) {
+    try {
+      var program = Parser.ParseFile(path);
+      var checker = new Checker();
+      checker.Check(program);
+
+      // Transpile to C code
+      var transpiler = new TranspilerC();
+      var cCode = transpiler.Transpile(program);
+
+      var currentDir = System.Environment.CurrentDirectory;
+      var cFilePath = Path.Combine(currentDir, "pino_output.c");
+      File.WriteAllText(cFilePath, cCode);
+
+      string? tccDir = null;
+      var dir = new DirectoryInfo(AppContext.BaseDirectory);
+      while (dir != null) {
+        var potentialTcc = Path.Combine(dir.FullName, "tooling", "tcc", "tcc.exe");
+        if (File.Exists(potentialTcc)) {
+          tccDir = Path.Combine(dir.FullName, "tooling", "tcc");
+          break;
+        }
+        dir = dir.Parent;
+      }
+
+      if (tccDir == null) {
+        var localTcc = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc", "tcc.exe");
+        if (File.Exists(localTcc)) {
+          tccDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc");
+        }
+      }
+
+      if (tccDir == null) {
+        var targetTccDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc");
+        DownloadTcc(targetTccDir);
+        tccDir = targetTccDir;
+      }
+
+      var tccPath = Path.Combine(tccDir, "tcc.exe");
+      var runtimeCPath = Path.Combine(tccDir, "..", "..", "runtime", "runtime.c");
+      var runtimeCInfo = new FileInfo(runtimeCPath);
+      if (!runtimeCInfo.Exists) {
+        runtimeCPath = Path.Combine(System.Environment.CurrentDirectory, "runtime", "runtime.c");
+      }
+
+      var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
+      var outputExePath = Path.Combine(currentDir, outputExeName);
+
+      var hasGc = false;
+      var libDir = Path.Combine(tccDir, "lib");
+      if (Directory.Exists(libDir)) {
+        if (File.Exists(Path.Combine(libDir, "gc.lib")) || File.Exists(Path.Combine(libDir, "libgc.a"))) {
+          hasGc = true;
+        }
+      }
+      var gcFlags = hasGc ? "-DPINO_GC -lgc" : "";
+
+      var startInfo = new System.Diagnostics.ProcessStartInfo {
+        FileName = tccPath,
+        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" -o \"{outputExePath}\"",
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+      };
+
+      using var process = System.Diagnostics.Process.Start(startInfo);
+      if (process == null) {
+        Console.WriteLine("Error: Failed to start TCC compiler process.");
+        return;
+      }
+      process.WaitForExit();
+
+      var stdout = process.StandardOutput.ReadToEnd();
+      var stderr = process.StandardError.ReadToEnd();
+
+      if (process.ExitCode != 0) {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine("[ERROR] TCC compilation failed:");
+        Console.WriteLine(stderr);
+        Console.ResetColor();
+        return;
+      }
+
+      try {
+        File.Delete(cFilePath);
+      } catch { /* Ignore */ }
+
+      // Successfully compiled! Now execute it.
+      Console.ForegroundColor = ConsoleColor.Green;
+      Console.WriteLine($"[SYSTEM] Compiled successfully: {outputExeName}");
+      Console.ResetColor();
+      Console.WriteLine("--- Execution Output ---");
+
+      var execStartInfo = new System.Diagnostics.ProcessStartInfo {
+        FileName = outputExePath,
+        UseShellExecute = false
+      };
+
+      using var execProcess = System.Diagnostics.Process.Start(execStartInfo);
+      if (execProcess != null) {
+        execProcess.WaitForExit();
+      }
+
+      Console.WriteLine("------------------------");
+
+      // Delete the executable after execution
+      try {
+        File.Delete(outputExePath);
+      } catch { /* Ignore */ }
+
+    } catch (Exception ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.WriteLine($"Error compiling program: {ex.Message}");
+      Console.ResetColor();
     }
   }
 
