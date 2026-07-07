@@ -189,6 +189,9 @@ public class TranspilerC {
         // Pass 3: The C main function carrying the top-level statements and user main call
         _sb.AppendLine("int main(int argc, char** argv) {");
         _indent = 1;
+        _sb.AppendLine("#ifdef PINO_GC");
+        _sb.AppendLine("    GC_INIT();");
+        _sb.AppendLine("#endif");
 
         foreach (var stmt in topLevelStatements) {
             TranspileStatement(stmt);
@@ -335,7 +338,9 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"        {cElemType}* new_items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
                 _tupleSb.AppendLine($"        if (vec->items) {{");
                 _tupleSb.AppendLine($"            memcpy(new_items, vec->items, vec->length * sizeof({cElemType}));");
+                _tupleSb.AppendLine($"#ifndef PINO_GC");
                 _tupleSb.AppendLine($"            free(vec->items);");
+                _tupleSb.AppendLine($"#endif");
                 _tupleSb.AppendLine($"        }}");
                 _tupleSb.AppendLine($"        vec->items = new_items;");
                 _tupleSb.AppendLine($"    }}");

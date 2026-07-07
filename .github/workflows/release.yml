@@ -40,12 +40,32 @@ jobs:
       - name: Publish binary
         run: dotnet publish pino-csharp/pino-csharp.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./publish
 
+      - name: Build Boehm GC and package runtime
+        run: |
+          cp -r tooling publish/
+          cp -r runtime publish/
+          git clone --depth=1 https://github.com/ivmai/bdwgc.git
+          cd bdwgc
+          git clone --depth=1 https://github.com/ivmai/libatomic_ops.git
+          cmake -B build -Denable_threads=ON -Denable_gc_assertions=OFF -DBUILD_SHARED_LIBS=OFF .
+          cmake --build build --config Release
+          mkdir -p ../publish/tooling/tcc/lib
+          mkdir -p ../publish/tooling/tcc/include
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp build/Release/gc.lib ../publish/tooling/tcc/lib/
+          else
+            cp build/libgc.a ../publish/tooling/tcc/lib/
+            cp build/libgc.a ../publish/tooling/tcc/lib/libgc.a
+          fi
+          cp -r include/* ../publish/tooling/tcc/include/
+        shell: bash
+
       - name: Rename and compress binary (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           cd publish
           Rename-Item -Path "pino-csharp.exe" -NewName "pino.exe"
-          Compress-Archive -Path "pino.exe" -DestinationPath "../${{ matrix.file_name }}"
+          Compress-Archive -Path "pino.exe", "tooling", "runtime" -DestinationPath "../${{ matrix.file_name }}"
         shell: pwsh
 
       - name: Rename and compress binary (Unix)
@@ -54,7 +74,7 @@ jobs:
           cd publish
           mv pino-csharp pino
           chmod +x pino
-          tar -czf ../${{ matrix.file_name }} pino
+          tar -czf ../${{ matrix.file_name }} pino tooling runtime
         shell: bash
 
       - name: Upload Build Artifact

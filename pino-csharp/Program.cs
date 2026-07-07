@@ -590,9 +590,18 @@ class Program {
       var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
       var outputExePath = Path.Combine(currentDir, outputExeName);
 
+      var hasGc = false;
+      var libDir = Path.Combine(tccDir, "lib");
+      if (Directory.Exists(libDir)) {
+        if (File.Exists(Path.Combine(libDir, "gc.lib")) || File.Exists(Path.Combine(libDir, "libgc.a"))) {
+          hasGc = true;
+        }
+      }
+      var gcFlags = hasGc ? "-DPINO_GC -lgc" : "";
+
       var startInfo = new System.Diagnostics.ProcessStartInfo {
         FileName = tccPath,
-        Arguments = $"\"{cFilePath}\" \"{runtimeCPath}\" -o \"{outputExePath}\"",
+        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" -o \"{outputExePath}\"",
         RedirectStandardOutput = true,
         RedirectStandardError = true,
         UseShellExecute = false,
