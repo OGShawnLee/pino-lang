@@ -206,6 +206,8 @@ public class TranspilerC {
         // Combine everything: Headers + Typedef Structs + Tuple Structs + Main Code
         var finalSb = new StringBuilder();
         finalSb.AppendLine("#include <stdio.h>");
+        finalSb.AppendLine("#include <stdlib.h>");
+        finalSb.AppendLine("#include <string.h>");
         finalSb.AppendLine("#include \"runtime/runtime.h\"");
         finalSb.AppendLine();
         finalSb.Append(structSb.ToString());
@@ -299,6 +301,51 @@ public class TranspilerC {
 
     private string MapType(string pinoType) {
         if (string.IsNullOrEmpty(pinoType)) return "void";
+        if (pinoType.StartsWith("[]")) {
+            var clean = CleanTypeName(pinoType);
+            if (!_declaredTuples.Contains(pinoType)) {
+                _declaredTuples.Add(pinoType);
+                var elemType = pinoType.Substring(2);
+                var cElemType = MapType(elemType);
+                
+                // Define the struct
+                _tupleSb.AppendLine($"struct {clean};");
+                _tupleSb.AppendLine($"typedef struct {clean} {clean};");
+                _tupleSb.AppendLine($"struct {clean} {{");
+                _tupleSb.AppendLine($"    {cElemType}* items;");
+                _tupleSb.AppendLine($"    int length;");
+                _tupleSb.AppendLine($"    int capacity;");
+                _tupleSb.AppendLine($"}};");
+                _tupleSb.AppendLine();
+                
+                // Define constructor and push functions
+                _tupleSb.AppendLine($"static inline {clean}* {clean}_construct(int length) {{");
+                _tupleSb.AppendLine($"    {clean}* vec = ({clean}*)pino_malloc(sizeof({clean}));");
+                _tupleSb.AppendLine($"    vec->length = length;");
+                _tupleSb.AppendLine($"    vec->capacity = length > 0 ? length : 4;");
+                _tupleSb.AppendLine($"    vec->items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
+                _tupleSb.AppendLine($"    memset(vec->items, 0, vec->capacity * sizeof({cElemType}));");
+                _tupleSb.AppendLine($"    return vec;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+                
+                _tupleSb.AppendLine($"static inline {clean}* {clean}_push({clean}* vec, {cElemType} item) {{");
+                _tupleSb.AppendLine($"    if (vec->length >= vec->capacity) {{");
+                _tupleSb.AppendLine($"        vec->capacity = vec->capacity == 0 ? 4 : vec->capacity * 2;");
+                _tupleSb.AppendLine($"        {cElemType}* new_items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
+                _tupleSb.AppendLine($"        if (vec->items) {{");
+                _tupleSb.AppendLine($"            memcpy(new_items, vec->items, vec->length * sizeof({cElemType}));");
+                _tupleSb.AppendLine($"            free(vec->items);");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"        vec->items = new_items;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    vec->items[vec->length++] = item;");
+                _tupleSb.AppendLine($"    return vec;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+            }
+            return clean + "*";
+        }
         if (pinoType.StartsWith("@(")) {
             var clean = pinoType.Replace("@", "tuple").Replace("(", "").Replace(")", "").Replace(":", "_").Replace(",", "_");
             if (!_declaredTuples.Contains(pinoType)) {
@@ -320,6 +367,7 @@ public class TranspilerC {
             "string" => "const char*",
             "void" => "void",
             "any" => "void*",
+            "rune" => "int",
             _ => pinoType
         };
     }
@@ -467,12 +515,16 @@ public class TranspilerC {
                             Write($"printf(\"{EscapeString(format)}\\n\"{argsStr})");
                         } else {
                             var type = arg.InferredType;
-                            if (type == "int") {
+                             if (type == "int" || type == "bool") {
                                 Write("pino_println_int(");
                                 TranspileExpression(arg);
                                 Write(")");
                             } else if (type == "float") {
                                 Write("pino_println_float(");
+                                TranspileExpression(arg);
+                                Write(")");
+                            } else if (type == "rune") {
+                                Write("printf(\"%c\\n\", ");
                                 TranspileExpression(arg);
                                 Write(")");
                             } else {
@@ -544,7 +596,21 @@ public class TranspilerC {
                         }
                     }
                 } else if (bin.Operator == OperatorType.MemberAccess) {
-                    if (bin.Right is FunctionCallExpression call) {
+                    if (bin.Left.InferredType != null && bin.Left.InferredType.StartsWith("[]")) {
+                        if (bin.Right is FunctionCallExpression call && (call.Callee == "push" || call.Callee == "add")) {
+                            var cleanType = CleanTypeName(bin.Left.InferredType);
+                            Write($"{cleanType}_push(");
+                            TranspileExpression(bin.Left);
+                            Write(", ");
+                            TranspileExpression(call.Arguments[0]);
+                            Write(")");
+                        } else if (bin.Right is IdentifierExpression id && (id.Name == "len" || id.Name == "length")) {
+                            TranspileExpression(bin.Left);
+                            Write("->length");
+                        } else {
+                            throw new NotImplementedException($"Member method/property '{bin.Right}' not implemented on vectors.");
+                        }
+                    } else if (bin.Right is FunctionCallExpression call) {
                         var structName = bin.Left.InferredType!;
                         Write($"{structName}_{call.Callee}(");
                         
@@ -622,8 +688,8 @@ public class TranspilerC {
             case TupleLiteralExpression tuple:
                 {
                     var tupleType = (!string.IsNullOrEmpty(_currentReturnType) && _currentReturnType.StartsWith("@("))
-                        ? _currentReturnType
-                        : tuple.InferredType!;
+                         ? _currentReturnType
+                         : tuple.InferredType!;
                     var structType = MapType(tupleType);
                     Write($"({structType}){{ ");
                     for (int i = 0; i < tuple.Fields.Count; i++) {
@@ -633,6 +699,60 @@ public class TranspilerC {
                         TranspileExpression(field.Value);
                     }
                     Write(" }");
+                }
+                break;
+
+            case VectorExpression vec:
+                {
+                    var elemType = vec.InferredType!.Substring(2);
+                    var cElemType = MapType(elemType);
+                    var cleanType = CleanTypeName(vec.InferredType!);
+                    
+                    // Force registration
+                    MapType(vec.InferredType!);
+
+                    if (vec.Elements != null && vec.Elements.Count > 0) {
+                        Write($"({{ {MapType(vec.InferredType!)} temp = {cleanType}_construct({vec.Elements.Count}); ");
+                        for (int i = 0; i < vec.Elements.Count; i++) {
+                            Write($"temp->items[{i}] = ");
+                            TranspileExpression(vec.Elements[i]);
+                            Write("; ");
+                        }
+                        Write("temp; })");
+                    } else if (vec.Len != null && vec.Init != null) {
+                        var limitVar = $"_pino_limit_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                        Write($"({{ int {limitVar} = ");
+                        TranspileExpression(vec.Len);
+                        Write($"; {MapType(vec.InferredType!)} temp = {cleanType}_construct({limitVar}); ");
+                        
+                        bool hadIt = _varTypes.TryGetValue("it", out var oldIt);
+                        _varTypes["it"] = "int";
+
+                        Write($"for (int it = 0; it < {limitVar}; it++) {{ temp->items[it] = ");
+                        TranspileExpression(vec.Init);
+                        Write("; } ");
+
+                        if (hadIt && oldIt != null) _varTypes["it"] = oldIt;
+                        else _varTypes.Remove("it");
+
+                        Write("temp; })");
+                    } else {
+                        Write($"{cleanType}_construct(0)");
+                    }
+                }
+                break;
+
+            case IndexAccessExpression idx:
+                {
+                    var targetType = idx.Target.InferredType!;
+                    if (targetType.StartsWith("[]")) {
+                        TranspileExpression(idx.Target);
+                        Write("->items[");
+                        TranspileExpression(idx.Index);
+                        Write("]");
+                    } else {
+                        throw new NotImplementedException("Map or custom index access is not implemented in transpilation.");
+                    }
                 }
                 break;
 
@@ -902,12 +1022,111 @@ public class TranspilerC {
                 break;
 
             case LoopKind.ForIn:
-                throw new NotImplementedException("ForIn collection loop is not implemented in Increment 3.");
+                {
+                    var collExpr = loop.End!;
+                    var collType = collExpr.InferredType!;
+                    var valId = (loop.Begin as IdentifierExpression)!.Name;
+                    var keyId = loop.KeyVar;
+
+                    var collVar = $"_pino_coll_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                    var idxVar = $"_pino_idx_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+
+                    WriteIndent();
+                    WriteLine("{");
+                    _indent++;
+
+                    if (collType.StartsWith("[]")) {
+                        var elemType = collType.Substring(2);
+                        var cElemType = MapType(elemType);
+                        var cleanType = CleanTypeName(collType);
+
+                        WriteIndent();
+                        Write($"{cleanType}* {collVar} = ");
+                        TranspileExpression(collExpr);
+                        _sb.AppendLine(";");
+
+                        WriteIndent();
+                        WriteLine($"for (int {idxVar} = 0; {idxVar} < {collVar}->length; {idxVar}++) {{");
+                        _indent++;
+
+                        WriteIndent();
+                        WriteLine($"{cElemType} {valId} = {collVar}->items[{idxVar}];");
+                        if (!string.IsNullOrEmpty(keyId)) {
+                            WriteIndent();
+                            WriteLine($"int {keyId} = {idxVar};");
+                        }
+                    } else if (collType == "string") {
+                        WriteIndent();
+                        Write($"const char* {collVar} = ");
+                        TranspileExpression(collExpr);
+                        _sb.AppendLine(";");
+
+                        var lenVar = $"_pino_len_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                        WriteIndent();
+                        WriteLine($"int {lenVar} = strlen({collVar});");
+
+                        WriteIndent();
+                        WriteLine($"for (int {idxVar} = 0; {idxVar} < {lenVar}; {idxVar}++) {{");
+                        _indent++;
+
+                        WriteIndent();
+                        WriteLine($"char {valId} = {collVar}[{idxVar}];");
+                        if (!string.IsNullOrEmpty(keyId)) {
+                            WriteIndent();
+                            WriteLine($"int {keyId} = {idxVar};");
+                        }
+                    } else {
+                        // Integer range fallback
+                        WriteIndent();
+                        Write($"int {collVar} = (int)(");
+                        TranspileExpression(collExpr);
+                        _sb.AppendLine(");");
+
+                        WriteIndent();
+                        WriteLine($"for (int {idxVar} = 0; {idxVar} < {collVar}; {idxVar}++) {{");
+                        _indent++;
+
+                        WriteIndent();
+                        WriteLine($"int {valId} = {idxVar};");
+                        if (!string.IsNullOrEmpty(keyId)) {
+                            WriteIndent();
+                            WriteLine($"int {keyId} = {idxVar};");
+                        }
+                    }
+
+                    // Loop body
+                    TranspileStatement(loop.Body);
+
+                    _indent--;
+                    WriteIndent();
+                    WriteLine("}"); // Close for
+
+                    _indent--;
+                    WriteIndent();
+                    WriteLine("}"); // Close scope block
+                }
+                break;
         }
     }
 
     private string EscapeString(string value) {
         return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+    }
+
+    private string CleanTypeName(string pinoType) {
+        if (pinoType.StartsWith("[]")) {
+            return "Vector_" + CleanTypeName(pinoType.Substring(2));
+        }
+        if (pinoType.StartsWith("@(")) {
+            return pinoType.Replace("@", "tuple").Replace("(", "").Replace(")", "").Replace(":", "_").Replace(",", "_").Replace(" ", "");
+        }
+        if (pinoType.StartsWith("map[")) {
+            return pinoType.Replace("map[", "map_").Replace("]", "").Replace(",", "_").Replace(" ", "");
+        }
+        if (pinoType.StartsWith("fn(")) {
+            return pinoType.Replace("fn(", "fn_").Replace(")", "").Replace(",", "_").Replace(" ", "");
+        }
+        return pinoType;
     }
 
     public UnionDeclaration? FindUnion(string name) {
