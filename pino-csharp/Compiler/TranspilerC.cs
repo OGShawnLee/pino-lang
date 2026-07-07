@@ -193,6 +193,7 @@ public class TranspilerC {
         _sb.AppendLine("#ifdef PINO_GC");
         _sb.AppendLine("    GC_INIT();");
         _sb.AppendLine("#endif");
+        _sb.AppendLine("    srand((unsigned int)time(NULL));");
 
         foreach (var stmt in topLevelStatements) {
             TranspileStatement(stmt);
@@ -518,6 +519,8 @@ public class TranspilerC {
             case LiteralExpression lit:
                 if (lit.LiteralType == LiteralType.String) {
                     Write($"\"{EscapeString(lit.Value)}\"");
+                } else if (lit.LiteralType == LiteralType.Integer || lit.LiteralType == LiteralType.Float) {
+                    Write(lit.Value.Replace("_", ""));
                 } else {
                     Write(lit.Value);
                 }
@@ -554,6 +557,22 @@ public class TranspilerC {
                     } else {
                         Write("pino_println_string(\"\")");
                     }
+                } else if (call.Callee == "time") {
+                    Write("pino_time()");
+                } else if (call.Callee == "rand") {
+                    if (call.Arguments.Count == 0) {
+                        Write("pino_rand_float()");
+                    } else {
+                        Write("pino_rand_int(");
+                        TranspileExpression(call.Arguments[0]);
+                        Write(")");
+                    }
+                } else if (call.Callee == "sleep") {
+                    Write("pino_sleep(");
+                    TranspileExpression(call.Arguments[0]);
+                    Write(")");
+                } else if (call.Callee == "clear") {
+                    Write("pino_clear()");
                 } else {
                     Write($"{call.Callee}(");
                     for (int i = 0; i < call.Arguments.Count; i++) {
