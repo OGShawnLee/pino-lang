@@ -174,3 +174,216 @@ const char* regex_replace(regex* re, const char* text, const char* repl) {
     buffer[buf_idx] = '\0';
     return buffer;
 }
+
+int string_len(const char* str) {
+    if (!str) return 0;
+    int len = 0;
+    while (*str) {
+        if ((*str & 0xC0) != 0x80) len++;
+        str++;
+    }
+    return len;
+}
+
+const char* string_lower(const char* str) {
+    if (!str) return "";
+    size_t len = strlen(str);
+    char* res = (char*)pino_malloc(len + 1);
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = str[i];
+        if (c >= 'A' && c <= 'Z') {
+            res[i] = c + 32;
+        } else {
+            res[i] = c;
+        }
+    }
+    res[len] = '\0';
+    return res;
+}
+
+const char* string_upper(const char* str) {
+    if (!str) return "";
+    size_t len = strlen(str);
+    char* res = (char*)pino_malloc(len + 1);
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = str[i];
+        if (c >= 'a' && c <= 'z') {
+            res[i] = c - 32;
+        } else {
+            res[i] = c;
+        }
+    }
+    res[len] = '\0';
+    return res;
+}
+
+const char* string_trim_start(const char* str) {
+    if (!str) return "";
+    while (*str == ' ' || *str == '\t' || *str == '\r' || *str == '\n' || *str == '\v' || *str == '\f') {
+        str++;
+    }
+    size_t len = strlen(str);
+    char* res = (char*)pino_malloc(len + 1);
+    memcpy(res, str, len);
+    res[len] = '\0';
+    return res;
+}
+
+const char* string_trim_end(const char* str) {
+    if (!str) return "";
+    size_t len = strlen(str);
+    while (len > 0) {
+        char c = str[len - 1];
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f') {
+            len--;
+        } else {
+            break;
+        }
+    }
+    char* res = (char*)pino_malloc(len + 1);
+    memcpy(res, str, len);
+    res[len] = '\0';
+    return res;
+}
+
+const char* string_trim(const char* str) {
+    if (!str) return "";
+    while (*str == ' ' || *str == '\t' || *str == '\r' || *str == '\n' || *str == '\v' || *str == '\f') {
+        str++;
+    }
+    size_t len = strlen(str);
+    while (len > 0) {
+        char c = str[len - 1];
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f') {
+            len--;
+        } else {
+            break;
+        }
+    }
+    char* res = (char*)pino_malloc(len + 1);
+    memcpy(res, str, len);
+    res[len] = '\0';
+    return res;
+}
+
+int string_contains(const char* str, const char* sub) {
+    if (!str || !sub) return 0;
+    return strstr(str, sub) != NULL;
+}
+
+int string_starts_with(const char* str, const char* prefix) {
+    if (!str || !prefix) return 0;
+    return strncmp(str, prefix, strlen(prefix)) == 0;
+}
+
+int string_ends_with(const char* str, const char* suffix) {
+    if (!str || !suffix) return 0;
+    size_t str_len = strlen(str);
+    size_t suf_len = strlen(suffix);
+    if (suf_len > str_len) return 0;
+    return strcmp(str + str_len - suf_len, suffix) == 0;
+}
+
+int string_index_of(const char* str, const char* sub) {
+    if (!str || !sub) return -1;
+    const char* pos = strstr(str, sub);
+    if (!pos) return -1;
+    int char_idx = 0;
+    while (str < pos) {
+        if ((*str & 0xC0) != 0x80) char_idx++;
+        str++;
+    }
+    return char_idx;
+}
+
+const char* string_substring(const char* str, int start, int len) {
+    if (!str || start < 0 || len <= 0) return "";
+    while (start > 0 && *str) {
+        if ((*str & 0xC0) != 0x80) start--;
+        str++;
+    }
+    while (*str && (*str & 0xC0) == 0x80) {
+        str++;
+    }
+    const char* end = str;
+    int count = len;
+    while (count > 0 && *end) {
+        if ((*end & 0xC0) != 0x80) count--;
+        end++;
+    }
+    while (*end && (*end & 0xC0) == 0x80) {
+        end++;
+    }
+    size_t byte_len = end - str;
+    char* res = (char*)pino_malloc(byte_len + 1);
+    memcpy(res, str, byte_len);
+    res[byte_len] = '\0';
+    return res;
+}
+
+const char* string_replace(const char* str, const char* old_sub, const char* new_sub) {
+    if (!str || !old_sub || !new_sub) return str ? str : "";
+    size_t old_len = strlen(old_sub);
+    size_t new_len = strlen(new_sub);
+    if (old_len == 0) return str;
+
+    size_t count = 0;
+    const char* tmp = str;
+    while ((tmp = strstr(tmp, old_sub))) {
+        count++;
+        tmp += old_len;
+    }
+
+    size_t res_len = strlen(str) + count * (new_len - old_len);
+    char* res = (char*)pino_malloc(res_len + 1);
+    char* dst = res;
+    while (*str) {
+        if (strstr(str, old_sub) == str) {
+            memcpy(dst, new_sub, new_len);
+            dst += new_len;
+            str += old_len;
+        } else {
+            *dst++ = *str++;
+        }
+    }
+    *dst = '\0';
+    return res;
+}
+
+Vector_string* string_split(const char* str, const char* sep) {
+    Vector_string* vec = Vector_string_construct(0);
+    if (!str || !sep) return vec;
+    size_t sep_len = strlen(sep);
+    if (sep_len == 0) {
+        while (*str) {
+            const char* next = str + 1;
+            while (*next && (*next & 0xC0) == 0x80) {
+                next++;
+            }
+            size_t byte_len = next - str;
+            char* item = (char*)pino_malloc(byte_len + 1);
+            memcpy(item, str, byte_len);
+            item[byte_len] = '\0';
+            Vector_string_push(vec, item);
+            str = next;
+        }
+        return vec;
+    }
+
+    const char* start = str;
+    const char* pos;
+    while ((pos = strstr(start, sep))) {
+        size_t len = pos - start;
+        char* item = (char*)pino_malloc(len + 1);
+        memcpy(item, start, len);
+        item[len] = '\0';
+        Vector_string_push(vec, item);
+        start = pos + sep_len;
+    }
+    size_t len = strlen(start);
+    char* item = (char*)pino_malloc(len + 1);
+    memcpy(item, start, len);
+    item[len] = '\0';
+    Vector_string_push(vec, item);
+    return vec;
+}

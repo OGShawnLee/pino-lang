@@ -639,7 +639,11 @@ public class TranspilerC {
                         }
                     }
                 } else if (bin.Operator == OperatorType.MemberAccess) {
-                    if (bin.Left.InferredType != null && bin.Left.InferredType.StartsWith("[]")) {
+                    if (bin.Left.InferredType == "string" && bin.Right is IdentifierExpression strId && (strId.Name == "len" || strId.Name == "length")) {
+                        Write("string_len(");
+                        TranspileExpression(bin.Left);
+                        Write(")");
+                    } else if (bin.Left.InferredType != null && bin.Left.InferredType.StartsWith("[]")) {
                         if (bin.Right is FunctionCallExpression call && (call.Callee == "push" || call.Callee == "add")) {
                             var cleanType = CleanTypeName(bin.Left.InferredType);
                             Write($"{cleanType}_push(");

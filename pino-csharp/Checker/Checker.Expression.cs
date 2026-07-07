@@ -808,11 +808,14 @@ public partial class Checker {
             }
             if (bin.Right is FunctionCallExpression methodCall) {
               string callee = methodCall.Callee;
-              if (callee == "lower" || callee == "upper" || callee == "trim" || callee == "replace") {
+              if (callee == "lower" || callee == "upper" || callee == "trim" || callee == "trim_start" || callee == "trim_end" || callee == "replace" || callee == "substring") {
                 return "string";
               }
-              if (callee == "contains") {
+              if (callee == "contains" || callee == "starts_with" || callee == "ends_with") {
                 return "bool";
+              }
+              if (callee == "index_of") {
+                return "int";
               }
               if (callee == "split") {
                 return "[]string";

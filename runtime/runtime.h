@@ -60,5 +60,18 @@ const char* regex_match_prefix(regex* re, const char* text);
 const char* regex_find(regex* re, const char* text);
 Vector_string* regex_find_all(regex* re, const char* text);
 const char* regex_replace(regex* re, const char* text, const char* repl);
+int string_len(const char* str);
+const char* string_lower(const char* str);
+const char* string_upper(const char* str);
+const char* string_trim(const char* str);
+int string_contains(const char* str, const char* sub);
+Vector_string* string_split(const char* str, const char* sep);
+const char* string_replace(const char* str, const char* old_sub, const char* new_sub);
+const char* string_substring(const char* str, int start, int len);
+int string_starts_with(const char* str, const char* prefix);
+int string_ends_with(const char* str, const char* suffix);
+int string_index_of(const char* str, const char* sub);
+const char* string_trim_start(const char* str);
+const char* string_trim_end(const char* str);
 
 #endif // PINO_RUNTIME_H
