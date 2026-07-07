@@ -17,9 +17,9 @@ class Program {
       useVM = true;
       argList.Remove("--vm");
     }
-    if (argList.Contains("-c") || argList.Contains("--compile")) {
+    if (argList.Contains("--c") || argList.Contains("--compile")) {
       watchCompile = true;
-      argList.Remove("-c");
+      argList.Remove("--c");
       argList.Remove("--compile");
     }
 
@@ -52,7 +52,11 @@ class Program {
           Console.WriteLine($"Error: File '{fileName}' not found.");
           System.Environment.Exit(1);
         }
-        RunFile(filePath, useVM);
+        if (watchCompile) {
+          CompileAndRunWatch(filePath);
+        } else {
+          RunFile(filePath, useVM);
+        }
         break;
 
       case "watch":
@@ -96,7 +100,7 @@ class Program {
   }
 
   static void ShowHelp() {
-    Console.WriteLine("Usage: pino [command] [arguments]");
+    Console.WriteLine("Usage: pino [command] [arguments] [flags]");
     Console.WriteLine("Commands:");
     Console.WriteLine("  help, h             : Display this help message");
     Console.WriteLine("  repl                : Start the Pino interactive REPL");
@@ -108,6 +112,10 @@ class Program {
     Console.WriteLine("  version, v          : Show Pino version information");
     Console.WriteLine("  update              : Check for and install compiler updates");
     Console.WriteLine("  <empty>             : Run main.pino in current directory if exists");
+    Console.WriteLine();
+    Console.WriteLine("Flags:");
+    Console.WriteLine("  --vm                : Run code using the bytecode VM (available for run, watch)");
+    Console.WriteLine("  --c, --compile      : Transpile to C, compile using TCC, execute, and auto-delete binary (available for run, watch)");
   }
 
   static void RunUpdate() {
