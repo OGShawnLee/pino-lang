@@ -768,9 +768,9 @@ class Program {
         System.Environment.Exit(1);
       }
 
-      // try {
-      //   File.Delete(cFilePath);
-      // } catch { /* Ignore */ }
+      try {
+        File.Delete(cFilePath);
+      } catch { /* Ignore */ }
 
       Console.ForegroundColor = ConsoleColor.Green;
       Console.WriteLine($"[SUCCESS] Compiled native binary successfully: {outputExeName}");
