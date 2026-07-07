@@ -1079,7 +1079,7 @@ Removes the specified key from the map and returns the value it had associated. 
 
 ## 11. Execution Engines
 
-Pino provides two execution engines that operate in parallel to offer advanced compatibility and performance engineering:
+Pino provides three execution engines that operate in parallel to offer advanced compatibility, portability, and peak native performance:
 
 1.  **AST Interpreter (Tree-Walk)**:
     This is the default main execution engine. It evaluates nodes of the Abstract Syntax Tree (AST) directly. It guarantees 100% compliance with the high-level features of the language, including advanced structuring, import modules, and late binding of interfaces.
@@ -1091,4 +1091,14 @@ Pino provides two execution engines that operate in parallel to offer advanced c
     An optimized engine designed for speed. It compiles the AST to a sequence of linear bytecode instructions (`OperationCode`) and executes them in a highly optimized stack-based virtual machine. Currently, it supports complex mathematical operations, function calls, and control loops optimized directly at the `Checker` level.
     ```bash
     pino run main.pino --vm
+    ```
+
+3.  **C Transpiler Engine (Experimental)**:
+    An advanced native code generator. It translates the verified Pino AST directly into standard C code (`.c`), compiling it natively via a bundled **Tiny C Compiler (TCC)** for instant development iterations, or optionally targeting optimizers like **GCC or Clang** for production builds. It integrates the **Boehm GC** static library for automatic memory management, producing standalone native executables (as small as 2KB to 4KB) with zero external dependencies.
+    ```bash
+    # Compiles and builds a native executable
+    pino compile main.pino
+
+    # Launches watcher mode to continuously compile, run, and auto-delete output
+    pino watch main.pino --compile
     ```

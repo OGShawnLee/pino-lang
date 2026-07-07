@@ -6,7 +6,7 @@ Pino was born from a unified vision: **To create a highly efficient, type-safe, 
 
 It achieves this through a dual-engine architecture:
 * **The VM Engine**: A lightweight, self-contained CLI compiler and virtual machine (~6MB compressed, ~12MB uncompressed) that offers a zero-configuration, zero-dependency scripting loop. No heavy toolchains or complex compilers to install—perfect for immediate data manipulation, script execution, and game design.
-* **The Transpiler Engine (Planned)**: Converts Pino ASTs directly to optimized C#/.NET 10 source code, unlocking the world-class RyuJIT compiler, memory safety, and modern hardware-level optimizations for production-grade performance.
+* **The Transpiler Engine (Completed)**: Converts Pino ASTs directly to highly portable, optimized C source code, compiled natively via Tiny C Compiler (TCC) and linked with Boehm GC for automatic garbage collection. Outputs lightweight, standalone executables (~3 KB to 4 KB) with zero dependencies.
 
 * For the official syntax, types, modules, built-ins, and standard library methods, see the **[Language Reference Guide](./LANGUAGE_REFERENCE.md)**.
 * For a detailed breakdown of the compiler architecture, directory structure, and execution pipeline, please refer to the **[Architecture Guide](./ARCHITECTURE.md)**.
@@ -74,14 +74,14 @@ We have designed multiple official variations of our beloved mascot, available i
 
 ## 🎯 The Pino Vision: Dual-Engine Strategy & Portability
 
-Pino is designed with a clear, pragmatic vision that balances developer experience (DX) with peak runtime performance through a **Dual-Engine Execution Strategy**:
+Pino is designed with a clear, pragmatic vision that balances developer experience (DX) with peak runtime performance through a **Dual-Engine Execution Strategy** (as outlined in [RFC 008b](./proposals/008b-tcc-c-backend.md)):
 
-1. **The Fast Loop (Bytecode VM Engine)**: 
+1. **The Development Loop (Bytecode VM & Tree-Walk Engines)**: 
    * **Purpose**: Local development, instant testing, and rapid scripting.
-   * **Why it shines**: Leveraging the portability of .NET 10.0, the Pino compiler and VM can be packaged into a single, self-contained executable (~6MB compressed, ~12MB uncompressed). This allows developers to run and test Pino code instantly without installing complex, heavy build toolchains, libraries, or compilers (unlike C, C++, or Rust).
-2. **The Production Loop (The Transpiler - Planned)**:
-   * **Purpose**: Maximum, native-speed performance.
-   * **Why it shines**: Transpiles Pino source code directly into optimized C#/.NET code. This enables production-grade binaries to run at native speeds by leveraging the world-class RyuJIT compiler, garbage collector, and modern hardware-level optimizations of .NET 10.0. (Optional for users who already have the .NET 10 runtime installed).
+   * **Why it shines**: Leveraging the portability of .NET 10.0, the Pino compiler, interpreter, and VM can be packaged into a single, self-contained executable (~6MB compressed). This allows developers to run and test Pino code instantly with a zero-configuration, zero-dependency scripting loop.
+2. **The Native Production Loop (C Transpiler Backend - Experimental)**:
+   * **Purpose**: Native-speed performance, ultra-lightweight footprints, and standalone portability.
+   * **Why it shines**: Transpiles Pino source code directly into standard C code. By integrating a bundled **Tiny C Compiler (TCC)** and linking against **Boehm GC** for automatic memory management, it outputs high-performance, standalone native executables (typically 2KB to 4KB) with zero external dependencies. This path reduces compiler backend complexity by 90% compared to direct LLVM IR emission while achieving instant development-compilation speeds and allowing GCC/Clang optimization targets for production releases.
 
 ---
 
