@@ -29,11 +29,21 @@ void pino_println_float(double val) {
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <sys/time.h>
 #include <unistd.h>
 #endif
 
 long long pino_time(void) {
-    return (long long)time(NULL) * 1000;
+#ifdef _WIN32
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    unsigned long long ticks = ((unsigned long long)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+    return (long long)((ticks - 116444736000000000ULL) / 10000);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+#endif
 }
 
 double pino_rand_float(void) {
