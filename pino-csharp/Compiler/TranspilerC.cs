@@ -211,6 +211,7 @@ public class TranspilerC {
         var finalSb = new StringBuilder();
         finalSb.AppendLine("#include <stdio.h>");
         finalSb.AppendLine("#include <stdlib.h>");
+        finalSb.AppendLine("#include <stdbool.h>");
         finalSb.AppendLine("#include <string.h>");
         finalSb.AppendLine("#include \"runtime/runtime.h\"");
         finalSb.AppendLine();
@@ -452,6 +453,10 @@ public class TranspilerC {
                         _varTypes[field.Identifier] = varType;
                     }
                 }
+                break;
+
+            case ElseStatement elseStmt:
+                TranspileStatement(elseStmt.Body);
                 break;
 
             case IfStatement ifs:
