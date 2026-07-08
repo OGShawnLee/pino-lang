@@ -405,6 +405,14 @@ public class TranspilerC {
             }
             return "struct " + clean;
         }
+        if (pinoType.Contains("[") && pinoType.EndsWith("]")) {
+            int bracketIdx = pinoType.IndexOf('[');
+            var baseName = pinoType.Substring(0, bracketIdx);
+            var argsStr = pinoType.Substring(bracketIdx + 1, pinoType.Length - bracketIdx - 2);
+            var pinoArgs = argsStr.Split(',').Select(a => a.Trim().Replace(" ", "_").Replace("[]", "Vector_").Replace("[", "_").Replace("]", "_").Replace(",", "_")).ToList();
+            var cleanTypeName = baseName + "_" + string.Join("_", pinoArgs);
+            return cleanTypeName + "*";
+        }
         if (_unions.ContainsKey(pinoType)) {
             return pinoType + "*";
         }
