@@ -17,6 +17,9 @@ public class TranspilerC {
     private Dictionary<string, UnionDeclaration> _unions = new Dictionary<string, UnionDeclaration>();
     private Dictionary<string, EnumDeclaration> _enums = new Dictionary<string, EnumDeclaration>();
     private Stack<string> _matchResultVars = new Stack<string>();
+    private Dictionary<string, string> _globalVarTypes = new Dictionary<string, string>();
+    private StringBuilder _globalDeclSb = new StringBuilder();
+    private bool _isGlobalScope = false;
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -42,6 +45,9 @@ public class TranspilerC {
         _unions.Clear();
         _enums.Clear();
         _matchResultVars.Clear();
+        _globalVarTypes.Clear();
+        _globalDeclSb.Clear();
+        _isGlobalScope = true;
         _sb.Clear();
 
         var declarations = new List<Declaration>();
@@ -66,6 +72,20 @@ public class TranspilerC {
                 _unions[unionDecl.Identifier] = unionDecl;
             } else if (decl is EnumDeclaration enumDecl) {
                 _enums[enumDecl.Identifier] = enumDecl;
+            }
+        }
+
+        // Register global variables (after Pass 0 so structs/unions/enums are known)
+        foreach (var stmt in topLevelStatements) {
+            if (stmt is VariableDeclaration varDecl) {
+                string typeStr = "void";
+                if (!string.IsNullOrEmpty(varDecl.Typing)) {
+                    typeStr = MapType(varDecl.Typing);
+                } else if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) {
+                    typeStr = MapType(varDecl.Value.InferredType);
+                }
+                _globalDeclSb.AppendLine($"{typeStr} {varDecl.Identifier};");
+                _globalVarTypes[varDecl.Identifier] = !string.IsNullOrEmpty(varDecl.Typing) ? varDecl.Typing : (varDecl.Value != null ? varDecl.Value.InferredType : "any");
             }
         }
 
@@ -196,12 +216,18 @@ public class TranspilerC {
         _sb.AppendLine("#endif");
         _sb.AppendLine("    srand((unsigned int)time(NULL));");
 
+        _isGlobalScope = true;
         foreach (var stmt in topLevelStatements) {
             TranspileStatement(stmt);
         }
 
         var userMain = declarations.FirstOrDefault(d => d is FunctionDeclaration fn && fn.Identifier == "main") as FunctionDeclaration;
         if (userMain != null && userMain.Body != null) {
+            _isGlobalScope = false;
+            _varTypes.Clear();
+            foreach (var kvp in _globalVarTypes) {
+                _varTypes[kvp.Key] = kvp.Value;
+            }
             TranspileStatement(userMain.Body);
         }
 
@@ -218,6 +244,7 @@ public class TranspilerC {
         finalSb.AppendLine("#include \"runtime/runtime.h\"");
         finalSb.AppendLine();
         finalSb.Append(forwardDeclSb.ToString());
+        finalSb.Append(_globalDeclSb.ToString());
         finalSb.Append(_tupleSb.ToString());
         finalSb.Append(structSb.ToString());
         finalSb.Append(_sb.ToString());
@@ -230,7 +257,11 @@ public class TranspilerC {
         var identifier = fnDecl.Identifier;
 
         _currentReturnType = fnDecl.ReturnType;
+        _isGlobalScope = false;
         _varTypes.Clear();
+        foreach (var kvp in _globalVarTypes) {
+            _varTypes[kvp.Key] = kvp.Value;
+        }
         foreach (var param in fnDecl.Parameters) {
             _varTypes[param.Identifier] = param.Typing;
         }
@@ -257,7 +288,11 @@ public class TranspilerC {
 
         _currentReturnType = fnDecl.ReturnType;
         // Setup method environment
+        _isGlobalScope = false;
         _varTypes.Clear();
+        foreach (var kvp in _globalVarTypes) {
+            _varTypes[kvp.Key] = kvp.Value;
+        }
         _currentStructFields.Clear();
         
         // Add fields to current struct fields
@@ -483,6 +518,22 @@ public class TranspilerC {
     }
 
     private void TranspileVariableDeclaration(VariableDeclaration varDecl) {
+        if (_isGlobalScope) {
+            if (varDecl.Value != null) {
+                if (IsStringConcat(varDecl.Value)) {
+                    Write($"{varDecl.Identifier} = (char*)pino_malloc(1024);\n");
+                    var (format, args) = ProcessStringAddition(varDecl.Value);
+                    var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                    WriteIndent();
+                    Write($"snprintf((char*){varDecl.Identifier}, 1024, \"{EscapeString(format)}\"{argsStr})");
+                } else {
+                    Write($"{varDecl.Identifier} = ");
+                    TranspileExpression(varDecl.Value);
+                }
+            }
+            return;
+        }
+
         var isConst = varDecl.Kind == VariableKind.Constant;
         var prefix = isConst ? "const " : "";
         
