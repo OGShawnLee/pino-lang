@@ -16,6 +16,19 @@ public partial class Checker {
     if (subst.TryGetValue(typing, out var concrete)) {
       return concrete;
     }
+    if (typing.Contains('_')) {
+      var parts = typing.Split('_');
+      bool changed = false;
+      for (int i = 0; i < parts.Length; i++) {
+        if (subst.TryGetValue(parts[i], out var subVal)) {
+          parts[i] = subVal;
+          changed = true;
+        }
+      }
+      if (changed) {
+        return string.Join("_", parts);
+      }
+    }
     if (typing.StartsWith("[]")) {
       return "[]" + SubstituteType(typing.Substring(2), subst);
     }
@@ -224,6 +237,7 @@ public partial class Checker {
 
     _structs[specializedName] = specializedStruct;
     _specializedStructs.Add(specializedStruct);
+    _specializedTypesArgs[specializedName] = concreteArgs;
 
     CheckStatement(specializedStruct);
 
@@ -243,6 +257,9 @@ public partial class Checker {
 
       case ReturnStatement ret:
         return ret with { Argument = SubstituteExpressionTypes(ret.Argument, subst) };
+
+      case YieldStatement yield:
+        return yield with { Value = SubstituteExpressionTypes(yield.Value, subst)! };
 
       case LoopStatement loop:
         return loop with {
@@ -343,6 +360,24 @@ public partial class Checker {
         return bin with {
           Left = SubstituteExpressionTypes(bin.Left, subst)!,
           Right = SubstituteExpressionTypes(bin.Right, subst)!
+        };
+
+      case UnaryExpression un:
+        return un with { Right = SubstituteExpressionTypes(un.Right, subst)! };
+
+      case BubbleExpression bubble:
+        return bubble with { Value = SubstituteExpressionTypes(bubble.Value, subst)! };
+
+      case IsExpression isExpr:
+        return isExpr with {
+          Value = SubstituteExpressionTypes(isExpr.Value, subst)!,
+          Pattern = SubstitutePatternTypes(isExpr.Pattern, subst)
+        };
+
+      case RecoveryExpression rec:
+        return rec with {
+          Value = SubstituteExpressionTypes(rec.Value, subst)!,
+          Body = SubstituteStatementTypes(rec.Body, subst)!
         };
 
       case TernaryExpression tern:
@@ -490,6 +525,51 @@ public partial class Checker {
             }
             InferGenericParamsFromTypes(patternSig.ReturnType, concreteSig.ReturnType, subst, genericParams);
           }
+        }
+      }
+      return;
+    }
+
+    int patternBracketIdx = pattern.IndexOf('[');
+    if (patternBracketIdx != -1 && pattern.EndsWith("]")) {
+      string patternArgsStr = pattern.Substring(patternBracketIdx + 1, pattern.Length - patternBracketIdx - 2);
+      var patternSubArgs = new List<string>();
+      int start = 0;
+      int depth = 0;
+      for (int i = 0; i < patternArgsStr.Length; i++) {
+        if (patternArgsStr[i] == '[') depth++;
+        else if (patternArgsStr[i] == ']') depth--;
+        else if (patternArgsStr[i] == ',' && depth == 0) {
+          patternSubArgs.Add(patternArgsStr.Substring(start, i - start).Trim());
+          start = i + 1;
+        }
+      }
+      patternSubArgs.Add(patternArgsStr.Substring(start).Trim());
+
+      List<string>? concreteArgs = null;
+      int concreteBracketIdx = concrete.IndexOf('[');
+      if (concreteBracketIdx != -1 && concrete.EndsWith("]")) {
+        string concreteArgsStr = concrete.Substring(concreteBracketIdx + 1, concrete.Length - concreteBracketIdx - 2);
+        var concreteSubArgs = new List<string>();
+        start = 0;
+        depth = 0;
+        for (int i = 0; i < concreteArgsStr.Length; i++) {
+          if (concreteArgsStr[i] == '[') depth++;
+          else if (concreteArgsStr[i] == ']') depth--;
+          else if (concreteArgsStr[i] == ',' && depth == 0) {
+            concreteSubArgs.Add(concreteArgsStr.Substring(start, i - start).Trim());
+            start = i + 1;
+          }
+        }
+        concreteSubArgs.Add(concreteArgsStr.Substring(start).Trim());
+        concreteArgs = concreteSubArgs;
+      } else {
+        _specializedTypesArgs.TryGetValue(concrete, out concreteArgs);
+      }
+
+      if (concreteArgs != null) {
+        for (int i = 0; i < Math.Min(patternSubArgs.Count, concreteArgs.Count); i++) {
+          InferGenericParamsFromTypes(patternSubArgs[i], concreteArgs[i], subst, genericParams);
         }
       }
       return;
@@ -826,6 +906,7 @@ public partial class Checker {
     );
 
     _interfaces[specializedName] = specializedInterface;
+    _specializedTypesArgs[specializedName] = concreteArgs;
 
     return specializedName;
   }
@@ -891,6 +972,7 @@ public partial class Checker {
 
     _unions[specializedName] = specializedUnion;
     _specializedUnions.Add(specializedUnion);
+    _specializedTypesArgs[specializedName] = concreteArgs;
 
     return specializedName;
   }

@@ -396,7 +396,8 @@ public partial class Checker {
             foreach (var arg in call.Arguments) {
               CheckExpression(arg);
             }
-            MonomorphizeFunctionCall(call);
+            string specializedName = MonomorphizeFunctionCall(call);
+            _functions.TryGetValue(specializedName, out fnDecl);
           } else {
             foreach (var arg in call.Arguments) {
               CheckExpression(arg);

@@ -16,6 +16,7 @@ public partial class Checker {
   private readonly List<StructDeclaration> _specializedStructs = new();
   private readonly List<FunctionDeclaration> _specializedFunctions = new();
   private readonly List<UnionDeclaration> _specializedUnions = new();
+  private readonly Dictionary<string, List<string>> _specializedTypesArgs = new();
 
   public bool IsModule { get; set; } = false;
 
@@ -237,9 +238,12 @@ public partial class Checker {
         CheckStatement(stmt);
       }
 
-      program.Statements.InsertRange(0, _specializedStructs);
+      var concreteStructs = _specializedStructs.Where(s => IsConcreteType(s.Identifier)).ToList();
+      var concreteUnions = _specializedUnions.Where(u => IsConcreteType(u.Identifier)).ToList();
+
+      program.Statements.InsertRange(0, concreteStructs);
       program.Statements.InsertRange(0, _specializedFunctions);
-      program.Statements.InsertRange(0, _specializedUnions);
+      program.Statements.InsertRange(0, concreteUnions);
 
       PopScope();
     } finally {
@@ -514,6 +518,39 @@ public partial class Checker {
       fields.Add((label, type));
     }
     return true;
+  }
+
+  private bool IsConcreteType(string typeName) {
+    if (string.IsNullOrEmpty(typeName)) return false;
+    if (typeName == "int" || typeName == "float" || typeName == "string" || typeName == "bool" || typeName == "void" || typeName == "rune" || typeName == "any") {
+      return true;
+    }
+    if (typeName.StartsWith("[]")) {
+      return IsConcreteType(typeName.Substring(2));
+    }
+    if (typeName.StartsWith("@(")) {
+      return true;
+    }
+    if (typeName.StartsWith("map[")) {
+      return true;
+    }
+    if (typeName.StartsWith("fn(")) {
+      return true;
+    }
+    if (typeName.Contains('_')) {
+      if (_specializedTypesArgs.TryGetValue(typeName, out var args)) {
+        return args.All(IsConcreteType);
+      }
+      var parts = typeName.Split('_');
+      for (int i = 1; i < parts.Length; i++) {
+        if (!IsConcreteType(parts[i])) return false;
+      }
+      return true;
+    }
+    if (FindStruct(typeName) != null || FindUnion(typeName) != null || FindEnum(typeName) != null) {
+      return true;
+    }
+    return false;
   }
 }
 

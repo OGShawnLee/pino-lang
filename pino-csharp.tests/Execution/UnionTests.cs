@@ -237,5 +237,23 @@ public class UnionTests {
     Assert.True((bool)env.Get("res_implicit"));
     Assert.Equal(42L, env.Get("res_bind"));
   }
+
+  [Fact]
+  public void TestGenericUnionIsExpressionExecution() {
+    var code = @"
+      @generic[Value]
+      fn if_present(option Option[Value], default Value) Value {
+        if option is Option::Some(value) {
+          return value
+        }
+        return default
+      }
+
+      val int_opt = Option::Some(12)
+      var res_val = if_present(int_opt, 0)
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(12L, env.Get("res_val"));
+  }
 }
 
