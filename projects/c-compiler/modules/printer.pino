@@ -137,19 +137,33 @@ fn print_ast_statement(node Statement, depth int) {
 				print_ast_statement(else_stmt, depth + 2)
 			}
 		}
+		when Statement::Compound(block) {
+			println("$indent Block")
+			print_ast_block(block, depth + 1)
+		}
 		when Statement::Null {
 			println("$indent Null")
 		}
 	}
 }
 
-fn print_ast_block_item(block_item Block, depth int) {
+fn print_ast_block_item(block_item BlockItem, depth int) {
 	match block_item {
-		when Block::Statement(statement) {
+		when BlockItem::Statement(statement) {
 			print_ast_statement(statement, depth + 1)
 		}
-		when Block::Declaration(declaration) {
-			print_ast_declaration(declaration, depth + 1)
+		when BlockItem::Declaration(declaration) {
+			print_ast_declaration(declaration, depth)
+		}
+	}
+}
+
+fn print_ast_block(block Block, depth int) {
+	match block {
+		when Block::Block(block_items) {
+			for block_item in block_items {
+				print_ast_block_item(block_item, depth + 1)
+			}
 		}
 	}
 }
@@ -161,12 +175,10 @@ pub fn print_ast(node AST, depth int) {
 			println("Program:")
 			print_ast(node, depth + 1)
 		}
-		when AST::Function(return_type, name, parameters, body) {
+		when AST::Function(return_type, name, parameters, body_block) {
 			val parameter_list_str = parameters:join(", ")
 			println("$indent Function $return_type $name($parameter_list_str):":trim())
-			for item in body {
-				print_ast_block_item(item, depth + 1)
-			}
+			print_ast_block(body_block, depth + 1)
 		}
 	}
 }

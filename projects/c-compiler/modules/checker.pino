@@ -1,8 +1,24 @@
 module Checker
 
-from Parser import AST, Block, Declaration, Statement, Expression
+from Parser import AST, Block, BlockItem, Declaration, Statement, Expression
+
+struct Entity {
+  unique_name string
+  is_from_current_block bool
+} 
 
 val TEMP_NAME_COUNTER = [0]
+
+fn copy_variable_map(variable_map map[string, Entity]) {
+	val new_map = map[string, Entity] {}
+	for name, entity in variable_map {
+		new_map[name] = Entity {
+      unique_name: entity:unique_name,
+      is_from_current_block: false
+    }
+	}
+	return new_map
+}
 
 fn generate_temp_name(initial_name string) {
 	val new_name = "$initial_name.$(TEMP_NAME_COUNTER[0])"
@@ -10,7 +26,7 @@ fn generate_temp_name(initial_name string) {
 	return new_name
 }
 
-fn resolve_expression(expression Expression, variable_map map[string, string]) Result[Expression, string] {
+fn resolve_expression(expression Expression, variable_map map[string, Entity]) Result[Expression, string] {
 	match expression {
 		when Expression::Assignment(left, right) {
 			if left is not Expression::Var {
@@ -26,7 +42,7 @@ fn resolve_expression(expression Expression, variable_map map[string, string]) R
 		}
 		when Expression::Var(name) {
 		 if name in variable_map {
-			return Result::Success(Expression::Var(variable_map[name]))
+			return Result::Success(Expression::Var(variable_map[name]:unique_name))
 		 } else {
 			return Result::Failure("CHECKER: Undeclared variable '$(name)'")
 		 }
@@ -49,15 +65,15 @@ fn resolve_expression(expression Expression, variable_map map[string, string]) R
 	}
 }
  
-fn resolve_declaration(declaration Declaration, variable_map map[string, string]) Result[Declaration, string] {
+fn resolve_declaration(declaration Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
   match declaration {
     when Declaration::Declaration(declaration_name, init) {
-      if declaration_name in variable_map {
+      if declaration_name in variable_map and variable_map[declaration_name]:is_from_current_block {
         return Result::Failure("CHECKER: Variable '$(declaration_name)' already declared.")
       }
 
       val unique_name = generate_temp_name(declaration_name)
-      variable_map[declaration_name] = unique_name
+      variable_map[declaration_name] = Entity { unique_name: unique_name, is_from_current_block: true }
 
       if init is Option::Some(expr) {
         val resolved_init = resolve_expression(expr, variable_map)?
@@ -73,7 +89,7 @@ fn resolve_declaration(declaration Declaration, variable_map map[string, string]
   }
 }
 
-fn resolve_statement(stmt Statement, variable_map map[string, string]) Result[Statement, string] {
+fn resolve_statement(stmt Statement, variable_map map[string, Entity]) Result[Statement, string] {
 	match stmt {
 		when Statement::Return(expr) {
 			val resolved_expr = resolve_expression(expr, variable_map)?
@@ -98,21 +114,42 @@ fn resolve_statement(stmt Statement, variable_map map[string, string]) Result[St
         Statement::If(resolved_condition, resolved_then, Option::None)
       )
     }
+    when Statement::Compound(block) {
+      val new_variable_map = copy_variable_map(variable_map)
+      val resolved_block = resolve_block(block, new_variable_map)?
+      return Result::Success(Statement::Compound(resolved_block))
+    }
 		when Statement::Null {
 			return Result::Success(Statement::Null)
 		}
 	}
 }
 
-fn resolve_block_item(item Block, variable_map map[string, string]) Result[Block, string] {
-  match item {
-    when Block::Statement(statement) {
+fn resolve_block_item(block_item BlockItem, variable_map map[string, Entity]) Result[BlockItem, string] {
+  match block_item {
+    when BlockItem::Statement(statement) {
       val resolved_statement = resolve_statement(statement, variable_map)?
-      return Result::Success(Block::Statement(resolved_statement))
+      return Result::Success(BlockItem::Statement(resolved_statement))
     }
-    when Block::Declaration(declaration) {
+    when BlockItem::Declaration(declaration) {
       val resolved_declaration = resolve_declaration(declaration, variable_map)?
-      return Result::Success(Block::Declaration(resolved_declaration))
+      return Result::Success(BlockItem::Declaration(resolved_declaration))
+    }
+  }
+}
+
+fn resolve_block(block Block, variable_map map[string, Entity]) Result[Block, string] {
+  match block {
+    when Block::Block(block_items) {
+      val resolved_block_item_list = []BlockItem
+      for block_item in block_items {
+        resolved_block_item_list:push(
+          resolve_block_item(block_item, variable_map)?
+        )
+      }
+      return Result::Success(
+        Block::Block(resolved_block_item_list)
+      )
     }
   }
 }
@@ -120,25 +157,14 @@ fn resolve_block_item(item Block, variable_map map[string, string]) Result[Block
 pub fn resolve_ast(node AST) Result[AST, string] {
   match node {
     when AST::Program(body) {
-      val resolved_body = []Block
-      val variable_map = map[string, string] {}
-
       return Result::Success(
         AST::Program(resolve_ast(body)?)
       )
     }
-    when AST::Function(name, return_type, params, blocks) {
-      val resolved_blocks = []Block
-      val variable_map = map[string, string] {}
-
-      for block in blocks {
-        resolved_blocks:push(
-          resolve_block_item(block, variable_map)?
-        )
-      }
-
+    when AST::Function(name, return_type, params, body_block) {
+      val variable_map = map[string, Entity] {}
       return Result::Success(
-        AST::Function(name, return_type, params, resolved_blocks)
+        AST::Function(name, return_type, params, resolve_block(body_block, variable_map)?)
       )
     }
   }

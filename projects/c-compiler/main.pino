@@ -9,7 +9,7 @@ from Compiler import compile_ast_to_asm
 fn main {
 	println("Welcome to the Pino C Compiler!")
 
-	val program = "int main(void) { if (2) return 20; else if (3) return 30; else return 40; }"
+	val program = "int main(void) { int a = 12; { int b = a + 13; } }"
 
 	println("C Input: $program")
 

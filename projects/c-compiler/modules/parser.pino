@@ -39,6 +39,7 @@ pub union Statement {
 	Return(Expression)
 	Expression(Expression)
 	If(Expression, Statement, Option[Statement])
+	Compound(Block)
 	Null
 }
 
@@ -46,14 +47,18 @@ pub union Declaration {
 	Declaration(string, Option[Expression])
 }
 
-pub union Block {
+pub union BlockItem {
 	Statement(Statement)
 	Declaration(Declaration)
 }
 
+pub union Block {
+	Block([]BlockItem)
+}
+
 pub union AST {
 	Program(AST)
-	Function(string, string, []string, []Block)
+	Function(string, string, []string, Block)
 }
 
 val PRECEDENCE_MAP = map[string, int] {
@@ -232,58 +237,88 @@ fn parse_declaration(stream TokenStream) Result[Declaration, string] {
 }
 
 fn parse_statement(stream TokenStream) Result[Statement, string] {
-	val curr = stream:current()? 
-
-	if curr:type == TokenType::Keyword and curr:value == "return" {
-		stream:next()? 
-		val expression = parse_expression(stream, 0)?
-		stream:expect_and(TokenType::Marker, it:value == ";") or {
-			return Result::Failure("PARSER: Unable to parse block. Expected ';' Marker.")
-		}
-		return Result::Success(Statement::Return(expression))
-	}
-
-	if (curr:type == TokenType::Keyword and curr:value == "if") {
-		stream:next()? 
-		stream:expect_and(TokenType::Marker, it:value == "(") or {
-			return Result::Failure("PARSER: Unable to parse if statement. Expected '(' Marker after 'if'.")
-		} 
-		val condition = parse_expression(stream, 0)?
-		stream:expect_and(TokenType::Marker, it:value == ")") or {
-			return Result::Failure("PARSER: Unable to parse if statement. Expected ')' Marker after condition.")
-		} 
-		val then_statement = parse_statement(stream)?
-
-		if stream:is_it(it:type == TokenType::Keyword and it:value == "else") {
+	match stream:current()?:value {
+		when "return" {
 			stream:next()? 
-			val else_statement = parse_statement(stream)?
-			return Result::Success(Statement::If(condition, then_statement, Option::Some(else_statement)))
+			val expression = parse_expression(stream, 0)?
+			stream:expect_and(TokenType::Marker, it:value == ";") or {
+				return Result::Failure("PARSER: Unable to parse statement. Expected ';' Marker.")
+			}
+			return Result::Success(Statement::Return(expression))
 		}
+		when "if" {
+			stream:next()? 
+			stream:expect_and(TokenType::Marker, it:value == "(") or {
+				return Result::Failure("PARSER: Unable to parse if statement. Expected '(' Marker after 'if'.")
+			} 
+			val condition = parse_expression(stream, 0)?
+			stream:expect_and(TokenType::Marker, it:value == ")") or {
+				return Result::Failure("PARSER: Unable to parse if statement. Expected ')' Marker after condition.")
+			} 
+			val then_statement = parse_statement(stream)?
 
-		return Result::Success(Statement::If(condition, then_statement, Option::None))
+			if stream:is_it(it:type == TokenType::Keyword and it:value == "else") {
+				stream:next()? 
+				val else_statement = parse_statement(stream)?
+				return Result::Success(Statement::If(condition, then_statement, Option::Some(else_statement)))
+			}
+
+			return Result::Success(Statement::If(condition, then_statement, Option::None))
+		}
+		when "{" {
+			val block = parse_block(stream)?
+			return Result::Success(Statement::Compound(block))
+		}
+		when ";" {
+			stream:next()? 
+			return Result::Success(Statement::Null)
+		}
+		else {
+			val expression = parse_expression(stream, 0)?
+
+			stream:expect_and(TokenType::Marker, it:value == ";") or {
+				return Result::Failure("PARSER: Unable to parse expression. Expected ';' Marker.")
+			}
+
+			return Result::Success(Statement::Expression(expression))
+		}
 	}
-
-	if curr:type == TokenType::Marker and curr:value == ";" {
-		stream:next()? 
-		return Result::Success(Statement::Null)
-	}
-	
-	val expression = parse_expression(stream, 0)?
-
-	stream:expect_and(TokenType::Marker, it:value == ";") or {
-		return Result::Failure("PARSER: Unable to parse block. Expected ';' Marker.")
-	}
-
-	return Result::Success(Statement::Expression(expression))
 }
 
-fn parse_block_item(stream TokenStream) Result[Block, string] {
+fn parse_block_item(stream TokenStream) Result[BlockItem, string] {
 	if stream:is_it(it:type == TokenType::Keyword and it:value == "int") {
 		val declaration = parse_declaration(stream)?
-		return Result::Success(Block::Declaration(declaration))
+		return Result::Success(BlockItem::Declaration(declaration))
 	}
 
-	return Result::Success(Block::Statement(parse_statement(stream)?))
+	return Result::Success(BlockItem::Statement(parse_statement(stream)?))
+}
+
+fn parse_block(stream TokenStream) Result[Block, string] {
+	stream:expect_and(TokenType::Marker, it:value == "{") or {
+		return Result::Failure("PARSER: Unable to parse block statement. Expected '{' Marker.")
+	}
+
+	val block = []BlockItem
+
+	for {
+		val curr = stream:current() or { 
+			break
+		}
+
+		if curr:value == "}" {
+			break
+		}
+
+		val block_item = parse_block_item(stream)?
+		block:push(block_item)
+	}
+
+	stream:expect_and(TokenType::Marker, it:value == "}") or {
+		return Result::Failure("PARSER: Unable to parse block statement. Expected '}' Marker.")
+	}
+
+	return Result::Success(Block::Block(block))
 }
 
 fn parse_function_definition(stream TokenStream) Result[AST, string] {
@@ -302,32 +337,13 @@ fn parse_function_definition(stream TokenStream) Result[AST, string] {
 	stream:expect_and(TokenType::Marker, it:value == ")") or {
 		return Result::Failure("PARSER: Unable to parse function. Expected ')' Marker.")
 	}
-	stream:expect_and(TokenType::Marker, it:value == "{") or {
-		return Result::Failure("PARSER: Unable to parse block. Expected '{' Marker.")
-	}
-
-	val function_body = []Block
-
-	for {
-		val curr = stream:current() or { 
-			break 
-		}
-
-		if curr:type == TokenType::Marker and curr:value == "}" {
-			stream:next()? 
-			break
-		}
-
-		val next_block_item = parse_block_item(stream)?
-		function_body:push(next_block_item)
-	}
 
 	return Result::Success(
 		AST::Function(
 			return_type_token:value,
 			name_token:value,
 			[parameter_type_token:value],
-			function_body
+			parse_block(stream)?
 		)
 	)
 }

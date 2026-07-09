@@ -1,6 +1,6 @@
 module Transformer
 
-from Parser import AST, Statement, Expression, UnaryOperator, BinaryOperator, Block, Declaration
+from Parser import AST, Statement, Expression, UnaryOperator, BinaryOperator, Block, BlockItem, Declaration
 
 pub union Val {
  Constant(int)
@@ -146,7 +146,7 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
  }
 }
 
-fn translate_stmt_to_tacky_instructions(stmt Statement, instr_list []Instruction) {
+fn translate_stmt_to_tacky_instr_list(stmt Statement, instr_list []Instruction) {
  match stmt {
 	when Statement::Return(expr) {
 	 val result = emit_tacky(expr, instr_list)
@@ -167,11 +167,11 @@ fn translate_stmt_to_tacky_instructions(stmt Statement, instr_list []Instruction
 
 				instr_list:push(Instruction::JumpIfZero(condition, else_label))
 
-				translate_stmt_to_tacky_instructions(then_stmt, instr_list)
+				translate_stmt_to_tacky_instr_list(then_stmt, instr_list)
 				instr_list:push(Instruction::Jump(end_label))
 
 				instr_list:push(Instruction::Label(else_label))
-				translate_stmt_to_tacky_instructions(else_stmt, instr_list)
+				translate_stmt_to_tacky_instr_list(else_stmt, instr_list)
 				instr_list:push(Instruction::Label(end_label))
 			}
 			when Option::None {
@@ -179,17 +179,20 @@ fn translate_stmt_to_tacky_instructions(stmt Statement, instr_list []Instruction
 
 				instr_list:push(Instruction::JumpIfZero(condition, end_label))
 
-				translate_stmt_to_tacky_instructions(then_stmt, instr_list)
+				translate_stmt_to_tacky_instr_list(then_stmt, instr_list)
 
 				instr_list:push(Instruction::Label(end_label))
 			}
 		}
 	}
+	when Statement::Compound(block) {
+		translate_block_to_tacky_instr_list(block, instr_list)
+	}
 	when Statement::Null {}
  }
 }
 
-fn translate_declaration_to_tacky_instruction(declaration Declaration, instr_list []Instruction) {
+fn translate_declaration_to_tacky_instr(declaration Declaration, instr_list []Instruction) {
 	match declaration {
 		when Declaration::Declaration(name, init_option) {
 			if init_option is Option::Some(expr) {
@@ -200,13 +203,23 @@ fn translate_declaration_to_tacky_instruction(declaration Declaration, instr_lis
 	}
 }
 
-fn translate_block_item_to_tacky_instructions(item Block, instr_list []Instruction) {
-	match item {
-		when Block::Declaration(declaration) {
-			translate_declaration_to_tacky_instruction(declaration, instr_list)
+fn translate_block_item_to_tack_instr_list(block_item BlockItem, instr_list []Instruction) {
+	match block_item {
+		when BlockItem::Declaration(declaration) {
+			translate_declaration_to_tacky_instr(declaration, instr_list)
 		}
-		when Block::Statement(stmt) {
-			translate_stmt_to_tacky_instructions(stmt, instr_list)
+		when BlockItem::Statement(stmt) {
+			translate_stmt_to_tacky_instr_list(stmt, instr_list)
+		}
+	}
+}
+
+fn translate_block_to_tacky_instr_list(block Block, instr_list []Instruction) {
+	match block {
+		when Block::Block(block_item_list) {
+			for block_item in block_item_list {
+				translate_block_item_to_tack_instr_list(block_item, instr_list)
+			}
 		}
 	}
 }
@@ -216,11 +229,10 @@ pub fn translate_ast_to_tacky(node AST) {
 	when AST::Program(node) {
 		return TACKY::Program(translate_ast_to_tacky(node))
 	}
-	when AST::Function(return_type, name, parameters, block_list) {
+	when AST::Function(return_type, name, parameters, body_block) {
 		val instr_list = []Instruction
-		for item in block_list {
-			translate_block_item_to_tacky_instructions(item, instr_list)
-		}
+
+		translate_block_to_tacky_instr_list(body_block, instr_list)
 
 		val is_empty_list = instr_list:len == 0
 		if is_empty_list or (instr_list[instr_list:len - 1] is not Instruction::Ret) {
