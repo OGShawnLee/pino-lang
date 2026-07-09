@@ -388,5 +388,12 @@ public partial class CheckerTests {
       val check = x is Option::Some
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input2));
+
+    // 3. Generic type mismatch
+    var input3 = @"
+      val state = Option::Some(""hello"")
+      val check = state is Option[int]::Some
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input3));
   }
 }

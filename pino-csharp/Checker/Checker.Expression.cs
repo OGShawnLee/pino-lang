@@ -663,14 +663,17 @@ public partial class Checker {
 
         if (isExpr.Pattern is VariantPattern varPat) {
           string patternUnionName = varPat.UnionName;
-          int bracketIdx = patternUnionName.IndexOf('[');
-          string basePatternUnionName = bracketIdx != -1 ? patternUnionName.Substring(0, bracketIdx) : patternUnionName;
+          bool isExplicitGeneric = patternUnionName.Contains("[");
 
-          int concreteBracketIdx = normLhsType.IndexOf('_');
-          string baseConcreteUnionName = concreteBracketIdx != -1 ? normLhsType.Substring(0, concreteBracketIdx) : normLhsType;
+          if (isExplicitGeneric) {
+            varPat.UnionName = NormalizeType(patternUnionName);
+          } else {
+            int concreteBracketIdx = normLhsType.IndexOf('_');
+            string baseConcreteUnionName = concreteBracketIdx != -1 ? normLhsType.Substring(0, concreteBracketIdx) : normLhsType;
 
-          if (basePatternUnionName == baseConcreteUnionName && normLhsType.Contains("_")) {
-            varPat.UnionName = normLhsType;
+            if (patternUnionName == baseConcreteUnionName && normLhsType.Contains("_")) {
+              varPat.UnionName = normLhsType;
+            }
           }
 
           var targetUnion = FindUnion(varPat.UnionName);

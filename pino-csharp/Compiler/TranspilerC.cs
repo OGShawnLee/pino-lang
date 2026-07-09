@@ -20,6 +20,7 @@ public class TranspilerC {
     private Dictionary<string, string> _globalVarTypes = new Dictionary<string, string>();
     private StringBuilder _globalDeclSb = new StringBuilder();
     private bool _isGlobalScope = false;
+    private int _blockDepth = 0;
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -526,7 +527,7 @@ public class TranspilerC {
     }
 
     private void TranspileVariableDeclaration(VariableDeclaration varDecl) {
-        if (_isGlobalScope) {
+        if (_isGlobalScope && _blockDepth == 0) {
             if (varDecl.Value != null) {
                 if (IsStringConcat(varDecl.Value)) {
                     Write($"{varDecl.Identifier} = (char*)pino_malloc(1024);\n");
@@ -1096,28 +1097,33 @@ public class TranspilerC {
             return;
         }
 
-        if (stmt is BlockStatement block) {
-            Write("{\n");
-            _indent++;
-            foreach (var binding in bindings) {
-                WriteLine(binding);
+        _blockDepth++;
+        try {
+            if (stmt is BlockStatement block) {
+                Write("{\n");
+                _indent++;
+                foreach (var binding in bindings) {
+                    WriteLine(binding);
+                }
+                foreach (var child in block.Statements) {
+                    TranspileStatement(child);
+                }
+                _indent--;
+                WriteIndent();
+                Write("}");
+            } else {
+                Write("{\n");
+                _indent++;
+                foreach (var binding in bindings) {
+                    WriteLine(binding);
+                }
+                TranspileStatement(stmt);
+                _indent--;
+                WriteIndent();
+                Write("}");
             }
-            foreach (var child in block.Statements) {
-                TranspileStatement(child);
-            }
-            _indent--;
-            WriteIndent();
-            Write("}");
-        } else {
-            Write("{\n");
-            _indent++;
-            foreach (var binding in bindings) {
-                WriteLine(binding);
-            }
-            TranspileStatement(stmt);
-            _indent--;
-            WriteIndent();
-            Write("}");
+        } finally {
+            _blockDepth--;
         }
     }
 
@@ -1144,22 +1150,27 @@ public class TranspilerC {
     }
 
     private void TranspileBlockOrStatement(Statement stmt) {
-        if (stmt is BlockStatement block) {
-            Write("{\n");
-            _indent++;
-            foreach (var child in block.Statements) {
-                TranspileStatement(child);
+        _blockDepth++;
+        try {
+            if (stmt is BlockStatement block) {
+                Write("{\n");
+                _indent++;
+                foreach (var child in block.Statements) {
+                    TranspileStatement(child);
+                }
+                _indent--;
+                WriteIndent();
+                Write("}");
+            } else {
+                Write("{\n");
+                _indent++;
+                TranspileStatement(stmt);
+                _indent--;
+                WriteIndent();
+                Write("}");
             }
-            _indent--;
-            WriteIndent();
-            Write("}");
-        } else {
-            Write("{\n");
-            _indent++;
-            TranspileStatement(stmt);
-            _indent--;
-            WriteIndent();
-            Write("}");
+        } finally {
+            _blockDepth--;
         }
     }
 
