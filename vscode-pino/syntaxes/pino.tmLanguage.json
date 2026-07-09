@@ -90,7 +90,7 @@
       "patterns": [
         {
           "name": "keyword.control.pino",
-          "match": "\\b(if|then|else|match|when|for|in|return|break|continue|module|import|from)\\b"
+          "match": "\\b(if|then|else|match|when|for|in|return|break|continue|module|import|from|yield)\\b"
         },
         {
           "name": "storage.type.pino",
@@ -134,7 +134,7 @@
       "patterns": [
         {
           "name": "keyword.operator.logical.pino",
-          "match": "\\b(and|or|not)\\b"
+          "match": "\\b(and|or|not|is)\\b"
         },
         {
           "name": "keyword.operator.comparison.pino",

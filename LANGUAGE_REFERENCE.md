@@ -614,6 +614,51 @@ Data::Int(1) == Data::Text("hi")   # false — different variant
 
 Equality is recursive: if the payload itself contains a union, the same rules apply depth-first.
 
+#### Variant Testing (`is` and `is not`):
+Pino provides the `is` and `is not` operators to test if a union or enum value belongs to a specific variant, and optionally bind its payload fields to local variables.
+
+Unlike `==` which compares both the variant and payload equality of two instances, `is` allows testing just the variant type, or checking and extracting payload contents.
+
+**Checking plain variants (no payload / tag-only):**
+```pino
+val name_opt = Option::Some("Shawn Lee")
+
+if name_opt is Option::Some {
+    println("It has some value!")
+}
+
+if name_opt is not Option::None {
+    println("It is not empty!")
+}
+```
+
+**Pattern Matching & Variable Extraction:**
+If the variant has associated payload types, checking it with `is` allows destructuring and binding those payload values to local constant variables inside the block (consequent branch) of the conditional `if` statement:
+```pino
+val name_opt = Option::Some("Shawn Lee")
+
+if name_opt is Option::Some(name) {
+    # 'name' is automatically bound to the payload ("Shawn Lee")
+    # and is only visible within this block scope.
+    val message = "$name is cool"
+    println(message)
+}
+```
+
+**Checking Generic Unions:**
+When checking generic unions, you can explicitly specify the generic type arguments (e.g. `Option[string]::Some`) or let the compiler implicitly infer it. If you specify an incompatible generic argument, a compile-time type check error will be thrown:
+```pino
+val name_opt = Option::Some("Shawn Lee") # inferred as Option[string]
+
+# Explicit type parameter check (succeeds)
+if name_opt is Option[string]::Some(name) {
+    println("Hello $name")
+}
+
+# Explicit type parameter check mismatch (fails to compile)
+# if name_opt is Option[int]::Some { ... }
+```
+
 ## 8. Error Handling
 
 Pino provides a modern, type-safe, and highly robust error-handling model inspired by Rust and Zig. Instead of throwing arbitrary unchecked runtime exceptions, Pino encourages handling expected failures explicitly through monadic sum types (`Result` and `Option`), combined with clean compiler-enforced recovery structures.
