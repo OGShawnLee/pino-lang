@@ -345,4 +345,48 @@ public partial class CheckerTests {
     ";
     Assert.ThrowsAny<Exception>(() => CheckCode(input));
   }
+
+  [Fact]
+  public void TestUnionIsExpressionChecking() {
+    var input = @"
+      @generic[T]
+      union RemoteData {
+        Loading
+        Success(T)
+        Failure(string)
+      }
+
+      val state = RemoteData::Success(42)
+
+      # 1. Simple check
+      val a = state is RemoteData::Loading
+      # 2. Negated check
+      val b = state is not RemoteData::Loading
+      # 3. Explicit generic check
+      val c = state is RemoteData[int]::Success
+
+      # 4. Pattern bindings scoping
+      if state is RemoteData[int]::Success(number) {
+        val y = number + 10
+      }
+    ";
+    CheckCode(input);
+  }
+
+  [Fact]
+  public void TestUnionIsExpressionErrors() {
+    // 1. Non-existent variant
+    var input1 = @"
+      val state = Option::Some(10)
+      val check = state is Option::Success
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input1));
+
+    // 2. Left-hand side is not a union or enum type
+    var input2 = @"
+      val x = 12
+      val check = x is Option::Some
+    ";
+    Assert.ThrowsAny<Exception>(() => CheckCode(input2));
+  }
 }

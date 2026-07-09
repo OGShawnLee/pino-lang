@@ -37,14 +37,27 @@ public partial class Evaluator {
         ExecuteLoop(loop, env);
         break;
 
-      case IfStatement ifs:
+      case IfStatement ifs: {
+        _lastConditionBindings = null;
         var cond = Evaluate(ifs.Condition, env);
         if (IsTruthy(cond)) {
-          Execute(ifs.Consequent, env);
+          var consequentEnv = new Environment(env);
+          if (_lastConditionBindings != null) {
+            foreach (var kvp in _lastConditionBindings) {
+              consequentEnv.Define(kvp.Key, kvp.Value, true);
+            }
+          }
+          if (ifs.Consequent is BlockStatement block) {
+            ExecuteBlock(block.Statements, consequentEnv);
+          } else {
+            Execute(ifs.Consequent, consequentEnv);
+          }
         } else if (ifs.Alternate != null) {
           Execute(ifs.Alternate, env);
         }
+        _lastConditionBindings = null;
         break;
+      }
 
       case ElseStatement elseStmt:
         Execute(elseStmt.Body, env);
@@ -332,10 +345,13 @@ public partial class Evaluator {
 
       case VariantPattern varPat:
         if (value is PinoEnumValue enumVal) {
-          return enumVal.EnumName == varPat.UnionName && enumVal.Member == varPat.VariantName;
+          return GetBaseUnionName(enumVal.EnumName) == GetBaseUnionName(varPat.UnionName) && enumVal.Member == varPat.VariantName;
         }
         if (value is PinoUnionValue unionVal) {
-          if (unionVal.UnionName == varPat.UnionName && unionVal.VariantName == varPat.VariantName) {
+          if (GetBaseUnionName(unionVal.UnionName) == GetBaseUnionName(varPat.UnionName) && unionVal.VariantName == varPat.VariantName) {
+            if (varPat.SubPatterns.Count == 0) {
+              return true;
+            }
             if (varPat.SubPatterns.Count != unionVal.Payload.Count) {
               return false;
             }
@@ -352,5 +368,14 @@ public partial class Evaluator {
       default:
         return false;
     }
+  }
+
+  private string GetBaseUnionName(string name) {
+    if (string.IsNullOrEmpty(name)) return name;
+    int idx = name.IndexOf('_');
+    if (idx != -1) return name.Substring(0, idx);
+    idx = name.IndexOf('[');
+    if (idx != -1) return name.Substring(0, idx);
+    return name;
   }
 }

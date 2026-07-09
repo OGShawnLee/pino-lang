@@ -154,8 +154,24 @@ public partial class Parser {
   private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
     var expression = ParsePrimaryExpression(stream, allowStruct, allowMemberAccess);
 
-    while (stream.HasNext && (stream.Current.Type == TokenType.Operator || stream.Current.IsKeyword(KeywordType.In)) && !stream.Current.IsOperator(OperatorType.QuestionMark)) {
+    while (stream.HasNext && (stream.Current.Type == TokenType.Operator || stream.Current.IsKeyword(KeywordType.In) || stream.Current.IsKeyword(KeywordType.Is)) && !stream.Current.IsOperator(OperatorType.QuestionMark)) {
       var opToken = stream.Current;
+
+      if (opToken.IsKeyword(KeywordType.Is)) {
+        if (minPrecedence > 4) {
+          break;
+        }
+        stream.Consume(); // consume 'is'
+        bool isNot = false;
+        if (stream.Current.IsOperator(OperatorType.Not)) {
+          stream.Consume(); // consume 'not'
+          isNot = true;
+        }
+        var pattern = ParsePattern(stream);
+        expression = new IsExpression(expression, pattern, isNot);
+        continue;
+      }
+
       var opType = opToken.IsKeyword(KeywordType.In) ? OperatorType.In : opToken.Operator!.Value;
       if (opType == OperatorType.MemberAccess && !allowMemberAccess) {
         break;

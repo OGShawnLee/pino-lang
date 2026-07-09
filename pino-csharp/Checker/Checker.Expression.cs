@@ -467,6 +467,10 @@ public partial class Checker {
         CheckExpression(bub.Value);
         break;
 
+      case IsExpression isExpr:
+        CheckExpression(isExpr.Value);
+        break;
+
       case RecoveryExpression rec:
         CheckExpression(rec.Value);
         break;
@@ -651,6 +655,40 @@ public partial class Checker {
         }
 
         throw new Exception($"TYPE CHECK ERROR: Cannot use '?' operator on union type '{innerType}'. It must be a Result or Option.");
+      }
+
+      case IsExpression isExpr: {
+        string lhsType = InferType(isExpr.Value);
+        string normLhsType = NormalizeType(lhsType);
+
+        if (isExpr.Pattern is VariantPattern varPat) {
+          string patternUnionName = varPat.UnionName;
+          int bracketIdx = patternUnionName.IndexOf('[');
+          string basePatternUnionName = bracketIdx != -1 ? patternUnionName.Substring(0, bracketIdx) : patternUnionName;
+
+          int concreteBracketIdx = normLhsType.IndexOf('_');
+          string baseConcreteUnionName = concreteBracketIdx != -1 ? normLhsType.Substring(0, concreteBracketIdx) : normLhsType;
+
+          if (basePatternUnionName == baseConcreteUnionName && normLhsType.Contains("_")) {
+            varPat.UnionName = normLhsType;
+          }
+
+          var targetUnion = FindUnion(varPat.UnionName);
+          var targetEnum = FindEnum(varPat.UnionName);
+          if (targetUnion == null && targetEnum == null) {
+            throw new Exception($"TYPE CHECK ERROR: Cannot match variant '{varPat.VariantName}' against non-union type '{lhsType}'.");
+          }
+        }
+
+        bool oldSuppress = _suppressVariableDeclaration;
+        _suppressVariableDeclaration = true;
+        try {
+          CheckPattern(isExpr.Pattern, lhsType);
+        } finally {
+          _suppressVariableDeclaration = oldSuppress;
+        }
+
+        return "bool";
       }
 
       case RecoveryExpression rec: {

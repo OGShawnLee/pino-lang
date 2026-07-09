@@ -200,7 +200,28 @@ public partial class Checker {
 
       case IfStatement ifs:
         CheckExpression(ifs.Condition);
-        CheckStatement(ifs.Consequent);
+        
+        var boundVars = new List<(string Name, string Type)>();
+        ExtractBoundVariables(ifs.Condition, boundVars, true);
+
+        if (ifs.Consequent is BlockStatement consequentBlock) {
+          PushScope();
+          foreach (var bv in boundVars) {
+            DeclareVariable(bv.Name, bv.Type);
+          }
+          foreach (var s in consequentBlock.Statements) {
+            CheckStatement(s);
+          }
+          PopScope();
+        } else {
+          PushScope();
+          foreach (var bv in boundVars) {
+            DeclareVariable(bv.Name, bv.Type);
+          }
+          CheckStatement(ifs.Consequent);
+          PopScope();
+        }
+
         if (ifs.Alternate != null) {
           CheckStatement(ifs.Alternate);
         }
@@ -363,6 +384,42 @@ public partial class Checker {
     }
   }
 
+  private void ExtractBoundVariables(Expression expr, List<(string Name, string Type)> boundVars, bool active) {
+    if (expr is IsExpression isExpr) {
+      if (active && !isExpr.IsNot) {
+        string lhsType = InferType(isExpr.Value);
+        CollectPatternVariables(isExpr.Pattern, lhsType, boundVars);
+      }
+    } else if (expr is UnaryExpression un && un.Operator == OperatorType.Not) {
+      ExtractBoundVariables(un.Right, boundVars, !active);
+    } else if (expr is BinaryExpression bin) {
+      if (bin.Operator == OperatorType.And) {
+        ExtractBoundVariables(bin.Left, boundVars, active);
+        ExtractBoundVariables(bin.Right, boundVars, active);
+      }
+    }
+  }
+
+  private void CollectPatternVariables(Pattern pattern, string targetType, List<(string Name, string Type)> vars) {
+    switch (pattern) {
+      case IdentifierPattern id:
+        vars.Add((id.Name, targetType));
+        break;
+      case VariantPattern varPat:
+        string patternUnionName = varPat.UnionName;
+        var unionDecl = FindUnion(patternUnionName);
+        if (unionDecl != null) {
+          var variant = unionDecl.Variants.Find(v => v.Identifier == varPat.VariantName);
+          if (variant != null) {
+            for (int i = 0; i < Math.Min(varPat.SubPatterns.Count, variant.AssociatedTypes.Count); i++) {
+              CollectPatternVariables(varPat.SubPatterns[i], variant.AssociatedTypes[i], vars);
+            }
+          }
+        }
+        break;
+    }
+  }
+
   private bool IsPrimitiveType(string name) {
     return name == "bool" || name == "int" || name == "float" || name == "string" || name == "rune" || name == "regex" || name == "any";
   }
@@ -426,7 +483,11 @@ public partial class Checker {
           throw new Exception($"TYPE CHECK ERROR: Union '{varPat.UnionName}' has no variant '{varPat.VariantName}'.");
         }
         if (varPat.SubPatterns.Count != variant.AssociatedTypes.Count) {
-          throw new Exception($"TYPE CHECK ERROR: Union variant '{varPat.VariantName}' expects {variant.AssociatedTypes.Count} subpatterns, but pattern has {varPat.SubPatterns.Count}.");
+          if (varPat.SubPatterns.Count == 0 && _suppressVariableDeclaration) {
+            // Allow tag-only check
+          } else {
+            throw new Exception($"TYPE CHECK ERROR: Union variant '{varPat.VariantName}' expects {variant.AssociatedTypes.Count} subpatterns, but pattern has {varPat.SubPatterns.Count}.");
+          }
         }
         for (int i = 0; i < varPat.SubPatterns.Count; i++) {
           CheckPattern(varPat.SubPatterns[i], variant.AssociatedTypes[i]);

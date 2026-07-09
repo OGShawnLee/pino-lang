@@ -267,6 +267,7 @@ public partial class Evaluator {
   private readonly HashSet<string> _currentlyLoadingModules = new();
   private string _currentFilePath = "";
   public Stack<string> CallStack { get; } = new();
+  private Dictionary<string, object?>? _lastConditionBindings = null;
 
   public Evaluator() {
     // Define built-in functions

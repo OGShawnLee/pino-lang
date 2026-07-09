@@ -343,6 +343,21 @@ public partial class Evaluator {
         }
         return mapDict;
 
+      case IsExpression isExpr: {
+        var lhsVal = Evaluate(isExpr.Value, env);
+        var bindings = new Dictionary<string, object?>();
+        bool matches = MatchPattern(isExpr.Pattern, lhsVal, env, bindings);
+        if (matches) {
+          if (_lastConditionBindings == null) {
+            _lastConditionBindings = new Dictionary<string, object?>();
+          }
+          foreach (var kvp in bindings) {
+            _lastConditionBindings[kvp.Key] = kvp.Value;
+          }
+        }
+        return isExpr.IsNot ? !matches : matches;
+      }
+
       default:
         throw new Exception($"RUNTIME ERROR: Unknown expression type '{expression.GetType().Name}'.");
     }

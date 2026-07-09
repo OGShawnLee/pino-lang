@@ -202,5 +202,40 @@ public class UnionTests {
     var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
     Assert.Equal(42L, env.Get("res"));
   }
+
+  [Fact]
+  public void TestUnionIsExpressionExecution() {
+    var code = @"
+      @generic[T]
+      union RemoteData {
+        Loading
+        Success(T)
+        Failure(string)
+      }
+
+      var res_simple = false
+      var res_not = false
+      var res_implicit = false
+      var res_bind = 0
+
+      fn run_test {
+        val state = RemoteData::Success(42)
+
+        res_simple = state is RemoteData[int]::Success
+        res_not = state is not RemoteData[int]::Loading
+        res_implicit = state is RemoteData::Success
+
+        if state is RemoteData::Success(value) {
+          res_bind = value
+        }
+      }
+      run_test()
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.True((bool)env.Get("res_simple"));
+    Assert.True((bool)env.Get("res_not"));
+    Assert.True((bool)env.Get("res_implicit"));
+    Assert.Equal(42L, env.Get("res_bind"));
+  }
 }
 

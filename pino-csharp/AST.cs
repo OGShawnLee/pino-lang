@@ -103,6 +103,8 @@ public record UnaryExpression(OperatorType Operator, Expression Right) : Express
 
 public record BubbleExpression(Expression Value) : Expression;
 
+public record IsExpression(Expression Value, Pattern Pattern, bool IsNot) : Expression;
+
 public record RecoveryExpression(Expression Value, Statement Body) : Expression;
 
 public record TernaryExpression(Expression Condition, Expression Consequent, Expression Alternate) : Expression;

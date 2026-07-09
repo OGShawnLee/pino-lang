@@ -956,6 +956,27 @@ public class TranspilerC {
                 }
                 break;
 
+            case IsExpression isExpr:
+                {
+                    var oldSb = _sb;
+                    _sb = new StringBuilder();
+                    TranspileExpression(isExpr.Value);
+                    var lhsTarget = _sb.ToString();
+                    _sb = oldSb;
+
+                    var condList = new List<string>();
+                    var bindingList = new List<string>();
+                    string targetType = isExpr.Value.InferredType ?? "any";
+                    BuildPatternMatch(isExpr.Pattern, lhsTarget, targetType, condList, bindingList);
+
+                    var condStr = condList.Count > 0 ? string.Join(" && ", condList) : "true";
+                    if (isExpr.IsNot) {
+                        condStr = $"!({condStr})";
+                    }
+                    Write(condStr);
+                }
+                break;
+
             default:
                 throw new NotImplementedException($"Expression type {expr.GetType().Name} not implemented in Transpiler.");
         }
@@ -1044,6 +1065,62 @@ public class TranspilerC {
         };
     }
 
+    private void BuildBindingsFromCondition(Expression expr, List<string> bindings, bool active) {
+        if (expr is IsExpression isExpr) {
+            if (active && !isExpr.IsNot) {
+                var oldSb = _sb;
+                _sb = new StringBuilder();
+                TranspileExpression(isExpr.Value);
+                var lhsTarget = _sb.ToString();
+                _sb = oldSb;
+
+                var condList = new List<string>();
+                var bindingList = new List<string>();
+                string targetType = isExpr.Value.InferredType ?? "any";
+                BuildPatternMatch(isExpr.Pattern, lhsTarget, targetType, condList, bindingList);
+                bindings.AddRange(bindingList);
+            }
+        } else if (expr is UnaryExpression un && un.Operator == OperatorType.Not) {
+            BuildBindingsFromCondition(un.Right, bindings, !active);
+        } else if (expr is BinaryExpression bin) {
+            if (bin.Operator == OperatorType.And) {
+                BuildBindingsFromCondition(bin.Left, bindings, active);
+                BuildBindingsFromCondition(bin.Right, bindings, active);
+            }
+        }
+    }
+
+    private void TranspileBlockOrStatementWithBindings(Statement stmt, List<string> bindings) {
+        if (bindings.Count == 0) {
+            TranspileBlockOrStatement(stmt);
+            return;
+        }
+
+        if (stmt is BlockStatement block) {
+            Write("{\n");
+            _indent++;
+            foreach (var binding in bindings) {
+                WriteLine(binding);
+            }
+            foreach (var child in block.Statements) {
+                TranspileStatement(child);
+            }
+            _indent--;
+            WriteIndent();
+            Write("}");
+        } else {
+            Write("{\n");
+            _indent++;
+            foreach (var binding in bindings) {
+                WriteLine(binding);
+            }
+            TranspileStatement(stmt);
+            _indent--;
+            WriteIndent();
+            Write("}");
+        }
+    }
+
     private void TranspileIf(IfStatement ifs, bool isElseIf) {
         if (!isElseIf) {
             WriteIndent();
@@ -1051,7 +1128,10 @@ public class TranspilerC {
         Write("if (");
         TranspileExpression(ifs.Condition);
         Write(") ");
-        TranspileBlockOrStatement(ifs.Consequent);
+
+        var bindings = new List<string>();
+        BuildBindingsFromCondition(ifs.Condition, bindings, true);
+        TranspileBlockOrStatementWithBindings(ifs.Consequent, bindings);
 
         if (ifs.Alternate != null) {
             Write(" else ");

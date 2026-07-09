@@ -69,4 +69,45 @@ public class ParserUnionsTests {
     var subPat = Assert.IsType<IdentifierPattern>(pat.SubPatterns[0]);
     Assert.Equal("name", subPat.Name);
   }
+
+  [Fact]
+  public void TestParseUnionIsExpression() {
+    var input = @"
+      val check = x is Option::Some
+      val not_check = x is not Option::Some
+      val bind_check = x is Option::Some(value)
+      val gen_check = state is RemoteData[int]::Success
+    ";
+    var program = Parser.ParseProgramString(input, injectPrelude: false);
+    Assert.Equal(4, program.Statements.Count);
+
+    // 1. check = x is Option::Some
+    var v0 = Assert.IsType<VariableDeclaration>(program.Statements[0]);
+    var isExpr0 = Assert.IsType<IsExpression>(v0.Value);
+    Assert.False(isExpr0.IsNot);
+    var pat0 = Assert.IsType<VariantPattern>(isExpr0.Pattern);
+    Assert.Equal("Option", pat0.UnionName);
+    Assert.Equal("Some", pat0.VariantName);
+    Assert.Empty(pat0.SubPatterns);
+
+    // 2. not_check = x is not Option::Some
+    var v1 = Assert.IsType<VariableDeclaration>(program.Statements[1]);
+    var isExpr1 = Assert.IsType<IsExpression>(v1.Value);
+    Assert.True(isExpr1.IsNot);
+
+    // 3. bind_check = x is Option::Some(value)
+    var v2 = Assert.IsType<VariableDeclaration>(program.Statements[2]);
+    var isExpr2 = Assert.IsType<IsExpression>(v2.Value);
+    var pat2 = Assert.IsType<VariantPattern>(isExpr2.Pattern);
+    Assert.Single(pat2.SubPatterns);
+    var subPat = Assert.IsType<IdentifierPattern>(pat2.SubPatterns[0]);
+    Assert.Equal("value", subPat.Name);
+
+    // 4. gen_check = state is RemoteData[int]::Success
+    var v3 = Assert.IsType<VariableDeclaration>(program.Statements[3]);
+    var isExpr3 = Assert.IsType<IsExpression>(v3.Value);
+    var pat3 = Assert.IsType<VariantPattern>(isExpr3.Pattern);
+    Assert.Equal("RemoteData[int]", pat3.UnionName);
+    Assert.Equal("Success", pat3.VariantName);
+  }
 }
