@@ -93,6 +93,12 @@ fn print_ast_expression(node Expression, depth int) {
 			print_ast_expression(variable, depth + 1)
 			print_ast_expression(expression, depth + 1)
 		}
+		when Expression::Conditional(condition, right, left) {
+			println("$indent Conditional")
+			print_ast_expression(condition, depth + 1)
+			print_ast_expression(right, depth + 1)
+			print_ast_expression(left, depth + 1)
+		}
 	}
 }
 
@@ -118,6 +124,18 @@ fn print_ast_statement(node Statement, depth int) {
 		}
 		when Statement::Expression(expression) {
 			print_ast_expression(expression, depth)
+		}
+		when Statement::If(condition, then_stmt, else_stmt_opt) {
+			println("$indent If")
+			print_ast_expression(condition, depth + 1)
+
+			println("$indent Then:")
+			print_ast_statement(then_stmt, depth + 2)
+
+			if else_stmt_opt is Option::Some(else_stmt) {
+				println("$indent Else:")
+				print_ast_statement(else_stmt, depth + 2)
+			}
 		}
 		when Statement::Null {
 			println("$indent Null")

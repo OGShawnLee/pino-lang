@@ -17,6 +17,7 @@ pub union BinaryOperator {
 	GreaterThan
 	GreaterOrEqual
 	Assign
+	Conditional
 }
 
 pub union UnaryOperator {
@@ -31,11 +32,13 @@ pub union Expression {
 	Unary(UnaryOperator, Expression)
 	Binary(BinaryOperator, Expression, Expression)
 	Assignment(Expression, Expression)
+	Conditional(Expression, Expression, Expression)
 }
 
 pub union Statement {
 	Return(Expression)
 	Expression(Expression)
+	If(Expression, Statement, Option[Statement])
 	Null
 }
 
@@ -67,6 +70,7 @@ val PRECEDENCE_MAP = map[string, int] {
 	"==": 30
 	"&&": 10
 	"||": 5
+	"?": 3
 	"=": 1
 }
 
@@ -85,6 +89,7 @@ val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
 	"&&": BinaryOperator::And
 	"||": BinaryOperator::Or
 	"=": BinaryOperator::Assign
+	"?": BinaryOperator::Conditional
 }
 
 val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
@@ -155,6 +160,16 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
 	}
 }
 
+fn parse_conditional_middle(stream TokenStream) Result[Expression, string] {
+	val middle = parse_expression(stream, 0)?
+
+	stream:expect_and(TokenType::Marker, it:value == ":") or {
+		return Result::Failure("PARSER: Expected ':' Marker.")
+	}
+
+	return Result::Success(middle)
+}
+
 fn parse_expression(stream TokenStream, min_prec int) Result[Expression, string] {
 	var left = parse_factor(stream)?
 
@@ -165,9 +180,17 @@ fn parse_expression(stream TokenStream, min_prec int) Result[Expression, string]
 
 		if is_binary_operator(curr) and get_precedence(curr) >= min_prec {
 			val operator_token = stream:next()? 
+
 			if operator_token:value == "=" {
 				val right = parse_expression(stream, get_precedence(operator_token))?
 				left = Expression::Assignment(left, right)
+				continue
+			}
+
+			if operator_token:value == "?" {
+				val middle = parse_conditional_middle(stream)?
+				val right = parse_expression(stream, get_precedence(operator_token))?
+				left = Expression::Conditional(left, middle, right)
 				continue
 			}
 
@@ -218,6 +241,26 @@ fn parse_statement(stream TokenStream) Result[Statement, string] {
 			return Result::Failure("PARSER: Unable to parse block. Expected ';' Marker.")
 		}
 		return Result::Success(Statement::Return(expression))
+	}
+
+	if (curr:type == TokenType::Keyword and curr:value == "if") {
+		stream:next()? 
+		stream:expect_and(TokenType::Marker, it:value == "(") or {
+			return Result::Failure("PARSER: Unable to parse if statement. Expected '(' Marker after 'if'.")
+		} 
+		val condition = parse_expression(stream, 0)?
+		stream:expect_and(TokenType::Marker, it:value == ")") or {
+			return Result::Failure("PARSER: Unable to parse if statement. Expected ')' Marker after condition.")
+		} 
+		val then_statement = parse_statement(stream)?
+
+		if stream:is_it(it:type == TokenType::Keyword and it:value == "else") {
+			stream:next()? 
+			val else_statement = parse_statement(stream)?
+			return Result::Success(Statement::If(condition, then_statement, Option::Some(else_statement)))
+		}
+
+		return Result::Success(Statement::If(condition, then_statement, Option::None))
 	}
 
 	if curr:type == TokenType::Marker and curr:value == ";" {

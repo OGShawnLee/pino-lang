@@ -40,6 +40,12 @@ fn resolve_expression(expression Expression, variable_map map[string, string]) R
 			val resolved_right = resolve_expression(right, variable_map)?
 			return Result::Success(Expression::Binary(operator, resolved_left, resolved_right))
 		}
+    when Expression::Conditional(condition_expr, true_expr, false_expr) {
+      val resolved_condition = resolve_expression(condition_expr, variable_map)?
+      val resolved_true = resolve_expression(true_expr, variable_map)?
+      val resolved_false = resolve_expression(false_expr, variable_map)?
+      return Result::Success(Expression::Conditional(resolved_condition, resolved_true, resolved_false))
+    }
 	}
 }
  
@@ -77,6 +83,21 @@ fn resolve_statement(stmt Statement, variable_map map[string, string]) Result[St
 			val resolved_expr = resolve_expression(expr, variable_map)?
 			return Result::Success(Statement::Expression(resolved_expr))
 		}
+    when Statement::If(condition_expr, then_stmt, else_stmt_opt) {
+      val resolved_condition = resolve_expression(condition_expr, variable_map)?
+      val resolved_then = resolve_statement(then_stmt, variable_map)?
+
+      if else_stmt_opt is Option::Some(else_stmt) {
+        val resolved_else = resolve_statement(else_stmt, variable_map)?
+        return Result::Success(
+          Statement::If(resolved_condition, resolved_then, Option::Some(resolved_else))
+        )
+      }
+
+      return Result::Success(
+        Statement::If(resolved_condition, resolved_then, Option::None)
+      )
+    }
 		when Statement::Null {
 			return Result::Success(Statement::Null)
 		}
@@ -99,6 +120,9 @@ fn resolve_block_item(item Block, variable_map map[string, string]) Result[Block
 pub fn resolve_ast(node AST) Result[AST, string] {
   match node {
     when AST::Program(body) {
+      val resolved_body = []Block
+      val variable_map = map[string, string] {}
+
       return Result::Success(
         AST::Program(resolve_ast(body)?)
       )

@@ -33,10 +33,15 @@ fn generate_temp_name() {
  return name
 }
 
-fn generate_short_circuit_labels(prefix string) @(true_label string, false_label string) {
-	val true_label = "$(prefix)_true_label_$(LABEL_COUNTER[0])"
-	val false_label = "$(prefix)_false_label_$(LABEL_COUNTER[0])"
+fn generate_label(prefix string) string {
+	val label = "$(prefix)_label_$(LABEL_COUNTER[0])"
 	LABEL_COUNTER[0] += 1
+	return label
+}
+
+fn generate_short_circuit_labels(prefix string) @(true_label string, false_label string) {
+	val true_label = generate_label("$(prefix)_true")
+	val false_label = generate_label("$(prefix)_false")
 	return @(true_label, false_label)
 }
 
@@ -116,6 +121,28 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
 		
 		panic("TACKY: Unhandled assignment to non-variable")
 	}
+	when Expression::Conditional(condition_expr, right, left) {
+		val condition = emit_tacky(condition_expr, instr_list)
+		val @(true_label, false_label) = generate_short_circuit_labels("conditional")
+
+		val dst_name = generate_temp_name()
+		val dst = Val::Var(dst_name)
+
+		instr_list:push(Instruction::JumpIfZero(condition, false_label))
+
+		val true_val = emit_tacky(right, instr_list)
+
+		instr_list:push(Instruction::Copy(true_val, dst))
+		instr_list:push(Instruction::Jump(true_label))
+		instr_list:push(Instruction::Label(false_label))
+
+		val false_val = emit_tacky(left, instr_list)
+
+		instr_list:push(Instruction::Copy(false_val, dst))
+		instr_list:push(Instruction::Label(true_label))
+
+		return dst
+	}
  }
 }
 
@@ -130,7 +157,35 @@ fn translate_stmt_to_tacky_instructions(stmt Statement, instr_list []Instruction
 		val expr_result = emit_tacky(expr, instr_list)
 		instr_list:push(Instruction::Copy(expr_result, Val::Var(name)))
 	}
-	else {}
+	when Statement::If(condition_expr, then_stmt, else_stmt_opt) {
+		val condition = emit_tacky(condition_expr, instr_list)
+
+		match else_stmt_opt {
+			when Option::Some(else_stmt) {
+				val else_label = generate_label("else")
+				val end_label = generate_label("if_end")
+
+				instr_list:push(Instruction::JumpIfZero(condition, else_label))
+
+				translate_stmt_to_tacky_instructions(then_stmt, instr_list)
+				instr_list:push(Instruction::Jump(end_label))
+
+				instr_list:push(Instruction::Label(else_label))
+				translate_stmt_to_tacky_instructions(else_stmt, instr_list)
+				instr_list:push(Instruction::Label(end_label))
+			}
+			when Option::None {
+				val end_label = generate_label("if_end")
+
+				instr_list:push(Instruction::JumpIfZero(condition, end_label))
+
+				translate_stmt_to_tacky_instructions(then_stmt, instr_list)
+
+				instr_list:push(Instruction::Label(end_label))
+			}
+		}
+	}
+	when Statement::Null {}
  }
 }
 
