@@ -626,11 +626,38 @@ public partial class Parser {
   private static Pattern ParsePattern(TokenStream stream) {
     if (stream.Current.Type == TokenType.Identifier) {
       var id = stream.Current.Data;
-      
-      // Check if it's a static member access (VariantPattern like Entity::Person)
-      if (stream.Peek(1).IsOperator(OperatorType.StaticMemberAccess)) {
-        stream.Consume(); // consume id (UnionName)
-        stream.Consume(); // consume '::'
+      int offset = 1;
+      if (stream.Peek(offset).IsMarker(MarkerType.BracketBegin)) {
+        offset++;
+        int depth = 1;
+        while (stream.Peek(offset).Type != TokenType.Illegal && depth > 0) {
+          if (stream.Peek(offset).IsMarker(MarkerType.BracketBegin)) depth++;
+          else if (stream.Peek(offset).IsMarker(MarkerType.BracketEnd)) depth--;
+          offset++;
+        }
+      }
+      bool isVariantPattern = stream.Peek(offset).IsOperator(OperatorType.StaticMemberAccess);
+
+      if (isVariantPattern) {
+        id = stream.Consume().Data;
+        if (stream.Current.IsMarker(MarkerType.BracketBegin)) {
+          stream.Consume(); // consume '['
+          var subTypes = new List<string>();
+          while (!stream.Current.IsMarker(MarkerType.BracketEnd)) {
+            subTypes.Add(ConsumeTyping(stream));
+            if (stream.Current.IsMarker(MarkerType.Comma)) {
+              stream.Consume();
+            }
+          }
+          if (!stream.Consume().IsMarker(MarkerType.BracketEnd)) {
+            throw new Exception("PARSER: Expected ']' to close generic type arguments in variant pattern");
+          }
+          id += "[" + string.Join(", ", subTypes) + "]";
+        }
+        
+        if (!stream.Consume().IsOperator(OperatorType.StaticMemberAccess)) {
+          throw new Exception("PARSER: Expected '::' in variant pattern");
+        }
         
         var variantName = ConsumeIdentifier(stream);
         var subPatterns = new List<Pattern>();
