@@ -1,0 +1,121 @@
+module Checker
+
+from Parser import AST, Block, Declaration, Statement, Expression
+
+val TEMP_NAME_COUNTER = [0]
+
+fn generate_temp_name(initial_name string) {
+	val new_name = "$initial_name.$(TEMP_NAME_COUNTER[0])"
+	TEMP_NAME_COUNTER[0] += 1
+	return new_name
+}
+
+fn resolve_expression(expression Expression, variable_map map[string, string]) Result[Expression, string] {
+	match expression {
+		when Expression::Assignment(left, right) {
+			if left is not Expression::Var {
+				return Result::Failure("CHECKER: Expected variable for assignment. Got $(left)")
+			}
+
+			val resolved_left = resolve_expression(left, variable_map)?
+			val resolved_right = resolve_expression(right, variable_map)?
+			return Result::Success(Expression::Assignment(resolved_left, resolved_right))
+		}
+		when Expression::Constant(value) {
+			return Result::Success(Expression::Constant(value))
+		}
+		when Expression::Var(name) {
+		 if name in variable_map {
+			return Result::Success(Expression::Var(variable_map[name]))
+		 } else {
+			return Result::Failure("CHECKER: Undeclared variable '$(name)'")
+		 }
+		}
+		when Expression::Unary(operator, inner_expr) {
+			val resolved_inner_expr = resolve_expression(inner_expr, variable_map)?
+			return Result::Success(Expression::Unary(operator, resolved_inner_expr))
+		}
+		when Expression::Binary(operator, left, right) {
+			val resolved_left = resolve_expression(left, variable_map)?
+			val resolved_right = resolve_expression(right, variable_map)?
+			return Result::Success(Expression::Binary(operator, resolved_left, resolved_right))
+		}
+	}
+}
+ 
+fn resolve_declaration(declaration Declaration, variable_map map[string, string]) Result[Declaration, string] {
+  match declaration {
+    when Declaration::Declaration(declaration_name, init) {
+      if declaration_name in variable_map {
+        return Result::Failure("CHECKER: Variable '$(declaration_name)' already declared.")
+      }
+
+      val unique_name = generate_temp_name(declaration_name)
+      variable_map[declaration_name] = unique_name
+
+      if init is Option::Some(expr) {
+        val resolved_init = resolve_expression(expr, variable_map)?
+        return Result::Success(
+          Declaration::Declaration(unique_name, Option::Some(resolved_init))
+        )
+      }
+
+      return Result::Success(
+        Declaration::Declaration(unique_name, Option::None)
+      )
+    }
+  }
+}
+
+fn resolve_statement(stmt Statement, variable_map map[string, string]) Result[Statement, string] {
+	match stmt {
+		when Statement::Return(expr) {
+			val resolved_expr = resolve_expression(expr, variable_map)?
+			return Result::Success(Statement::Return(resolved_expr))
+		}
+		when Statement::Expression(expr) {
+			val resolved_expr = resolve_expression(expr, variable_map)?
+			return Result::Success(Statement::Expression(resolved_expr))
+		}
+		when Statement::Null {
+			return Result::Success(Statement::Null)
+		}
+	}
+}
+
+fn resolve_block_item(item Block, variable_map map[string, string]) Result[Block, string] {
+  match item {
+    when Block::Statement(statement) {
+      val resolved_statement = resolve_statement(statement, variable_map)?
+      return Result::Success(Block::Statement(resolved_statement))
+    }
+    when Block::Declaration(declaration) {
+      val resolved_declaration = resolve_declaration(declaration, variable_map)?
+      return Result::Success(Block::Declaration(resolved_declaration))
+    }
+  }
+}
+
+pub fn resolve_ast(node AST) Result[AST, string] {
+  match node {
+    when AST::Program(body) {
+      return Result::Success(
+        AST::Program(resolve_ast(body)?)
+      )
+    }
+    when AST::Function(name, return_type, params, blocks) {
+      val resolved_blocks = []Block
+      val variable_map = map[string, string] {}
+
+      for block in blocks {
+        resolved_blocks:push(
+          resolve_block_item(block, variable_map)?
+        )
+      }
+
+      return Result::Success(
+        AST::Function(name, return_type, params, resolved_blocks)
+      )
+    }
+  }
+}

@@ -70,12 +70,14 @@ pub fn print_asm(node ASTAssembly, depth int) {
 	}
 } 
 
-
 fn print_ast_expression(node Expression, depth int) {
 	val indent = get_indent(depth)
 	match node {
 		when Expression::Constant(value) {
 			println("$indent Constant: $value")
+		}
+		when Expression::Var(name) {
+			println("$indent Variable: $name")
 		}
 		when Expression::Unary(operator, expression) {
 			println("$indent Unary: $operator")
@@ -86,6 +88,24 @@ fn print_ast_expression(node Expression, depth int) {
 			print_ast_expression(left, depth + 1)
 			print_ast_expression(right, depth + 1)
 		}
+		when Expression::Assignment(variable, expression) {
+			println("$indent Assignment")
+			print_ast_expression(variable, depth + 1)
+			print_ast_expression(expression, depth + 1)
+		}
+	}
+}
+
+fn print_ast_declaration(declaration Declaration, depth int) {
+	var indent = get_indent(depth)
+	match declaration {
+		when Declaration::Declaration(name, expr_option) {
+			println("$indent Declaration: $name")
+			val expression = expr_option or { 
+				return
+			}
+			print_ast_expression(expression, depth + 1)
+		}
 	}
 }
 
@@ -95,6 +115,23 @@ fn print_ast_statement(node Statement, depth int) {
 		when Statement::Return(value) {
 			println("$indent Return:":trim())
 			print_ast_expression(value, depth + 1)
+		}
+		when Statement::Expression(expression) {
+			print_ast_expression(expression, depth)
+		}
+		when Statement::Null {
+			println("$indent Null")
+		}
+	}
+}
+
+fn print_ast_block_item(block_item Block, depth int) {
+	match block_item {
+		when Block::Statement(statement) {
+			print_ast_statement(statement, depth + 1)
+		}
+		when Block::Declaration(declaration) {
+			print_ast_declaration(declaration, depth + 1)
 		}
 	}
 }
@@ -109,7 +146,9 @@ pub fn print_ast(node AST, depth int) {
 		when AST::Function(return_type, name, parameters, body) {
 			val parameter_list_str = parameters:join(", ")
 			println("$indent Function $return_type $name($parameter_list_str):":trim())
-			print_ast_statement(body, depth + 1)
+			for item in body {
+				print_ast_block_item(item, depth + 1)
+			}
 		}
 	}
 }

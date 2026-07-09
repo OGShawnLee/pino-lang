@@ -1,6 +1,6 @@
 module Transformer
 
-from Parser import AST, Statement, Expression, UnaryOperator, BinaryOperator
+from Parser import AST, Statement, Expression, UnaryOperator, BinaryOperator, Block, Declaration
 
 pub union Val {
  Constant(int)
@@ -24,114 +24,158 @@ pub union TACKY {
 }
 
 
-val counter = [0]
-val label_counter = [0]
+val TEMP_NAME_COUNTER = [0]
+val LABEL_COUNTER = [0]
 
-fn rand_name() {
- val name = "tmp.$(counter[0])"
- counter[0] += 1
+fn generate_temp_name() {
+ val name = "tmp.$(TEMP_NAME_COUNTER[0])"
+ TEMP_NAME_COUNTER[0] += 1
  return name
 }
 
-fn short_circuit_labels(prefix string) @(true_label string, false_label string) {
-	val true_label = "$(prefix)_true_label_$(label_counter[0])"
-	val false_label = "$(prefix)_false_label_$(label_counter[0])"
-	label_counter[0] += 1
+fn generate_short_circuit_labels(prefix string) @(true_label string, false_label string) {
+	val true_label = "$(prefix)_true_label_$(LABEL_COUNTER[0])"
+	val false_label = "$(prefix)_false_label_$(LABEL_COUNTER[0])"
+	LABEL_COUNTER[0] += 1
 	return @(true_label, false_label)
 }
 
-fn emit_binary_and(left Expression, right Expression, instructions []Instruction) { 
-	val @(true_label, false_label) = short_circuit_labels("and")
+fn emit_binary_and(left Expression, right Expression, instr_list []Instruction) { 
+	val @(true_label, false_label) = generate_short_circuit_labels("and")
 	
-	val dst = Val::Var(rand_name())
-	val left_val = emit_tacky(left, instructions)
+	val dst = Val::Var(generate_temp_name())
+	val left_val = emit_tacky(left, instr_list)
 
-	instructions:push(Instruction::JumpIfZero(left_val, false_label))
-	val right_val = emit_tacky(right, instructions)
-	instructions:push(Instruction::JumpIfZero(right_val, false_label))
-	instructions:push(Instruction::Copy(Val::Constant(1), dst))
-	instructions:push(Instruction::Jump(true_label))
-	instructions:push(Instruction::Label(false_label))
-	instructions:push(Instruction::Copy(Val::Constant(0), dst))
-	instructions:push(Instruction::Label(true_label))
+	instr_list:push(Instruction::JumpIfZero(left_val, false_label))
+	val right_val = emit_tacky(right, instr_list)
+	instr_list:push(Instruction::JumpIfZero(right_val, false_label))
+	instr_list:push(Instruction::Copy(Val::Constant(1), dst))
+	instr_list:push(Instruction::Jump(true_label))
+	instr_list:push(Instruction::Label(false_label))
+	instr_list:push(Instruction::Copy(Val::Constant(0), dst))
+	instr_list:push(Instruction::Label(true_label))
 
 	return dst
 }
 
-fn emit_binary_or(left Expression, right Expression, instructions []Instruction) {
-	val @(true_label, false_label) = short_circuit_labels("or")
+fn emit_binary_or(left Expression, right Expression, instr_list []Instruction) {
+	val @(true_label, false_label) = generate_short_circuit_labels("or")
 	
-	val dst = Val::Var(rand_name())
-	val left_val = emit_tacky(left, instructions)
+	val dst = Val::Var(generate_temp_name())
+	val left_val = emit_tacky(left, instr_list)
 
-	instructions:push(Instruction::JumpIfNotZero(left_val, true_label))
-	val right_val = emit_tacky(right, instructions)
-	instructions:push(Instruction::JumpIfNotZero(right_val, true_label))
-	instructions:push(Instruction::Copy(Val::Constant(0), dst))
-	instructions:push(Instruction::Jump(false_label))
-	instructions:push(Instruction::Label(true_label))
-	instructions:push(Instruction::Copy(Val::Constant(1), dst))
-	instructions:push(Instruction::Label(false_label))
+	instr_list:push(Instruction::JumpIfNotZero(left_val, true_label))
+	val right_val = emit_tacky(right, instr_list)
+	instr_list:push(Instruction::JumpIfNotZero(right_val, true_label))
+	instr_list:push(Instruction::Copy(Val::Constant(0), dst))
+	instr_list:push(Instruction::Jump(false_label))
+	instr_list:push(Instruction::Label(true_label))
+	instr_list:push(Instruction::Copy(Val::Constant(1), dst))
+	instr_list:push(Instruction::Label(false_label))
 
 	return dst
 }
 
-fn emit_tacky(expr Expression, instructions []Instruction) {
+fn emit_tacky(expr Expression, instr_list []Instruction) {
  match expr {
 	when Expression::Constant(value) {
 	 return Val::Constant(value)
 	}
+	when Expression::Var(name) {
+		return Val::Var(name)
+	}
 	when Expression::Unary(operator, inner_expr) {
-	 val src = emit_tacky(inner_expr, instructions)
-	 val dst_name = rand_name()
+	 val src = emit_tacky(inner_expr, instr_list)
+	 val dst_name = generate_temp_name()
 	 val dst = Val::Var(dst_name)
-	 instructions:push(Instruction::Unary(operator, src, dst))
+	 instr_list:push(Instruction::Unary(operator, src, dst))
 	 return dst
 	}
 	when Expression::Binary(operator, left, right) {
 	 if operator == BinaryOperator::And {
-		return emit_binary_and(left, right, instructions)
+		return emit_binary_and(left, right, instr_list)
 	 }
 
 	 if operator == BinaryOperator::Or {
-		return emit_binary_or(left, right, instructions)
+		return emit_binary_or(left, right, instr_list)
 	 }
 
-	 val left_val = emit_tacky(left, instructions)
-	 val right_val = emit_tacky(right, instructions)
-	 val dst_name = rand_name()
+	 val left_val = emit_tacky(left, instr_list)
+	 val right_val = emit_tacky(right, instr_list)
+	 val dst_name = generate_temp_name()
 	 val dst = Val::Var(dst_name)
-	 instructions:push(Instruction::Binary(operator, left_val, right_val, dst))
+	 instr_list:push(Instruction::Binary(operator, left_val, right_val, dst))
 	 return dst
 	}
+	when Expression::Assignment(variable, expr) {
+		if variable is Expression::Var(name) {
+			val dst = emit_tacky(expr, instr_list)
+			instr_list:push(Instruction::Copy(dst, Val::Var(name)))
+			return Val::Var(name)
+		}
+		
+		panic("TACKY: Unhandled assignment to non-variable")
+	}
  }
 }
 
-fn translate_stmt_to_tacky_instructions(stmt Statement) Result[[]Instruction, string] {
- val instructions = []Instruction
+fn translate_stmt_to_tacky_instructions(stmt Statement, instr_list []Instruction) {
  match stmt {
 	when Statement::Return(expr) {
-	 val result = emit_tacky(expr, instructions)
-	 instructions:push(Instruction::Ret(result))
-	 return Result::Success(instructions)
+	 val result = emit_tacky(expr, instr_list)
+	 instr_list:push(Instruction::Ret(result))
 	}
+	when Statement::Expression(expr) {
+		val name = generate_temp_name()
+		val expr_result = emit_tacky(expr, instr_list)
+		instr_list:push(Instruction::Copy(expr_result, Val::Var(name)))
+	}
+	else {}
  }
 }
 
-pub fn translate_ast_to_tacky(node AST) Result[TACKY, string] {
+fn translate_declaration_to_tacky_instruction(declaration Declaration, instr_list []Instruction) {
+	match declaration {
+		when Declaration::Declaration(name, init_option) {
+			if init_option is Option::Some(expr) {
+				val result = emit_tacky(expr, instr_list)
+				instr_list:push(Instruction::Copy(result, Val::Var(name)))
+			}
+		}
+	}
+}
+
+fn translate_block_item_to_tacky_instructions(item Block, instr_list []Instruction) {
+	match item {
+		when Block::Declaration(declaration) {
+			translate_declaration_to_tacky_instruction(declaration, instr_list)
+		}
+		when Block::Statement(stmt) {
+			translate_stmt_to_tacky_instructions(stmt, instr_list)
+		}
+	}
+}
+
+pub fn translate_ast_to_tacky(node AST) {
  match node {
 	when AST::Program(node) {
-	 return Result::Success(
-		TACKY::Program(translate_ast_to_tacky(node)?)
-	 )
+		return TACKY::Program(translate_ast_to_tacky(node))
 	}
-	when AST::Function(return_type, name, parameters, body) {
-	 return Result::Success(
-		TACKY::Function(
-		 name,
-		 translate_stmt_to_tacky_instructions(body)?
+	when AST::Function(return_type, name, parameters, block_list) {
+		val instr_list = []Instruction
+		for item in block_list {
+			translate_block_item_to_tacky_instructions(item, instr_list)
+		}
+
+		val is_empty_list = instr_list:len == 0
+		if is_empty_list or (instr_list[instr_list:len - 1] is not Instruction::Ret) {
+			instr_list:push(Instruction::Ret(Val::Constant(0)))
+		}
+
+		return TACKY::Function(
+			name,
+			instr_list
 		)
-	 )
 	}
  }
 }

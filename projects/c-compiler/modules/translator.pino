@@ -211,14 +211,14 @@ pub fn translate_ast_to_asm(node TACKY) ASTAssembly {
 		when TACKY::Program(inner_node) {
 			return ASTAssembly::Program(translate_ast_to_asm(inner_node))
 		}
-		when TACKY::Function(name, instructions) {
-			val asm_instructions = []ASMInstruction
-			for instruction in instructions {
-				for asm_instruction in translate_instr_to_asm_instr_list(instruction) {
-					asm_instructions:push(asm_instruction)
+		when TACKY::Function(name, instr_list) {
+			val asm_instr_list = []ASMInstruction
+			for instr in instr_list {
+				for asm_instr in translate_instr_to_asm_instr_list(instr) {
+					asm_instr_list:push(asm_instr)
 				}
 			}
-			return ASTAssembly::Function(name, asm_instructions)
+			return ASTAssembly::Function(name, asm_instr_list)
 		}
 	}
 }
