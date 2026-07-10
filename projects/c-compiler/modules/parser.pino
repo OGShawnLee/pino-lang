@@ -35,11 +35,21 @@ pub union Expression {
 	Conditional(Expression, Expression, Expression)
 }
 
+pub union ForInit {
+	Declaration(Declaration)
+	Expression(Option[Expression])
+}
+
 pub union Statement {
 	Return(Expression)
 	Expression(Expression)
 	If(Expression, Statement, Option[Statement])
 	Compound(Block)
+	Break(Option[string])
+	Continue(Option[string])
+	While(Expression, Statement, Option[string])
+	DoWhile(Statement, Expression, Option[string])
+	For(ForInit, Option[Expression], Option[Expression], Statement, Option[string])
 	Null
 }
 
@@ -236,6 +246,36 @@ fn parse_declaration(stream TokenStream) Result[Declaration, string] {
 	return Result::Success(Declaration::Declaration(name_token:value, Option::None))
 }
 
+fn parse_optional_expression(stream TokenStream, delimiter string) Result[Option[Expression], string] {
+	if stream:is_match_and(TokenType::Marker, it:value == delimiter) {
+		stream:next()? 
+		return Result::Success(Option::None)
+	}
+
+	val expression = parse_expression(stream, 0)?
+
+	stream:expect_and(TokenType::Marker, it:value == delimiter) or {
+		return Result::Failure("PARSER: Expected '$delimiter' Marker.")
+	}
+
+	return Result::Success(Option::Some(expression))
+}
+
+fn parse_for_init(stream TokenStream) Result[ForInit, string] {
+	if stream:is_match_and(TokenType::Marker, it:value == ";") {
+		stream:next()? 
+		return Result::Success(ForInit::Expression(Option::None))
+	}
+
+	if stream:is_match_and(TokenType::Keyword, it:value == "int") {
+		val declaration = parse_declaration(stream)?
+		return Result::Success(ForInit::Declaration(declaration))
+	}
+
+	val expression_opt = parse_optional_expression(stream, ";")? 
+	return Result::Success(ForInit::Expression(expression_opt))
+}
+
 fn parse_statement(stream TokenStream) Result[Statement, string] {
 	match stream:current()?:value {
 		when "return" {
@@ -264,6 +304,63 @@ fn parse_statement(stream TokenStream) Result[Statement, string] {
 			}
 
 			return Result::Success(Statement::If(condition, then_statement, Option::None))
+		}
+		when "while" {
+			stream:next()? 
+			stream:expect_and(TokenType::Marker, it:value == "(") or {
+				return Result::Failure("PARSER: Unable to parse while statement. Expected '(' Marker after 'while'.")
+			} 
+			val condition = parse_expression(stream, 0)?
+			stream:expect_and(TokenType::Marker, it:value == ")") or {
+				return Result::Failure("PARSER: Unable to parse while statement. Expected ')' Marker after condition.")
+			} 
+			val body = parse_statement(stream)?
+			return Result::Success(Statement::While(condition, body, Option::None))
+		}
+		when "do" {
+			stream:next()?
+			val body = parse_statement(stream)?
+
+			stream:expect_and(TokenType::Keyword, it:value == "while") or {
+				return Result::Failure("PARSER: Unable to parse do-while statement. Expected 'while' Keyword.")
+			} 
+			stream:expect_and(TokenType::Marker, it:value == "(") or {
+				return Result::Failure("PARSER: Unable to parse do-while statement. Expected '(' Marker after 'while'.")
+			} 
+			val condition = parse_expression(stream, 0)?
+			stream:expect_and(TokenType::Marker, it:value == ")") or {
+				return Result::Failure("PARSER: Unable to parse do-while statement. Expected ')' Marker after condition.")
+			} 
+			stream:expect_and(TokenType::Marker, it:value == ";") or {
+				return Result::Failure("PARSER: Unable to parse do-while statement. Expected ';' Marker.")
+			}
+
+			return Result::Success(Statement::DoWhile(body, condition, Option::None))
+		}
+		when "for" {
+			stream:next()? 
+			stream:expect_and(TokenType::Marker, it:value == "(") or {
+				return Result::Failure("PARSER: Unable to parse for statement. Expected '(' Marker after 'for'.")
+			} 
+			val init = parse_for_init(stream)?
+			val condition_expr_opt = parse_optional_expression(stream, ";")?
+			val increment_expr_opt = parse_optional_expression(stream, ")")?
+			val body = parse_statement(stream)?
+			return Result::Success(Statement::For(init, condition_expr_opt, increment_expr_opt, body, Option::None))
+		}
+		when "break" {
+			stream:next()? 
+			stream:expect_and(TokenType::Marker, it:value == ";") or {
+				return Result::Failure("PARSER: Expected ';' Marker.")
+			}
+			return Result::Success(Statement::Break(Option::None))
+		}
+		when "continue" {
+			stream:next()? 
+			stream:expect_and(TokenType::Marker, it:value == ";") or {
+				return Result::Failure("PARSER: Expected ';' Marker.")
+			}
+			return Result::Success(Statement::Continue(Option::None))
 		}
 		when "{" {
 			val block = parse_block(stream)?

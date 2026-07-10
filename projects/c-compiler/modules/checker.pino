@@ -1,6 +1,6 @@
 module Checker
 
-from Parser import AST, Block, BlockItem, Declaration, Statement, Expression
+from Parser import AST, Block, BlockItem, Declaration, Statement, Expression, ForInit
 
 struct Entity {
   unique_name string
@@ -89,6 +89,30 @@ fn resolve_declaration(declaration Declaration, variable_map map[string, Entity]
   }
 }
 
+fn resolve_optional_expr(expr_opt Option[Expression], variable_map map[string, Entity]) Result[Option[Expression], string] {
+  if expr_opt is Option::Some(expr_opt) {
+    val resolved_expr = resolve_expression(expr_opt, variable_map)?
+    return Result::Success(Option::Some(resolved_expr))
+  }
+
+  return Result::Success(Option::None)
+}
+
+fn resolve_for_init(init ForInit, variable_map map[string, Entity]) Result[ForInit, string] {
+  match init {
+    when ForInit::Expression(expr_opt) {
+      return Result::Success(
+        ForInit::Expression(resolve_optional_expr(expr_opt, variable_map)?)
+      )
+    }
+    when ForInit::Declaration(declaration) {
+      return Result::Success(
+        ForInit::Declaration(resolve_declaration(declaration, variable_map)?)
+      )
+    }
+  }
+}
+
 fn resolve_statement(stmt Statement, variable_map map[string, Entity]) Result[Statement, string] {
 	match stmt {
 		when Statement::Return(expr) {
@@ -119,9 +143,32 @@ fn resolve_statement(stmt Statement, variable_map map[string, Entity]) Result[St
       val resolved_block = resolve_block(block, new_variable_map)?
       return Result::Success(Statement::Compound(resolved_block))
     }
+    when Statement::While(condition_expr, body, label) {
+      val resolved_condition = resolve_expression(condition_expr, variable_map)?
+      val resolved_body = resolve_statement(body, variable_map)?
+      return Result::Success(Statement::While(resolved_condition, resolved_body, label))
+    }
+    when Statement::DoWhile(body, condition_expr, label) {
+      val resolved_body = resolve_statement(body, variable_map)?
+      val resolved_condition = resolve_expression(condition_expr, variable_map)?
+      return Result::Success(Statement::DoWhile(resolved_body, resolved_condition, label))
+    }
+    when Statement::For(init, condition_expr_opt, increment_expr_opt, body_block, label) {
+      val new_variable_map = copy_variable_map(variable_map)
+      val resolved_init = resolve_for_init(init, new_variable_map)?
+      val resolved_condition = resolve_optional_expr(condition_expr_opt, new_variable_map)?
+      val resolved_increment = resolve_optional_expr(increment_expr_opt, new_variable_map)?
+      val resolved_body = resolve_statement(body_block, new_variable_map)?
+      return Result::Success(
+        Statement::For(resolved_init, resolved_condition, resolved_increment, resolved_body, label)
+      )
+    }
 		when Statement::Null {
 			return Result::Success(Statement::Null)
 		}
+    else {
+      return Result::Success(stmt)
+    }
 	}
 }
 
@@ -154,8 +201,8 @@ fn resolve_block(block Block, variable_map map[string, Entity]) Result[Block, st
   }
 }
 
-pub fn resolve_ast(node AST) Result[AST, string] {
-  match node {
+pub fn resolve_ast(program AST) Result[AST, string] {
+  match program {
     when AST::Program(body) {
       return Result::Success(
         AST::Program(resolve_ast(body)?)
@@ -165,6 +212,135 @@ pub fn resolve_ast(node AST) Result[AST, string] {
       val variable_map = map[string, Entity] {}
       return Result::Success(
         AST::Function(name, return_type, params, resolve_block(body_block, variable_map)?)
+      )
+    }
+  }
+}
+
+val LOOP_LABEL_COUNTER = [0]
+
+fn generate_loop_label() string {
+  val label = "loop_label_$(LOOP_LABEL_COUNTER[0])"
+  LOOP_LABEL_COUNTER[0] += 1
+  return label
+}
+
+fn label_statement(stmt Statement, current_label_opt Option[string]) Result[Statement, string] { 
+  match stmt {
+    when Statement::Compound(block) {
+      val resolved_block = label_block(block, current_label_opt)?
+      return Result::Success(Statement::Compound(resolved_block))
+    }
+    when Statement::Break(initial_label) {
+      if initial_label is not Option::None {
+        return Result::Failure("CHECKER: 'break' statement was given a label in previous iteration.")
+      }
+
+      val label = current_label_opt or {
+        return Result::Failure("CHECKER: 'break' statement without a loop.")
+      }
+
+      return Result::Success(Statement::Break(Option::Some(label)))
+    }
+    when Statement::Continue(initial_label) {
+      if initial_label is not Option::None {
+        return Result::Failure("CHECKER: 'continue' statement was given a label in previous iteration.")
+      }
+
+      val label = current_label_opt or {
+        return Result::Failure("CHECKER: 'continue' statement without a loop.")
+      }
+
+      return Result::Success(Statement::Continue(Option::Some(label)))
+    }
+    when Statement::While(condition_expr, body, initial_label) {
+      if initial_label is not Option::None {
+        return Result::Failure("CHECKER: 'while' statement was given a label in previous iteration.")
+      }
+
+      val label = generate_loop_label()
+      val labeled_body = label_statement(body, Option::Some(label))?   
+
+      return Result::Success(Statement::While(condition_expr, labeled_body, Option::Some(label)))
+    }
+    when Statement::DoWhile(body, condition_expr, initial_label) {
+      if initial_label is not Option::None {
+        return Result::Failure("CHECKER: 'do-while' statement was given a label in previous iteration.")
+      }
+
+      val label = generate_loop_label()
+      val labeled_body = label_statement(body, Option::Some(label))?  
+
+      return Result::Success(Statement::DoWhile(labeled_body, condition_expr, Option::Some(label)))
+    }
+    when Statement::For(init, condition_expr_opt, increment_expr_opt, body, initial_label) {
+      if initial_label is not Option::None {
+        return Result::Failure("CHECKER: 'for' statement was given a label in previous iteration.")
+      }
+
+      val label = generate_loop_label()
+      val labeled_body = label_statement(body, Option::Some(label))? 
+
+      return Result::Success(
+        Statement::For(init, condition_expr_opt, increment_expr_opt, labeled_body, Option::Some(label))
+      )
+    }
+    when Statement::If(condition_expr, then_stmt, else_stmt_opt) {
+      val resolved_then = label_statement(then_stmt, current_label_opt)?
+
+      if else_stmt_opt is Option::Some(else_stmt) {
+        val resolved_else = label_statement(else_stmt, current_label_opt)?
+        return Result::Success(Statement::If(condition_expr, resolved_then, Option::Some(resolved_else)))
+      }
+
+      return Result::Success(Statement::If(condition_expr, resolved_then, Option::None))
+    }
+    else {
+      return Result::Success(stmt)
+    }
+  }
+} 
+
+fn label_block_item(block_item BlockItem, current_label_opt Option[string]) Result[BlockItem, string] {
+  match block_item {
+    when BlockItem::Statement(statement) {
+      val resolved_statement = label_statement(statement, current_label_opt)?
+      return Result::Success(BlockItem::Statement(resolved_statement))
+    }
+    when BlockItem::Declaration(declaration) {
+      return Result::Success(BlockItem::Declaration(declaration))
+    }
+  }
+}
+
+fn label_block(block Block, current_label_opt Option[string]) Result[Block, string] {
+  match block {
+    when Block::Block(block_items) {
+      val labeled_block_item_list = []BlockItem
+      for block_item in block_items {
+        labeled_block_item_list:push(
+          label_block_item(block_item, current_label_opt)?
+        )
+      }
+      return Result::Success(
+        Block::Block(labeled_block_item_list)
+      )
+    }
+  }
+}
+
+pub fn label_ast(program AST) Result[AST, string] {
+  match program {
+    when AST::Program(body) {
+      val labeled_body = label_ast(body)?
+      return Result::Success(
+        AST::Program(labeled_body)
+      )
+    }
+    when AST::Function(name, return_type, params, body_block) {
+      val resolved_body = label_block(body_block, Option::None)?
+      return Result::Success(
+        AST::Function(name, return_type, params, resolved_body)
       )
     }
   }

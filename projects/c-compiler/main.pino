@@ -1,15 +1,16 @@
 from Lexer import TokenType, TokenStream, lex
 from Parser import AST, parse
-from Checker import resolve_ast
-from Transformer import translate_ast_to_tacky
-from Printer import print_ast, print_tacky, print_asm
-from Translator import translate_ast_to_asm
-from Compiler import compile_ast_to_asm
+from Checker import resolve_ast, label_ast
+# from Transformer import translate_ast_to_tacky
+from Printer import print_ast
+# , print_tacky, print_asm
+# from Translator import translate_ast_to_asm
+# from Compiler import compile_ast_to_asm
 
 fn main {
 	println("Welcome to the Pino C Compiler!")
 
-	val program = "int main(void) { int a = 12; { int b = a + 13; } }"
+	val program = "int main(void) { for (int a = 12; a > 0; a = a - 1) { while (a < 12) { continue; } break; } }"
 
 	println("C Input: $program")
 
@@ -27,21 +28,27 @@ fn main {
 		panic(err)
 	}
 
-	println("Abstract Syntax Tree (RESOLVED):")
-	print_ast(resolved_program_ast, 0)
+	println("Abstract Syntax Tree (VARIABLE RESOLUTION PASSED):")
 
-	val program_tacky = translate_ast_to_tacky(resolved_program_ast)
+	val labeled_program_ast = label_ast(resolved_program_ast) or {
+		panic(err)
+	}
 
-	println("Intermediate Representations (TACKY):")
-	print_tacky(program_tacky, 0)
+	println("Abstract Syntax Tree (LOOP LABELING PASSED):")
+	print_ast(labeled_program_ast, 0)
 
-	val assembly_ast = translate_ast_to_asm(program_tacky)
+	# val program_tacky = translate_ast_to_tacky(resolved_program_ast)
 
-	println("Raw Assembly AST")
-	print_asm(assembly_ast, 0)
+	# println("Intermediate Representations (TACKY):")
+	# print_tacky(program_tacky, 0)
 
-	val assembly = compile_ast_to_asm(assembly_ast)
+	# val assembly_ast = translate_ast_to_asm(program_tacky)
 
-	println("ASM Output:")
-	println(assembly)
+	# println("Raw Assembly AST")
+	# print_asm(assembly_ast, 0)
+
+	# val assembly = compile_ast_to_asm(assembly_ast)
+
+	# println("ASM Output:")
+	# println(assembly)
 }

@@ -1,8 +1,8 @@
 module Printer
 
 from Parser import AST, Statement, Expression
-from Transformer import TACKY, Instruction
-from Translator import ASTAssembly, ASMInstruction
+# from Transformer import TACKY, Instruction
+# from Translator import ASTAssembly, ASMInstruction
 
 fn get_indent(level int) string {
 	var indentation_string = ""
@@ -12,63 +12,63 @@ fn get_indent(level int) string {
 	return indentation_string
 }
 
-fn print_asm_instr(instr ASMInstruction, depth int) {
-	val indent = get_indent(depth)
-	match instr {
-		when ASMInstruction::Mov(dst, src) {
-			println("$indent mov $(dst), $(src)")
-		}
-		when ASMInstruction::Unary(operator, operand) {
-			println("$indent $(operator) $(operand)")
-		}
-		when ASMInstruction::AllocateStack(size) {
-			println("$indent sub $size, %rsp")
-		}
-		when ASMInstruction::Ret {
-			println("$indent ret")
-		}
-		when ASMInstruction::Idiv(operand) {
-			println("$indent idiv $(operand)")
-		}
-		when ASMInstruction::Cdq {
-			println("$indent cdq")
-		}
-		when ASMInstruction::Binary(operator, left, right) {
-			println("$indent $(operator) $(left), $(right)")
-		}
-		when ASMInstruction::Cmp(left, right) {
-			println("$indent cmp $(left), $(right)")
-		}
-		when ASMInstruction::Jump(label) {
-			println("$indent jmp $(label)")
-		}
-		when ASMInstruction::JumpCC(code, label) {
-			println("$indent $(code) $(label)")
-		}
-		when ASMInstruction::SetCC(code, operand) {
-			println("$indent $(code) $(operand)")
-		}
-		when ASMInstruction::Label(label) {
-			println("$indent $(label):")
-		}
-	}
-}
+# fn print_asm_instr(instr ASMInstruction, depth int) {
+# 	val indent = get_indent(depth)
+# 	match instr {
+# 		when ASMInstruction::Mov(dst, src) {
+# 			println("$indent mov $(dst), $(src)")
+# 		}
+# 		when ASMInstruction::Unary(operator, operand) {
+# 			println("$indent $(operator) $(operand)")
+# 		}
+# 		when ASMInstruction::AllocateStack(size) {
+# 			println("$indent sub $size, %rsp")
+# 		}
+# 		when ASMInstruction::Ret {
+# 			println("$indent ret")
+# 		}
+# 		when ASMInstruction::Idiv(operand) {
+# 			println("$indent idiv $(operand)")
+# 		}
+# 		when ASMInstruction::Cdq {
+# 			println("$indent cdq")
+# 		}
+# 		when ASMInstruction::Binary(operator, left, right) {
+# 			println("$indent $(operator) $(left), $(right)")
+# 		}
+# 		when ASMInstruction::Cmp(left, right) {
+# 			println("$indent cmp $(left), $(right)")
+# 		}
+# 		when ASMInstruction::Jump(label) {
+# 			println("$indent jmp $(label)")
+# 		}
+# 		when ASMInstruction::JumpCC(code, label) {
+# 			println("$indent $(code) $(label)")
+# 		}
+# 		when ASMInstruction::SetCC(code, operand) {
+# 			println("$indent $(code) $(operand)")
+# 		}
+# 		when ASMInstruction::Label(label) {
+# 			println("$indent $(label):")
+# 		}
+# 	}
+# }
 
-pub fn print_asm(node ASTAssembly, depth int) {
-	match node {
-		when ASTAssembly::Program(inner_node) {
-			println("Program:")
-			print_asm(inner_node, depth + 1)
-		}
-		when ASTAssembly::Function(name, instructions) {
-			val indent = get_indent(depth)
-			println("$indent $(name):")
-			for instruction in instructions {
-				print_asm_instr(instruction, depth + 1)
-			}
-		}
-	}
-} 
+# pub fn print_asm(node ASTAssembly, depth int) {
+# 	match node {
+# 		when ASTAssembly::Program(inner_node) {
+# 			println("Program:")
+# 			print_asm(inner_node, depth + 1)
+# 		}
+# 		when ASTAssembly::Function(name, instructions) {
+# 			val indent = get_indent(depth)
+# 			println("$indent $(name):")
+# 			for instruction in instructions {
+# 				print_asm_instr(instruction, depth + 1)
+# 			}
+# 		}
+# 	}
+# } 
 
 fn print_ast_expression(node Expression, depth int) {
 	val indent = get_indent(depth)
@@ -141,6 +141,54 @@ fn print_ast_statement(node Statement, depth int) {
 			println("$indent Block")
 			print_ast_block(block, depth + 1)
 		}
+		when Statement::Break(label_opt) {
+			val final_label = label_opt or { yield "Anonymous" }
+			println("$indent $final_label: Break")
+		}
+		when Statement::Continue(label_opt) {
+			val final_label = label_opt or { yield "Anonymous" }
+			println("$indent $final_label: Continue")
+		}
+		when Statement::DoWhile(body, condition_opt, label_opt) {
+			val final_label = label_opt or { yield "Anonymous" }
+			println("$indent $final_label: Do While")
+			print_ast_statement(body, depth + 1)
+			print_ast_expression(condition_opt, depth + 1)
+		}
+		when Statement::While(condition, body, label_opt) {
+			val final_label = label_opt or { yield "Anonymous" }
+			println("$indent $final_label: While")
+			print_ast_expression(condition, depth + 1)
+			print_ast_statement(body, depth + 1)
+		}
+		when Statement::For(init, condition_opt, increment_opt, body, label_opt) {
+			val final_label = label_opt or { yield "Anonymous" }
+			println("$indent $final_label: For")
+			
+			match init {
+				when ForInit::Declaration(declaration) {
+					print_ast_declaration(declaration, depth + 1)
+				}
+				when ForInit::Expression(expr_opt) {
+					if expr_opt is Option::Some(expression) {
+						println("$(get_indent(depth + 1)) Expression")
+						print_ast_expression(expression, depth + 2)
+					}
+				}				
+			}
+
+			if condition_opt is Option::Some(condition) {
+				println("$(get_indent(depth + 1)) Condition")
+				print_ast_expression(condition, depth + 2)
+			}
+
+			if increment_opt is Option::Some(increment) {
+				println("$(get_indent(depth + 1)) Increment")
+				print_ast_expression(increment, depth + 2)
+			}
+
+			print_ast_statement(body, depth + 1)
+		}
 		when Statement::Null {
 			println("$indent Null")
 		}
@@ -162,7 +210,7 @@ fn print_ast_block(block Block, depth int) {
 	match block {
 		when Block::Block(block_items) {
 			for block_item in block_items {
-				print_ast_block_item(block_item, depth + 1)
+				print_ast_block_item(block_item, depth)
 			}
 		}
 	}
@@ -183,23 +231,23 @@ pub fn print_ast(node AST, depth int) {
 	}
 }
 
-fn print_instruction(inst Instruction, depth int) {
-	val indent = get_indent(depth)
-	println("$indent $inst")
-}
+# fn print_instruction(inst Instruction, depth int) {
+# 	val indent = get_indent(depth)
+# 	println("$indent $inst")
+# }
 
-pub fn print_tacky(node TACKY, depth int) {
-	val indent = get_indent(depth)
-	match node {
-		when TACKY::Program(node) {
-			println("Program:")
-			print_tacky(node, depth + 1)
-		}
-		when TACKY::Function(name, instructions) {
-			println("$indent $(name):")
-			for instruction in instructions {
-				print_instruction(instruction, depth + 1)
-			}
-		}
-	}
-}
+# pub fn print_tacky(node TACKY, depth int) {
+# 	val indent = get_indent(depth)
+# 	match node {
+# 		when TACKY::Program(node) {
+# 			println("Program:")
+# 			print_tacky(node, depth + 1)
+# 		}
+# 		when TACKY::Function(name, instructions) {
+# 			println("$indent $(name):")
+# 			for instruction in instructions {
+# 				print_instruction(instruction, depth + 1)
+# 			}
+# 		}
+# 	}
+# }
