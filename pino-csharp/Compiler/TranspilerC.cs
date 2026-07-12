@@ -919,19 +919,36 @@ public class TranspilerC {
                         }
                     } else if (bin.Right is FunctionCallExpression call) {
                         var structName = CleanTypeName(bin.Left.InferredType!);
-                        Write($"{structName}_{call.Callee}(");
-                        
-                        if (bin.Left is IdentifierExpression id && (id.Name == "this" || id.Name == "self")) {
-                            Write("this");
-                        } else {
+                        if (structName == "string" && call.Callee == "substring") {
+                            Write("string_substring(");
                             TranspileExpression(bin.Left);
-                        }
-
-                        for (int i = 0; i < call.Arguments.Count; i++) {
                             Write(", ");
-                            TranspileExpression(call.Arguments[i]);
+                            TranspileExpression(call.Arguments[0]);
+                            Write(", ");
+                            if (call.Arguments.Count > 1) {
+                                TranspileExpression(call.Arguments[1]);
+                            } else {
+                                Write("string_len(");
+                                TranspileExpression(bin.Left);
+                                Write(") - ");
+                                TranspileExpression(call.Arguments[0]);
+                            }
+                            Write(")");
+                        } else {
+                            Write($"{structName}_{call.Callee}(");
+                            
+                            if (bin.Left is IdentifierExpression id && (id.Name == "this" || id.Name == "self")) {
+                                Write("this");
+                            } else {
+                                TranspileExpression(bin.Left);
+                            }
+
+                            for (int i = 0; i < call.Arguments.Count; i++) {
+                                Write(", ");
+                                TranspileExpression(call.Arguments[i]);
+                            }
+                            Write(")");
                         }
-                        Write(")");
                     } else {
                         TranspileExpression(bin.Left);
                         Write("->");
