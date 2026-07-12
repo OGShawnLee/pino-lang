@@ -1,11 +1,10 @@
 from Lexer import TokenType, TokenStream, lex
 from Parser import AST, parse
 from Checker import resolve_ast, label_ast
-# from Transformer import translate_ast_to_tacky
-from Printer import print_ast
-# , print_tacky, print_asm
-# from Translator import translate_ast_to_asm
-# from Compiler import compile_ast_to_asm
+from Transformer import translate_ast_to_tacky
+from Printer import print_ast, print_tacky, print_asm
+from Translator import translate_ast_to_asm
+from Compiler import compile_ast_to_asm
 
 fn main {
 	println("Welcome to the Pino C Compiler!")
@@ -37,18 +36,18 @@ fn main {
 	println("Abstract Syntax Tree (LOOP LABELING PASSED):")
 	print_ast(labeled_program_ast, 0)
 
-	# val program_tacky = translate_ast_to_tacky(resolved_program_ast)
+	val program_tacky = translate_ast_to_tacky(labeled_program_ast)
 
-	# println("Intermediate Representations (TACKY):")
-	# print_tacky(program_tacky, 0)
+	println("Intermediate Representations (TACKY):")
+	print_tacky(program_tacky, 0)
 
-	# val assembly_ast = translate_ast_to_asm(program_tacky)
+	val assembly_ast = translate_ast_to_asm(program_tacky)
 
-	# println("Raw Assembly AST")
-	# print_asm(assembly_ast, 0)
+	println("Raw Assembly AST")
+	print_asm(assembly_ast, 0)
 
-	# val assembly = compile_ast_to_asm(assembly_ast)
+	val assembly = compile_ast_to_asm(assembly_ast)
 
-	# println("ASM Output:")
-	# println(assembly)
+	println("ASM Output:")
+	println(assembly)
 }

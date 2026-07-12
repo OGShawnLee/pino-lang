@@ -23,13 +23,12 @@ pub union TACKY {
  Function(string, []Instruction)
 }
 
-
-val TEMP_NAME_COUNTER = [0]
+val TEMP_VAR_NAME_COUNTER = [0]
 val LABEL_COUNTER = [0]
 
-fn generate_temp_name() {
- val name = "tmp.$(TEMP_NAME_COUNTER[0])"
- TEMP_NAME_COUNTER[0] += 1
+fn generate_temp_var_name() {
+ val name = "tmp.$(TEMP_VAR_NAME_COUNTER[0])"
+ TEMP_VAR_NAME_COUNTER[0] += 1
  return name
 }
 
@@ -45,10 +44,16 @@ fn generate_short_circuit_labels(prefix string) @(true_label string, false_label
 	return @(true_label, false_label)
 }
 
+fn get_loop_break_n_continue_labels(loop_label string) @(break_label string, continue_label string) {
+	val break_label = "$(loop_label)_break"
+	val continue_label = "$(loop_label)_continue"
+	return @(break_label, continue_label)
+}
+
 fn emit_binary_and(left Expression, right Expression, instr_list []Instruction) { 
 	val @(true_label, false_label) = generate_short_circuit_labels("and")
 	
-	val dst = Val::Var(generate_temp_name())
+	val dst = Val::Var(generate_temp_var_name())
 	val left_val = emit_tacky(left, instr_list)
 
 	instr_list:push(Instruction::JumpIfZero(left_val, false_label))
@@ -66,7 +71,7 @@ fn emit_binary_and(left Expression, right Expression, instr_list []Instruction) 
 fn emit_binary_or(left Expression, right Expression, instr_list []Instruction) {
 	val @(true_label, false_label) = generate_short_circuit_labels("or")
 	
-	val dst = Val::Var(generate_temp_name())
+	val dst = Val::Var(generate_temp_var_name())
 	val left_val = emit_tacky(left, instr_list)
 
 	instr_list:push(Instruction::JumpIfNotZero(left_val, true_label))
@@ -91,7 +96,7 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
 	}
 	when Expression::Unary(operator, inner_expr) {
 	 val src = emit_tacky(inner_expr, instr_list)
-	 val dst_name = generate_temp_name()
+	 val dst_name = generate_temp_var_name()
 	 val dst = Val::Var(dst_name)
 	 instr_list:push(Instruction::Unary(operator, src, dst))
 	 return dst
@@ -107,7 +112,7 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
 
 	 val left_val = emit_tacky(left, instr_list)
 	 val right_val = emit_tacky(right, instr_list)
-	 val dst_name = generate_temp_name()
+	 val dst_name = generate_temp_var_name()
 	 val dst = Val::Var(dst_name)
 	 instr_list:push(Instruction::Binary(operator, left_val, right_val, dst))
 	 return dst
@@ -125,7 +130,7 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
 		val condition = emit_tacky(condition_expr, instr_list)
 		val @(true_label, false_label) = generate_short_circuit_labels("conditional")
 
-		val dst_name = generate_temp_name()
+		val dst_name = generate_temp_var_name()
 		val dst = Val::Var(dst_name)
 
 		instr_list:push(Instruction::JumpIfZero(condition, false_label))
@@ -153,7 +158,7 @@ fn translate_stmt_to_tacky_instr_list(stmt Statement, instr_list []Instruction) 
 	 instr_list:push(Instruction::Ret(result))
 	}
 	when Statement::Expression(expr) {
-		val name = generate_temp_name()
+		val name = generate_temp_var_name()
 		val expr_result = emit_tacky(expr, instr_list)
 		instr_list:push(Instruction::Copy(expr_result, Val::Var(name)))
 	}
@@ -188,11 +193,94 @@ fn translate_stmt_to_tacky_instr_list(stmt Statement, instr_list []Instruction) 
 	when Statement::Compound(block) {
 		translate_block_to_tacky_instr_list(block, instr_list)
 	}
+	when Statement::Break(label_opt) {
+		val loop_label = label_opt or {
+			panic("TACKY: Break without label")
+		}
+		val @(break_label) = get_loop_break_n_continue_labels(loop_label)
+		instr_list:push(Instruction::Jump(break_label))
+	}
+	when Statement::Continue(label_opt) {
+		val loop_label = label_opt or {
+			panic("TACKY: Continue without label")
+		}
+		val @(continue_label) = get_loop_break_n_continue_labels(loop_label)
+		instr_list:push(Instruction::Jump(continue_label))
+	}
+	when Statement::While(condition_expr, body, label_opt) {
+		val loop_label = label_opt or {
+			panic("TACKY: While Statement without label")
+		}
+		val @(break_label, continue_label) = get_loop_break_n_continue_labels(loop_label)
+
+		instr_list:push(Instruction::Label(continue_label))
+
+		val condition = emit_tacky(condition_expr, instr_list)
+
+		instr_list:push(Instruction::JumpIfZero(condition, break_label))
+
+		translate_stmt_to_tacky_instr_list(body, instr_list)
+
+		instr_list:push(Instruction::Jump(continue_label))
+		instr_list:push(Instruction::Label(break_label))
+	}
+	when Statement::DoWhile(body, condition_expr, label_opt) {
+		val loop_label = label_opt or {
+			panic("TACKY: Do While Statement without label")
+		}
+		val @(break_label, continue_label) = get_loop_break_n_continue_labels(loop_label)
+
+		instr_list:push(Instruction::Label(loop_label))
+
+		translate_stmt_to_tacky_instr_list(body, instr_list)
+
+		instr_list:push(Instruction::Label(continue_label))
+
+		val condition = emit_tacky(condition_expr, instr_list)
+
+		instr_list:push(Instruction::JumpIfNotZero(condition, loop_label))
+		instr_list:push(Instruction::Label(break_label))
+	}
+	when Statement::For(init, condition_expr_opt, increment_expr_opt, body, label_opt) {
+		val loop_label = label_opt or {
+			panic("TACKY: For Statement without label")
+		}
+		val @(break_label, continue_label) = get_loop_break_n_continue_labels(loop_label)
+
+		match init {
+			when ForInit::Expression(expr_opt) {
+				if expr_opt is Option::Some(expr) {
+					emit_tacky(expr, instr_list)
+				}
+			}
+			when ForInit::Declaration(declaration) {
+				translate_declaration_to_tacky_instr_list(declaration, instr_list)
+			}
+		}
+
+		instr_list:push(Instruction::Label(loop_label))
+
+		if condition_expr_opt is Option::Some(condition_expr) {
+			val condition = emit_tacky(condition_expr, instr_list)
+			instr_list:push(Instruction::JumpIfZero(condition, break_label))
+		}
+
+		translate_stmt_to_tacky_instr_list(body, instr_list)
+
+		instr_list:push(Instruction::Label(continue_label))
+
+		if increment_expr_opt is Option::Some(increment_expr) {
+			emit_tacky(increment_expr, instr_list)
+		}
+
+		instr_list:push(Instruction::Jump(loop_label))
+		instr_list:push(Instruction::Label(break_label))
+	}
 	when Statement::Null {}
  }
 }
 
-fn translate_declaration_to_tacky_instr(declaration Declaration, instr_list []Instruction) {
+fn translate_declaration_to_tacky_instr_list(declaration Declaration, instr_list []Instruction) {
 	match declaration {
 		when Declaration::Declaration(name, init_option) {
 			if init_option is Option::Some(expr) {
@@ -206,7 +294,7 @@ fn translate_declaration_to_tacky_instr(declaration Declaration, instr_list []In
 fn translate_block_item_to_tack_instr_list(block_item BlockItem, instr_list []Instruction) {
 	match block_item {
 		when BlockItem::Declaration(declaration) {
-			translate_declaration_to_tacky_instr(declaration, instr_list)
+			translate_declaration_to_tacky_instr_list(declaration, instr_list)
 		}
 		when BlockItem::Statement(stmt) {
 			translate_stmt_to_tacky_instr_list(stmt, instr_list)
