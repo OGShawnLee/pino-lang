@@ -999,6 +999,37 @@ public class TranspilerC {
                 Write(")");
                 break;
 
+            case BubbleExpression bub:
+                {
+                    var innerType = bub.Value.InferredType!;
+                    var cleanInner = CleanTypeName(innerType);
+                    var cleanOuter = CleanTypeName(_currentReturnType);
+                    var varName = $"_pino_bub_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+
+                    Write($"({{ {cleanInner}* {varName} = ");
+                    TranspileExpression(bub.Value);
+                    Write("; ");
+
+                    if (innerType.StartsWith("Result[")) {
+                        Write($"if ({varName}->tag == {cleanInner}Tag_Failure) ");
+                        if (cleanInner == cleanOuter) {
+                            Write($"return {varName}; ");
+                        } else {
+                            Write($"return {cleanOuter}_Failure_construct({varName}->value.Failure._0); ");
+                        }
+                        Write($"{varName}->value.Success._0; }})");
+                    } else { // Option
+                        Write($"if ({varName}->tag == {cleanInner}Tag_None) ");
+                        if (cleanInner == cleanOuter) {
+                            Write($"return {varName}; ");
+                        } else {
+                            Write($"return ({{ {cleanOuter}* temp = ({cleanOuter}*)pino_malloc(sizeof({cleanOuter})); temp->tag = {cleanOuter}Tag_None; temp; }}); ");
+                        }
+                        Write($"{varName}->value.Some._0; }})");
+                    }
+                }
+                break;
+
             case IdentifierExpression id:
                 if (_currentStructFields.Contains(id.Name) && !_varTypes.ContainsKey(id.Name)) {
                     Write($"this->{id.Name}");
@@ -1585,6 +1616,13 @@ public class TranspilerC {
         }
         if (pinoType.StartsWith("fn(")) {
             return pinoType.Replace("fn(", "fn_").Replace(")", "").Replace(",", "_").Replace(" ", "");
+        }
+        if (pinoType.Contains("[") && pinoType.EndsWith("]")) {
+            int bracketIdx = pinoType.IndexOf('[');
+            var baseName = pinoType.Substring(0, bracketIdx);
+            var argsStr = pinoType.Substring(bracketIdx + 1, pinoType.Length - bracketIdx - 2);
+            var pinoArgs = argsStr.Split(',').Select(a => a.Trim().Replace(" ", "_").Replace("[]", "Vector_").Replace("[", "_").Replace("]", "_").Replace(",", "_")).ToList();
+            return baseName + "_" + string.Join("_", pinoArgs);
         }
         return pinoType;
     }
