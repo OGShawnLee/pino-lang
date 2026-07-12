@@ -94,6 +94,10 @@ public class Environment {
     return false;
   }
 
+  public bool Remove(string name) {
+    return _values.Remove(name);
+  }
+
   public object? GetAt(int distance, string name) {
     var ancestor = distance == 0 ? this : Ancestor(distance);
     if (ancestor is StructMethodEnvironment structEnv && structEnv.Instance.Fields.TryGetValue(name, out var fieldVal)) {

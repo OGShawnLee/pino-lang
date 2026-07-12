@@ -47,13 +47,15 @@ public partial class Evaluator {
               consequentEnv.Define(kvp.Key, kvp.Value, true);
             }
           }
-          if (ifs.Consequent is BlockStatement block) {
-            ExecuteBlock(block.Statements, consequentEnv);
-          } else {
-            Execute(ifs.Consequent, consequentEnv);
-          }
+          Execute(ifs.Consequent, consequentEnv);
         } else if (ifs.Alternate != null) {
           Execute(ifs.Alternate, env);
+        }
+        
+        if (_lastConditionBindings != null) {
+          foreach (var kvp in _lastConditionBindings) {
+            env.Remove(kvp.Key);
+          }
         }
         _lastConditionBindings = null;
         break;

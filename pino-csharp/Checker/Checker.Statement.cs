@@ -200,27 +200,17 @@ public partial class Checker {
 
       case IfStatement ifs:
         CheckExpression(ifs.Condition);
-        
+
         var boundVars = new List<(string Name, string Type)>();
         ExtractBoundVariables(ifs.Condition, boundVars, true);
 
-        if (ifs.Consequent is BlockStatement consequentBlock) {
-          PushScope();
-          foreach (var bv in boundVars) {
-            DeclareVariable(bv.Name, bv.Type);
-          }
-          foreach (var s in consequentBlock.Statements) {
-            CheckStatement(s);
-          }
-          PopScope();
-        } else {
-          PushScope();
-          foreach (var bv in boundVars) {
-            DeclareVariable(bv.Name, bv.Type);
-          }
-          CheckStatement(ifs.Consequent);
-          PopScope();
+        PushScope();
+        foreach (var bv in boundVars) {
+          DeclareVariable(bv.Name, bv.Type);
         }
+
+        CheckStatement(ifs.Consequent);
+        PopScope();
 
         if (ifs.Alternate != null) {
           CheckStatement(ifs.Alternate);

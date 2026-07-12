@@ -742,6 +742,30 @@ public class TranspilerC {
                             TranspileExpression(bin.Right);
                         }
                     }
+                } else if ((bin.Operator == OperatorType.Equal ||
+                            bin.Operator == OperatorType.NotEqual ||
+                            bin.Operator == OperatorType.LessThan ||
+                            bin.Operator == OperatorType.LessThanEqual ||
+                            bin.Operator == OperatorType.GreaterThan ||
+                            bin.Operator == OperatorType.GreaterThanEqual) &&
+                           (bin.Left.InferredType == "string" || bin.Right.InferredType == "string")) {
+                    Write("(");
+                    Write("strcmp(");
+                    TranspileExpression(bin.Left);
+                    Write(", ");
+                    TranspileExpression(bin.Right);
+                    Write(")");
+                    var opStr = bin.Operator switch {
+                        OperatorType.Equal => "== 0",
+                        OperatorType.NotEqual => "!= 0",
+                        OperatorType.LessThan => "< 0",
+                        OperatorType.LessThanEqual => "<= 0",
+                        OperatorType.GreaterThan => "> 0",
+                        OperatorType.GreaterThanEqual => ">= 0",
+                        _ => throw new NotImplementedException()
+                    };
+                    Write($" {opStr}");
+                    Write(")");
                 } else {
                     Write("(");
                     TranspileExpression(bin.Left);
@@ -968,7 +992,7 @@ public class TranspilerC {
                     var condList = new List<string>();
                     var bindingList = new List<string>();
                     string targetType = isExpr.Value.InferredType ?? "any";
-                    BuildPatternMatch(isExpr.Pattern, lhsTarget, targetType, condList, bindingList);
+                    BuildPatternMatch(isExpr.Pattern, lhsTarget, targetType, condList, bindingList, isInExpression: true);
 
                     var condStr = condList.Count > 0 ? string.Join(" && ", condList) : "true";
                     if (isExpr.IsNot) {
@@ -1066,78 +1090,32 @@ public class TranspilerC {
         };
     }
 
-    private void BuildBindingsFromCondition(Expression expr, List<string> bindings, bool active) {
-        if (expr is IsExpression isExpr) {
-            if (active && !isExpr.IsNot) {
-                var oldSb = _sb;
-                _sb = new StringBuilder();
-                TranspileExpression(isExpr.Value);
-                var lhsTarget = _sb.ToString();
-                _sb = oldSb;
 
-                var condList = new List<string>();
-                var bindingList = new List<string>();
-                string targetType = isExpr.Value.InferredType ?? "any";
-                BuildPatternMatch(isExpr.Pattern, lhsTarget, targetType, condList, bindingList);
-                bindings.AddRange(bindingList);
-            }
-        } else if (expr is UnaryExpression un && un.Operator == OperatorType.Not) {
-            BuildBindingsFromCondition(un.Right, bindings, !active);
-        } else if (expr is BinaryExpression bin) {
-            if (bin.Operator == OperatorType.And) {
-                BuildBindingsFromCondition(bin.Left, bindings, active);
-                BuildBindingsFromCondition(bin.Right, bindings, active);
-            }
-        }
-    }
-
-    private void TranspileBlockOrStatementWithBindings(Statement stmt, List<string> bindings) {
-        if (bindings.Count == 0) {
-            TranspileBlockOrStatement(stmt);
-            return;
-        }
-
-        _blockDepth++;
-        try {
-            if (stmt is BlockStatement block) {
-                Write("{\n");
-                _indent++;
-                foreach (var binding in bindings) {
-                    WriteLine(binding);
-                }
-                foreach (var child in block.Statements) {
-                    TranspileStatement(child);
-                }
-                _indent--;
-                WriteIndent();
-                Write("}");
-            } else {
-                Write("{\n");
-                _indent++;
-                foreach (var binding in bindings) {
-                    WriteLine(binding);
-                }
-                TranspileStatement(stmt);
-                _indent--;
-                WriteIndent();
-                Write("}");
-            }
-        } finally {
-            _blockDepth--;
-        }
-    }
 
     private void TranspileIf(IfStatement ifs, bool isElseIf) {
         if (!isElseIf) {
             WriteIndent();
         }
+
+        var boundVars = new List<(string Name, string Type)>();
+        ExtractBoundVariables(ifs.Condition, boundVars, true);
+
+        if (boundVars.Count > 0) {
+            Write("{\n");
+            _indent++;
+            foreach (var bv in boundVars) {
+                WriteIndent();
+                Write($"{MapType(bv.Type)} {bv.Name} = 0;\n");
+                _varTypes[bv.Name] = bv.Type;
+            }
+            WriteIndent();
+        }
+
         Write("if (");
         TranspileExpression(ifs.Condition);
         Write(") ");
 
-        var bindings = new List<string>();
-        BuildBindingsFromCondition(ifs.Condition, bindings, true);
-        TranspileBlockOrStatementWithBindings(ifs.Consequent, bindings);
+        TranspileBlockOrStatement(ifs.Consequent);
 
         if (ifs.Alternate != null) {
             Write(" else ");
@@ -1146,6 +1124,13 @@ public class TranspilerC {
             } else {
                 TranspileBlockOrStatement(ifs.Alternate);
             }
+        }
+
+        if (boundVars.Count > 0) {
+            Write("\n");
+            _indent--;
+            WriteIndent();
+            Write("}");
         }
     }
 
@@ -1331,7 +1316,7 @@ public class TranspilerC {
         return null;
     }
 
-    private void BuildPatternMatch(Pattern pattern, string target, string targetType, List<string> condList, List<string> bindingList) {
+    private void BuildPatternMatch(Pattern pattern, string target, string targetType, List<string> condList, List<string> bindingList, bool isInExpression = false) {
         switch (pattern) {
             case LiteralPattern litPat:
                 {
@@ -1347,7 +1332,11 @@ public class TranspilerC {
             case IdentifierPattern idPat:
                 {
                     if (idPat.Name != "_") {
-                        bindingList.Add($"const {MapType(targetType)} {idPat.Name} = {target};");
+                        if (isInExpression) {
+                            condList.Add($"({idPat.Name} = {target}, 1)");
+                        } else {
+                            bindingList.Add($"const {MapType(targetType)} {idPat.Name} = {target};");
+                        }
                     }
                 }
                 break;
@@ -1369,7 +1358,44 @@ public class TranspilerC {
                             var subPat = varPat.SubPatterns[i];
                             var subTarget = $"{target}->value.{varPat.VariantName}._{i}";
                             var subTargetType = variant.AssociatedTypes[i];
-                            BuildPatternMatch(subPat, subTarget, subTargetType, condList, bindingList);
+                            BuildPatternMatch(subPat, subTarget, subTargetType, condList, bindingList, isInExpression);
+                        }
+                    }
+                }
+                break;
+        }
+    }
+
+    private void ExtractBoundVariables(Expression expr, List<(string Name, string Type)> boundVars, bool active) {
+        if (expr is IsExpression isExpr) {
+            if (active && !isExpr.IsNot) {
+                string lhsType = isExpr.Value.InferredType ?? "any";
+                CollectPatternVariables(isExpr.Pattern, lhsType, boundVars);
+            }
+        } else if (expr is UnaryExpression un && un.Operator == OperatorType.Not) {
+            ExtractBoundVariables(un.Right, boundVars, !active);
+        } else if (expr is BinaryExpression bin) {
+            if (bin.Operator == OperatorType.And) {
+                ExtractBoundVariables(bin.Left, boundVars, active);
+                ExtractBoundVariables(bin.Right, boundVars, active);
+            }
+        }
+    }
+
+    private void CollectPatternVariables(Pattern pattern, string targetType, List<(string Name, string Type)> vars) {
+        switch (pattern) {
+            case IdentifierPattern id:
+                if (id.Name != "_") {
+                    vars.Add((id.Name, targetType));
+                }
+                break;
+            case VariantPattern varPat:
+                var unionDecl = FindUnion(varPat.UnionName);
+                if (unionDecl != null) {
+                    var variant = unionDecl.Variants.Find(v => v.Identifier == varPat.VariantName);
+                    if (variant != null) {
+                        for (int i = 0; i < Math.Min(varPat.SubPatterns.Count, variant.AssociatedTypes.Count); i++) {
+                            CollectPatternVariables(varPat.SubPatterns[i], variant.AssociatedTypes[i], vars);
                         }
                     }
                 }

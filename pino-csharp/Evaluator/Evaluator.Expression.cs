@@ -225,6 +225,11 @@ public partial class Evaluator {
         if (bin.Operator == OperatorType.And) {
           var leftVal = Evaluate(bin.Left, env);
           if (!IsTruthy(leftVal)) return false;
+          if (_lastConditionBindings != null && _lastConditionBindings.Count > 0) {
+            foreach (var kvp in _lastConditionBindings) {
+              env.Define(kvp.Key, kvp.Value, true);
+            }
+          }
           return IsTruthy(Evaluate(bin.Right, env));
         }
         if (bin.Operator == OperatorType.Or) {

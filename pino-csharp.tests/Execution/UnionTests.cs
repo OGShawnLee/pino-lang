@@ -255,5 +255,29 @@ public class UnionTests {
     var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
     Assert.Equal(12L, env.Get("res_val"));
   }
+
+  [Fact]
+  public void TestUnionIsExpressionWithSubsequentCondition() {
+    var code = @"
+      fn check_name(name Option[string]) bool {
+        if name is Option::Some(n) and n == ""Shawn"" {
+          return true
+        }
+        return false
+      }
+
+      val opt1 = Option::Some(""Shawn"")
+      val opt2 = Option::Some(""NotShawn"")
+      val opt3 = Option::None
+
+      val res1 = check_name(opt1)
+      val res2 = check_name(opt2)
+      val res3 = check_name(opt3)
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.True((bool)env.Get("res1"));
+    Assert.False((bool)env.Get("res2"));
+    Assert.False((bool)env.Get("res3"));
+  }
 }
 
