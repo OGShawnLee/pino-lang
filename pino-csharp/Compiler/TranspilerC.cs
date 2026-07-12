@@ -245,8 +245,8 @@ public class TranspilerC {
         finalSb.AppendLine("#include \"runtime/runtime.h\"");
         finalSb.AppendLine();
         finalSb.Append(forwardDeclSb.ToString());
-        finalSb.Append(_globalDeclSb.ToString());
         finalSb.Append(_tupleSb.ToString());
+        finalSb.Append(_globalDeclSb.ToString());
         finalSb.Append(structSb.ToString());
         finalSb.Append(_sb.ToString());
 
