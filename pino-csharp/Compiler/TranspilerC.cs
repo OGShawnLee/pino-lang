@@ -345,6 +345,169 @@ public class TranspilerC {
 
     private string MapType(string pinoType) {
         if (string.IsNullOrEmpty(pinoType)) return "void";
+        if (pinoType.StartsWith("map[")) {
+            var clean = CleanTypeName(pinoType);
+            if (!_declaredTuples.Contains(pinoType)) {
+                _declaredTuples.Add(pinoType);
+                
+                int commaIdx = pinoType.IndexOf(',');
+                var keyType = pinoType.Substring(4, commaIdx - 4).Trim();
+                var valType = pinoType.Substring(commaIdx + 1, pinoType.Length - commaIdx - 2).Trim();
+                var cKeyType = MapType(keyType);
+                var cValType = MapType(valType);
+                
+                // Force declaration of the vector types
+                MapType($"[]{keyType}");
+                MapType($"[]{valType}");
+                var cKeysVecType = MapType($"[]{keyType}");
+                var cValsVecType = MapType($"[]{valType}");
+                
+                string hashExpr = GetHashFunction(keyType, "key");
+                string keyEqExpr = keyType == "string" ? "strcmp(a, b) == 0" : "a == b";
+                
+                _tupleSb.AppendLine($"struct {clean}_entry;");
+                _tupleSb.AppendLine($"typedef struct {clean}_entry {clean}_entry;");
+                _tupleSb.AppendLine($"struct {clean}_entry {{");
+                _tupleSb.AppendLine($"    int occupied;");
+                _tupleSb.AppendLine($"    {cKeyType} key;");
+                _tupleSb.AppendLine($"    {cValType} value;");
+                _tupleSb.AppendLine($"}};");
+                _tupleSb.AppendLine();
+                
+                _tupleSb.AppendLine($"struct {clean};");
+                _tupleSb.AppendLine($"typedef struct {clean} {clean};");
+                _tupleSb.AppendLine($"struct {clean} {{");
+                _tupleSb.AppendLine($"    {clean}_entry* entries;");
+                _tupleSb.AppendLine($"    int size;");
+                _tupleSb.AppendLine($"    int capacity;");
+                _tupleSb.AppendLine($"}};");
+                _tupleSb.AppendLine();
+                
+                _tupleSb.AppendLine($"static inline {clean}* {clean}_construct() {{");
+                _tupleSb.AppendLine($"    {clean}* m = ({clean}*)pino_malloc(sizeof({clean}));");
+                _tupleSb.AppendLine($"    m->size = 0;");
+                _tupleSb.AppendLine($"    m->capacity = 8;");
+                _tupleSb.AppendLine($"    m->entries = ({clean}_entry*)pino_malloc(m->capacity * sizeof({clean}_entry));");
+                _tupleSb.AppendLine($"    memset(m->entries, 0, m->capacity * sizeof({clean}_entry));");
+                _tupleSb.AppendLine($"    return m;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+                
+                _tupleSb.AppendLine($"static inline void {clean}_set({clean}* map, {cKeyType} key, {cValType} value) {{");
+                _tupleSb.AppendLine($"    if (map->size * 2 >= map->capacity) {{");
+                _tupleSb.AppendLine($"        int old_cap = map->capacity;");
+                _tupleSb.AppendLine($"        {clean}_entry* old_entries = map->entries;");
+                _tupleSb.AppendLine($"        map->capacity = old_cap == 0 ? 8 : old_cap * 2;");
+                _tupleSb.AppendLine($"        map->entries = ({clean}_entry*)pino_malloc(map->capacity * sizeof({clean}_entry));");
+                _tupleSb.AppendLine($"        memset(map->entries, 0, map->capacity * sizeof({clean}_entry));");
+                _tupleSb.AppendLine($"        map->size = 0;");
+                _tupleSb.AppendLine($"        for (int i = 0; i < old_cap; i++) {{");
+                _tupleSb.AppendLine($"            if (old_entries[i].occupied == 1) {{");
+                _tupleSb.AppendLine($"                {clean}_set(map, old_entries[i].key, old_entries[i].value);");
+                _tupleSb.AppendLine($"            }}");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    unsigned long hash = {hashExpr};");
+                _tupleSb.AppendLine($"    int idx = (int)(hash % map->capacity);");
+                _tupleSb.AppendLine($"    int first_tombstone = -1;");
+                _tupleSb.AppendLine($"    while (map->entries[idx].occupied != 0) {{");
+                _tupleSb.AppendLine($"        if (map->entries[idx].occupied == 1) {{");
+                _tupleSb.AppendLine($"            {cKeyType} a = map->entries[idx].key;");
+                _tupleSb.AppendLine($"            {cKeyType} b = key;");
+                _tupleSb.AppendLine($"            if ({keyEqExpr}) {{");
+                _tupleSb.AppendLine($"                map->entries[idx].value = value;");
+                _tupleSb.AppendLine($"                return;");
+                _tupleSb.AppendLine($"            }}");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"        if (map->entries[idx].occupied == 2 && first_tombstone == -1) {{");
+                _tupleSb.AppendLine($"            first_tombstone = idx;");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"        idx = (idx + 1) % map->capacity;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    int insert_idx = first_tombstone != -1 ? first_tombstone : idx;");
+                _tupleSb.AppendLine($"    map->entries[insert_idx].occupied = 1;");
+                _tupleSb.AppendLine($"    map->entries[insert_idx].key = key;");
+                _tupleSb.AppendLine($"    map->entries[insert_idx].value = value;");
+                _tupleSb.AppendLine($"    map->size++;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+                
+                _tupleSb.AppendLine($"static inline {cValType} {clean}_get({clean}* map, {cKeyType} key) {{");
+                _tupleSb.AppendLine($"    if (map->capacity == 0) {{");
+                _tupleSb.AppendLine($"        printf(\"RUNTIME ERROR: Key not found in map (empty capacity).\\n\");");
+                _tupleSb.AppendLine($"        exit(1);");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    unsigned long hash = {hashExpr};");
+                _tupleSb.AppendLine($"    int idx = (int)(hash % map->capacity);");
+                _tupleSb.AppendLine($"    int start = idx;");
+                _tupleSb.AppendLine($"    while (map->entries[idx].occupied != 0) {{");
+                _tupleSb.AppendLine($"        if (map->entries[idx].occupied == 1) {{");
+                _tupleSb.AppendLine($"            {cKeyType} a = map->entries[idx].key;");
+                _tupleSb.AppendLine($"            {cKeyType} b = key;");
+                _tupleSb.AppendLine($"            if ({keyEqExpr}) {{");
+                _tupleSb.AppendLine($"                return map->entries[idx].value;");
+                _tupleSb.AppendLine($"            }}");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"        idx = (idx + 1) % map->capacity;");
+                _tupleSb.AppendLine($"        if (idx == start) break;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    printf(\"RUNTIME ERROR: Key not found in map.\\n\");");
+                _tupleSb.AppendLine($"    exit(1);");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+                
+                _tupleSb.AppendLine($"static inline {cValType} {clean}_remove({clean}* map, {cKeyType} key) {{");
+                _tupleSb.AppendLine($"    if (map->capacity == 0) {{");
+                _tupleSb.AppendLine($"        {cValType} zero = {{0}};");
+                _tupleSb.AppendLine($"        return zero;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    unsigned long hash = {hashExpr};");
+                _tupleSb.AppendLine($"    int idx = (int)(hash % map->capacity);");
+                _tupleSb.AppendLine($"    int start = idx;");
+                _tupleSb.AppendLine($"    while (map->entries[idx].occupied != 0) {{");
+                _tupleSb.AppendLine($"        if (map->entries[idx].occupied == 1) {{");
+                _tupleSb.AppendLine($"            {cKeyType} a = map->entries[idx].key;");
+                _tupleSb.AppendLine($"            {cKeyType} b = key;");
+                _tupleSb.AppendLine($"            if ({keyEqExpr}) {{");
+                _tupleSb.AppendLine($"                map->entries[idx].occupied = 2;");
+                _tupleSb.AppendLine($"                map->size--;");
+                _tupleSb.AppendLine($"                return map->entries[idx].value;");
+                _tupleSb.AppendLine($"            }}");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"        idx = (idx + 1) % map->capacity;");
+                _tupleSb.AppendLine($"        if (idx == start) break;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    {cValType} zero = {{0}};");
+                _tupleSb.AppendLine($"    return zero;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                var cleanKeysVecType = CleanTypeName($"[]{keyType}");
+                _tupleSb.AppendLine($"static inline {cKeysVecType} {clean}_keys({clean}* map) {{");
+                _tupleSb.AppendLine($"    {cKeysVecType} vec = {cleanKeysVecType}_construct(0);");
+                _tupleSb.AppendLine($"    for (int i = 0; i < map->capacity; i++) {{");
+                _tupleSb.AppendLine($"        if (map->entries[i].occupied == 1) {{");
+                _tupleSb.AppendLine($"            vec = {cleanKeysVecType}_push(vec, map->entries[i].key);");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return vec;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                var cleanValsVecType = CleanTypeName($"[]{valType}");
+                _tupleSb.AppendLine($"static inline {cValsVecType} {clean}_values({clean}* map) {{");
+                _tupleSb.AppendLine($"    {cValsVecType} vec = {cleanValsVecType}_construct(0);");
+                _tupleSb.AppendLine($"    for (int i = 0; i < map->capacity; i++) {{");
+                _tupleSb.AppendLine($"        if (map->entries[i].occupied == 1) {{");
+                _tupleSb.AppendLine($"            vec = {cleanValsVecType}_push(vec, map->entries[i].value);");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return vec;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+            }
+            return clean + "*";
+        }
         if (pinoType.StartsWith("[]")) {
             var clean = CleanTypeName(pinoType);
             if (!_declaredTuples.Contains(pinoType)) {
@@ -650,12 +813,29 @@ public class TranspilerC {
                 break;
 
             case BinaryExpression bin:
-                if (bin.Operator == OperatorType.Assignment && IsStringConcat(bin.Right)) {
-                    var (format, args) = ProcessStringAddition(bin.Right);
-                    var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
-                    Write("snprintf(");
-                    TranspileExpression(bin.Left);
-                    Write($", 1024, \"{EscapeString(format)}\"{argsStr})");
+                if (bin.Operator == OperatorType.Assignment) {
+                    if (bin.Left is IndexAccessExpression idx && idx.Target.InferredType != null && idx.Target.InferredType.StartsWith("map[")) {
+                        var cleanType = CleanTypeName(idx.Target.InferredType);
+                        Write($"{cleanType}_set(");
+                        TranspileExpression(idx.Target);
+                        Write(", ");
+                        TranspileExpression(idx.Index);
+                        Write(", ");
+                        TranspileExpression(bin.Right);
+                        Write(")");
+                    } else if (IsStringConcat(bin.Right)) {
+                        var (format, args) = ProcessStringAddition(bin.Right);
+                        var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                        Write("snprintf(");
+                        TranspileExpression(bin.Left);
+                        Write($", 1024, \"{EscapeString(format)}\"{argsStr})");
+                    } else {
+                        Write("(");
+                        TranspileExpression(bin.Left);
+                        Write(" = ");
+                        TranspileExpression(bin.Right);
+                        Write(")");
+                    }
                 } else if (bin.Operator == OperatorType.Addition && bin.InferredType == "string") {
                     var (format, args) = ProcessStringAddition(bin);
                     var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
@@ -717,8 +897,28 @@ public class TranspilerC {
                         } else {
                             throw new NotImplementedException($"Member method/property '{bin.Right}' not implemented on vectors.");
                         }
+                    } else if (bin.Left.InferredType != null && bin.Left.InferredType.StartsWith("map[")) {
+                        if (bin.Right is IdentifierExpression id && (id.Name == "len" || id.Name == "length")) {
+                            TranspileExpression(bin.Left);
+                            Write("->size");
+                        } else if (bin.Right is FunctionCallExpression call) {
+                            var structName = CleanTypeName(bin.Left.InferredType);
+                            Write($"{structName}_{call.Callee}(");
+                            if (bin.Left is IdentifierExpression lid && (lid.Name == "this" || lid.Name == "self")) {
+                                Write("this");
+                            } else {
+                                TranspileExpression(bin.Left);
+                            }
+                            for (int i = 0; i < call.Arguments.Count; i++) {
+                                Write(", ");
+                                TranspileExpression(call.Arguments[i]);
+                            }
+                            Write(")");
+                        } else {
+                            throw new NotImplementedException($"Member method/property '{bin.Right}' not implemented on maps.");
+                        }
                     } else if (bin.Right is FunctionCallExpression call) {
-                        var structName = bin.Left.InferredType!;
+                        var structName = CleanTypeName(bin.Left.InferredType!);
                         Write($"{structName}_{call.Callee}(");
                         
                         if (bin.Left is IdentifierExpression id && (id.Name == "this" || id.Name == "self")) {
@@ -868,6 +1068,22 @@ public class TranspilerC {
                 }
                 break;
 
+            case MapExpression map:
+                {
+                    var cleanType = CleanTypeName(map.InferredType!);
+                    MapType(map.InferredType!);
+                    Write($"({{ {cleanType}* temp = {cleanType}_construct(); ");
+                    foreach (var entry in map.Entries) {
+                        Write($"{cleanType}_set(temp, ");
+                        TranspileExpression(entry.Key);
+                        Write(", ");
+                        TranspileExpression(entry.Value);
+                        Write("); ");
+                    }
+                    Write("temp; })");
+                }
+                break;
+
             case IndexAccessExpression idx:
                 {
                     var targetType = idx.Target.InferredType!;
@@ -876,6 +1092,13 @@ public class TranspilerC {
                         Write("->items[");
                         TranspileExpression(idx.Index);
                         Write("]");
+                    } else if (targetType.StartsWith("map[")) {
+                        var cleanType = CleanTypeName(targetType);
+                        Write($"{cleanType}_get(");
+                        TranspileExpression(idx.Target);
+                        Write(", ");
+                        TranspileExpression(idx.Index);
+                        Write(")");
                     } else {
                         throw new NotImplementedException("Map or custom index access is not implemented in transpilation.");
                     }
@@ -1207,6 +1430,7 @@ public class TranspilerC {
 
                     var collVar = $"_pino_coll_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
                     var idxVar = $"_pino_idx_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                    bool isMap = collType.StartsWith("map[");
 
                     WriteIndent();
                     WriteLine("{");
@@ -1231,6 +1455,35 @@ public class TranspilerC {
                         if (!string.IsNullOrEmpty(keyId)) {
                             WriteIndent();
                             WriteLine($"int {keyId} = {idxVar};");
+                        }
+                    } else if (collType.StartsWith("map[")) {
+                        int commaIdx = collType.IndexOf(',');
+                        string keyType = collType.Substring(4, commaIdx - 4).Trim();
+                        string valType = collType.Substring(commaIdx + 1, collType.Length - commaIdx - 2).Trim();
+                        string cKeyType = MapType(keyType);
+                        string cValType = MapType(valType);
+                        var cleanType = CleanTypeName(collType);
+
+                        WriteIndent();
+                        Write($"{cleanType}* {collVar} = ");
+                        TranspileExpression(collExpr);
+                        _sb.AppendLine(";");
+
+                        WriteIndent();
+                        WriteLine($"for (int {idxVar} = 0; {idxVar} < {collVar}->capacity; {idxVar}++) {{");
+                        _indent++;
+                        WriteIndent();
+                        WriteLine($"if ({collVar}->entries[{idxVar}].occupied == 1) {{");
+                        _indent++;
+
+                        if (string.IsNullOrEmpty(keyId)) {
+                            WriteIndent();
+                            WriteLine($"{cKeyType} {valId} = {collVar}->entries[{idxVar}].key;");
+                        } else {
+                            WriteIndent();
+                            WriteLine($"{cValType} {valId} = {collVar}->entries[{idxVar}].value;");
+                            WriteIndent();
+                            WriteLine($"{cKeyType} {keyId} = {collVar}->entries[{idxVar}].key;");
                         }
                     } else if (collType == "string") {
                         WriteIndent();
@@ -1274,6 +1527,12 @@ public class TranspilerC {
                     // Loop body
                     TranspileStatement(loop.Body);
 
+                    if (isMap) {
+                        _indent--;
+                        WriteIndent();
+                        WriteLine("}"); // Close if
+                    }
+
                     _indent--;
                     WriteIndent();
                     WriteLine("}"); // Close for
@@ -1288,6 +1547,13 @@ public class TranspilerC {
 
     private string EscapeString(string value) {
         return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+    }
+
+    private string GetHashFunction(string keyType, string val) {
+        if (keyType == "string" || keyType == "const char*") {
+            return $"pino_string_hash({val})";
+        }
+        return $"((unsigned long)({val}))";
     }
 
     private string CleanTypeName(string pinoType) {

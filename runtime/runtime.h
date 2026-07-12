@@ -73,5 +73,6 @@ int string_ends_with(const char* str, const char* suffix);
 int string_index_of(const char* str, const char* sub);
 const char* string_trim_start(const char* str);
 const char* string_trim_end(const char* str);
+unsigned long pino_string_hash(const char* str);
 
 #endif // PINO_RUNTIME_H

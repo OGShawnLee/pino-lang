@@ -387,3 +387,13 @@ Vector_string* string_split(const char* str, const char* sep) {
     Vector_string_push(vec, item);
     return vec;
 }
+
+unsigned long pino_string_hash(const char* str) {
+    if (!str) return 0;
+    unsigned long hash = 5381;
+    int c;
+    while ((c = (unsigned char)*str++)) {
+        hash = ((hash << 5) + hash) + c;
+    }
+    return hash;
+}
