@@ -110,7 +110,8 @@ public partial class Checker {
           if (isMethod) {
             PopScope();
           }
-          InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
+          string inferredRetType = InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
+          fnDecl.InferredReturnType = inferredRetType;
         } finally {
           _currentReturnType = previousReturnType;
         }

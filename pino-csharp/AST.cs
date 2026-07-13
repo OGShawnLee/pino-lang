@@ -68,6 +68,8 @@ public record VariableDeclaration(VariableKind Kind, string Identifier, Expressi
 
 public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false, List<GenericParam>? GenericParams = null) : Declaration(Identifier, IsPublic) {
   public List<VariableDeclaration>? TupleReturnType { get; set; } = null;
+  public string InferredReturnType { get; set; } = "";
+  public string ResolvedReturnType => string.IsNullOrEmpty(InferredReturnType) ? ReturnType : InferredReturnType;
 }
 
 public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);

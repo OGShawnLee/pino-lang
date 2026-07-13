@@ -113,7 +113,7 @@ public class TranspilerC {
 
                 // Forward declare instance methods
                 foreach (var method in structDecl.Methods) {
-                    var retType = MapType(method.ReturnType);
+                    var retType = MapType(method.ResolvedReturnType);
                     var methodParams = $"struct {structDecl.Identifier}* this";
                     if (method.Parameters.Count > 0) {
                         methodParams += ", " + string.Join(", ", method.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
@@ -175,7 +175,7 @@ public class TranspilerC {
                 structSb.AppendLine();
             } else if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
                 if (fnDecl.GenericParams != null && fnDecl.GenericParams.Count > 0) continue;
-                var returnType = MapType(fnDecl.ReturnType);
+                var returnType = MapType(fnDecl.ResolvedReturnType);
                 var parameters = string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
                 if (string.IsNullOrEmpty(parameters)) parameters = "void";
                 _sb.AppendLine($"{returnType} {fnDecl.Identifier}({parameters});");
@@ -332,10 +332,10 @@ public class TranspilerC {
     }
 
     private void TranspileFunction(FunctionDeclaration fnDecl) {
-        var returnType = MapType(fnDecl.ReturnType);
+        var returnType = MapType(fnDecl.ResolvedReturnType);
         var identifier = fnDecl.Identifier;
 
-        _currentReturnType = fnDecl.ReturnType;
+        _currentReturnType = fnDecl.ResolvedReturnType;
         _isGlobalScope = false;
         _varTypes.Clear();
         foreach (var kvp in _globalVarTypes) {
@@ -362,10 +362,10 @@ public class TranspilerC {
     }
 
     private void TranspileStructMethod(string structName, FunctionDeclaration fnDecl) {
-        var returnType = MapType(fnDecl.ReturnType);
+        var returnType = MapType(fnDecl.ResolvedReturnType);
         var identifier = $"{structName}_{fnDecl.Identifier}";
 
-        _currentReturnType = fnDecl.ReturnType;
+        _currentReturnType = fnDecl.ResolvedReturnType;
         // Setup method environment
         _isGlobalScope = false;
         _varTypes.Clear();
@@ -1105,7 +1105,7 @@ public class TranspilerC {
                     TranspileExpression(bub.Value);
                     Write("; ");
 
-                    if (innerType.StartsWith("Result[")) {
+                    if (innerType.StartsWith("Result[") || innerType.StartsWith("Result_")) {
                         Write($"if ({varName}->tag == {cleanInner}Tag_Failure) ");
                         if (cleanInner == cleanOuter) {
                             Write($"return {varName}; ");
