@@ -47,11 +47,12 @@ static inline Vector_string* Vector_string_push(Vector_string* vec, const char* 
     return vec;
 }
 
+#include "re.h"
+
 typedef struct regex regex;
 struct regex {
     const char* pattern;
-    struct regex_t compiled[30];
-    unsigned char ccl_buf[40];
+    struct slre compiled;
 };
 
 regex* regex_compile(const char* pattern);

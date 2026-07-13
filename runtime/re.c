@@ -1,515 +1,559 @@
-/*
- *
- * Mini regex-module inspired by Rob Pike's regex code described in:
- *
- * http://www.cs.princeton.edu/courses/archive/spr09/cos333/beautiful.html
- *
- *
- *
- * Supports:
- * ---------
- *   '.'        Dot, matches any character
- *   '^'        Start anchor, matches beginning of string
- *   '$'        End anchor, matches end of string
- *   '*'        Asterisk, match zero or more (greedy)
- *   '+'        Plus, match one or more (greedy)
- *   '?'        Question, match zero or one (non-greedy)
- *   '[abc]'    Character class, match if one of {'a', 'b', 'c'}
- *   '[^abc]'   Inverted class, match if NOT one of {'a', 'b', 'c'} -- NOTE: feature is currently broken!
- *   '[a-zA-Z]' Character ranges, the character set of the ranges { a-z | A-Z }
- *   '\s'       Whitespace, \t \f \r \n \v and spaces
- *   '\S'       Non-whitespace
- *   '\w'       Alphanumeric, [a-zA-Z0-9_]
- *   '\W'       Non-alphanumeric
- *   '\d'       Digits, [0-9]
- *   '\D'       Non-digits
- *
- *
- */
-
-
+#include <stdio.h>
+#include <assert.h>
+#include <ctype.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #include "re.h"
-#include <stdio.h>
-#include <ctype.h>
 
-/* Definitions: */
+#ifdef _WIN32
+#define snprintf _snprintf
+#endif
 
+enum {
+  END, BRANCH, ANY, EXACT, ANYOF, ANYBUT, OPEN, CLOSE, BOL, EOL, STAR, PLUS,
+  STARQ, PLUSQ, QUEST, SPACE, NONSPACE, DIGIT
+};
 
+static const char *meta_characters = "|.^$*+?()[\\";
+static const char *error_no_match = "No match";
 
-/* Private function declarations: */
-static int matchpattern(regex_t* pattern, const char* text, int* matchlength);
-static int matchcharclass(char c, const char* str);
-static int matchstar(regex_t p, regex_t* pattern, const char* text, int* matchlength);
-static int matchplus(regex_t p, regex_t* pattern, const char* text, int* matchlength);
-static int matchone(regex_t p, char c);
-static int matchdigit(char c);
-static int matchalpha(char c);
-static int matchwhitespace(char c);
-static int matchmetachar(char c, const char* str);
-static int matchrange(char c, const char* str);
-static int matchdot(char c);
-static int ismetachar(char c);
-
-
-
-/* Public functions: */
-int re_match(const char* pattern, const char* text, int* matchlength)
-{
-  return re_matchp(re_compile(pattern), text, matchlength);
-}
-
-int re_matchp(re_t pattern, const char* text, int* matchlength)
-{
-  *matchlength = 0;
-  if (pattern != 0)
-  {
-    if (pattern[0].type == RE_BEGIN)
-    {
-      return ((matchpattern(&pattern[1], text, matchlength)) ? 0 : -1);
-    }
-    else
-    {
-      int idx = -1;
-
-      do
-      {
-        idx += 1;
-
-        if (matchpattern(pattern, text, matchlength))
-        {
-          if (text[0] == '\0')
-            return -1;
-
-          return idx;
-        }
-      }
-      while (*text++ != '\0');
-    }
+static void set_jump_offset(struct slre *r, int pc, int offset) {
+  assert(offset < r->code_size);
+  if (r->code_size - offset > 0xff) {
+    r->error_string = "Jump offset is too big";
+  } else {
+    r->code[pc] = (unsigned char) (r->code_size - offset);
   }
-  return -1;
 }
 
-re_t re_compile_to(const char* pattern, regex_t* re_compiled, unsigned char* ccl_buf)
-{
-  int ccl_bufidx = 1;
+static void emit(struct slre *r, int code) {
+  if (r->code_size >= (int) (sizeof(r->code) / sizeof(r->code[0]))) {
+    r->error_string = "RE is too long (code overflow)";
+  } else {
+    r->code[r->code_size++] = (unsigned char) code;
+  }
+}
 
-  char c;     /* current char in pattern   */
-  int i = 0;  /* index into pattern        */
-  int j = 0;  /* index into re_compiled    */
+static void store_char_in_data(struct slre *r, int ch) {
+  if (r->data_size >= (int) sizeof(r->data)) {
+    r->error_string = "RE is too long (data overflow)";
+  } else {
+    r->data[r->data_size++] = ch;
+  }
+}
 
-  while (pattern[i] != '\0' && (j+1 < MAX_REGEXP_OBJECTS))
-  {
-    c = pattern[i];
+static void exact(struct slre *r, const char **re) {
+  int  old_data_size = r->data_size;
 
-    switch (c)
-    {
-      /* Meta-characters: */
-      case '^': {    re_compiled[j].type = RE_BEGIN;           } break;
-      case '$': {    re_compiled[j].type = RE_END;             } break;
-      case '.': {    re_compiled[j].type = RE_DOT;             } break;
-      case '*': {    re_compiled[j].type = RE_STAR;            } break;
-      case '+': {    re_compiled[j].type = RE_PLUS;            } break;
-      case '?': {    re_compiled[j].type = RE_QUESTIONMARK;    } break;
-/*    case '|': {    re_compiled[j].type = BRANCH;          } break; <-- not working properly */
+  while (**re != '\0' && (strchr(meta_characters, **re)) == NULL) {
+    store_char_in_data(r, *(*re)++);
+  }
 
-      /* Escaped character-classes (\s \w ...): */
+  emit(r, EXACT);
+  emit(r, old_data_size);
+  emit(r, r->data_size - old_data_size);
+}
+
+static int get_escape_char(const char **re) {
+  int  res;
+
+  switch (*(*re)++) {
+    case 'n':  res = '\n';    break;
+    case 'r':  res = '\r';    break;
+    case 't':  res = '\t';    break;
+    case '0':  res = 0;    break;
+    case 'S':  res = NONSPACE << 8;  break;
+    case 's':  res = SPACE << 8;  break;
+    case 'd':  res = DIGIT << 8;  break;
+    default:  res = (*re)[-1];  break;
+  }
+
+  return res;
+}
+
+static void anyof(struct slre *r, const char **re) {
+  int  esc, old_data_size = r->data_size, op = ANYOF;
+
+  if (**re == '^') {
+    op = ANYBUT;
+    (*re)++;
+  }
+
+  while (**re != '\0')
+
+    switch (*(*re)++) {
+      case ']':
+        emit(r, op);
+        emit(r, old_data_size);
+        emit(r, r->data_size - old_data_size);
+        return;
+        // NOTREACHED
+        break;
       case '\\':
-      {
-        if (pattern[i+1] != '\0')
-        {
-          /* Skip the escape-char '\\' */
-          i += 1;
-          /* ... and check the next */
-          switch (pattern[i])
-          {
-            /* Meta-character: */
-            case 'd': {    re_compiled[j].type = RE_DIGIT;            } break;
-            case 'D': {    re_compiled[j].type = RE_NOT_DIGIT;        } break;
-            case 'w': {    re_compiled[j].type = RE_ALPHA;            } break;
-            case 'W': {    re_compiled[j].type = RE_NOT_ALPHA;        } break;
-            case 's': {    re_compiled[j].type = RE_WHITESPACE;       } break;
-            case 'S': {    re_compiled[j].type = RE_NOT_WHITESPACE;   } break;
-
-            /* Escaped character, e.g. '.' or '$' */
-            default:
-            {
-              re_compiled[j].type = RE_CHAR;
-              re_compiled[j].u.ch = pattern[i];
-            } break;
+        esc = get_escape_char(re);
+        if ((esc & 0xff) == 0) {
+          int digits;
+          store_char_in_data(r, 0);
+          store_char_in_data(r, esc >> 8);
+          if ((*re)[-1] == 'd') { //decimal digits
+            for (digits = '0'; digits <= '9'; ++digits)
+              store_char_in_data(r, digits);
           }
+        } else {
+          store_char_in_data(r, esc);
         }
-        /* '\\' as last char in pattern -> invalid regular expression. */
-/*
-        else
-        {
-          re_compiled[j].type = RE_CHAR;
-          re_compiled[j].ch = pattern[i];
-        }
-*/
-      } break;
-
-      /* Character class: */
-      case '[':
-      {
-        /* Remember where the char-buffer starts. */
-        int buf_begin = ccl_bufidx;
-
-        /* Look-ahead to determine if negated */
-        if (pattern[i+1] == '^')
-        {
-          re_compiled[j].type = RE_INV_CHAR_CLASS;
-          i += 1; /* Increment i to avoid including '^' in the char-buffer */
-          if (pattern[i+1] == 0) /* incomplete pattern, missing non-zero char after '^' */
-          {
-            return 0;
-          }
-        }
-        else
-        {
-          re_compiled[j].type = RE_CHAR_CLASS;
-        }
-
-        /* Copy characters inside [..] to buffer */
-        while (    (pattern[++i] != ']')
-                && (pattern[i]   != '\0')) /* Missing ] */
-        {
-          if (pattern[i] == '\\')
-          {
-            if (ccl_bufidx >= MAX_CHAR_CLASS_LEN - 1)
-            {
-              //fputs("exceeded internal buffer!\n", stderr);
-              return 0;
-            }
-            if (pattern[i+1] == 0) /* incomplete pattern, missing non-zero char after '\\' */
-            {
-              return 0;
-            }
-            ccl_buf[ccl_bufidx++] = pattern[i++];
-          }
-          else if (ccl_bufidx >= MAX_CHAR_CLASS_LEN)
-          {
-              //fputs("exceeded internal buffer!\n", stderr);
-              return 0;
-          }
-          ccl_buf[ccl_bufidx++] = pattern[i];
-        }
-        if (ccl_bufidx >= MAX_CHAR_CLASS_LEN)
-        {
-            /* Catches cases such as [00000000000000000000000000000000000000][ */
-            //fputs("exceeded internal buffer!\n", stderr);
-            return 0;
-        }
-        /* Null-terminate string end */
-        ccl_buf[ccl_bufidx++] = 0;
-        re_compiled[j].u.ccl = &ccl_buf[buf_begin];
-      } break;
-
-      /* Other characters: */
+        break;
       default:
-      {
-        re_compiled[j].type = RE_CHAR;
-        re_compiled[j].u.ch = c;
-      } break;
+        if (**re == '-') { //range e.g. a-z
+          int digits, ch;
+          if ((*re)[-1] < (*re)[1]) {
+            ch = (*re)[-1];
+            while (ch <= (*re)[1]) {
+              store_char_in_data(r, ch);
+              ch++;
+            }
+            *re += 2;
+          } else {
+            r->error_string = "Invalid character range";
+          }
+        } else {
+          store_char_in_data(r, (*re)[-1]);
+        }
+        break;
     }
-    /* no buffer-out-of-bounds access on invalid patterns - see https://github.com/kokke/tiny-regex-c/commit/1a279e04014b70b0695fba559a7c05d55e6ee90b */
-    if (pattern[i] == 0)
-    {
+
+  r->error_string = "No closing ']' bracket";
+}
+
+static void relocate(struct slre *r, int begin, int shift) {
+  emit(r, END);
+  memmove(r->code + begin + shift, r->code + begin, r->code_size - begin);
+  r->code_size += shift;
+}
+
+static void quantifier(struct slre *r, int prev, int op) {
+  if (r->code[prev] == EXACT && r->code[prev + 2] > 1) {
+    r->code[prev + 2]--;
+    emit(r, EXACT);
+    emit(r, r->code[prev + 1] + r->code[prev + 2]);
+    emit(r, 1);
+    prev = r->code_size - 3;
+  }
+  relocate(r, prev, 2);
+  r->code[prev] = op;
+  set_jump_offset(r, prev + 1, prev);
+}
+
+static void exact_one_char(struct slre *r, int ch) {
+  emit(r, EXACT);
+  emit(r, r->data_size);
+  emit(r, 1);
+  store_char_in_data(r, ch);
+}
+
+static void fixup_branch(struct slre *r, int fixup) {
+  if (fixup > 0) {
+    emit(r, END);
+    set_jump_offset(r, fixup, fixup - 2);
+  }
+}
+
+static void compile(struct slre *r, const char **re) {
+  int  op, esc, branch_start, last_op, fixup, cap_no, level;
+
+  fixup = 0;
+  level = r->num_caps;
+  branch_start = last_op = r->code_size;
+
+  for (;;)
+    switch (*(*re)++) {
+
+      case '\0':
+        (*re)--;
+        return;
+        // NOTREACHED
+        break;
+
+      case '^':
+        emit(r, BOL);
+        break;
+
+      case '$':
+        emit(r, EOL);
+        break;
+
+      case '.':
+        last_op = r->code_size;
+        emit(r, ANY);
+        break;
+
+      case '[':
+        last_op = r->code_size;
+        anyof(r, re);
+        break;
+
+      case '\\':
+        last_op = r->code_size;
+        esc = get_escape_char(re);
+        if (esc & 0xff00) {
+          emit(r, esc >> 8);
+        } else {
+          exact_one_char(r, esc);
+        }
+        break;
+
+      case '(':
+        last_op = r->code_size;
+        cap_no = ++r->num_caps;
+        emit(r, OPEN);
+        emit(r, cap_no);
+
+        compile(r, re);
+        if (*(*re)++ != ')') {
+          r->error_string = "No closing bracket";
+          return;
+        }
+
+        emit(r, CLOSE);
+        emit(r, cap_no);
+        break;
+
+      case ')':
+        (*re)--;
+        fixup_branch(r, fixup);
+        if (level == 0) {
+          r->error_string = "Unbalanced brackets";
+          return;
+        }
+        return;
+        // NOTREACHED
+        break;
+
+      case '+':
+      case '*':
+        op = (*re)[-1] == '*' ? STAR: PLUS;
+        if (**re == '?') {
+          (*re)++;
+          op = op == STAR ? STARQ : PLUSQ;
+        }
+        quantifier(r, last_op, op);
+        break;
+
+      case '?':
+        quantifier(r, last_op, QUEST);
+        break;
+
+      case '|':
+        fixup_branch(r, fixup);
+        relocate(r, branch_start, 3);
+        r->code[branch_start] = BRANCH;
+        set_jump_offset(r, branch_start + 1, branch_start);
+        fixup = branch_start + 2;
+        r->code[fixup] = 0xff;
+        break;
+
+      default:
+        (*re)--;
+        last_op = r->code_size;
+        exact(r, re);
+        break;
+    }
+}
+
+const char *slre_compile(struct slre *r, const char *re) {
+  r->error_string = NULL;
+  r->code_size = r->data_size = r->num_caps = r->anchored = 0;
+
+  if (*re == '^') {
+    r->anchored++;
+  }
+
+  emit(r, OPEN);  // This will capture what matches full RE
+  emit(r, 0);
+
+  while (*re != '\0') {
+    compile(r, &re);
+  }
+
+  if (r->code[2] == BRANCH) {
+    fixup_branch(r, 4);
+  }
+
+  emit(r, CLOSE);
+  emit(r, 0);
+  emit(r, END);
+
+  return r->error_string;
+}
+
+static const char *match(const struct slre *, int, const char *, int, int *,
+                         struct cap *, int caps_size);
+
+static void loop_greedy(const struct slre *r, int pc, const char *s, int len,
+                        int *ofs) {
+  int  saved_offset, matched_offset;
+
+  saved_offset = matched_offset = *ofs;
+
+  while (!match(r, pc + 2, s, len, ofs, NULL, 0)) {
+    saved_offset = *ofs;
+    if (!match(r, pc + pc + 1, s, len, ofs, NULL, 0)) {
+      matched_offset = saved_offset;
+    }
+    *ofs = saved_offset;
+  }
+
+  *ofs = matched_offset;
+}
+
+static void loop_non_greedy(const struct slre *r, int pc, const char *s,
+                            int len, int *ofs) {
+  int  saved_offset = *ofs;
+
+  while (!match(r, pc + 2, s, len, ofs, NULL, 0)) {
+    saved_offset = *ofs;
+    if (!match(r, pc + pc + 1, s, len, ofs, NULL, 0))
+      break;
+  }
+
+  *ofs = saved_offset;
+}
+
+static int is_any_of(const unsigned char *p, int len, const char *s, int *ofs) {
+  int  i, ch;
+
+  ch = s[*ofs];
+
+  for (i = 0; i < len; i++)
+    if (p[i] == ch) {
+      (*ofs)++;
+      return 1;
+    }
+
+  return 0;
+}
+
+static int is_any_but(const unsigned char *p, int len, const char *s,
+                      int *ofs) {
+  int  i, ch;
+
+  ch = s[*ofs];
+
+  for (i = 0; i < len; i++)
+    if (p[i] == ch) {
       return 0;
     }
 
-    i += 1;
-    j += 1;
-  }
-  /* 'RE_UNUSED' is a sentinel used to indicate end-of-pattern */
-  re_compiled[j].type = RE_UNUSED;
-
-  return (re_t) re_compiled;
+  (*ofs)++;
+  return 1;
 }
 
-re_t re_compile(const char* pattern)
-{
-  static regex_t re_compiled[MAX_REGEXP_OBJECTS];
-  static unsigned char ccl_buf[MAX_CHAR_CLASS_LEN];
-  re_compile_to(pattern, re_compiled, ccl_buf);
-  return re_compiled;
+static int lowercase(const char *s) {
+  return tolower(* (const unsigned char *) s);
 }
 
-void re_print(regex_t* pattern)
-{
-  const char* types[] = { "RE_UNUSED", "RE_DOT", "RE_BEGIN", "RE_END", "RE_QUESTIONMARK", "RE_STAR", "RE_PLUS", "RE_CHAR", "RE_CHAR_CLASS", "RE_INV_CHAR_CLASS", "RE_DIGIT", "RE_NOT_DIGIT", "RE_ALPHA", "RE_NOT_ALPHA", "RE_WHITESPACE", "RE_NOT_WHITESPACE", "BRANCH" };
+static int casecmp(const void *p1, const void *p2, size_t len) {
+  const char *s1 = p1, *s2 = p2;
+  int diff = 0;
 
-  int i;
-  int j;
-  char c;
-  for (i = 0; i < MAX_REGEXP_OBJECTS; ++i)
-  {
-    if (pattern[i].type == RE_UNUSED)
-    {
-      break;
-    }
+  if (len > 0)
+    do {
+      diff = lowercase(s1++) - lowercase(s2++);
+    } while (diff == 0 && s1[-1] != '\0' && --len > 0);
 
-    printf("type: %s", types[pattern[i].type]);
-    if (pattern[i].type == RE_CHAR_CLASS || pattern[i].type == RE_INV_CHAR_CLASS)
-    {
-      printf(" [");
-      for (j = 0; j < MAX_CHAR_CLASS_LEN; ++j)
-      {
-        c = pattern[i].u.ccl[j];
-        if ((c == '\0') || (c == ']'))
-        {
+  return diff;
+}
+
+static const char *match(const struct slre *r, int pc, const char *s, int len,
+                         int *ofs, struct cap *caps, int caps_size) {
+  int n, saved_offset;
+  const char *error_string = NULL;
+  int (*cmp)(const void *string1, const void *string2, size_t len);
+
+  while (error_string == NULL && r->code[pc] != END) {
+
+    assert(pc < r->code_size);
+    assert(pc < (int) (sizeof(r->code) / sizeof(r->code[0])));
+
+    switch (r->code[pc]) {
+      case BRANCH:
+        saved_offset = *ofs;
+        error_string = match(r, pc + 3, s, len, ofs, caps, caps_size);
+        if (error_string != NULL) {
+          *ofs = saved_offset;
+          error_string = match(r, pc + r->code[pc + 1], s, len, ofs, caps,
+                               caps_size);
+        }
+        pc += r->code[pc + 2];
+        break;
+
+      case EXACT:
+        error_string = error_no_match;
+        n = r->code[pc + 2];  // String length
+        cmp = r->options & SLRE_CASE_INSENSITIVE ? casecmp : memcmp;
+        if (n <= len - *ofs && !cmp(s + *ofs, r->data + r->code[pc + 1], n)) {
+          (*ofs) += n;
+          error_string = NULL;
+        }
+        pc += 3;
+        break;
+
+      case QUEST:
+        error_string = NULL;
+        saved_offset = *ofs;
+        if (match(r, pc + 2, s, len, ofs, caps, caps_size) != NULL) {
+          *ofs = saved_offset;
+        }
+        pc += r->code[pc + 1];
+        break;
+
+      case STAR:
+        error_string = NULL;
+        loop_greedy(r, pc, s, len, ofs);
+        pc += r->code[pc + 1];
+        break;
+
+      case STARQ:
+        error_string = NULL;
+        loop_non_greedy(r, pc, s, len, ofs);
+        pc += r->code[pc + 1];
+        break;
+
+      case PLUS:
+        if ((error_string = match(r, pc + 2, s, len, ofs,
+                                  caps, caps_size)) != NULL) {
           break;
         }
-        printf("%c", c);
-      }
-      printf("]");
-    }
-    else if (pattern[i].type == RE_CHAR)
-    {
-      printf(" '%c'", pattern[i].u.ch);
-    }
-    printf("\n");
-  }
-}
+        loop_greedy(r, pc, s, len, ofs);
+        pc += r->code[pc + 1];
+        break;
 
+      case PLUSQ:
+        if ((error_string = match(r, pc + 2, s, len, ofs,
+                                  caps, caps_size)) != NULL) {
+          break;
+        }
+        loop_non_greedy(r, pc, s, len, ofs);
+        pc += r->code[pc + 1];
+        break;
 
+      case SPACE:
+        error_string = error_no_match;
+        if (*ofs < len && isspace(((unsigned char *)s)[*ofs])) {
+          (*ofs)++;
+          error_string = NULL;
+        }
+        pc++;
+        break;
 
-/* Private functions: */
-static int matchdigit(char c)
-{
-  return isdigit(c);
-}
-static int matchalpha(char c)
-{
-  return isalpha(c);
-}
-static int matchwhitespace(char c)
-{
-  return isspace(c);
-}
-static int matchalphanum(char c)
-{
-  return ((c == '_') || matchalpha(c) || matchdigit(c));
-}
-static int matchrange(char c, const char* str)
-{
-  return (    (c != '-')
-           && (str[0] != '\0')
-           && (str[0] != '-')
-           && (str[1] == '-')
-           && (str[2] != '\0')
-           && (    (c >= str[0])
-                && (c <= str[2])));
-}
-static int matchdot(char c)
-{
-#if defined(RE_DOT_MATCHES_NEWLINE) && (RE_DOT_MATCHES_NEWLINE == 1)
-  (void)c;
-  return 1;
-#else
-  return c != '\n' && c != '\r';
-#endif
-}
-static int ismetachar(char c)
-{
-  return ((c == 's') || (c == 'S') || (c == 'w') || (c == 'W') || (c == 'd') || (c == 'D'));
-}
+      case NONSPACE:
+        error_string = error_no_match;
+        if (*ofs < len && !isspace(((unsigned char *)s)[*ofs])) {
+          (*ofs)++;
+          error_string = NULL;
+        }
+        pc++;
+        break;
 
-static int matchmetachar(char c, const char* str)
-{
-  switch (str[0])
-  {
-    case 'd': return  matchdigit(c);
-    case 'D': return !matchdigit(c);
-    case 'w': return  matchalphanum(c);
-    case 'W': return !matchalphanum(c);
-    case 's': return  matchwhitespace(c);
-    case 'S': return !matchwhitespace(c);
-    default:  return (c == str[0]);
-  }
-}
+      case DIGIT:
+        error_string = error_no_match;
+        if (*ofs < len && isdigit(((unsigned char *)s)[*ofs])) {
+          (*ofs)++;
+          error_string = NULL;
+        }
+        pc++;
+        break;
 
-static int matchcharclass(char c, const char* str)
-{
-  do
-  {
-    if (matchrange(c, str))
-    {
-      return 1;
-    }
-    else if (str[0] == '\\')
-    {
-      /* Escape-char: increment str-ptr and match on next char */
-      str += 1;
-      if (matchmetachar(c, str))
-      {
-        return 1;
-      }
-      else if ((c == str[0]) && !ismetachar(c))
-      {
-        return 1;
-      }
-    }
-    else if (c == str[0])
-    {
-      if (c == '-')
-      {
-        return ((str[-1] == '\0') || (str[1] == '\0'));
-      }
-      else
-      {
-        return 1;
-      }
-    }
-  }
-  while (*str++ != '\0');
+      case ANY:
+        error_string = error_no_match;
+        if (*ofs < len) {
+          (*ofs)++;
+          error_string = NULL;
+        }
+        pc++;
+        break;
 
-  return 0;
-}
+      case ANYOF:
+        error_string = error_no_match;
+        if (*ofs < len)
+          error_string = is_any_of(r->data + r->code[pc + 1], r->code[pc + 2],
+                                   s, ofs) ? NULL : error_no_match;
+        pc += 3;
+        break;
 
-static int matchone(regex_t p, char c)
-{
-  switch (p.type)
-  {
-    case RE_DOT:            return matchdot(c);
-    case RE_CHAR_CLASS:     return  matchcharclass(c, (const char*)p.u.ccl);
-    case RE_INV_CHAR_CLASS: return !matchcharclass(c, (const char*)p.u.ccl);
-    case RE_DIGIT:          return  matchdigit(c);
-    case RE_NOT_DIGIT:      return !matchdigit(c);
-    case RE_ALPHA:          return  matchalphanum(c);
-    case RE_NOT_ALPHA:      return !matchalphanum(c);
-    case RE_WHITESPACE:     return  matchwhitespace(c);
-    case RE_NOT_WHITESPACE: return !matchwhitespace(c);
-    default:             return  (p.u.ch == c);
-  }
-}
+      case ANYBUT:
+        error_string = error_no_match;
+        if (*ofs < len)
+          error_string = is_any_but(r->data + r->code[pc + 1], r->code[pc + 2],
+                                    s, ofs) ? NULL : error_no_match;
+        pc += 3;
+        break;
 
-static int matchstar(regex_t p, regex_t* pattern, const char* text, int* matchlength)
-{
-  int prelen = *matchlength;
-  const char* prepoint = text;
-  while ((text[0] != '\0') && matchone(p, *text))
-  {
-    text++;
-    (*matchlength)++;
-  }
-  while (text >= prepoint)
-  {
-    if (matchpattern(pattern, text--, matchlength))
-      return 1;
-    (*matchlength)--;
-  }
+      case BOL:
+        error_string = *ofs == 0 ? NULL : error_no_match;
+        pc++;
+        break;
 
-  *matchlength = prelen;
-  return 0;
-}
+      case EOL:
+        error_string = *ofs == len ? NULL : error_no_match;
+        pc++;
+        break;
 
-static int matchplus(regex_t p, regex_t* pattern, const char* text, int* matchlength)
-{
-  const char* prepoint = text;
-  while ((text[0] != '\0') && matchone(p, *text))
-  {
-    text++;
-    (*matchlength)++;
-  }
-  while (text > prepoint)
-  {
-    if (matchpattern(pattern, text--, matchlength))
-      return 1;
-    (*matchlength)--;
-  }
+      case OPEN:
+        if (caps != NULL) {
+          if (caps_size - 2 < r->code[pc + 1]) {
+            error_string = "Too many brackets";
+          } else {
+            caps[r->code[pc + 1]].ptr = s + *ofs;
+          }
+        }
+        pc += 2;
+        break;
 
-  return 0;
-}
+      case CLOSE:
+        if (caps != NULL) {
+          assert(r->code[pc + 1] >= 0);
+          assert(r->code[pc + 1] < caps_size);
+          caps[r->code[pc + 1]].len = (s + *ofs) -
+            caps[r->code[pc + 1]].ptr;
+        }
+        pc += 2;
+        break;
 
-static int matchquestion(regex_t p, regex_t* pattern, const char* text, int* matchlength)
-{
-  if (p.type == RE_UNUSED)
-    return 1;
-  if (matchpattern(pattern, text, matchlength))
-      return 1;
-  if (*text && matchone(p, *text++))
-  {
-    if (matchpattern(pattern, text, matchlength))
-    {
-      (*matchlength)++;
-      return 1;
+      case END:
+        pc++;
+        break;
+
+      default:
+        printf("unknown cmd (%d) at %d\n", r->code[pc], pc);
+        assert(0);
+        break;
     }
   }
-  return 0;
+
+  return error_string;
 }
 
+const char *slre_match(const struct slre *r, const char *buf, int len,
+                          struct cap *caps, int caps_size) {
+  int  i, ofs = 0;
+  const char *error_string = error_no_match;
 
-#if 0
+  if (caps != NULL) {
+    memset(caps, 0, caps_size * sizeof(caps[0]));
+  }
 
-/* Recursive matching */
-static int matchpattern(regex_t* pattern, const char* text, int *matchlength)
-{
-  int pre = *matchlength;
-  if ((pattern[0].type == RE_UNUSED) || (pattern[1].type == RE_QUESTIONMARK))
-  {
-    return matchquestion(pattern[1], &pattern[2], text, matchlength);
+  if (r->anchored) {
+    error_string = match(r, 0, buf, len, &ofs, caps, caps_size);
+  } else {
+    for (i = 0; i < len && error_string != NULL; i++) {
+      ofs = i;
+      error_string = match(r, 0, buf, len, &ofs, caps, caps_size);
+    }
   }
-  else if (pattern[1].type == RE_STAR)
-  {
-    return matchstar(pattern[0], &pattern[2], text, matchlength);
-  }
-  else if (pattern[1].type == RE_PLUS)
-  {
-    return matchplus(pattern[0], &pattern[2], text, matchlength);
-  }
-  else if ((pattern[0].type == RE_END) && pattern[1].type == RE_UNUSED)
-  {
-    return text[0] == '\0';
-  }
-  else if ((text[0] != '\0') && matchone(pattern[0], text[0]))
-  {
-    (*matchlength)++;
-    return matchpattern(&pattern[1], text+1);
-  }
-  else
-  {
-    *matchlength = pre;
-    return 0;
-  }
+
+  return error_string;
 }
-
-#else
-
-/* Iterative matching */
-static int matchpattern(regex_t* pattern, const char* text, int* matchlength)
-{
-  int pre = *matchlength;
-  do
-  {
-    if ((pattern[0].type == RE_UNUSED) || (pattern[1].type == RE_QUESTIONMARK))
-    {
-      return matchquestion(pattern[0], &pattern[2], text, matchlength);
-    }
-    else if (pattern[1].type == RE_STAR)
-    {
-      return matchstar(pattern[0], &pattern[2], text, matchlength);
-    }
-    else if (pattern[1].type == RE_PLUS)
-    {
-      return matchplus(pattern[0], &pattern[2], text, matchlength);
-    }
-    else if ((pattern[0].type == RE_END) && pattern[1].type == RE_UNUSED)
-    {
-      return (text[0] == '\0');
-    }
-/*  Branching is not working properly
-    else if (pattern[1].type == BRANCH)
-    {
-      return (matchpattern(pattern, text) || matchpattern(&pattern[2], text));
-    }
-*/
-  (*matchlength)++;
-  }
-  while ((text[0] != '\0') && matchone(*pattern++, *text++));
-
-  *matchlength = pre;
-  return 0;
-}
-
-#endif

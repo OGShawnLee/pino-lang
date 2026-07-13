@@ -74,36 +74,34 @@ void pino_clear(void) {
 regex* regex_compile(const char* pattern) {
     regex* re = (regex*)pino_malloc(sizeof(regex));
     re->pattern = pattern;
-    memset(re->compiled, 0, sizeof(re->compiled));
-    memset(re->ccl_buf, 0, sizeof(re->ccl_buf));
-    re_compile_to(pattern, re->compiled, re->ccl_buf);
+    slre_compile(&re->compiled, pattern);
     return re;
 }
 
 int regex_has_match(regex* re, const char* text) {
-    int match_length = 0;
-    return re_matchp(re->compiled, text, &match_length) >= 0;
+    struct cap caps[20];
+    return slre_match(&re->compiled, text, strlen(text), caps, 20) == NULL;
 }
 
 const char* regex_match_prefix(regex* re, const char* text) {
-    int match_length = 0;
-    int idx = re_matchp(re->compiled, text, &match_length);
-    if (idx == 0) {
-        char* match = (char*)pino_malloc(match_length + 1);
-        memcpy(match, text, match_length);
-        match[match_length] = '\0';
-        return match;
+    struct cap caps[20];
+    if (slre_match(&re->compiled, text, strlen(text), caps, 20) == NULL) {
+        if (caps[0].ptr == text) {
+            char* match = (char*)pino_malloc(caps[0].len + 1);
+            memcpy(match, caps[0].ptr, caps[0].len);
+            match[caps[0].len] = '\0';
+            return match;
+        }
     }
     return "";
 }
 
 const char* regex_find(regex* re, const char* text) {
-    int match_length = 0;
-    int idx = re_matchp(re->compiled, text, &match_length);
-    if (idx >= 0) {
-        char* match = (char*)pino_malloc(match_length + 1);
-        memcpy(match, text + idx, match_length);
-        match[match_length] = '\0';
+    struct cap caps[20];
+    if (slre_match(&re->compiled, text, strlen(text), caps, 20) == NULL) {
+        char* match = (char*)pino_malloc(caps[0].len + 1);
+        memcpy(match, caps[0].ptr, caps[0].len);
+        match[caps[0].len] = '\0';
         return match;
     }
     return "";
@@ -111,16 +109,17 @@ const char* regex_find(regex* re, const char* text) {
 
 Vector_string* regex_find_all(regex* re, const char* text) {
     Vector_string* vec = Vector_string_construct(0);
-    int match_length = 0;
+    struct cap caps[20];
     const char* ptr = text;
-    while (*ptr != '\0') {
-        int idx = re_matchp(re->compiled, ptr, &match_length);
-        if (idx < 0) break;
-        char* match = (char*)pino_malloc(match_length + 1);
-        memcpy(match, ptr + idx, match_length);
-        match[match_length] = '\0';
+    int len = strlen(ptr);
+    while (len > 0 && slre_match(&re->compiled, ptr, len, caps, 20) == NULL) {
+        char* match = (char*)pino_malloc(caps[0].len + 1);
+        memcpy(match, caps[0].ptr, caps[0].len);
+        match[caps[0].len] = '\0';
         Vector_string_push(vec, match);
-        ptr += idx + (match_length > 0 ? match_length : 1);
+        int offset = (caps[0].ptr - ptr) + (caps[0].len > 0 ? caps[0].len : 1);
+        ptr += offset;
+        len -= offset;
     }
     return vec;
 }
@@ -133,11 +132,11 @@ const char* regex_replace(regex* re, const char* text, const char* repl) {
     size_t buf_idx = 0;
     buffer[0] = '\0';
 
-    int match_length = 0;
+    struct cap caps[20];
     const char* ptr = text;
-    while (*ptr != '\0') {
-        int idx = re_matchp(re->compiled, ptr, &match_length);
-        if (idx < 0) {
+    int len = strlen(ptr);
+    while (len > 0) {
+        if (slre_match(&re->compiled, ptr, len, caps, 20) != NULL) {
             size_t rem = strlen(ptr);
             if (buf_idx + rem >= buf_size) {
                 buf_size += rem + 1024;
@@ -149,27 +148,21 @@ const char* regex_replace(regex* re, const char* text, const char* repl) {
             buf_idx += rem;
             break;
         }
-        if (idx > 0) {
-            if (buf_idx + idx >= buf_size) {
-                buf_size += idx + 1024;
-                char* new_buf = (char*)pino_malloc(buf_size);
-                memcpy(new_buf, buffer, buf_idx);
-                buffer = new_buf;
-            }
-            memcpy(buffer + buf_idx, ptr, idx);
-            buf_idx += idx;
+        size_t before_len = caps[0].ptr - ptr;
+        if (buf_idx + before_len + repl_len >= buf_size) {
+            buf_size += before_len + repl_len + 1024;
+            char* new_buf = (char*)pino_malloc(buf_size);
+            memcpy(new_buf, buffer, buf_idx);
+            buffer = new_buf;
         }
-        if (repl_len > 0) {
-            if (buf_idx + repl_len >= buf_size) {
-                buf_size += repl_len + 1024;
-                char* new_buf = (char*)pino_malloc(buf_size);
-                memcpy(new_buf, buffer, buf_idx);
-                buffer = new_buf;
-            }
-            memcpy(buffer + buf_idx, repl, repl_len);
-            buf_idx += repl_len;
-        }
-        ptr += idx + (match_length > 0 ? match_length : 1);
+        memcpy(buffer + buf_idx, ptr, before_len);
+        buf_idx += before_len;
+        memcpy(buffer + buf_idx, repl, repl_len);
+        buf_idx += repl_len;
+
+        int offset = before_len + (caps[0].len > 0 ? caps[0].len : 1);
+        ptr += offset;
+        len -= offset;
     }
     buffer[buf_idx] = '\0';
     return buffer;
