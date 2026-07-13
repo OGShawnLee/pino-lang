@@ -135,7 +135,10 @@ public record FunctionCallExpression : Expression {
   }
 }
 
-public record FunctionLambdaExpression(List<VariableDeclaration> Parameters, Statement Body) : Expression;
+public record FunctionLambdaExpression(List<VariableDeclaration> Parameters, Statement Body) : Expression {
+  public string LambdaId { get; set; } = "";
+  public HashSet<string> FreeVars { get; } = new HashSet<string>();
+}
 
 public record IndexAccessExpression(Expression Target, Expression Index) : Expression;
 

@@ -49,6 +49,11 @@ static inline Vector_string* Vector_string_push(Vector_string* vec, const char* 
 
 #include "re.h"
 
+typedef struct {
+    void* fn_ptr;
+    void* env;
+} PinoClosure;
+
 typedef struct regex regex;
 struct regex {
     const char* pattern;

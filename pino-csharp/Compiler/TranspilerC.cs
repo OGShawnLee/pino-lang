@@ -39,6 +39,8 @@ public class TranspilerC {
     }
 
     public string Transpile(ProgramStatement program) {
+        var forwardFuncSb = new StringBuilder();
+        CollectAndAnalyzeLambdas(program);
         _currentReturnType = "";
         _varTypes.Clear();
         _structFields.Clear();
@@ -93,6 +95,22 @@ public class TranspilerC {
                 }
                 _globalDeclSb.AppendLine($"{typeStr} {varDecl.Identifier};");
                 _globalVarTypes[varDecl.Identifier] = !string.IsNullOrEmpty(varDecl.Typing) ? varDecl.Typing : (varDecl.Value != null ? varDecl.Value.InferredType : "any");
+            }
+        }
+
+        GenerateLambdaEnvironments(program);
+
+        // Generate Ref_ structs for boxed variables
+        var emittedRefTypes = new HashSet<string>();
+        foreach (var kv in _boxedTypes) {
+            var pinoType = kv.Value;
+            var cType = MapType(pinoType);
+            var cleanType = CleanTypeName(cType);
+            if (!emittedRefTypes.Contains(cleanType)) {
+                emittedRefTypes.Add(cleanType);
+                _globalDeclSb.AppendLine($"struct Ref_{cleanType} {{");
+                _globalDeclSb.AppendLine($"    {cType} value;");
+                _globalDeclSb.AppendLine($"}};");
             }
         }
 
@@ -215,6 +233,8 @@ public class TranspilerC {
             }
         }
 
+        TranspileLambdas(forwardFuncSb);
+
         // Pass 3: The C main function carrying the top-level statements and user main call
         _sb.AppendLine("int main(int argc, char** argv) {");
         _indent = 1;
@@ -302,7 +322,7 @@ public class TranspilerC {
             _sb.AppendLine("}");
         }
 
-        var forwardFuncSb = new StringBuilder();
+        // forwardFuncSb already declared
         if (_usesReadFile) {
             forwardFuncSb.AppendLine("Result_string_IOError* pino_read_file(const char* path);");
         }
@@ -423,6 +443,7 @@ public class TranspilerC {
 
     private string MapType(string pinoType) {
         if (string.IsNullOrEmpty(pinoType)) return "void";
+        if (pinoType.StartsWith("fn(")) return "PinoClosure";
         if (pinoType.StartsWith("map[")) {
             var clean = CleanTypeName(pinoType);
             if (!_declaredTuples.Contains(pinoType)) {
@@ -733,11 +754,19 @@ public class TranspilerC {
                     var fieldTypes = ParseTupleFields(tupleType);
                     foreach (var field in dest.Fields) {
                         var varType = fieldTypes[field.Label];
-                        var isConst = dest.Kind == VariableKind.Constant;
-                        var prefix = isConst ? "const " : "";
-                        
-                        WriteIndent();
-                        Write($"{prefix}{MapType(varType)} {field.Identifier} = {tempVar}.{field.Label};\n");
+                        var mappedType = MapType(varType);
+                        if (_boxedVariables.Contains(field.Identifier)) {
+                            var cleanType = CleanTypeName(mappedType);
+                            WriteIndent();
+                            Write($"struct Ref_{cleanType}* {field.Identifier} = (struct Ref_{cleanType}*)pino_malloc(sizeof(struct Ref_{cleanType}));\n");
+                            WriteIndent();
+                            Write($"{field.Identifier}->value = {tempVar}.{field.Label};\n");
+                        } else {
+                            var isConst = dest.Kind == VariableKind.Constant;
+                            var prefix = isConst ? "const " : "";
+                            WriteIndent();
+                            Write($"{prefix}{mappedType} {field.Identifier} = {tempVar}.{field.Label};\n");
+                        }
                         _varTypes[field.Identifier] = varType;
                     }
                 }
@@ -792,6 +821,29 @@ public class TranspilerC {
             typeStr = MapType(varDecl.Typing);
         } else if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) {
             typeStr = MapType(varDecl.Value.InferredType);
+        }
+
+        if (_boxedVariables.Contains(varDecl.Identifier)) {
+            var cleanType = CleanTypeName(typeStr);
+            Write($"struct Ref_{cleanType}* {varDecl.Identifier} = (struct Ref_{cleanType}*)pino_malloc(sizeof(struct Ref_{cleanType}));\n");
+            if (varDecl.Value != null) {
+                WriteIndent();
+                if (IsStringConcat(varDecl.Value)) {
+                    Write($"{varDecl.Identifier}->value = (char*)pino_malloc(1024);\n");
+                    var (format, args) = ProcessStringAddition(varDecl.Value);
+                    var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                    WriteIndent();
+                    Write($"snprintf((char*){varDecl.Identifier}->value, 1024, \"{EscapeString(format)}\"{argsStr})");
+                } else {
+                    Write($"{varDecl.Identifier}->value = ");
+                    TranspileExpression(varDecl.Value);
+                }
+            }
+            string pinoType2 = "";
+            if (!string.IsNullOrEmpty(varDecl.Typing)) pinoType2 = varDecl.Typing;
+            else if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) pinoType2 = varDecl.Value.InferredType;
+            _varTypes[varDecl.Identifier] = pinoType2;
+            return;
         }
 
         if (varDecl.Value != null && IsStringConcat(varDecl.Value)) {
@@ -896,6 +948,25 @@ public class TranspilerC {
                     _usesFileExists = true;
                     Write("pino_file_exists(");
                     TranspileExpression(call.Arguments[0]);
+                    Write(")");
+                } else if (_varTypes.TryGetValue(call.Callee, out var pinoFnType) && pinoFnType.StartsWith("fn(")) {
+                    var (paramTypes, retType) = ParseFunctionType(pinoFnType);
+                    var cRetType = MapType(retType);
+                    var cParamTypes = paramTypes.Select(p => MapType(p)).ToList();
+                    
+                    Write($"(({cRetType}(*)(void*");
+                    foreach (var pt in cParamTypes) {
+                        Write($", {pt}");
+                    }
+                    Write($"))");
+                    TranspileClosureRef(call.Callee);
+                    Write($".fn_ptr)(");
+                    TranspileClosureRef(call.Callee);
+                    Write($".env");
+                    for (int i = 0; i < call.Arguments.Count; i++) {
+                        Write(", ");
+                        TranspileExpression(call.Arguments[i]);
+                    }
                     Write(")");
                 } else {
                     Write($"{call.Callee}(");
@@ -1128,6 +1199,14 @@ public class TranspilerC {
             case IdentifierExpression id:
                 if (_currentStructFields.Contains(id.Name) && !_varTypes.ContainsKey(id.Name)) {
                     Write($"this->{id.Name}");
+                } else if (_currentLambda != null && _currentLambda.FreeVars.Contains(id.Name)) {
+                    if (_boxedVariables.Contains(id.Name)) {
+                        Write($"env->{id.Name}->value");
+                    } else {
+                        Write($"env->{id.Name}");
+                    }
+                } else if (_boxedVariables.Contains(id.Name)) {
+                    Write($"{id.Name}->value");
                 } else {
                     Write(id.Name);
                 }
@@ -1152,6 +1231,34 @@ public class TranspilerC {
                     Write("; ");
                 }
                 Write("temp; })");
+                break;
+
+            case FunctionLambdaExpression lambda:
+                {
+                    if (lambda.FreeVars.Count == 0) {
+                        Write($"((PinoClosure){{ .fn_ptr = (void*){lambda.LambdaId}, .env = NULL }})");
+                    } else {
+                        var envVar = $"_pino_env_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                        Write($"({{ struct {lambda.LambdaId}_env* {envVar} = (struct {lambda.LambdaId}_env*)pino_malloc(sizeof(struct {lambda.LambdaId}_env)); ");
+                        foreach (var v in lambda.FreeVars) {
+                            if (_boxedVariables.Contains(v)) {
+                                if (_lambdaStack.Count > 0) {
+                                    Write($"{envVar}->{v} = env->{v}; ");
+                                } else {
+                                    Write($"{envVar}->{v} = {v}; ");
+                                }
+                            } else {
+                                Write($"{envVar}->{v} = ");
+                                if (_lambdaStack.Count > 0 && _lambdaStack.Peek().FreeVars.Contains(v)) {
+                                    Write($"env->{v}; ");
+                                } else {
+                                    Write($"{v}; ");
+                                }
+                            }
+                        }
+                        Write($"((PinoClosure){{ .fn_ptr = (void*){lambda.LambdaId}, .env = {envVar} }}); }})");
+                    }
+                }
                 break;
 
             case TupleLiteralExpression tuple:
@@ -1817,5 +1924,486 @@ public class TranspilerC {
                 }
                 break;
         }
+    }
+
+    private int _lambdaCounter = 0;
+    private List<FunctionLambdaExpression> _lambdas = new List<FunctionLambdaExpression>();
+    private HashSet<string> _boxedVariables = new HashSet<string>();
+    private Dictionary<string, string> _boxedTypes = new Dictionary<string, string>();
+
+    private void CollectAndAnalyzeLambdas(ProgramStatement program) {
+        _lambdaCounter = 0;
+        _lambdas.Clear();
+        _boxedVariables.Clear();
+        _boxedTypes.Clear();
+
+        var userFunctions = new HashSet<string>();
+        foreach (var stmt in program.Statements) {
+            if (stmt is FunctionDeclaration fnDecl) {
+                userFunctions.Add(fnDecl.Identifier);
+            } else if (stmt is StructDeclaration structDecl) {
+                foreach (var method in structDecl.Methods) {
+                    userFunctions.Add(method.Identifier);
+                }
+            }
+        }
+
+        // Pass A: Find all lambdas and assign LambdaId
+        foreach (var stmt in program.Statements) {
+            FindLambdas(stmt);
+        }
+
+        // Pass B: Analyze free variables for each lambda
+        foreach (var lambda in _lambdas) {
+            var localScope = new HashSet<string>(lambda.Parameters.Select(p => p.Identifier));
+            var free = new HashSet<string>();
+            AnalyzeFreeVars(lambda.Body, localScope, free);
+            lambda.FreeVars.Clear();
+            foreach (var f in free) {
+                // If it is not a global constant or function name
+                if (!_globalVarTypes.ContainsKey(f) && !userFunctions.Contains(f) && !BuiltInFunctionNames.Contains(f)) {
+                    lambda.FreeVars.Add(f);
+                }
+            }
+        }
+
+        // Pass C: Detect which variables escape and are mutable (require boxing)
+        foreach (var lambda in _lambdas) {
+            foreach (var v in lambda.FreeVars) {
+                if (IsMutableVariable(program, v)) {
+                    _boxedVariables.Add(v);
+                    var t = FindVariableType(program, v);
+                    _boxedTypes[v] = t;
+                }
+            }
+        }
+    }
+
+    private string FindVariableType(object node, string name) {
+        if (node == null) return "any";
+        if (node is VariableDeclaration varDecl && varDecl.Identifier == name) {
+            if (!string.IsNullOrEmpty(varDecl.Typing)) return varDecl.Typing;
+            if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) return varDecl.Value.InferredType;
+            return "any";
+        }
+        if (node is TupleDestructuringDeclaration dest) {
+            var tupleType = dest.Value.InferredType!;
+            var fieldTypes = ParseTupleFields(tupleType);
+            foreach (var field in dest.Fields) {
+                if (field.Identifier == name) {
+                    return fieldTypes[field.Label];
+                }
+            }
+        }
+
+        switch (node) {
+            case ProgramStatement prog:
+                foreach (var s in prog.Statements) {
+                    var r = FindVariableType(s, name);
+                    if (r != "any") return r;
+                }
+                break;
+            case BlockStatement block:
+                foreach (var s in block.Statements) {
+                    var r = FindVariableType(s, name);
+                    if (r != "any") return r;
+                }
+                break;
+            case IfStatement ifs:
+                var r1 = FindVariableType(ifs.Consequent, name);
+                if (r1 != "any") return r1;
+                var r2 = FindVariableType(ifs.Alternate, name);
+                if (r2 != "any") return r2;
+                break;
+            case LoopStatement loop:
+                var l1 = FindVariableType(loop.Body, name);
+                if (l1 != "any") return l1;
+                var l2 = FindVariableType(loop.Begin, name);
+                if (l2 != "any") return l2;
+                var l3 = FindVariableType(loop.End, name);
+                if (l3 != "any") return l3;
+                break;
+            case FunctionDeclaration fn:
+                foreach (var p in fn.Parameters) {
+                    if (p.Identifier == name) {
+                        return !string.IsNullOrEmpty(p.Typing) ? p.Typing : "any";
+                    }
+                }
+                return FindVariableType(fn.Body, name);
+            case FunctionLambdaExpression lambda:
+                foreach (var p in lambda.Parameters) {
+                    if (p.Identifier == name) {
+                        return !string.IsNullOrEmpty(p.Typing) ? p.Typing : "any";
+                    }
+                }
+                return FindVariableType(lambda.Body, name);
+            case StructDeclaration str:
+                foreach (var m in str.Methods) {
+                    var r = FindVariableType(m, name);
+                    if (r != "any") return r;
+                }
+                break;
+            case MatchStatement mat:
+                foreach (var branch in mat.Branches) {
+                    var r = FindVariableType(branch.Body, name);
+                    if (r != "any") return r;
+                }
+                if (mat.Alternate != null) {
+                    var r = FindVariableType(mat.Alternate.Body, name);
+                    if (r != "any") return r;
+                }
+                break;
+        }
+        return "any";
+    }
+
+    private void FindLambdas(object node) {
+        if (node == null) return;
+        if (node is FunctionLambdaExpression lambda) {
+            _lambdaCounter++;
+            lambda.LambdaId = $"_pino_lambda_{_lambdaCounter}";
+            _lambdas.Add(lambda);
+            FindLambdas(lambda.Body);
+            return;
+        }
+
+        switch (node) {
+            case BlockStatement block:
+                foreach (var stmt in block.Statements) FindLambdas(stmt);
+                break;
+            case VariableDeclaration varDecl:
+                FindLambdas(varDecl.Value);
+                break;
+            case ReturnStatement ret:
+                FindLambdas(ret.Argument);
+                break;
+            case IfStatement ifs:
+                FindLambdas(ifs.Condition);
+                FindLambdas(ifs.Consequent);
+                FindLambdas(ifs.Alternate);
+                break;
+            case LoopStatement loop:
+                FindLambdas(loop.Body);
+                FindLambdas(loop.Begin);
+                FindLambdas(loop.End);
+                break;
+            case FunctionDeclaration fn:
+                FindLambdas(fn.Body);
+                break;
+            case StructDeclaration str:
+                foreach (var m in str.Methods) FindLambdas(m);
+                break;
+            case MatchStatement mat:
+                FindLambdas(mat.Condition);
+                foreach (var branch in mat.Branches) {
+                    FindLambdas(branch.Body);
+                }
+                if (mat.Alternate != null) {
+                    FindLambdas(mat.Alternate.Body);
+                }
+                break;
+            case TupleDestructuringDeclaration tupleDest:
+                FindLambdas(tupleDest.Value);
+                break;
+            case BinaryExpression bin:
+                FindLambdas(bin.Left);
+                FindLambdas(bin.Right);
+                break;
+            case UnaryExpression un:
+                FindLambdas(un.Right);
+                break;
+            case TernaryExpression tern:
+                FindLambdas(tern.Condition);
+                FindLambdas(tern.Consequent);
+                FindLambdas(tern.Alternate);
+                break;
+            case StructInstanceExpression si:
+                foreach (var prop in si.Properties) FindLambdas(prop.Value);
+                break;
+            case FunctionCallExpression call:
+                foreach (var arg in call.Arguments) FindLambdas(arg);
+                break;
+            case IndexAccessExpression idx:
+                FindLambdas(idx.Target);
+                FindLambdas(idx.Index);
+                break;
+            case MapExpression map:
+                foreach (var entry in map.Entries) {
+                    FindLambdas(entry.Key);
+                    FindLambdas(entry.Value);
+                }
+                break;
+            case BubbleExpression bub:
+                FindLambdas(bub.Value);
+                break;
+            case TupleLiteralExpression tupleLit:
+                foreach (var f in tupleLit.Fields) FindLambdas(f.Value);
+                break;
+            case Expression expr:
+                // Since Expression is Statement, fallback to children inside expression types
+                break;
+        }
+    }
+
+    private void AnalyzeFreeVars(object node, HashSet<string> localScope, HashSet<string> free) {
+        if (node == null) return;
+
+        switch (node) {
+            case IdentifierExpression id:
+                if (!localScope.Contains(id.Name)) {
+                    free.Add(id.Name);
+                }
+                break;
+
+            case BlockStatement block:
+                var nestedScope = new HashSet<string>(localScope);
+                foreach (var stmt in block.Statements) {
+                    if (stmt is VariableDeclaration varDecl) {
+                        nestedScope.Add(varDecl.Identifier);
+                    }
+                    AnalyzeFreeVars(stmt, nestedScope, free);
+                }
+                break;
+
+            case VariableDeclaration varDecl:
+                AnalyzeFreeVars(varDecl.Value, localScope, free);
+                break;
+
+            case ReturnStatement ret:
+                AnalyzeFreeVars(ret.Argument, localScope, free);
+                break;
+
+            case IfStatement ifs:
+                AnalyzeFreeVars(ifs.Condition, localScope, free);
+                AnalyzeFreeVars(ifs.Consequent, localScope, free);
+                AnalyzeFreeVars(ifs.Alternate, localScope, free);
+                break;
+
+            case LoopStatement loop:
+                AnalyzeFreeVars(loop.Body, localScope, free);
+                AnalyzeFreeVars(loop.Begin, localScope, free);
+                AnalyzeFreeVars(loop.End, localScope, free);
+                break;
+
+            case FunctionLambdaExpression lambda:
+                var lambdaScope = new HashSet<string>(localScope);
+                foreach (var p in lambda.Parameters) {
+                    lambdaScope.Add(p.Identifier);
+                }
+                AnalyzeFreeVars(lambda.Body, lambdaScope, free);
+                break;
+
+            case MatchStatement mat:
+                AnalyzeFreeVars(mat.Condition, localScope, free);
+                foreach (var branch in mat.Branches) {
+                    var matchScope = new HashSet<string>(localScope);
+                    var patternVars = new List<(string Name, string Type)>();
+                    foreach (var cond in branch.Conditions) {
+                        CollectPatternVariables(cond, "any", patternVars);
+                    }
+                    foreach (var pv in patternVars) {
+                        matchScope.Add(pv.Name);
+                    }
+                    AnalyzeFreeVars(branch.Body, matchScope, free);
+                }
+                if (mat.Alternate != null) {
+                    AnalyzeFreeVars(mat.Alternate.Body, localScope, free);
+                }
+                break;
+
+            case TupleDestructuringDeclaration tupleDest:
+                AnalyzeFreeVars(tupleDest.Value, localScope, free);
+                break;
+
+            case BinaryExpression bin:
+                AnalyzeFreeVars(bin.Left, localScope, free);
+                if (bin.Operator != OperatorType.MemberAccess) {
+                    AnalyzeFreeVars(bin.Right, localScope, free);
+                }
+                break;
+
+            case UnaryExpression un:
+                AnalyzeFreeVars(un.Right, localScope, free);
+                break;
+
+            case TernaryExpression tern:
+                AnalyzeFreeVars(tern.Condition, localScope, free);
+                AnalyzeFreeVars(tern.Consequent, localScope, free);
+                AnalyzeFreeVars(tern.Alternate, localScope, free);
+                break;
+
+            case StructInstanceExpression si:
+                foreach (var prop in si.Properties) AnalyzeFreeVars(prop.Value, localScope, free);
+                break;
+
+            case FunctionCallExpression call:
+                foreach (var arg in call.Arguments) AnalyzeFreeVars(arg, localScope, free);
+                break;
+
+            case IndexAccessExpression idx:
+                AnalyzeFreeVars(idx.Target, localScope, free);
+                AnalyzeFreeVars(idx.Index, localScope, free);
+                break;
+
+            case MapExpression map:
+                foreach (var entry in map.Entries) {
+                    AnalyzeFreeVars(entry.Key, localScope, free);
+                    AnalyzeFreeVars(entry.Value, localScope, free);
+                }
+                break;
+
+            case BubbleExpression bub:
+                AnalyzeFreeVars(bub.Value, localScope, free);
+                break;
+
+            case TupleLiteralExpression tupleLit:
+                foreach (var f in tupleLit.Fields) AnalyzeFreeVars(f.Value, localScope, free);
+                break;
+        }
+    }
+
+    private bool IsMutableVariable(ProgramStatement program, string name) {
+        return IsMutableVariableInNode(program, name);
+    }
+
+    private bool IsMutableVariableInNode(object node, string name) {
+        if (node == null) return false;
+        if (node is VariableDeclaration varDecl && varDecl.Identifier == name) {
+            return varDecl.Kind == VariableKind.Variable;
+        }
+
+        switch (node) {
+            case ProgramStatement prog:
+                foreach (var s in prog.Statements) {
+                    if (IsMutableVariableInNode(s, name)) return true;
+                }
+                break;
+            case BlockStatement block:
+                foreach (var s in block.Statements) {
+                    if (IsMutableVariableInNode(s, name)) return true;
+                }
+                break;
+            case IfStatement ifs:
+                return IsMutableVariableInNode(ifs.Consequent, name) || IsMutableVariableInNode(ifs.Alternate, name);
+            case LoopStatement loop:
+                return IsMutableVariableInNode(loop.Body, name) || IsMutableVariableInNode(loop.Begin, name) || IsMutableVariableInNode(loop.End, name);
+            case FunctionDeclaration fn:
+                return IsMutableVariableInNode(fn.Body, name);
+            case StructDeclaration str:
+                foreach (var m in str.Methods) {
+                    if (IsMutableVariableInNode(m, name)) return true;
+                }
+                break;
+            case MatchStatement mat:
+                foreach (var branch in mat.Branches) {
+                    if (IsMutableVariableInNode(branch.Body, name)) return true;
+                }
+                if (mat.Alternate != null) {
+                    if (IsMutableVariableInNode(mat.Alternate.Body, name)) return true;
+                }
+                break;
+        }
+        return false;
+    }
+
+    private Stack<FunctionLambdaExpression> _lambdaStack = new Stack<FunctionLambdaExpression>();
+
+    private void GenerateLambdaEnvironments(ProgramStatement program) {
+        foreach (var lambda in _lambdas) {
+            if (lambda.FreeVars.Count == 0) continue;
+            _globalDeclSb.AppendLine($"struct {lambda.LambdaId}_env {{");
+            foreach (var v in lambda.FreeVars) {
+                var pinoType = FindVariableType(program, v);
+                var cType = MapType(pinoType);
+                if (_boxedVariables.Contains(v)) {
+                    var clean = CleanTypeName(cType);
+                    _globalDeclSb.AppendLine($"    struct Ref_{clean}* {v};");
+                } else {
+                    _globalDeclSb.AppendLine($"    {cType} {v};");
+                }
+            }
+            _globalDeclSb.AppendLine($"}};");
+        }
+    }
+
+    private string GetLambdaReturnType(FunctionLambdaExpression lambda) {
+        var inf = lambda.InferredType;
+        if (string.IsNullOrEmpty(inf)) return "void";
+        int idx = inf.LastIndexOf(')');
+        if (idx == -1) return "void";
+        var ret = inf.Substring(idx + 1).Trim();
+        return string.IsNullOrEmpty(ret) ? "void" : ret;
+    }
+
+    private void TranspileLambdas(StringBuilder forwardFuncSb) {
+        foreach (var lambda in _lambdas) {
+            var retType = MapType(GetLambdaReturnType(lambda));
+            var paramList = new List<string> { "void* env_ptr" };
+            foreach (var p in lambda.Parameters) {
+                paramList.Add($"{MapType(p.Typing)} {p.Identifier}");
+            }
+            
+            forwardFuncSb.AppendLine($"static {retType} {lambda.LambdaId}({string.Join(", ", paramList)});");
+
+            _sb.AppendLine();
+            _sb.AppendLine($"static {retType} {lambda.LambdaId}({string.Join(", ", paramList)}) {{");
+            _indent++;
+            
+            if (lambda.FreeVars.Count > 0) {
+                WriteLine($"struct {lambda.LambdaId}_env* env = (struct {lambda.LambdaId}_env*)env_ptr;");
+            }
+            
+            _lambdaStack.Push(lambda);
+            
+            var oldVarTypes = new Dictionary<string, string>(_varTypes);
+            foreach (var p in lambda.Parameters) {
+                _varTypes[p.Identifier] = p.Typing;
+            }
+            
+            var block = (BlockStatement)lambda.Body;
+            foreach (var stmt in block.Statements) {
+                TranspileStatement(stmt);
+            }
+            
+            _varTypes = oldVarTypes;
+            _lambdaStack.Pop();
+            _indent--;
+            _sb.AppendLine("}");
+        }
+    }
+
+    private void TranspileClosureRef(string name) {
+        if (_currentLambda != null && _currentLambda.FreeVars.Contains(name)) {
+            if (_boxedVariables.Contains(name)) {
+                Write($"env->{name}->value");
+            } else {
+                Write($"env->{name}");
+            }
+        } else if (_boxedVariables.Contains(name)) {
+            Write($"{name}->value");
+        } else {
+            Write(name);
+        }
+    }
+
+    private static readonly HashSet<string> BuiltInFunctionNames = new HashSet<string> {
+        "println", "time", "rand", "sleep", "clear", "regex", "read_file", "write_file", "file_exists"
+    };
+
+    private FunctionLambdaExpression? _currentLambda => _lambdaStack.Count > 0 ? _lambdaStack.Peek() : null;
+
+    private (List<string> Params, string ReturnType) ParseFunctionType(string typeStr) {
+        int openParen = typeStr.IndexOf('(');
+        int closeParen = typeStr.LastIndexOf(')');
+        if (openParen == -1 || closeParen == -1) {
+            return (new List<string>(), "void");
+        }
+        var paramsStr = typeStr.Substring(openParen + 1, closeParen - openParen - 1);
+        var paramTypes = string.IsNullOrWhiteSpace(paramsStr) 
+            ? new List<string>() 
+            : paramsStr.Split(',').Select(p => p.Trim()).ToList();
+        var ret = typeStr.Substring(closeParen + 1).Trim();
+        if (string.IsNullOrEmpty(ret)) ret = "void";
+        return (paramTypes, ret);
     }
 }
