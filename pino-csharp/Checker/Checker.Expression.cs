@@ -532,14 +532,16 @@ public partial class Checker {
 
   private string InferType(Expression expr) {
     string type = InferTypeInternal(expr, "");
-    expr.InferredType = type;
-    return type;
+    string normalized = NormalizeType(type);
+    expr.InferredType = normalized;
+    return normalized;
   }
 
   private string InferType(Expression expr, string expectedType) {
     string type = InferTypeInternal(expr, expectedType);
-    expr.InferredType = type;
-    return type;
+    string normalized = NormalizeType(type);
+    expr.InferredType = normalized;
+    return normalized;
   }
 
   private string InferTypeInternal(Expression expr, string expectedType) {
