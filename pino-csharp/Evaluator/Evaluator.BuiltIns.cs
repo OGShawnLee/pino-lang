@@ -160,6 +160,67 @@ public partial class Evaluator {
       throw new PinoPanicException(msg, stack);
     }
   }
+
+  private class ReadFileFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      string path = arguments[0]?.ToString() ?? "";
+      try {
+        string content = System.IO.File.ReadAllText(path);
+        return new PinoUnionValue("Result", "Success", new List<object?> { content });
+      } catch (System.IO.FileNotFoundException) {
+        var ioErr = new PinoUnionValue("IOError", "NotFound", new List<object?> { path });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (System.IO.DirectoryNotFoundException) {
+        var ioErr = new PinoUnionValue("IOError", "NotFound", new List<object?> { path });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (System.UnauthorizedAccessException) {
+        var ioErr = new PinoUnionValue("IOError", "PermissionDenied", new List<object?> { path });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (System.IO.IOException ex) {
+        var ioErr = new PinoUnionValue("IOError", "Gremlin", new List<object?> { ex.Message });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (Exception ex) {
+        var ioErr = new PinoUnionValue("IOError", "Gremlin", new List<object?> { ex.Message });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      }
+    }
+  }
+
+  private class WriteFileFunction : IPinoCallable {
+    public int Arity => 2;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      string path = arguments[0]?.ToString() ?? "";
+      string content = arguments[1]?.ToString() ?? "";
+      try {
+        System.IO.File.WriteAllText(path, content);
+        return new PinoUnionValue("Result", "Success", new List<object?> { path });
+      } catch (System.IO.FileNotFoundException) {
+        var ioErr = new PinoUnionValue("IOError", "NotFound", new List<object?> { path });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (System.IO.DirectoryNotFoundException) {
+        var ioErr = new PinoUnionValue("IOError", "NotFound", new List<object?> { path });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (System.UnauthorizedAccessException) {
+        var ioErr = new PinoUnionValue("IOError", "PermissionDenied", new List<object?> { path });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (System.IO.IOException ex) {
+        var ioErr = new PinoUnionValue("IOError", "Gremlin", new List<object?> { ex.Message });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      } catch (Exception ex) {
+        var ioErr = new PinoUnionValue("IOError", "Gremlin", new List<object?> { ex.Message });
+        return new PinoUnionValue("Result", "Failure", new List<object?> { ioErr });
+      }
+    }
+  }
+
+  private class FileExistsFunction : IPinoCallable {
+    public int Arity => 1;
+    public object? Call(Evaluator evaluator, List<object?> arguments) {
+      string path = arguments[0]?.ToString() ?? "";
+      return System.IO.File.Exists(path);
+    }
+  }
 }
 
 public class PinoPanicException : Exception {

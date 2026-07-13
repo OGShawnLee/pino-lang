@@ -55,7 +55,10 @@ public partial class Checker {
     { "str", "fn(any) string" },
     { "clear", "fn()" },
     { "regex", "fn(string) regex" },
-    { "panic", "fn(string) any" }
+    { "panic", "fn(string) any" },
+    { "read_file", "fn(string) Result[string, IOError]" },
+    { "write_file", "fn(string, string) Result[string, IOError]" },
+    { "file_exists", "fn(string) bool" }
   };
 
   public StructDeclaration? FindStruct(string name) {
@@ -358,10 +361,23 @@ public partial class Checker {
     }
 
     if (BuiltInFunctions.TryGetValue(callee, out var builtInSig)) {
-      // Extract return type if present (e.g. "fn(...) string" -> "string")
-      int lastSpace = builtInSig.LastIndexOf(' ');
-      if (lastSpace != -1) {
-        return builtInSig.Substring(lastSpace + 1);
+      if (builtInSig.StartsWith("fn(")) {
+        int depth = 1;
+        int closingParenIdx = -1;
+        for (int i = 3; i < builtInSig.Length; i++) {
+          if (builtInSig[i] == '(') depth++;
+          else if (builtInSig[i] == ')') {
+            depth--;
+            if (depth == 0) {
+              closingParenIdx = i;
+              break;
+            }
+          }
+        }
+        if (closingParenIdx != -1) {
+          string retType = builtInSig.Substring(closingParenIdx + 1).Trim();
+          return string.IsNullOrEmpty(retType) ? "any" : retType;
+        }
       }
       return "any";
     }

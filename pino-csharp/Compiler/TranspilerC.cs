@@ -21,6 +21,9 @@ public class TranspilerC {
     private StringBuilder _globalDeclSb = new StringBuilder();
     private bool _isGlobalScope = false;
     private int _blockDepth = 0;
+    private bool _usesReadFile = false;
+    private bool _usesWriteFile = false;
+    private bool _usesFileExists = false;
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -49,6 +52,9 @@ public class TranspilerC {
         _globalVarTypes.Clear();
         _globalDeclSb.Clear();
         _isGlobalScope = true;
+        _usesReadFile = false;
+        _usesWriteFile = false;
+        _usesFileExists = false;
         _sb.Clear();
 
         var declarations = new List<Declaration>();
@@ -237,17 +243,89 @@ public class TranspilerC {
         _sb.AppendLine("}");
 
         // Combine everything: Headers + Typedef Structs + Tuple Structs + Main Code
+        if (_usesReadFile) {
+            _sb.AppendLine();
+            _sb.AppendLine("Result_string_IOError* pino_read_file(const char* path) {");
+            _sb.AppendLine("    FILE* f = fopen(path, \"rb\");");
+            _sb.AppendLine("    if (!f) {");
+            _sb.AppendLine("        IOError* err;");
+            _sb.AppendLine("        if (errno == ENOENT) {");
+            _sb.AppendLine("            err = IOError_NotFound_construct(path);");
+            _sb.AppendLine("        } else if (errno == EACCES || errno == EPERM) {");
+            _sb.AppendLine("            err = IOError_PermissionDenied_construct(path);");
+            _sb.AppendLine("        } else if (errno == EEXIST) {");
+            _sb.AppendLine("            err = IOError_AlreadyExists_construct(path);");
+            _sb.AppendLine("        } else {");
+            _sb.AppendLine("            err = IOError_Gremlin_construct(strerror(errno));");
+            _sb.AppendLine("        }");
+            _sb.AppendLine("        return Result_string_IOError_Failure_construct(err);");
+            _sb.AppendLine("    }");
+            _sb.AppendLine("    fseek(f, 0, SEEK_END);");
+            _sb.AppendLine("    long len = ftell(f);");
+            _sb.AppendLine("    fseek(f, 0, SEEK_SET);");
+            _sb.AppendLine("    char* buf = (char*)pino_malloc(len + 1);");
+            _sb.AppendLine("    size_t read_bytes = fread(buf, 1, len, f);");
+            _sb.AppendLine("    buf[read_bytes] = '\\0';");
+            _sb.AppendLine("    fclose(f);");
+            _sb.AppendLine("    return Result_string_IOError_Success_construct(buf);");
+            _sb.AppendLine("}");
+        }
+
+        if (_usesWriteFile) {
+            _sb.AppendLine();
+            _sb.AppendLine("Result_string_IOError* pino_write_file(const char* path, const char* content) {");
+            _sb.AppendLine("    FILE* f = fopen(path, \"wb\");");
+            _sb.AppendLine("    if (!f) {");
+            _sb.AppendLine("        IOError* err;");
+            _sb.AppendLine("        if (errno == EACCES || errno == EPERM) {");
+            _sb.AppendLine("            err = IOError_PermissionDenied_construct(path);");
+            _sb.AppendLine("        } else {");
+            _sb.AppendLine("            err = IOError_Gremlin_construct(strerror(errno));");
+            _sb.AppendLine("        }");
+            _sb.AppendLine("        return Result_string_IOError_Failure_construct(err);");
+            _sb.AppendLine("    }");
+            _sb.AppendLine("    fputs(content, f);");
+            _sb.AppendLine("    fclose(f);");
+            _sb.AppendLine("    return Result_string_IOError_Success_construct(path);");
+            _sb.AppendLine("}");
+        }
+
+        if (_usesFileExists) {
+            _sb.AppendLine();
+            _sb.AppendLine("bool pino_file_exists(const char* path) {");
+            _sb.AppendLine("    FILE* f = fopen(path, \"rb\");");
+            _sb.AppendLine("    if (f) {");
+            _sb.AppendLine("        fclose(f);");
+            _sb.AppendLine("        return true;");
+            _sb.AppendLine("    }");
+            _sb.AppendLine("    return false;");
+            _sb.AppendLine("}");
+        }
+
+        var forwardFuncSb = new StringBuilder();
+        if (_usesReadFile) {
+            forwardFuncSb.AppendLine("Result_string_IOError* pino_read_file(const char* path);");
+        }
+        if (_usesWriteFile) {
+            forwardFuncSb.AppendLine("Result_string_IOError* pino_write_file(const char* path, const char* content);");
+        }
+        if (_usesFileExists) {
+            forwardFuncSb.AppendLine("bool pino_file_exists(const char* path);");
+        }
+
         var finalSb = new StringBuilder();
         finalSb.AppendLine("#include <stdio.h>");
         finalSb.AppendLine("#include <stdlib.h>");
         finalSb.AppendLine("#include <stdbool.h>");
         finalSb.AppendLine("#include <string.h>");
+        finalSb.AppendLine("#include <errno.h>");
         finalSb.AppendLine("#include \"runtime/runtime.h\"");
         finalSb.AppendLine();
         finalSb.Append(forwardDeclSb.ToString());
         finalSb.Append(_tupleSb.ToString());
         finalSb.Append(_globalDeclSb.ToString());
         finalSb.Append(structSb.ToString());
+        finalSb.Append(forwardFuncSb.ToString());
         finalSb.Append(_sb.ToString());
 
         return finalSb.ToString();
@@ -800,6 +878,23 @@ public class TranspilerC {
                     Write("pino_clear()");
                 } else if (call.Callee == "regex") {
                     Write("regex_compile(");
+                    TranspileExpression(call.Arguments[0]);
+                    Write(")");
+                } else if (call.Callee == "read_file") {
+                    _usesReadFile = true;
+                    Write("pino_read_file(");
+                    TranspileExpression(call.Arguments[0]);
+                    Write(")");
+                } else if (call.Callee == "write_file") {
+                    _usesWriteFile = true;
+                    Write("pino_write_file(");
+                    TranspileExpression(call.Arguments[0]);
+                    Write(", ");
+                    TranspileExpression(call.Arguments[1]);
+                    Write(")");
+                } else if (call.Callee == "file_exists") {
+                    _usesFileExists = true;
+                    Write("pino_file_exists(");
                     TranspileExpression(call.Arguments[0]);
                     Write(")");
                 } else {

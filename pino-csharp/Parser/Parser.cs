@@ -129,6 +129,13 @@ union Result {
   Success(T)
   Failure(E)
 }
+
+union IOError {
+  NotFound(string)
+  PermissionDenied(string)
+  AlreadyExists(string)
+  Gremlin(string)
+}
 ";
 
   private static List<Token> GetPreludeTokens() {

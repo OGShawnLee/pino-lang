@@ -284,6 +284,9 @@ public partial class Evaluator {
     _globals.Define("clear", new ClearFunction(), true);
     _globals.Define("regex", new RegexFunction(), true);
     _globals.Define("panic", new PanicFunction(), true);
+    _globals.Define("read_file", new ReadFileFunction(), true);
+    _globals.Define("write_file", new WriteFileFunction(), true);
+    _globals.Define("file_exists", new FileExistsFunction(), true);
   }
 
   public void Execute(Statement statement) {
