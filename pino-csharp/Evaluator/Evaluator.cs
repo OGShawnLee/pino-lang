@@ -205,9 +205,18 @@ public class PinoUnionValue {
     Payload = payload;
   }
 
+  private static string GetBaseUnionName(string name) {
+    if (string.IsNullOrEmpty(name)) return name;
+    int idx = name.IndexOf('_');
+    if (idx != -1) return name.Substring(0, idx);
+    idx = name.IndexOf('[');
+    if (idx != -1) return name.Substring(0, idx);
+    return name;
+  }
+
   public override bool Equals(object? obj) {
     if (obj is not PinoUnionValue other) return false;
-    if (UnionName != other.UnionName || VariantName != other.VariantName) return false;
+    if (GetBaseUnionName(UnionName) != GetBaseUnionName(other.UnionName) || VariantName != other.VariantName) return false;
     if (Payload.Count != other.Payload.Count) return false;
     for (int i = 0; i < Payload.Count; i++) {
       if (!Equals(Payload[i], other.Payload[i])) return false;

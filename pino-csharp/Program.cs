@@ -862,6 +862,9 @@ class Program {
 
       foreach (var file in files) {
         try {
+          var content = File.ReadAllText(file);
+          if (!content.Contains("test")) continue;
+
           var program = Parser.ParseFile(file);
           var tests = program.Statements.OfType<TestDeclaration>().ToList();
           if (tests.Count == 0) continue;

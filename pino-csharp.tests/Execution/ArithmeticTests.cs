@@ -169,7 +169,27 @@ public class ArithmeticTests {
     Assert.Equal(false, env.Get("is_a_not_equals_a"));
   }
 
-    [Fact]
+  [Fact]
+  public void TestUnionEqualityResult() {
+    var code = @"
+      fn divide(a int, b int) Result[int, string] {
+        if b == 0 {
+          return Result::Failure(""Cannot divide by zero"")
+        }
+
+        return Result::Success(a / b)
+      }
+
+      val is_a_equals_a = divide(10, 2) == Result::Success(5)
+      val is_a_not_equals_b = divide(10, 0) != Result::Success(5)
+    ";
+
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(true, env.Get("is_a_equals_a"));
+    Assert.Equal(true, env.Get("is_a_not_equals_b"));
+  }
+
+  [Fact]
   public void TestUnionEqualityWithValues() {
     var code = @"
       union Data {

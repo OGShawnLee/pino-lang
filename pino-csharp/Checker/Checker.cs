@@ -220,7 +220,8 @@ public partial class Checker {
               stmt is UnionDeclaration ||
               stmt is ImportStatement ||
               stmt is FromImportStatement ||
-              stmt is ModuleDeclaration) {
+              stmt is ModuleDeclaration ||
+              stmt is TestDeclaration) {
             continue;
           }
 
