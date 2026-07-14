@@ -955,26 +955,32 @@ public partial class Evaluator {
       case OperatorType.Or:
         return IsTruthy(left) || IsTruthy(right);
       case OperatorType.In:
-        if (right is Dictionary<object, object?> inMap) {
-          return left != null && inMap.ContainsKey(left);
-        }
-        if (right is List<object?> inList) {
-          return inList.Contains(left);
-        }
-        if (right is string inStr) {
-          if (left is PinoRune r) {
-            return inStr.Contains(r.ToString());
-          }
-          if (left is not string leftStr) {
-            throw new Exception("RUNTIME ERROR: Left side of 'in' operator must be a string when right side is a string.");
-          }
-          return inStr.Contains(leftStr);
-        }
-        throw new Exception($"RUNTIME ERROR: 'in' operator not supported for type '{right?.GetType().Name ?? "null"}'.");
+        return EvaluateIn(left, right);
+      case OperatorType.NotIn:
+        return !EvaluateIn(left, right);
 
       default:
         throw new Exception($"RUNTIME ERROR: Operator '{op}' not supported for numeric operations.");
     }
+  }
+
+  private bool EvaluateIn(object? left, object? right) {
+    if (right is Dictionary<object, object?> inMap) {
+      return left != null && inMap.ContainsKey(left);
+    }
+    if (right is List<object?> inList) {
+      return inList.Contains(left);
+    }
+    if (right is string inStr) {
+      if (left is PinoRune r) {
+        return inStr.Contains(r.ToString());
+      }
+      if (left is not string leftStr) {
+        throw new Exception("RUNTIME ERROR: Left side of 'in' operator must be a string when right side is a string.");
+      }
+      return inStr.Contains(leftStr);
+    }
+    throw new Exception($"RUNTIME ERROR: 'in' operator not supported for type '{right?.GetType().Name ?? "null"}'.");
   }
 
   public string FormatVal(object? arg) {

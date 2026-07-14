@@ -996,7 +996,7 @@ public partial class Checker {
         if (bin.Operator == OperatorType.Equal || bin.Operator == OperatorType.NotEqual ||
             bin.Operator == OperatorType.LessThan || bin.Operator == OperatorType.LessThanEqual ||
             bin.Operator == OperatorType.GreaterThan || bin.Operator == OperatorType.GreaterThanEqual ||
-            bin.Operator == OperatorType.In) {
+            bin.Operator == OperatorType.In || bin.Operator == OperatorType.NotIn) {
           return "bool";
         }
 

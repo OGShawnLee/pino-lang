@@ -1,85 +1,33 @@
-enum TokenType {
-  Keyword
-  Identifier
-  Marker
-  Literal
-  Illegal
+val test_map = map[string, int] {
+  "a": 1
+  "b": 2
+  "c": 3
+} 
+
+val test_vec = [10, 20, 30]
+
+val test_str = "hello pino world"
+
+test "IN OPERATOR: Should return true when value is in the map" {
+  assert "a" in test_map
 }
 
-struct Token {
-  type TokenType
-  value string
-
-  fn print {
-    val type_str = match type {
-      when TokenType::Keyword => "Keyword"
-      when TokenType::Identifier => "Identifier"
-      when TokenType::Marker => "Marker"
-      when TokenType::Literal => "Literal"
-      when TokenType::Illegal => "Illegal"
-    }
-
-    println("Token { Type: $type_str, Value: $value }")
-  }
+test "IN OPERATOR: Should return false when value is not in the map" {
+  assert "d" not in test_map
 }
 
-struct TokenRule {
-  pattern regex
-  type TokenType
+test "IN OPERATOR: Should return true when element is in the vector" {
+  assert 20 in test_vec
 }
 
-val IDENTIFIER_REGEX = regex("^[a-zA-Z_][a-zA-Z0-9_]*")
-val KEYWORD_REGEX = regex("^(fn|return)")
-val MARKER_REGEX = regex("^[{}]")
-val NUMERIC_REGEX = regex("^[0-9]+")
-val WHITE_SPACE_REGEX = regex("^\s+")
-val TOKEN_RULE_LIST = [
-  TokenRule { pattern: KEYWORD_REGEX, type: TokenType::Keyword }
-  TokenRule { pattern: NUMERIC_REGEX, type: TokenType::Literal }
-  TokenRule { pattern: MARKER_REGEX, type: TokenType::Marker }
-  TokenRule { pattern: IDENTIFIER_REGEX, type: TokenType::Identifier }
-]
-
-fn lex(line string) []Token {
-  val token_list = []Token
-
-  for line:len > 0 {
-    val white_space = WHITE_SPACE_REGEX:match_prefix(line)
-    if white_space != "" {
-      line = line:substring(white_space:len)
-      continue
-    }
-
-    var match_found = false
-
-    for rule in TOKEN_RULE_LIST {
-      val match_str = rule:pattern:match_prefix(line)
-      if match_str != "" {
-        line = line:substring(match_str:len)
-        token_list:push(Token { type: rule:type, value: match_str })
-        match_found = true
-        break
-      }
-    }
-
-    if not match_found {
-      token_list:push(Token { type: TokenType::Illegal, value: line:substring(0, 1) })
-      line = line:substring(1)
-    }
-  }
-
-  return token_list
+test "IN OPERATOR: Should return false when element is not in the vector" {
+  assert 40 not in test_vec
 }
 
-fn main {
-  val program = "fn main { return 2 }"
-  val begin = time()
-  val token_list = lex(program)
-  val end = time()
+test "IN OPERATOR: Should return true when substring is in the string" {
+  assert "pino" in test_str
+}
 
-  for token in token_list {
-    token:print()
-  }
-
-  println("Processed in $(end - begin) ms")
+test "IN OPERATOR: Should return false when substring is not in the string" {
+  assert "rust" not in test_str
 }

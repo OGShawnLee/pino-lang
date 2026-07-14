@@ -512,4 +512,42 @@ public class DataStructureTests {
     Assert.Equal("", env.Get("joined3"));
     Assert.Equal("1, 2, 3", env.Get("joined4"));
   }
+
+  [Fact]
+  public void TestMapAndVectorInNotInOperators() {
+    var code = @"
+      val m = map[string, int] { ""a"": 1, ""b"": 2 }
+      val in_map_a = ""a"" in m
+      val in_map_c = ""c"" in m
+      val not_in_map_a = ""a"" not in m
+      val not_in_map_c = ""c"" not in m
+
+      val vec = [1, 2, 3]
+      val in_vec_2 = 2 in vec
+      val in_vec_4 = 4 in vec
+      val not_in_vec_2 = 2 not in vec
+      val not_in_vec_4 = 4 not in vec
+
+      val str = ""hello world""
+      val in_str_world = ""world"" in str
+      val in_str_pino = ""pino"" in str
+      val not_in_str_world = ""world"" not in str
+      val not_in_str_pino = ""pino"" not in str
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.True((bool)env.Get("in_map_a")!);
+    Assert.False((bool)env.Get("in_map_c")!);
+    Assert.False((bool)env.Get("not_in_map_a")!);
+    Assert.True((bool)env.Get("not_in_map_c")!);
+
+    Assert.True((bool)env.Get("in_vec_2")!);
+    Assert.False((bool)env.Get("in_vec_4")!);
+    Assert.False((bool)env.Get("not_in_vec_2")!);
+    Assert.True((bool)env.Get("not_in_vec_4")!);
+
+    Assert.True((bool)env.Get("in_str_world")!);
+    Assert.False((bool)env.Get("in_str_pino")!);
+    Assert.False((bool)env.Get("not_in_str_world")!);
+    Assert.True((bool)env.Get("not_in_str_pino")!);
+  }
 }

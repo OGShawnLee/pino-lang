@@ -578,6 +578,26 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
                 
+                _tupleSb.AppendLine($"static inline bool {clean}_has({clean}* map, {cKeyType} key) {{");
+                _tupleSb.AppendLine($"    if (map->capacity == 0) return false;");
+                _tupleSb.AppendLine($"    unsigned long hash = {hashExpr};");
+                _tupleSb.AppendLine($"    int idx = (int)(hash % map->capacity);");
+                _tupleSb.AppendLine($"    int start = idx;");
+                _tupleSb.AppendLine($"    while (map->entries[idx].occupied != 0) {{");
+                _tupleSb.AppendLine($"        if (map->entries[idx].occupied == 1) {{");
+                _tupleSb.AppendLine($"            {cKeyType} a = map->entries[idx].key;");
+                _tupleSb.AppendLine($"            {cKeyType} b = key;");
+                _tupleSb.AppendLine($"            if ({keyEqExpr}) {{");
+                _tupleSb.AppendLine($"                return true;");
+                _tupleSb.AppendLine($"            }}");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"        idx = (idx + 1) % map->capacity;");
+                _tupleSb.AppendLine($"        if (idx == start) break;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return false;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+                
                 _tupleSb.AppendLine($"static inline {cValType} {clean}_remove({clean}* map, {cKeyType} key) {{");
                 _tupleSb.AppendLine($"    if (map->capacity == 0) {{");
                 _tupleSb.AppendLine($"        {cValType} zero = {{0}};");
@@ -672,6 +692,18 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"    }}");
                 _tupleSb.AppendLine($"    vec->items[vec->length++] = item;");
                 _tupleSb.AppendLine($"    return vec;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                var elemEqExpr = elemType == "string" ? "strcmp(a, b) == 0" : "a == b";
+                _tupleSb.AppendLine($"static inline bool {clean}_has({clean}* vec, {cElemType} item) {{");
+                _tupleSb.AppendLine($"    if (!vec) return false;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        {cElemType} a = vec->items[i];");
+                _tupleSb.AppendLine($"        {cElemType} b = item;");
+                _tupleSb.AppendLine($"        if ({elemEqExpr}) return true;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return false;");
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
             }
@@ -1164,6 +1196,36 @@ public class TranspilerC {
                         } else {
                             TranspileExpression(bin.Right);
                         }
+                    }
+                } else if (bin.Operator == OperatorType.In || bin.Operator == OperatorType.NotIn) {
+                    if (bin.Operator == OperatorType.NotIn) {
+                        Write("!(");
+                    }
+                    if (bin.Right.InferredType != null && bin.Right.InferredType.StartsWith("map[")) {
+                        var cleanType = CleanTypeName(bin.Right.InferredType);
+                        Write($"{cleanType}_has(");
+                        TranspileExpression(bin.Right);
+                        Write(", ");
+                        TranspileExpression(bin.Left);
+                        Write(")");
+                    } else if (bin.Right.InferredType != null && bin.Right.InferredType.StartsWith("[]")) {
+                        var cleanType = CleanTypeName(bin.Right.InferredType);
+                        Write($"{cleanType}_has(");
+                        TranspileExpression(bin.Right);
+                        Write(", ");
+                        TranspileExpression(bin.Left);
+                        Write(")");
+                    } else if (bin.Right.InferredType == "string") {
+                        Write("(strstr(");
+                        TranspileExpression(bin.Right);
+                        Write(", ");
+                        TranspileExpression(bin.Left);
+                        Write(") != NULL)");
+                    } else {
+                        throw new NotImplementedException($"Operator {bin.Operator} not supported for type {bin.Right.InferredType}");
+                    }
+                    if (bin.Operator == OperatorType.NotIn) {
+                        Write(")");
                     }
                 } else if ((bin.Operator == OperatorType.Equal ||
                             bin.Operator == OperatorType.NotEqual ||

@@ -234,6 +234,7 @@ public static class ExpressionExtensions {
       case OperatorType.StaticMemberAccess: return "::";
       case OperatorType.Arrow: return "->";
       case OperatorType.In: return "in";
+      case OperatorType.NotIn: return "not in";
       case OperatorType.QuestionMark: return "?";
       default: return op.ToString();
     }

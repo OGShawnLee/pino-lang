@@ -154,7 +154,12 @@ public partial class Parser {
   private static Expression ParseExpressionWithPrecedence(TokenStream stream, int minPrecedence, bool allowStruct = true, bool allowMemberAccess = true, bool allowIn = true) {
     var expression = ParsePrimaryExpression(stream, allowStruct, allowMemberAccess);
 
-    while (stream.HasNext && (stream.Current.Type == TokenType.Operator || stream.Current.IsKeyword(KeywordType.In) || stream.Current.IsKeyword(KeywordType.Is)) && !stream.Current.IsOperator(OperatorType.QuestionMark)) {
+    while (stream.HasNext && 
+           (stream.Current.Type == TokenType.Operator || 
+            stream.Current.IsKeyword(KeywordType.In) || 
+            stream.Current.IsKeyword(KeywordType.Is) ||
+            (stream.Current.IsOperator(OperatorType.Not) && stream.Peek(1).IsKeyword(KeywordType.In))) && 
+           !stream.Current.IsOperator(OperatorType.QuestionMark)) {
       var opToken = stream.Current;
 
       if (opToken.IsKeyword(KeywordType.Is)) {
@@ -172,11 +177,19 @@ public partial class Parser {
         continue;
       }
 
-      var opType = opToken.IsKeyword(KeywordType.In) ? OperatorType.In : opToken.Operator!.Value;
+      OperatorType opType;
+      bool isNotIn = false;
+      if (opToken.IsOperator(OperatorType.Not) && stream.Peek(1).IsKeyword(KeywordType.In)) {
+        opType = OperatorType.NotIn;
+        isNotIn = true;
+      } else {
+        opType = opToken.IsKeyword(KeywordType.In) ? OperatorType.In : opToken.Operator!.Value;
+      }
+
       if (opType == OperatorType.MemberAccess && !allowMemberAccess) {
         break;
       }
-      if (opType == OperatorType.In && !allowIn) {
+      if ((opType == OperatorType.In || opType == OperatorType.NotIn) && !allowIn) {
         break;
       }
       var precedence = GetOperatorPrecedence(opType);
@@ -192,7 +205,12 @@ public partial class Parser {
         continue;
       }
 
-      stream.Consume(); // consume operator
+      if (isNotIn) {
+        stream.Consume(); // consume 'not'
+        stream.Consume(); // consume 'in'
+      } else {
+        stream.Consume(); // consume operator
+      }
 
       var nextMinPrecedence = IsRightAssociative(opType) ? precedence : precedence + 1;
       var right = ParseExpressionWithPrecedence(stream, nextMinPrecedence, allowStruct, allowMemberAccess, allowIn);
@@ -341,6 +359,7 @@ public partial class Parser {
       OperatorType.GreaterThan => 5,
       OperatorType.GreaterThanEqual => 5,
       OperatorType.In => 5,
+      OperatorType.NotIn => 5,
 
       OperatorType.Addition => 6,
       OperatorType.Subtraction => 6,
