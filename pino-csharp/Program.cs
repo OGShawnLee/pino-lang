@@ -871,13 +871,13 @@ class Program {
 
           Console.WriteLine($"\n--- Running tests in {Path.GetFileName(file)} ---");
           if (useC) {
-            var exitCode = CompileAndRunTestsReturnCode(file);
-            if (exitCode == 0) {
-              totalPassed += tests.Count;
-            } else {
+            var (passed, failed, exitCode) = CompileAndRunTestsReturnCounts(file);
+            totalPassed += passed;
+            totalFailed += failed;
+            if (exitCode != 0 && failed == 0) {
               totalFailed += tests.Count;
             }
-            totalTests += tests.Count;
+            totalTests += passed + failed + (exitCode != 0 && failed == 0 ? tests.Count : 0);
           } else {
             var (passed, failed) = RunTestsTreeWalkForProgram(program, file);
             totalPassed += passed;
@@ -970,7 +970,7 @@ class Program {
     }
   }
 
-  static int CompileAndRunTestsReturnCode(string path) {
+  static (int Passed, int Failed, int ExitCode) CompileAndRunTestsReturnCounts(string path) {
     try {
       var program = Parser.ParseFile(path);
       var checker = new Checker();
@@ -1041,7 +1041,7 @@ class Program {
       using var process = System.Diagnostics.Process.Start(startInfo);
       if (process == null) {
         Console.WriteLine("Error: Failed to start TCC compiler process.");
-        return 1;
+        return (0, 0, 1);
       }
       process.WaitForExit();
 
@@ -1053,40 +1053,66 @@ class Program {
         Console.WriteLine("[ERROR] TCC compilation failed:");
         Console.WriteLine(stderr);
         Console.ResetColor();
-        return 1;
+        return (0, 0, 1);
       }
 
       try {
         File.Delete(cFilePath);
       } catch { /* Ignore */ }
 
-      // Successfully compiled! Now execute it.
+      // Successfully compiled! Now execute it and redirect output so we can parse it.
       var execStartInfo = new System.Diagnostics.ProcessStartInfo {
         FileName = outputExePath,
-        UseShellExecute = false
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
       };
 
       using var execProcess = System.Diagnostics.Process.Start(execStartInfo);
       if (execProcess != null) {
         execProcess.WaitForExit();
         var exitCode = execProcess.ExitCode;
+        var output = execProcess.StandardOutput.ReadToEnd();
+        var errOutput = execProcess.StandardError.ReadToEnd();
         try {
           File.Delete(outputExePath);
         } catch { /* Ignore */ }
-        
-        return exitCode;
+
+        // Print stdout and stderr to match original behavior
+        Console.Write(output);
+        if (!string.IsNullOrEmpty(errOutput)) {
+          Console.ForegroundColor = ConsoleColor.Red;
+          Console.Write(errOutput);
+          Console.ResetColor();
+        }
+
+        // Parse summary line: "Test summary: {passed} passed, {failed} failed, {total} total."
+        int passed = 0;
+        int failed = 0;
+        var lines = output.Split('\n');
+        foreach (var line in lines) {
+          if (line.Contains("Test summary:")) {
+            var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 8) {
+              int.TryParse(parts[2], out passed);
+              int.TryParse(parts[4], out failed);
+            }
+          }
+        }
+        return (passed, failed, exitCode);
       }
-      return 1;
+      return (0, 0, 1);
     } catch (Exception ex) {
       Console.ForegroundColor = ConsoleColor.Red;
       Console.WriteLine($"Error during test compilation: {ex.Message}");
       Console.ResetColor();
-      return 1;
+      return (0, 0, 1);
     }
   }
 
   static void CompileAndRunTests(string path) {
-    var code = CompileAndRunTestsReturnCode(path);
+    var (passed, failed, code) = CompileAndRunTestsReturnCounts(path);
     if (code != 0) {
       System.Environment.Exit(code);
     }
