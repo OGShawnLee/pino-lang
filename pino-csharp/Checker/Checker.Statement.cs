@@ -222,6 +222,18 @@ public partial class Checker {
         CheckStatement(els.Body);
         break;
 
+      case TestDeclaration testDecl:
+        CheckStatement(testDecl.Body);
+        break;
+
+      case AssertStatement assertStmt:
+        CheckExpression(assertStmt.Expression);
+        var assertType = assertStmt.Expression.InferredType;
+        if (assertType != "bool") {
+          throw new Exception($"TYPE CHECK ERROR: Assert expression must be of type 'bool', but got '{assertType}'.");
+        }
+        break;
+
       case ReturnStatement ret:
         if (ret.Argument != null) {
           bool oldCheckingReturn = _isCheckingReturn;

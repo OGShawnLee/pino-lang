@@ -69,6 +69,16 @@ class Program {
         WatchFile(watchFilePath, useVM, watchCompile);
         break;
 
+      case "test":
+        var testFileName = argList.Count > 1 ? argList[1] : "main.pino";
+        var testFilePath = Path.Combine(System.Environment.CurrentDirectory, testFileName);
+        if (!File.Exists(testFilePath)) {
+          Console.WriteLine($"Error: File '{testFileName}' not found.");
+          System.Environment.Exit(1);
+        }
+        RunTests(testFilePath, watchCompile);
+        break;
+
       case "v":
       case "version":
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.3.2";
@@ -107,6 +117,7 @@ class Program {
     Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
     Console.WriteLine("  compile [file-name] : Compile the given .pino file to a native executable (defaults to main.pino)");
     Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
+    Console.WriteLine("  test [file-name]    : Run test blocks in the given file (defaults to main.pino)");
     Console.WriteLine("  play [game-name]    : Launch an interactive console game from the pino.games directory");
     Console.WriteLine("  play update         : Download or update the official Pino games library from GitHub");
     Console.WriteLine("  version, v          : Show Pino version information");
@@ -318,6 +329,14 @@ class Program {
         foreach (var frame in ex.CallStack) {
           Console.Error.WriteLine($"   {idx++}: {frame}");
         }
+      }
+      Console.ResetColor();
+      System.Environment.Exit(101);
+    } catch (PinoAssertException ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.Error.WriteLine($"thread 'main' panicked at assertion failed: '{ex.AssertionExpression}'");
+      if (!string.IsNullOrEmpty(ex.FilePath)) {
+        Console.Error.WriteLine($"  at {ex.FilePath}");
       }
       Console.ResetColor();
       System.Environment.Exit(101);
@@ -819,6 +838,193 @@ class Program {
       Console.WriteLine("🌲 Success! Bundled TCC compiler installed successfully.");
     } catch (Exception ex) {
       Console.WriteLine($"Error downloading TCC: {ex.Message}");
+      System.Environment.Exit(1);
+    }
+  }
+
+  static void RunTests(string path, bool useC) {
+    if (useC) {
+      CompileAndRunTests(path);
+    } else {
+      RunTestsTreeWalk(path);
+    }
+  }
+
+  static void RunTestsTreeWalk(string path) {
+    try {
+      var program = Parser.ParseFile(path);
+      var checker = new Checker();
+      checker.Check(program);
+
+      // Collect all TestDeclaration statements
+      var tests = program.Statements.OfType<TestDeclaration>().ToList();
+      if (tests.Count == 0) {
+        Console.WriteLine("No tests found.");
+        return;
+      }
+
+      Console.WriteLine($"Running {tests.Count} tests...");
+      int passed = 0;
+      int failed = 0;
+
+      foreach (var test in tests) {
+        Console.WriteLine($"[RUN ] test \"{test.Description}\"");
+        try {
+          var evaluator = new Evaluator();
+          // Initialize/execute top-level program statements (e.g. global variable definitions) first
+          // but exclude TestDeclaration statements.
+          foreach (var stmt in program.Statements) {
+            if (!(stmt is TestDeclaration)) {
+              evaluator.Execute(stmt);
+            }
+          }
+          // Execute test body
+          evaluator.Execute(test.Body);
+          passed++;
+          Console.ForegroundColor = ConsoleColor.Green;
+          Console.WriteLine($"[PASS] test \"{test.Description}\"");
+          Console.ResetColor();
+        } catch (PinoAssertException ex) {
+          failed++;
+          Console.ForegroundColor = ConsoleColor.Red;
+          Console.WriteLine($"       Assertion failed: {ex.AssertionExpression}");
+          if (!string.IsNullOrEmpty(ex.FilePath)) {
+            Console.WriteLine($"       at {ex.FilePath}");
+          }
+          Console.WriteLine($"[FAIL] test \"{test.Description}\"");
+          Console.ResetColor();
+        } catch (Exception ex) {
+          failed++;
+          Console.ForegroundColor = ConsoleColor.Red;
+          Console.WriteLine($"       Unexpected error: {ex.Message}");
+          Console.WriteLine($"[FAIL] test \"{test.Description}\"");
+          Console.ResetColor();
+        }
+      }
+
+      Console.WriteLine($"\nTest summary: {passed} passed, {failed} failed, {passed + failed} total.");
+      if (failed > 0) {
+        System.Environment.Exit(1);
+      }
+    } catch (Exception ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.WriteLine($"Error during test execution: {ex.Message}");
+      Console.ResetColor();
+      System.Environment.Exit(1);
+    }
+  }
+
+  static void CompileAndRunTests(string path) {
+    try {
+      var program = Parser.ParseFile(path);
+      var checker = new Checker();
+      checker.Check(program);
+
+      // Transpile to C code
+      var transpiler = new TranspilerC();
+      transpiler.EnableTests = true;
+      var cCode = transpiler.Transpile(program);
+
+      var currentDir = System.Environment.CurrentDirectory;
+      var cFilePath = Path.Combine(currentDir, "pino_output.c");
+      File.WriteAllText(cFilePath, cCode);
+
+      string? tccDir = null;
+      var dir = new DirectoryInfo(AppContext.BaseDirectory);
+      while (dir != null) {
+        var potentialTcc = Path.Combine(dir.FullName, "tooling", "tcc", "tcc.exe");
+        if (File.Exists(potentialTcc)) {
+          tccDir = Path.Combine(dir.FullName, "tooling", "tcc");
+          break;
+        }
+        dir = dir.Parent;
+      }
+
+      if (tccDir == null) {
+        var localTcc = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc", "tcc.exe");
+        if (File.Exists(localTcc)) {
+          tccDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc");
+        }
+      }
+
+      if (tccDir == null) {
+        var targetTccDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "tcc");
+        DownloadTcc(targetTccDir);
+        tccDir = targetTccDir;
+      }
+
+      var tccPath = Path.Combine(tccDir, "tcc.exe");
+      var runtimeCPath = Path.Combine(tccDir, "..", "..", "runtime", "runtime.c");
+      var runtimeCInfo = new FileInfo(runtimeCPath);
+      if (!runtimeCInfo.Exists) {
+        runtimeCPath = Path.Combine(System.Environment.CurrentDirectory, "runtime", "runtime.c");
+      }
+      var reCPath = Path.Combine(Path.GetDirectoryName(runtimeCPath)!, "re.c");
+
+      var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
+      var outputExePath = Path.Combine(currentDir, outputExeName);
+
+      var hasGc = false;
+      var libDir = Path.Combine(tccDir, "lib");
+      if (Directory.Exists(libDir)) {
+        if (File.Exists(Path.Combine(libDir, "gc.lib")) || File.Exists(Path.Combine(libDir, "libgc.a"))) {
+          hasGc = true;
+        }
+      }
+      var gcFlags = hasGc ? "-DPINO_GC -lgc" : "";
+
+      var startInfo = new System.Diagnostics.ProcessStartInfo {
+        FileName = tccPath,
+        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+      };
+
+      using var process = System.Diagnostics.Process.Start(startInfo);
+      if (process == null) {
+        Console.WriteLine("Error: Failed to start TCC compiler process.");
+        return;
+      }
+      process.WaitForExit();
+
+      var stdout = process.StandardOutput.ReadToEnd();
+      var stderr = process.StandardError.ReadToEnd();
+
+      if (process.ExitCode != 0) {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine("[ERROR] TCC compilation failed:");
+        Console.WriteLine(stderr);
+        Console.ResetColor();
+        System.Environment.Exit(1);
+      }
+
+      try {
+        File.Delete(cFilePath);
+      } catch { /* Ignore */ }
+
+      // Successfully compiled! Now execute it.
+      var execStartInfo = new System.Diagnostics.ProcessStartInfo {
+        FileName = outputExePath,
+        UseShellExecute = false
+      };
+
+      using var execProcess = System.Diagnostics.Process.Start(execStartInfo);
+      if (execProcess != null) {
+        execProcess.WaitForExit();
+        try {
+          File.Delete(outputExePath);
+        } catch { /* Ignore */ }
+        
+        if (execProcess.ExitCode != 0) {
+          System.Environment.Exit(1);
+        }
+      }
+    } catch (Exception ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.WriteLine($"Error during test compilation: {ex.Message}");
+      Console.ResetColor();
       System.Environment.Exit(1);
     }
   }

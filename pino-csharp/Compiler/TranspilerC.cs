@@ -24,6 +24,7 @@ public class TranspilerC {
     private bool _usesReadFile = false;
     private bool _usesWriteFile = false;
     private bool _usesFileExists = false;
+    private string _currentFilePath = "";
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -40,6 +41,7 @@ public class TranspilerC {
 
     public string Transpile(ProgramStatement program) {
         var forwardFuncSb = new StringBuilder();
+        _currentFilePath = program.FilePath ?? "";
         CollectAndAnalyzeLambdas(program);
         _currentReturnType = "";
         _varTypes.Clear();
@@ -234,6 +236,7 @@ public class TranspilerC {
         }
 
         TranspileLambdas(forwardFuncSb);
+        TranspileTests(forwardFuncSb);
 
         // Pass 3: The C main function carrying the top-level statements and user main call
         _sb.AppendLine("int main(int argc, char** argv) {");
@@ -248,17 +251,37 @@ public class TranspilerC {
             TranspileStatement(stmt);
         }
 
-        var userMain = declarations.FirstOrDefault(d => d is FunctionDeclaration fn && fn.Identifier == "main") as FunctionDeclaration;
-        if (userMain != null && userMain.Body != null) {
-            _isGlobalScope = false;
-            _varTypes.Clear();
-            foreach (var kvp in _globalVarTypes) {
-                _varTypes[kvp.Key] = kvp.Value;
+        if (EnableTests) {
+            _sb.AppendLine("    _pino_in_test = 1;");
+            _sb.AppendLine("    int passed = 0;");
+            _sb.AppendLine("    int failed = 0;");
+            _sb.AppendLine($"    printf(\"Running {_tests.Count} tests...\\n\");");
+            for (int i = 0; i < _tests.Count; i++) {
+                var test = _tests[i];
+                _sb.AppendLine($"    printf(\"[RUN ] test \\\"{test.Description}\\\"\\n\");");
+                _sb.AppendLine("    if (setjmp(_pino_test_jump_env) == 0) {");
+                _sb.AppendLine($"        _pino_test_{i}();");
+                _sb.AppendLine("        passed++;");
+                _sb.AppendLine($"        printf(\"[PASS] test \\\"{test.Description}\\\"\\n\");");
+                _sb.AppendLine("    } else {");
+                _sb.AppendLine("        failed++;");
+                _sb.AppendLine($"        printf(\"[FAIL] test \\\"{test.Description}\\\"\\n\");");
+                _sb.AppendLine("    }");
             }
-            TranspileStatement(userMain.Body);
+            _sb.AppendLine("    printf(\"\\nTest summary: %d passed, %d failed, %d total.\\n\", passed, failed, passed + failed);");
+            _sb.AppendLine("    return failed > 0 ? 1 : 0;");
+        } else {
+            var userMain = declarations.FirstOrDefault(d => d is FunctionDeclaration fn && fn.Identifier == "main") as FunctionDeclaration;
+            if (userMain != null && userMain.Body != null) {
+                _isGlobalScope = false;
+                _varTypes.Clear();
+                foreach (var kvp in _globalVarTypes) {
+                    _varTypes[kvp.Key] = kvp.Value;
+                }
+                TranspileStatement(userMain.Body);
+            }
+            WriteLine("return 0;");
         }
-
-        WriteLine("return 0;");
         _indent = 0;
         _sb.AppendLine("}");
 
@@ -783,6 +806,23 @@ public class TranspilerC {
 
             case LoopStatement loop:
                 TranspileLoop(loop);
+                break;
+
+            case TestDeclaration testDecl:
+                // Ignored in main flow, lifted to static functions
+                break;
+
+            case AssertStatement assertStmt:
+                WriteIndent();
+                Write("pino_assert(");
+                TranspileExpression(assertStmt.Expression);
+                Write(", ");
+                var exprStr = assertStmt.Expression.ToPinoString();
+                var escapedExpr = exprStr.Replace("\\", "\\\\").Replace("\"", "\\\"");
+                Write($"\"{escapedExpr}\", ");
+                var escapedFile = _currentFilePath.Replace("\\", "\\\\").Replace("\"", "\\\"");
+                Write($"\"{escapedFile}\", 0)");
+                _sb.AppendLine(";");
                 break;
 
             case Expression expr: // Since Expression inherits from Statement in AST.cs
@@ -1930,9 +1970,22 @@ public class TranspilerC {
     private List<FunctionLambdaExpression> _lambdas = new List<FunctionLambdaExpression>();
     private HashSet<string> _boxedVariables = new HashSet<string>();
     private Dictionary<string, string> _boxedTypes = new Dictionary<string, string>();
+    
+    public bool EnableTests { get; set; } = false;
+    private List<TestDeclaration> _tests = new List<TestDeclaration>();
 
     private void CollectAndAnalyzeLambdas(ProgramStatement program) {
         _lambdaCounter = 0;
+        _lambdas.Clear();
+        _boxedVariables.Clear();
+        _boxedTypes.Clear();
+        _tests.Clear();
+
+        foreach (var stmt in program.Statements) {
+            if (stmt is TestDeclaration testDecl) {
+                _tests.Add(testDecl);
+            }
+        }
         _lambdas.Clear();
         _boxedVariables.Clear();
         _boxedTypes.Clear();
@@ -2023,6 +2076,8 @@ public class TranspilerC {
                 var l3 = FindVariableType(loop.End, name);
                 if (l3 != "any") return l3;
                 break;
+            case TestDeclaration testDecl:
+                return FindVariableType(testDecl.Body, name);
             case FunctionDeclaration fn:
                 foreach (var p in fn.Parameters) {
                     if (p.Identifier == name) {
@@ -2138,6 +2193,12 @@ public class TranspilerC {
                 break;
             case TupleLiteralExpression tupleLit:
                 foreach (var f in tupleLit.Fields) FindLambdas(f.Value);
+                break;
+            case TestDeclaration testDecl:
+                FindLambdas(testDecl.Body);
+                break;
+            case AssertStatement assertStmt:
+                FindLambdas(assertStmt.Expression);
                 break;
             case Expression expr:
                 // Since Expression is Statement, fallback to children inside expression types
@@ -2259,6 +2320,12 @@ public class TranspilerC {
             case TupleLiteralExpression tupleLit:
                 foreach (var f in tupleLit.Fields) AnalyzeFreeVars(f.Value, localScope, free);
                 break;
+            case TestDeclaration testDecl:
+                AnalyzeFreeVars(testDecl.Body, localScope, free);
+                break;
+            case AssertStatement assertStmt:
+                AnalyzeFreeVars(assertStmt.Expression, localScope, free);
+                break;
         }
     }
 
@@ -2285,6 +2352,10 @@ public class TranspilerC {
                 break;
             case IfStatement ifs:
                 return IsMutableVariableInNode(ifs.Consequent, name) || IsMutableVariableInNode(ifs.Alternate, name);
+            case TestDeclaration testDecl:
+                return IsMutableVariableInNode(testDecl.Body, name);
+            case AssertStatement assertStmt:
+                return IsMutableVariableInNode(assertStmt.Expression, name);
             case LoopStatement loop:
                 return IsMutableVariableInNode(loop.Body, name) || IsMutableVariableInNode(loop.Begin, name) || IsMutableVariableInNode(loop.End, name);
             case FunctionDeclaration fn:
@@ -2391,6 +2462,44 @@ public class TranspilerC {
     };
 
     private FunctionLambdaExpression? _currentLambda => _lambdaStack.Count > 0 ? _lambdaStack.Peek() : null;
+
+    private void TranspileTests(StringBuilder forwardFuncSb) {
+        if (!EnableTests) return;
+        var oldGlobalScope = _isGlobalScope;
+        var oldVarTypes = new Dictionary<string, string>(_varTypes);
+        var oldReturnType = _currentReturnType;
+
+        for (int i = 0; i < _tests.Count; i++) {
+            var test = _tests[i];
+            forwardFuncSb.AppendLine($"static void _pino_test_{i}(void);");
+
+            _sb.AppendLine();
+            _sb.AppendLine($"static void _pino_test_{i}(void) {{");
+            _indent++;
+            
+            _isGlobalScope = false;
+            _currentReturnType = "void";
+            _varTypes.Clear();
+            foreach (var kvp in _globalVarTypes) {
+                _varTypes[kvp.Key] = kvp.Value;
+            }
+
+            var block = (BlockStatement)test.Body;
+            foreach (var stmt in block.Statements) {
+                TranspileStatement(stmt);
+            }
+            
+            _indent--;
+            _sb.AppendLine("}");
+        }
+
+        _isGlobalScope = oldGlobalScope;
+        _currentReturnType = oldReturnType;
+        _varTypes.Clear();
+        foreach (var kvp in oldVarTypes) {
+            _varTypes[kvp.Key] = kvp.Value;
+        }
+    }
 
     private (List<string> Params, string ReturnType) ParseFunctionType(string typeStr) {
         int openParen = typeStr.IndexOf('(');

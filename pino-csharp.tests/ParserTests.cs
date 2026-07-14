@@ -146,7 +146,7 @@ public class ParserTests {
 
   [Fact]
   public void TestNoImplicitLambdaWrappingWhenDeclared() {
-    var input = @"fn test(it int) {
+    var input = @"fn test_fn(it int) {
       map(it * 3)
     }";
     var stmt = Parser.ParseString(input);

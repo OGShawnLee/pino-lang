@@ -49,10 +49,22 @@ static inline Vector_string* Vector_string_push(Vector_string* vec, const char* 
 
 #include "re.h"
 
+#include <setjmp.h>
+
 typedef struct {
     void* fn_ptr;
     void* env;
 } PinoClosure;
+
+extern jmp_buf _pino_test_jump_env;
+extern int _pino_in_test;
+
+void pino_report_assert_fail(const char* expr, const char* file, int line);
+
+#define pino_assert(cond, expr_str, file, line) \
+    if (!(cond)) { \
+        pino_report_assert_fail(expr_str, file, line); \
+    }
 
 typedef struct regex regex;
 struct regex {

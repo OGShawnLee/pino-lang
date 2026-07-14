@@ -2,6 +2,21 @@
 #include <stdlib.h>
 #include "runtime.h"
 
+jmp_buf _pino_test_jump_env;
+int _pino_in_test = 0;
+
+void pino_report_assert_fail(const char* expr, const char* file, int line) {
+    if (_pino_in_test) {
+        printf("       Assertion failed: %s\n", expr);
+        printf("       at %s:%d\n", file, line);
+        longjmp(_pino_test_jump_env, 1);
+    } else {
+        fprintf(stderr, "thread 'main' panicked at assertion failed: '%s'\n", expr);
+        fprintf(stderr, "  at %s:%d\n", file, line);
+        exit(101);
+    }
+}
+
 #ifdef PINO_GC
 #include <gc.h>
 #endif

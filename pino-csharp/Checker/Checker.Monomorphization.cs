@@ -278,6 +278,12 @@ public partial class Checker {
       case ElseStatement els:
         return els with { Body = SubstituteStatementTypes(els.Body, subst)! };
 
+      case TestDeclaration testDecl:
+        return testDecl with { Body = SubstituteStatementTypes(testDecl.Body, subst)! };
+
+      case AssertStatement assertStmt:
+        return assertStmt with { Expression = SubstituteExpressionTypes(assertStmt.Expression, subst)! };
+
       case WhenStatement whenStmt:
         var conditions = new List<Pattern>();
         foreach (var c in whenStmt.Conditions) {

@@ -33,6 +33,17 @@ public partial class Evaluator {
         var yieldVal = Evaluate(yield.Value, env);
         throw new PinoYieldException(yieldVal);
 
+      case TestDeclaration:
+        // No-op during normal execution
+        break;
+
+      case AssertStatement assertStmt:
+        var assertVal = Evaluate(assertStmt.Expression, env);
+        if (assertVal is bool b && !b) {
+          throw new PinoAssertException($"Assertion failed", assertStmt.Expression.ToPinoString(), _currentFilePath, 0);
+        }
+        break;
+
       case LoopStatement loop:
         ExecuteLoop(loop, env);
         break;

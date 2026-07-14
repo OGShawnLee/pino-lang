@@ -21,6 +21,8 @@ public record ReturnStatement(Expression? Argument) : Statement;
 
 public record YieldStatement(Expression Value) : Statement;
 
+public record AssertStatement(Expression Expression) : Statement;
+
 public enum LoopKind {
   ForIn,
   ForTimes,
@@ -83,6 +85,10 @@ public record ModuleDeclaration(string Identifier) : Statement;
 public record ImportStatement(string ModuleName) : Statement;
 
 public record FromImportStatement(string ModuleName, List<string> Imports) : Statement;
+
+public record TestDeclaration(string Description, Statement Body) : Statement {
+  public string FilePath { get; set; } = "";
+}
 
 // --- EXPRESSIONS ---
 public abstract record Expression : Statement {
@@ -175,5 +181,61 @@ public class PinoTupleResult {
   }
   public override string ToString() {
     return "(" + string.Join(", ", Fields.Select(f => $"{f.Key}: {f.Value}")) + ")";
+  }
+}
+
+public static class ExpressionExtensions {
+  public static string ToPinoString(this Expression? expr) {
+    if (expr == null) return "";
+    switch (expr) {
+      case LiteralExpression lit:
+        return lit.Value;
+      case IdentifierExpression id:
+        return id.Name;
+      case BinaryExpression bin:
+        if (bin.Operator == OperatorType.MemberAccess) {
+          return $"{bin.Left.ToPinoString()}:{bin.Right.ToPinoString()}";
+        }
+        return $"({bin.Left.ToPinoString()} {GetOpSymbol(bin.Operator)} {bin.Right.ToPinoString()})";
+      case UnaryExpression un:
+        return $"{GetOpSymbol(un.Operator)}{un.Right.ToPinoString()}";
+      case FunctionCallExpression call:
+        return $"{call.Callee}({string.Join(", ", call.Arguments.Select(ToPinoString))})";
+      case IndexAccessExpression idx:
+        return $"{idx.Target.ToPinoString()}[{idx.Index.ToPinoString()}]";
+      default:
+        return expr.ToString() ?? "";
+    }
+  }
+
+  private static string GetOpSymbol(OperatorType op) {
+    switch (op) {
+      case OperatorType.Assignment: return "=";
+      case OperatorType.Addition: return "+";
+      case OperatorType.AdditionAssignment: return "+=";
+      case OperatorType.Subtraction: return "-";
+      case OperatorType.SubtractionAssignment: return "-=";
+      case OperatorType.Multiplication: return "*";
+      case OperatorType.MultiplicationAssignment: return "*=";
+      case OperatorType.Division: return "/";
+      case OperatorType.DivisionAssignment: return "/=";
+      case OperatorType.Modulus: return "%";
+      case OperatorType.ModulusAssignment: return "%=";
+      case OperatorType.LessThan: return "<";
+      case OperatorType.LessThanEqual: return "<=";
+      case OperatorType.GreaterThan: return ">";
+      case OperatorType.GreaterThanEqual: return ">=";
+      case OperatorType.Equal: return "==";
+      case OperatorType.NotEqual: return "!=";
+      case OperatorType.And: return "and";
+      case OperatorType.Or: return "or";
+      case OperatorType.Not: return "not";
+      case OperatorType.MemberAccess: return ":";
+      case OperatorType.StaticMemberAccess: return "::";
+      case OperatorType.Arrow: return "->";
+      case OperatorType.In: return "in";
+      case OperatorType.QuestionMark: return "?";
+      default: return op.ToString();
+    }
   }
 }

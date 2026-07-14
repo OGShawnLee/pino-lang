@@ -232,3 +232,15 @@ public class PinoPanicException : Exception {
     CallStack = callStack;
   }
 }
+
+public class PinoAssertException : Exception {
+  public string AssertionExpression { get; }
+  public string FilePath { get; }
+  public int Line { get; }
+
+  public PinoAssertException(string message, string assertionExpression, string filePath, int line) : base(message) {
+    AssertionExpression = assertionExpression;
+    FilePath = filePath;
+    Line = line;
+  }
+}

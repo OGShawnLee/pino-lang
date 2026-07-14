@@ -93,6 +93,14 @@ public partial class Parser {
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'yield' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to yield statements");
           return ParseYieldStatement(stream);
+        case KeywordType.Test:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'test' block");
+          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to test blocks");
+          return ParseTestDeclaration(stream);
+        case KeywordType.Assert:
+          if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'assert' statement");
+          if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to assert statements");
+          return ParseAssertStatement(stream);
         case KeywordType.Loop:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'for' loop");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to loops");
@@ -828,5 +836,28 @@ public partial class Parser {
     }
 
     throw new Exception("PARSER: Expected '}'");
+  }
+
+  private static TestDeclaration ParseTestDeclaration(TokenStream stream) {
+    stream.Consume(); // consume 'test'
+    if (stream.Current.Type != TokenType.Literal || stream.Current.Literal != LiteralType.String) {
+      throw new Exception("PARSER: Expected string literal for test description");
+    }
+    var description = stream.Consume().Data;
+    // Strip quotes from description literal if they are part of Data
+    if (description.StartsWith("\"") && description.EndsWith("\"")) {
+      description = description.Substring(1, description.Length - 2);
+    }
+    if (!stream.Current.IsMarker(MarkerType.BlockBegin)) {
+      throw new Exception("PARSER: Expected '{' to begin test body");
+    }
+    var body = ParseBlock(stream);
+    return new TestDeclaration(description, body);
+  }
+
+  private static AssertStatement ParseAssertStatement(TokenStream stream) {
+    stream.Consume(); // consume 'assert'
+    var expr = ParseExpression(stream);
+    return new AssertStatement(expr);
   }
 }

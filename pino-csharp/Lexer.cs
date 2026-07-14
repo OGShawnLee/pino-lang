@@ -32,7 +32,9 @@ public class Lexer {
         { "var", KeywordType.Variable },
         { "when", KeywordType.When },
         { "union", KeywordType.Union },
-        { "yield", KeywordType.Yield }
+        { "yield", KeywordType.Yield },
+        { "test", KeywordType.Test },
+        { "assert", KeywordType.Assert }
     };
 
   private static readonly Dictionary<char, MarkerType> Markers = new() {

@@ -167,6 +167,11 @@ union IOError {
     var stream = new TokenStream(tokens);
     var prog = ParseProgram(stream, injectPrelude);
     prog.FilePath = filePath;
+    foreach (var stmt in prog.Statements) {
+      if (stmt is TestDeclaration testDecl) {
+        testDecl.FilePath = filePath;
+      }
+    }
     return prog;
   }
 
