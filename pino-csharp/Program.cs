@@ -70,13 +70,17 @@ class Program {
         break;
 
       case "test":
-        var testFileName = argList.Count > 1 ? argList[1] : "main.pino";
-        var testFilePath = Path.Combine(System.Environment.CurrentDirectory, testFileName);
-        if (!File.Exists(testFilePath)) {
-          Console.WriteLine($"Error: File '{testFileName}' not found.");
-          System.Environment.Exit(1);
+        if (argList.Count > 1) {
+          var testFileName = argList[1];
+          var testFilePath = Path.Combine(System.Environment.CurrentDirectory, testFileName);
+          if (!File.Exists(testFilePath)) {
+            Console.WriteLine($"Error: File '{testFileName}' not found.");
+            System.Environment.Exit(1);
+          }
+          RunTests(testFilePath, watchCompile);
+        } else {
+          RunTests(System.Environment.CurrentDirectory, watchCompile);
         }
-        RunTests(testFilePath, watchCompile);
         break;
 
       case "v":
@@ -842,67 +846,116 @@ class Program {
     }
   }
 
-  static void RunTests(string path, bool useC) {
-    if (useC) {
-      CompileAndRunTests(path);
+  static void RunTests(string pathOrDir, bool useC) {
+    if (Directory.Exists(pathOrDir)) {
+      var files = Directory.GetFiles(pathOrDir, "*.pino", SearchOption.AllDirectories)
+                           .Where(f => !f.Contains("\\bin\\") && 
+                                       !f.Contains("\\obj\\") && 
+                                       !f.Contains("\\tooling\\") &&
+                                       !f.Contains("\\.git\\"))
+                           .ToList();
+      
+      Console.WriteLine($"Scanning directory '{pathOrDir}' for tests...");
+      int totalPassed = 0;
+      int totalFailed = 0;
+      int totalTests = 0;
+
+      foreach (var file in files) {
+        try {
+          var program = Parser.ParseFile(file);
+          var tests = program.Statements.OfType<TestDeclaration>().ToList();
+          if (tests.Count == 0) continue;
+
+          Console.WriteLine($"\n--- Running tests in {Path.GetFileName(file)} ---");
+          if (useC) {
+            var exitCode = CompileAndRunTestsReturnCode(file);
+            if (exitCode == 0) {
+              totalPassed += tests.Count;
+            } else {
+              totalFailed += tests.Count;
+            }
+            totalTests += tests.Count;
+          } else {
+            var (passed, failed) = RunTestsTreeWalkForProgram(program, file);
+            totalPassed += passed;
+            totalFailed += failed;
+            totalTests += passed + failed;
+          }
+        } catch (Exception ex) {
+          Console.ForegroundColor = ConsoleColor.Red;
+          Console.WriteLine($"Error reading {Path.GetFileName(file)}: {ex.Message}");
+          Console.ResetColor();
+        }
+      }
+
+      Console.WriteLine($"\n========================================");
+      Console.WriteLine($"Project Test Summary: {totalPassed} passed, {totalFailed} failed, {totalTests} total.");
+      Console.WriteLine($"========================================");
+      if (totalFailed > 0) {
+        System.Environment.Exit(1);
+      }
     } else {
-      RunTestsTreeWalk(path);
+      if (useC) {
+        CompileAndRunTests(pathOrDir);
+      } else {
+        RunTestsTreeWalk(pathOrDir);
+      }
     }
+  }
+
+  static (int Passed, int Failed) RunTestsTreeWalkForProgram(ProgramStatement program, string path) {
+    var checker = new Checker();
+    try {
+      checker.Check(program);
+    } catch (Exception ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.WriteLine($"Type Check Error in {Path.GetFileName(path)}: {ex.Message}");
+      Console.ResetColor();
+      return (0, program.Statements.OfType<TestDeclaration>().Count());
+    }
+
+    var tests = program.Statements.OfType<TestDeclaration>().ToList();
+    int passed = 0;
+    int failed = 0;
+
+    foreach (var test in tests) {
+      Console.WriteLine($"[RUN ] test \"{test.Description}\"");
+      try {
+        var evaluator = new Evaluator();
+        foreach (var stmt in program.Statements) {
+          if (!(stmt is TestDeclaration)) {
+            evaluator.Execute(stmt);
+          }
+        }
+        evaluator.Execute(test.Body);
+        passed++;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"[PASS] test \"{test.Description}\"");
+        Console.ResetColor();
+      } catch (PinoAssertException ex) {
+        failed++;
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"       Assertion failed: {ex.AssertionExpression}");
+        if (!string.IsNullOrEmpty(ex.FilePath)) {
+          Console.WriteLine($"       at {ex.FilePath}");
+        }
+        Console.WriteLine($"[FAIL] test \"{test.Description}\"");
+        Console.ResetColor();
+      } catch (Exception ex) {
+        failed++;
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"       Unexpected error: {ex.Message}");
+        Console.WriteLine($"[FAIL] test \"{test.Description}\"");
+        Console.ResetColor();
+      }
+    }
+    return (passed, failed);
   }
 
   static void RunTestsTreeWalk(string path) {
     try {
       var program = Parser.ParseFile(path);
-      var checker = new Checker();
-      checker.Check(program);
-
-      // Collect all TestDeclaration statements
-      var tests = program.Statements.OfType<TestDeclaration>().ToList();
-      if (tests.Count == 0) {
-        Console.WriteLine("No tests found.");
-        return;
-      }
-
-      Console.WriteLine($"Running {tests.Count} tests...");
-      int passed = 0;
-      int failed = 0;
-
-      foreach (var test in tests) {
-        Console.WriteLine($"[RUN ] test \"{test.Description}\"");
-        try {
-          var evaluator = new Evaluator();
-          // Initialize/execute top-level program statements (e.g. global variable definitions) first
-          // but exclude TestDeclaration statements.
-          foreach (var stmt in program.Statements) {
-            if (!(stmt is TestDeclaration)) {
-              evaluator.Execute(stmt);
-            }
-          }
-          // Execute test body
-          evaluator.Execute(test.Body);
-          passed++;
-          Console.ForegroundColor = ConsoleColor.Green;
-          Console.WriteLine($"[PASS] test \"{test.Description}\"");
-          Console.ResetColor();
-        } catch (PinoAssertException ex) {
-          failed++;
-          Console.ForegroundColor = ConsoleColor.Red;
-          Console.WriteLine($"       Assertion failed: {ex.AssertionExpression}");
-          if (!string.IsNullOrEmpty(ex.FilePath)) {
-            Console.WriteLine($"       at {ex.FilePath}");
-          }
-          Console.WriteLine($"[FAIL] test \"{test.Description}\"");
-          Console.ResetColor();
-        } catch (Exception ex) {
-          failed++;
-          Console.ForegroundColor = ConsoleColor.Red;
-          Console.WriteLine($"       Unexpected error: {ex.Message}");
-          Console.WriteLine($"[FAIL] test \"{test.Description}\"");
-          Console.ResetColor();
-        }
-      }
-
-      Console.WriteLine($"\nTest summary: {passed} passed, {failed} failed, {passed + failed} total.");
+      var (passed, failed) = RunTestsTreeWalkForProgram(program, path);
       if (failed > 0) {
         System.Environment.Exit(1);
       }
@@ -914,7 +967,7 @@ class Program {
     }
   }
 
-  static void CompileAndRunTests(string path) {
+  static int CompileAndRunTestsReturnCode(string path) {
     try {
       var program = Parser.ParseFile(path);
       var checker = new Checker();
@@ -985,7 +1038,7 @@ class Program {
       using var process = System.Diagnostics.Process.Start(startInfo);
       if (process == null) {
         Console.WriteLine("Error: Failed to start TCC compiler process.");
-        return;
+        return 1;
       }
       process.WaitForExit();
 
@@ -997,7 +1050,7 @@ class Program {
         Console.WriteLine("[ERROR] TCC compilation failed:");
         Console.WriteLine(stderr);
         Console.ResetColor();
-        System.Environment.Exit(1);
+        return 1;
       }
 
       try {
@@ -1013,19 +1066,26 @@ class Program {
       using var execProcess = System.Diagnostics.Process.Start(execStartInfo);
       if (execProcess != null) {
         execProcess.WaitForExit();
+        var exitCode = execProcess.ExitCode;
         try {
           File.Delete(outputExePath);
         } catch { /* Ignore */ }
         
-        if (execProcess.ExitCode != 0) {
-          System.Environment.Exit(1);
-        }
+        return exitCode;
       }
+      return 1;
     } catch (Exception ex) {
       Console.ForegroundColor = ConsoleColor.Red;
       Console.WriteLine($"Error during test compilation: {ex.Message}");
       Console.ResetColor();
-      System.Environment.Exit(1);
+      return 1;
+    }
+  }
+
+  static void CompileAndRunTests(string path) {
+    var code = CompileAndRunTestsReturnCode(path);
+    if (code != 0) {
+      System.Environment.Exit(code);
     }
   }
 }
