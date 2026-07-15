@@ -455,7 +455,7 @@ class Program {
 
       // Transpile to C code
       var transpiler = new TranspilerC();
-      var cCode = transpiler.Transpile(program);
+      var cCode = transpiler.Transpile(program, checker);
 
       var currentDir = System.Environment.CurrentDirectory;
       var cFilePath = Path.Combine(currentDir, "pino_output.c");
@@ -711,7 +711,7 @@ class Program {
 
       // Transpile to C code
       var transpiler = new TranspilerC();
-      var cCode = transpiler.Transpile(program);
+      var cCode = transpiler.Transpile(program, checker);
 
       var currentDir = System.Environment.CurrentDirectory;
       var cFilePath = Path.Combine(currentDir, "pino_output.c");
@@ -979,7 +979,7 @@ class Program {
       // Transpile to C code
       var transpiler = new TranspilerC();
       transpiler.EnableTests = true;
-      var cCode = transpiler.Transpile(program);
+      var cCode = transpiler.Transpile(program, checker);
 
       var currentDir = System.Environment.CurrentDirectory;
       var cFilePath = Path.Combine(currentDir, "pino_output.c");

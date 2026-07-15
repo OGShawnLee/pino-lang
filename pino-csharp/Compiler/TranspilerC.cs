@@ -25,6 +25,14 @@ public class TranspilerC {
     private bool _usesWriteFile = false;
     private bool _usesFileExists = false;
     private string _currentFilePath = "";
+    private Checker? _checker;
+    private string? _currentModuleName;
+    private readonly HashSet<string> _moduleFunctions = new HashSet<string>();
+    private Dictionary<string, string> _importedSymbols = new Dictionary<string, string>();
+    private readonly StringBuilder _forwardDeclSb = new StringBuilder();
+    private readonly StringBuilder _structSb = new StringBuilder();
+    private HashSet<string> _emittedStructsAndUnions = new HashSet<string>();
+    private HashSet<string> _emittedConstructors = new HashSet<string>();
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -39,54 +47,77 @@ public class TranspilerC {
         _sb.Append(text);
     }
 
-    public string Transpile(ProgramStatement program) {
-        var forwardFuncSb = new StringBuilder();
-        _currentFilePath = program.FilePath ?? "";
-        CollectAndAnalyzeLambdas(program);
-        _currentReturnType = "";
-        _varTypes.Clear();
-        _structFields.Clear();
-        _currentStructFields.Clear();
-        _tupleSb.Clear();
-        _declaredTuples.Clear();
-        _declaredTuples.Add("[]string");
-        _unions.Clear();
-        _enums.Clear();
-        _matchResultVars.Clear();
-        _globalVarTypes.Clear();
-        _globalDeclSb.Clear();
-        _isGlobalScope = true;
-        _usesReadFile = false;
-        _usesWriteFile = false;
-        _usesFileExists = false;
-        _sb.Clear();
+    private string GetPrefixedName(string name) {
+        if (name == "IOError" || name == "Result") {
+            return name;
+        }
+        if (!string.IsNullOrEmpty(_currentModuleName)) {
+            return $"{_currentModuleName}_{name}";
+        }
+        return name;
+    }
 
+    private string GetConstPrefix(bool isConst, string typeStr) {
+        if (!isConst) return "";
+        if (typeStr.StartsWith("const ")) return "";
+        if (typeStr == "int" || typeStr == "double" || typeStr == "bool" || typeStr == "void") {
+            return "const ";
+        }
+        return "";
+    }
+
+    private void CollectModules(Checker checker, List<(string Name, Checker Checker)> list, HashSet<string> visited) {
+        foreach (var kvp in checker._moduleCheckers) {
+            if (visited.Add(kvp.Key)) {
+                CollectModules(kvp.Value, list, visited);
+                list.Add((kvp.Key, kvp.Value));
+            }
+        }
+    }
+
+    private void TranspilePass0And1(ProgramStatement program) {
         var declarations = new List<Declaration>();
         var topLevelStatements = new List<Statement>();
+
+        _moduleFunctions.Clear();
+        foreach (var stmt in program.Statements) {
+            if (stmt is FunctionDeclaration fn) {
+                _moduleFunctions.Add(fn.Identifier);
+            }
+            if (stmt is TestDeclaration testDecl) {
+                _tests.Add(testDecl);
+            }
+        }
+
+        foreach (var stmt in program.Statements) {
+            if (stmt is FromImportStatement fromImp) {
+                foreach (var name in fromImp.Imports) {
+                    _importedSymbols[$"{name}"] = $"{fromImp.ModuleName}_{name}";
+                }
+            }
+        }
 
         foreach (var stmt in program.Statements) {
             if (stmt is Declaration decl && !(decl is VariableDeclaration)) {
                 declarations.Add(decl);
             } else if (stmt is ModuleDeclaration || stmt is ImportStatement || stmt is FromImportStatement) {
-                // Ignore module imports
+                // Ignore
             } else {
                 topLevelStatements.Add(stmt);
             }
         }
 
-        // Pass 0: Register all structs, enums and unions and populate their fields dictionary (needed for method translation)
         foreach (var decl in declarations) {
             if (decl is StructDeclaration structDecl) {
                 var fields = structDecl.Fields.Select(f => f.Identifier).ToList();
-                _structFields[structDecl.Identifier] = fields;
+                _structFields[GetPrefixedName(structDecl.Identifier)] = fields;
             } else if (decl is UnionDeclaration unionDecl) {
-                _unions[unionDecl.Identifier] = unionDecl;
+                _unions[GetPrefixedName(unionDecl.Identifier)] = unionDecl;
             } else if (decl is EnumDeclaration enumDecl) {
-                _enums[enumDecl.Identifier] = enumDecl;
+                _enums[GetPrefixedName(enumDecl.Identifier)] = enumDecl;
             }
         }
 
-        // Register global variables (after Pass 0 so structs/unions/enums are known)
         foreach (var stmt in topLevelStatements) {
             if (stmt is VariableDeclaration varDecl) {
                 string typeStr = "void";
@@ -95,14 +126,14 @@ public class TranspilerC {
                 } else if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) {
                     typeStr = MapType(varDecl.Value.InferredType);
                 }
-                _globalDeclSb.AppendLine($"{typeStr} {varDecl.Identifier};");
-                _globalVarTypes[varDecl.Identifier] = !string.IsNullOrEmpty(varDecl.Typing) ? varDecl.Typing : (varDecl.Value != null ? varDecl.Value.InferredType : "any");
+                var varName = GetPrefixedName(varDecl.Identifier);
+                _globalDeclSb.AppendLine($"{typeStr} {varName};");
+                _globalVarTypes[varName] = !string.IsNullOrEmpty(varDecl.Typing) ? varDecl.Typing : (varDecl.Value != null ? varDecl.Value.InferredType : "any");
             }
         }
 
         GenerateLambdaEnvironments(program);
 
-        // Generate Ref_ structs for boxed variables
         var emittedRefTypes = new HashSet<string>();
         foreach (var kv in _boxedTypes) {
             var pinoType = kv.Value;
@@ -116,103 +147,114 @@ public class TranspilerC {
             }
         }
 
-        // Pass 1: Forward declarations of structs, struct methods, and functions
-        var forwardDeclSb = new StringBuilder();
-        var structSb = new StringBuilder();
         foreach (var decl in declarations) {
             if (decl is StructDeclaration structDecl) {
                 if (structDecl.GenericParams != null && structDecl.GenericParams.Count > 0) continue;
-                // Compile struct typedef
-                forwardDeclSb.AppendLine($"typedef struct {structDecl.Identifier} {structDecl.Identifier};");
-                structSb.AppendLine($"struct {structDecl.Identifier} {{");
+                var structName = GetPrefixedName(structDecl.Identifier);
+                if (!_emittedStructsAndUnions.Add(structName)) continue;
+                _forwardDeclSb.AppendLine($"typedef struct {structName} {structName};");
+                _structSb.AppendLine($"struct {structName} {{");
                 foreach (var field in structDecl.Fields) {
-                    structSb.AppendLine($"    {MapType(field.Typing)} {field.Identifier};");
+                    _structSb.AppendLine($"    {MapType(field.Typing)} {field.Identifier};");
                 }
-                structSb.AppendLine("};");
-                structSb.AppendLine();
+                _structSb.AppendLine("};");
+                _structSb.AppendLine();
 
-                // Forward declare instance methods
                 foreach (var method in structDecl.Methods) {
                     var retType = MapType(method.ResolvedReturnType);
-                    var methodParams = $"struct {structDecl.Identifier}* this";
+                    var methodParams = $"struct {structName}* this";
                     if (method.Parameters.Count > 0) {
                         methodParams += ", " + string.Join(", ", method.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
                     }
-                    structSb.AppendLine($"{retType} {structDecl.Identifier}_{method.Identifier}({methodParams});");
+                    _structSb.AppendLine($"{retType} {structName}_{method.Identifier}({methodParams});");
                 }
-                structSb.AppendLine();
+                _structSb.AppendLine();
             } else if (decl is EnumDeclaration enumDecl) {
-                structSb.AppendLine($"enum {enumDecl.Identifier} {{");
+                var enumName = GetPrefixedName(enumDecl.Identifier);
+                if (!_emittedStructsAndUnions.Add(enumName)) continue;
+                _structSb.AppendLine($"enum {enumName} {{");
                 foreach (var member in enumDecl.Members) {
-                    structSb.AppendLine($"    {enumDecl.Identifier}_{member},");
+                    _structSb.AppendLine($"    {enumName}_{member},");
                 }
-                structSb.AppendLine("};");
-                structSb.AppendLine($"typedef enum {enumDecl.Identifier} {enumDecl.Identifier};");
-                structSb.AppendLine();
+                _structSb.AppendLine("};");
+                _structSb.AppendLine($"typedef enum {enumName} {enumName};");
+                _structSb.AppendLine();
             } else if (decl is UnionDeclaration unionDecl) {
                 if (unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) continue;
-                var unionName = unionDecl.Identifier;
-                forwardDeclSb.AppendLine($"typedef struct {unionName} {unionName};");
-                structSb.AppendLine($"enum {unionName}Tag {{");
+                var unionName = GetPrefixedName(unionDecl.Identifier);
+                if (!_emittedStructsAndUnions.Add(unionName)) continue;
+                _forwardDeclSb.AppendLine($"typedef struct {unionName} {unionName};");
+                _structSb.AppendLine($"enum {unionName}Tag {{");
                 foreach (var variant in unionDecl.Variants) {
-                    structSb.AppendLine($"    {unionName}Tag_{variant.Identifier},");
+                    _structSb.AppendLine($"    {unionName}Tag_{variant.Identifier},");
                 }
-                structSb.AppendLine("};");
-                structSb.AppendLine();
+                _structSb.AppendLine("};");
+                _structSb.AppendLine();
 
                 foreach (var variant in unionDecl.Variants) {
                     if (variant.AssociatedTypes.Count > 0) {
-                        structSb.AppendLine($"struct {unionName}_{variant.Identifier}_payload {{");
+                        _structSb.AppendLine($"struct {unionName}_{variant.Identifier}_payload {{");
                         for (int i = 0; i < variant.AssociatedTypes.Count; i++) {
-                            structSb.AppendLine($"    {MapType(variant.AssociatedTypes[i])} _{i};");
+                            _structSb.AppendLine($"    {MapType(variant.AssociatedTypes[i])} _{i};");
                         }
-                        structSb.AppendLine("};");
-                        structSb.AppendLine();
+                        _structSb.AppendLine("};");
+                        _structSb.AppendLine();
                     }
                 }
 
-                structSb.AppendLine($"struct {unionName} {{");
-                structSb.AppendLine($"    enum {unionName}Tag tag;");
+                _structSb.AppendLine($"struct {unionName} {{");
+                _structSb.AppendLine($"    enum {unionName}Tag tag;");
                 bool hasPayloads = unionDecl.Variants.Any(v => v.AssociatedTypes.Count > 0);
                 if (hasPayloads) {
-                    structSb.AppendLine("    union {");
+                    _structSb.AppendLine("    union {");
                     foreach (var variant in unionDecl.Variants) {
                         if (variant.AssociatedTypes.Count > 0) {
-                            structSb.AppendLine($"        struct {unionName}_{variant.Identifier}_payload {variant.Identifier};");
+                            _structSb.AppendLine($"        struct {unionName}_{variant.Identifier}_payload {variant.Identifier};");
                         }
                     }
-                    structSb.AppendLine("    } value;");
+                    _structSb.AppendLine("    } value;");
                 }
-                structSb.AppendLine("};");
-                structSb.AppendLine();
+                _structSb.AppendLine("};");
+                _structSb.AppendLine();
 
                 foreach (var variant in unionDecl.Variants) {
                     if (variant.AssociatedTypes.Count > 0) {
                         var paramsStr = string.Join(", ", variant.AssociatedTypes.Select((t, i) => $"{MapType(t)} _{i}"));
-                        structSb.AppendLine($"{unionName}* {unionName}_{variant.Identifier}_construct({paramsStr});");
+                        _structSb.AppendLine($"{unionName}* {unionName}_{variant.Identifier}_construct({paramsStr});");
                     }
                 }
-                structSb.AppendLine();
+                _structSb.AppendLine();
             } else if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
                 if (fnDecl.GenericParams != null && fnDecl.GenericParams.Count > 0) continue;
                 var returnType = MapType(fnDecl.ResolvedReturnType);
                 var parameters = string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
                 if (string.IsNullOrEmpty(parameters)) parameters = "void";
-                _sb.AppendLine($"{returnType} {fnDecl.Identifier}({parameters});");
+                var fnName = GetPrefixedName(fnDecl.Identifier);
+                _sb.AppendLine($"{returnType} {fnName}({parameters});");
             }
         }
-        _sb.AppendLine();
+    }
 
-        // Pass 2: Implementation of struct methods, union variant constructors, and function declarations
+    private void TranspilePass2(ProgramStatement program) {
+        var declarations = new List<Declaration>();
+
+        foreach (var stmt in program.Statements) {
+            if (stmt is Declaration decl && !(decl is VariableDeclaration)) {
+                declarations.Add(decl);
+            }
+        }
+
         foreach (var decl in declarations) {
             if (decl is StructDeclaration structDecl) {
                 if (structDecl.GenericParams != null && structDecl.GenericParams.Count > 0) continue;
+                var structName = GetPrefixedName(structDecl.Identifier);
                 foreach (var method in structDecl.Methods) {
-                    TranspileStructMethod(structDecl.Identifier, method);
+                    TranspileStructMethod(structName, method);
                 }
             } else if (decl is UnionDeclaration unionDecl) {
                 if (unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) continue;
-                var unionName = unionDecl.Identifier;
+                var unionName = GetPrefixedName(unionDecl.Identifier);
+                if (!_emittedConstructors.Add(unionName)) continue;
                 foreach (var variant in unionDecl.Variants) {
                     if (variant.AssociatedTypes.Count > 0) {
                         var paramsStr = string.Join(", ", variant.AssociatedTypes.Select((t, i) => $"{MapType(t)} _{i}"));
@@ -234,11 +276,73 @@ public class TranspilerC {
                 TranspileFunction(fnDecl);
             }
         }
+    }
+
+    public string Transpile(ProgramStatement program, Checker? checker = null) {
+        _checker = checker;
+        _importedSymbols.Clear();
+
+        var allModules = new List<(string Name, Checker Checker)>();
+        if (_checker != null) {
+            CollectModules(_checker, allModules, new HashSet<string>());
+        }
+
+        var forwardFuncSb = new StringBuilder();
+        _currentFilePath = program.FilePath ?? "";
+        
+        CollectAndAnalyzeLambdas(program);
+        foreach (var mod in allModules) {
+            if (mod.Checker.Program != null) {
+                CollectAndAnalyzeLambdas(mod.Checker.Program);
+            }
+        }
+
+        _currentReturnType = "";
+        _varTypes.Clear();
+        _structFields.Clear();
+        _currentStructFields.Clear();
+        _tupleSb.Clear();
+        _declaredTuples.Clear();
+        _declaredTuples.Add("[]string");
+        _unions.Clear();
+        _enums.Clear();
+        _matchResultVars.Clear();
+        _globalVarTypes.Clear();
+        _globalDeclSb.Clear();
+        _isGlobalScope = true;
+        _usesReadFile = false;
+        _usesWriteFile = false;
+        _usesFileExists = false;
+        _sb.Clear();
+        _forwardDeclSb.Clear();
+        _structSb.Clear();
+        _tests.Clear();
+        _emittedStructsAndUnions.Clear();
+        _emittedConstructors.Clear();
+
+        foreach (var mod in allModules) {
+            if (mod.Checker.Program != null) {
+                _currentModuleName = mod.Name;
+                TranspilePass0And1(mod.Checker.Program);
+            }
+        }
+
+        _currentModuleName = null;
+        TranspilePass0And1(program);
+
+        foreach (var mod in allModules) {
+            if (mod.Checker.Program != null) {
+                _currentModuleName = mod.Name;
+                TranspilePass2(mod.Checker.Program);
+            }
+        }
+
+        _currentModuleName = null;
+        TranspilePass2(program);
 
         TranspileLambdas(forwardFuncSb);
         TranspileTests(forwardFuncSb);
 
-        // Pass 3: The C main function carrying the top-level statements and user main call
         _sb.AppendLine("int main(int argc, char** argv) {");
         _indent = 1;
         _sb.AppendLine("#ifdef PINO_GC");
@@ -247,7 +351,30 @@ public class TranspilerC {
         _sb.AppendLine("    srand((unsigned int)time(NULL));");
 
         _isGlobalScope = true;
-        foreach (var stmt in topLevelStatements) {
+
+        foreach (var mod in allModules) {
+            if (mod.Checker.Program != null) {
+                _currentModuleName = mod.Name;
+                var modTopLevel = new List<Statement>();
+                foreach (var stmt in mod.Checker.Program.Statements) {
+                    if ((stmt is VariableDeclaration || !(stmt is Declaration)) && !(stmt is ModuleDeclaration || stmt is ImportStatement || stmt is FromImportStatement)) {
+                        modTopLevel.Add(stmt);
+                    }
+                }
+                foreach (var stmt in modTopLevel) {
+                    TranspileStatement(stmt);
+                }
+            }
+        }
+
+        _currentModuleName = null;
+        var mainTopLevel = new List<Statement>();
+        foreach (var stmt in program.Statements) {
+            if ((stmt is VariableDeclaration || !(stmt is Declaration)) && !(stmt is ModuleDeclaration || stmt is ImportStatement || stmt is FromImportStatement)) {
+                mainTopLevel.Add(stmt);
+            }
+        }
+        foreach (var stmt in mainTopLevel) {
             TranspileStatement(stmt);
         }
 
@@ -271,7 +398,7 @@ public class TranspilerC {
             _sb.AppendLine("    printf(\"\\nTest summary: %d passed, %d failed, %d total.\\n\", passed, failed, passed + failed);");
             _sb.AppendLine("    return failed > 0 ? 1 : 0;");
         } else {
-            var userMain = declarations.FirstOrDefault(d => d is FunctionDeclaration fn && fn.Identifier == "main") as FunctionDeclaration;
+            var userMain = program.Statements.FirstOrDefault(d => d is FunctionDeclaration fn && fn.Identifier == "main") as FunctionDeclaration;
             if (userMain != null && userMain.Body != null) {
                 _isGlobalScope = false;
                 _varTypes.Clear();
@@ -285,7 +412,6 @@ public class TranspilerC {
         _indent = 0;
         _sb.AppendLine("}");
 
-        // Combine everything: Headers + Typedef Structs + Tuple Structs + Main Code
         if (_usesReadFile) {
             _sb.AppendLine();
             _sb.AppendLine("Result_string_IOError* pino_read_file(const char* path) {");
@@ -345,7 +471,6 @@ public class TranspilerC {
             _sb.AppendLine("}");
         }
 
-        // forwardFuncSb already declared
         if (_usesReadFile) {
             forwardFuncSb.AppendLine("Result_string_IOError* pino_read_file(const char* path);");
         }
@@ -364,10 +489,10 @@ public class TranspilerC {
         finalSb.AppendLine("#include <errno.h>");
         finalSb.AppendLine("#include \"runtime/runtime.h\"");
         finalSb.AppendLine();
-        finalSb.Append(forwardDeclSb.ToString());
+        finalSb.Append(_forwardDeclSb.ToString());
         finalSb.Append(_tupleSb.ToString());
         finalSb.Append(_globalDeclSb.ToString());
-        finalSb.Append(structSb.ToString());
+        finalSb.Append(_structSb.ToString());
         finalSb.Append(forwardFuncSb.ToString());
         finalSb.Append(_sb.ToString());
 
@@ -376,7 +501,7 @@ public class TranspilerC {
 
     private void TranspileFunction(FunctionDeclaration fnDecl) {
         var returnType = MapType(fnDecl.ResolvedReturnType);
-        var identifier = fnDecl.Identifier;
+        var identifier = GetPrefixedName(fnDecl.Identifier);
 
         _currentReturnType = fnDecl.ResolvedReturnType;
         _isGlobalScope = false;
@@ -464,8 +589,32 @@ public class TranspilerC {
         return fields;
     }
 
+    private string ResolveTypeName(string type) {
+        if (string.IsNullOrEmpty(type)) return type;
+        type = type.Replace("::", "_");
+        if (_importedSymbols.TryGetValue(type, out var mappedType)) {
+            return mappedType;
+        }
+        if (_currentModuleName != null) {
+            var pref = $"{_currentModuleName}_{type}";
+            if (_structFields.ContainsKey(pref) || _unions.ContainsKey(pref) || _enums.ContainsKey(pref)) {
+                return pref;
+            }
+        }
+        if (_checker != null) {
+            foreach (var modName in _checker._moduleCheckers.Keys) {
+                var pref = $"{modName}_{type}";
+                if (_structFields.ContainsKey(pref) || _unions.ContainsKey(pref) || _enums.ContainsKey(pref)) {
+                    return pref;
+                }
+            }
+        }
+        return type;
+    }
+
     private string MapType(string pinoType) {
         if (string.IsNullOrEmpty(pinoType)) return "void";
+        pinoType = ResolveTypeName(pinoType);
         if (pinoType.StartsWith("fn(")) return "PinoClosure";
         if (pinoType.StartsWith("map[")) {
             var clean = CleanTypeName(pinoType);
@@ -818,7 +967,7 @@ public class TranspilerC {
                             Write($"{field.Identifier}->value = {tempVar}.{field.Label};\n");
                         } else {
                             var isConst = dest.Kind == VariableKind.Constant;
-                            var prefix = isConst ? "const " : "";
+                            var prefix = GetConstPrefix(isConst, mappedType);
                             WriteIndent();
                             Write($"{prefix}{mappedType} {field.Identifier} = {tempVar}.{field.Label};\n");
                         }
@@ -872,28 +1021,29 @@ public class TranspilerC {
         if (_isGlobalScope && _blockDepth == 0) {
             if (varDecl.Value != null) {
                 if (IsStringConcat(varDecl.Value)) {
-                    Write($"{varDecl.Identifier} = (char*)pino_malloc(1024);\n");
+                    var prefixedName = GetPrefixedName(varDecl.Identifier);
+                    Write($"{prefixedName} = (char*)pino_malloc(1024);\n");
                     var (format, args) = ProcessStringAddition(varDecl.Value);
                     var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
                     WriteIndent();
-                    Write($"snprintf((char*){varDecl.Identifier}, 1024, \"{EscapeString(format)}\"{argsStr})");
+                    Write($"snprintf((char*){prefixedName}, 1024, \"{EscapeString(format)}\"{argsStr})");
                 } else {
-                    Write($"{varDecl.Identifier} = ");
+                    Write($"{GetPrefixedName(varDecl.Identifier)} = ");
                     TranspileExpression(varDecl.Value);
                 }
             }
             return;
         }
 
-        var isConst = varDecl.Kind == VariableKind.Constant;
-        var prefix = isConst ? "const " : "";
-        
         string typeStr = "void";
         if (!string.IsNullOrEmpty(varDecl.Typing)) {
             typeStr = MapType(varDecl.Typing);
         } else if (varDecl.Value != null && !string.IsNullOrEmpty(varDecl.Value.InferredType)) {
             typeStr = MapType(varDecl.Value.InferredType);
         }
+
+        var isConst = varDecl.Kind == VariableKind.Constant;
+        var prefix = GetConstPrefix(isConst, typeStr);
 
         if (_boxedVariables.Contains(varDecl.Identifier)) {
             var cleanType = CleanTypeName(typeStr);
@@ -1041,7 +1191,14 @@ public class TranspilerC {
                     }
                     Write(")");
                 } else {
-                    Write($"{call.Callee}(");
+                    var callee = call.Callee;
+                    if (_importedSymbols.TryGetValue(callee, out var mappedCallee)) {
+                        Write($"{mappedCallee}(");
+                    } else if (_currentModuleName != null && _moduleFunctions.Contains(callee)) {
+                        Write($"{_currentModuleName}_{callee}(");
+                    } else {
+                        Write($"{callee}(");
+                    }
                     for (int i = 0; i < call.Arguments.Count; i++) {
                         if (i > 0) Write(", ");
                         TranspileExpression(call.Arguments[i]);
@@ -1082,6 +1239,14 @@ public class TranspilerC {
                 } else if (bin.Operator == OperatorType.StaticMemberAccess) {
                     if (bin.Left is IdentifierExpression structId) {
                         string name = structId.Name;
+                        if (_importedSymbols.TryGetValue(name, out var mappedName)) {
+                            name = mappedName;
+                        } else if (_currentModuleName != null) {
+                            var pref = $"{_currentModuleName}_{name}";
+                            if (_unions.ContainsKey(pref) || _enums.ContainsKey(pref) || _structFields.ContainsKey(pref)) {
+                                name = pref;
+                            }
+                        }
                         if (FindUnion(name) != null) {
                             if (bin.Right is FunctionCallExpression methodCall) {
                                 Write($"{name}_{methodCall.Callee}_construct(");
@@ -1113,6 +1278,27 @@ public class TranspilerC {
                                 Write(")");
                             } else if (bin.Right is IdentifierExpression id) {
                                 Write($"{name}_{id.Name}");
+                            }
+                        } else if (_checker != null && _checker._moduleCheckers.ContainsKey(name)) {
+                            if (bin.Right is FunctionCallExpression call) {
+                                Write($"{name}_{call.Callee}(");
+                                for (int i = 0; i < call.Arguments.Count; i++) {
+                                    if (i > 0) Write(", ");
+                                    TranspileExpression(call.Arguments[i]);
+                                }
+                                Write(")");
+                            } else if (bin.Right is IdentifierExpression id) {
+                                Write($"{name}_{id.Name}");
+                            } else if (bin.Right is StructInstanceExpression structInst) {
+                                var cleanType = CleanTypeName(structInst.StructName);
+                                Write($"({{ {cleanType}* temp = ({cleanType}*)pino_malloc(sizeof({cleanType})); ");
+                                for (int i = 0; i < structInst.Properties.Count; i++) {
+                                    var prop = structInst.Properties[i];
+                                    Write($"temp->{prop.Identifier} = ");
+                                    TranspileExpression(prop.Value!);
+                                    Write("; ");
+                                }
+                                Write("temp; })");
                             }
                         }
                     }
@@ -1299,7 +1485,9 @@ public class TranspilerC {
                 break;
 
             case IdentifierExpression id:
-                if (_currentStructFields.Contains(id.Name) && !_varTypes.ContainsKey(id.Name)) {
+                if (_importedSymbols.TryGetValue(id.Name, out var mappedId)) {
+                    Write(mappedId);
+                } else if (_currentStructFields.Contains(id.Name) && !_varTypes.ContainsKey(id.Name)) {
                     Write($"this->{id.Name}");
                 } else if (_currentLambda != null && _currentLambda.FreeVars.Contains(id.Name)) {
                     if (_boxedVariables.Contains(id.Name)) {
@@ -1310,7 +1498,11 @@ public class TranspilerC {
                 } else if (_boxedVariables.Contains(id.Name)) {
                     Write($"{id.Name}->value");
                 } else {
-                    Write(id.Name);
+                    if (_currentModuleName != null && _globalVarTypes.ContainsKey($"{_currentModuleName}_{id.Name}")) {
+                        Write($"{_currentModuleName}_{id.Name}");
+                    } else {
+                        Write(id.Name);
+                    }
                 }
                 break;
 
@@ -1325,14 +1517,26 @@ public class TranspilerC {
                 break;
 
             case StructInstanceExpression inst:
-                Write($"({{ {inst.StructName}* temp = ({inst.StructName}*)pino_malloc(sizeof({inst.StructName})); ");
-                for (int i = 0; i < inst.Properties.Count; i++) {
-                    var prop = inst.Properties[i];
-                    Write($"temp->{prop.Identifier} = ");
-                    TranspileExpression(prop.Value!);
-                    Write("; ");
+                {
+                    var instStructName = inst.StructName;
+                    if (_importedSymbols.TryGetValue(instStructName, out var mappedStructName)) {
+                        instStructName = mappedStructName;
+                    } else if (_currentModuleName != null) {
+                        var pref = $"{_currentModuleName}_{instStructName}";
+                        if (_structFields.ContainsKey(pref)) {
+                            instStructName = pref;
+                        }
+                    }
+                    instStructName = CleanTypeName(instStructName);
+                    Write($"({{ {instStructName}* temp = ({instStructName}*)pino_malloc(sizeof({instStructName})); ");
+                    for (int i = 0; i < inst.Properties.Count; i++) {
+                        var prop = inst.Properties[i];
+                        Write($"temp->{prop.Identifier} = ");
+                        TranspileExpression(prop.Value!);
+                        Write("; ");
+                    }
+                    Write("temp; })");
                 }
-                Write("temp; })");
                 break;
 
             case FunctionLambdaExpression lambda:
@@ -1909,6 +2113,7 @@ public class TranspilerC {
     }
 
     private string CleanTypeName(string pinoType) {
+        pinoType = ResolveTypeName(pinoType);
         if (pinoType.StartsWith("[]")) {
             return "Vector_" + CleanTypeName(pinoType.Substring(2));
         }
@@ -1968,15 +2173,16 @@ public class TranspilerC {
 
             case VariantPattern varPat:
                 {
-                    var unionDecl = FindUnion(varPat.UnionName);
+                    var unionName = ResolveTypeName(varPat.UnionName);
+                    var unionDecl = FindUnion(unionName);
                     if (unionDecl == null) {
-                        var enumDecl = FindEnum(varPat.UnionName);
+                        var enumDecl = FindEnum(unionName);
                         if (enumDecl != null) {
-                            condList.Add($"({target} == {varPat.UnionName}_{varPat.VariantName})");
+                            condList.Add($"({target} == {unionName}_{varPat.VariantName})");
                         }
                         break;
                     }
-                    condList.Add($"({target}->tag == {varPat.UnionName}Tag_{varPat.VariantName})");
+                    condList.Add($"({target}->tag == {unionName}Tag_{varPat.VariantName})");
                     var variant = unionDecl.Variants.Find(v => v.Identifier == varPat.VariantName);
                     if (variant != null) {
                         for (int i = 0; i < varPat.SubPatterns.Count; i++) {
@@ -2506,7 +2712,9 @@ public class TranspilerC {
     }
 
     private void TranspileClosureRef(string name) {
-        if (_currentLambda != null && _currentLambda.FreeVars.Contains(name)) {
+        if (_importedSymbols.TryGetValue(name, out var mappedName)) {
+            Write(mappedName);
+        } else if (_currentLambda != null && _currentLambda.FreeVars.Contains(name)) {
             if (_boxedVariables.Contains(name)) {
                 Write($"env->{name}->value");
             } else {
@@ -2515,7 +2723,11 @@ public class TranspilerC {
         } else if (_boxedVariables.Contains(name)) {
             Write($"{name}->value");
         } else {
-            Write(name);
+            if (_currentModuleName != null && _globalVarTypes.ContainsKey($"{_currentModuleName}_{name}")) {
+                Write($"{_currentModuleName}_{name}");
+            } else {
+                Write(name);
+            }
         }
     }
 

@@ -19,6 +19,7 @@ public partial class Checker {
   private readonly Dictionary<string, List<string>> _specializedTypesArgs = new();
 
   public bool IsModule { get; set; } = false;
+  public ProgramStatement? Program { get; set; }
 
   // Environment/scopes for variable checking
   private readonly Stack<Dictionary<string, string>> _scopes = new();
@@ -174,6 +175,7 @@ public partial class Checker {
   }
 
   public void Check(ProgramStatement program) {
+    Program = program;
     var previousFilePath = _currentFilePath;
     if (!string.IsNullOrEmpty(program.FilePath)) {
       _currentFilePath = program.FilePath;

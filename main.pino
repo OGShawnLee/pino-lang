@@ -1,33 +1,14 @@
-val test_map = map[string, int] {
-  "a": 1
-  "b": 2
-  "c": 3
-} 
+import Lexer 
 
-val test_vec = [10, 20, 30]
+fn main {
+  val program = "fn main { return 2 }"
+  val begin = time()
+  val token_list = Lexer::lex(program)
+  val end = time()
 
-val test_str = "hello pino world"
+  for token in token_list {
+    token:print()
+  }
 
-test "IN OPERATOR: Should return true when value is in the map" {
-  assert "a" in test_map
-}
-
-test "IN OPERATOR: Should return false when value is not in the map" {
-  assert "d" not in test_map
-}
-
-test "IN OPERATOR: Should return true when element is in the vector" {
-  assert 20 in test_vec
-}
-
-test "IN OPERATOR: Should return false when element is not in the vector" {
-  assert 40 not in test_vec
-}
-
-test "IN OPERATOR: Should return true when substring is in the string" {
-  assert "pino" in test_str
-}
-
-test "IN OPERATOR: Should return false when substring is not in the string" {
-  assert "rust" not in test_str
+  println("Processed in $(end - begin) ms")
 }

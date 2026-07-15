@@ -90,11 +90,11 @@
       "patterns": [
         {
           "name": "keyword.control.pino",
-          "match": "\\b(if|then|else|match|when|for|in|return|break|continue|module|import|from|yield)\\b"
+          "match": "\\b(if|then|else|match|when|for|in|return|break|continue|module|import|from|yield|assert)\\b"
         },
         {
           "name": "storage.type.pino",
-          "match": "\\b(fn|struct|enum|var|val|interface|union)\\b"
+          "match": "\\b(fn|struct|enum|var|val|interface|union|test)\\b"
         },
         {
           "name": "storage.modifier.pino",
