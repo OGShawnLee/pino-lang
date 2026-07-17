@@ -983,17 +983,40 @@ public partial class Evaluator {
     throw new Exception($"RUNTIME ERROR: 'in' operator not supported for type '{right?.GetType().Name ?? "null"}'.");
   }
 
-  public string FormatVal(object? arg) {
+  public string FormatVal(object? arg, bool topLevel = true) {
+    if (arg is string s) {
+      return topLevel ? s : $"\"{s}\"";
+    }
+    if (arg is bool b) {
+      return b ? "True" : "False";
+    }
     if (arg is List<object?> list) {
-      return "[" + string.Join(", ", list.Select(FormatVal)) + "]";
+      return "[" + string.Join(", ", list.Select(item => FormatVal(item, false))) + "]";
     }
     if (arg is Dictionary<object, object?> dict) {
       var entries = dict.Select(kv => {
-        var keyStr = kv.Key is string ? $"\"{kv.Key}\"" : FormatVal(kv.Key);
-        var valStr = kv.Value is string ? $"\"{kv.Value}\"" : FormatVal(kv.Value);
+        var keyStr = FormatVal(kv.Key, false);
+        var valStr = FormatVal(kv.Value, false);
         return $"{keyStr}: {valStr}";
       });
       return "{" + string.Join(", ", entries) + "}";
+    }
+    if (arg is PinoStructInstance structInst) {
+      var fieldsStr = string.Join(", ", structInst.Fields.Select(f => {
+        var valStr = FormatVal(f.Value, false);
+        return $"{f.Key}: {valStr}";
+      }));
+      return $"{structInst.Struct.Name} {{ {fieldsStr} }}";
+    }
+    if (arg is PinoUnionValue unionVal) {
+      if (unionVal.Payload.Count == 0) {
+        return $"{unionVal.UnionName}::{unionVal.VariantName}";
+      }
+      var payloadStr = string.Join(", ", unionVal.Payload.Select(p => FormatVal(p, false)));
+      return $"{unionVal.UnionName}::{unionVal.VariantName}({payloadStr})";
+    }
+    if (arg is PinoEnumValue enumVal) {
+      return $"{enumVal.EnumName}::{enumVal.Member}";
     }
     return arg?.ToString() ?? "null";
   }

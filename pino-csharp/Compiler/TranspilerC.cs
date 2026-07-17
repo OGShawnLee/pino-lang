@@ -176,6 +176,7 @@ public class TranspilerC {
                     }
                     _structSb.AppendLine($"{retType} {structName}_{method.Identifier}({methodParams});");
                 }
+                GenerateStructToString(structDecl);
                 _structSb.AppendLine();
             } else if (decl is EnumDeclaration enumDecl) {
                 var enumName = GetPrefixedName(enumDecl.Identifier);
@@ -186,6 +187,7 @@ public class TranspilerC {
                 }
                 _structSb.AppendLine("};");
                 _structSb.AppendLine($"typedef enum {enumName} {enumName};");
+                GenerateEnumToString(enumDecl);
                 _structSb.AppendLine();
             } else if (decl is UnionDeclaration unionDecl) {
                 if (unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) continue;
@@ -231,6 +233,7 @@ public class TranspilerC {
                         _structSb.AppendLine($"{unionName}* {unionName}_{variant.Identifier}_construct({paramsStr});");
                     }
                 }
+                GenerateUnionToString(unionDecl);
                 _structSb.AppendLine();
             } else if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
                 if (fnDecl.GenericParams != null && fnDecl.GenericParams.Count > 0) continue;
@@ -521,6 +524,11 @@ public class TranspilerC {
             forwardFuncSb.AppendLine("bool pino_file_exists(const char* path);");
         }
 
+        var vecTypes = _declaredTuples.Where(t => t.StartsWith("[]")).ToList();
+        foreach (var vecType in vecTypes) {
+            GenerateVectorToString(vecType);
+        }
+
         var finalSb = new StringBuilder();
         finalSb.AppendLine("#include <stdio.h>");
         finalSb.AppendLine("#include <stdlib.h>");
@@ -712,6 +720,152 @@ public class TranspilerC {
             }
         }
         return type;
+    }
+
+    private string GetCleanUnionNameForToString(string typeName) {
+        if (typeName.StartsWith("Result_") || typeName == "Result") return "Result";
+        if (typeName.StartsWith("IOError_") || typeName == "IOError") return "IOError";
+        foreach (var mod in _allModuleCheckers.Keys) {
+            if (typeName.StartsWith(mod + "_")) {
+                return typeName.Substring(mod.Length + 1);
+            }
+        }
+        return typeName;
+    }
+
+    private (string format, string argExpression) GetFormatSpecifierAndArgForType(string pinoType, string valExpr) {
+        pinoType = ResolveTypeName(pinoType);
+        var cleanType = CleanTypeName(pinoType);
+        
+        if (pinoType == "string") {
+            return ("\\\"%s\\\"", valExpr);
+        } else if (pinoType == "int") {
+            return ("%d", valExpr);
+        } else if (pinoType == "float") {
+            return ("%g", valExpr);
+        } else if (pinoType == "bool") {
+            return ("%s", $"{valExpr} ? \"True\" : \"False\"");
+        } else if (pinoType == "rune") {
+            return ("%c", valExpr);
+        } else if (FindEnum(pinoType) != null) {
+            return ("%s", $"{pinoType}_to_string({valExpr})");
+        } else if (FindUnion(pinoType) != null) {
+            return ("%s", $"{pinoType}_to_string({valExpr})");
+        } else if (_structFields.ContainsKey(pinoType)) {
+            return ("%s", $"{pinoType}_to_string({valExpr})");
+        } else if (pinoType.StartsWith("[]")) {
+            var vecClean = CleanTypeName(pinoType);
+            return ("%s", $"{vecClean}_to_string({valExpr})");
+        } else {
+            return ("%s", valExpr);
+        }
+    }
+
+    private void GenerateEnumToString(EnumDeclaration enumDecl) {
+        var enumName = GetPrefixedName(enumDecl.Identifier);
+        _structSb.AppendLine($"const char* {enumName}_to_string({enumName} val);");
+        
+        var body = new StringBuilder();
+        body.AppendLine($"const char* {enumName}_to_string({enumName} val) {{");
+        body.AppendLine("    switch (val) {");
+        foreach (var member in enumDecl.Members) {
+            var cleanEnumName = GetCleanUnionNameForToString(enumName);
+            body.AppendLine($"        case {enumName}_{member}: return \"{cleanEnumName}::{member}\";");
+        }
+        body.AppendLine("        default: return \"unknown\";");
+        body.AppendLine("    }");
+        body.AppendLine("}");
+        _sb.AppendLine(body.ToString());
+    }
+
+    private void GenerateStructToString(StructDeclaration structDecl) {
+        var structName = GetPrefixedName(structDecl.Identifier);
+        _structSb.AppendLine($"const char* {structName}_to_string({structName}* val);");
+        
+        var body = new StringBuilder();
+        body.AppendLine($"const char* {structName}_to_string({structName}* val) {{");
+        body.AppendLine("    if (!val) return \"null\";");
+        body.AppendLine("    char* buf = (char*)pino_malloc(1024);");
+        
+        var cleanStructName = GetCleanUnionNameForToString(structName);
+        var formatStr = $"{cleanStructName} {{ ";
+        var argsList = new List<string>();
+        
+        for (int i = 0; i < structDecl.Fields.Count; i++) {
+            var field = structDecl.Fields[i];
+            if (i > 0) formatStr += ", ";
+            var (fmt, arg) = GetFormatSpecifierAndArgForType(field.Typing, $"val->{field.Identifier}");
+            formatStr += $"{field.Identifier}: {fmt}";
+            argsList.Add(arg);
+        }
+        formatStr += " }";
+        
+        var argsStr = argsList.Count > 0 ? ", " + string.Join(", ", argsList) : "";
+        body.AppendLine($"    snprintf(buf, 1024, \"{formatStr}\"{argsStr});");
+        body.AppendLine("    return buf;");
+        body.AppendLine("}");
+        _sb.AppendLine(body.ToString());
+    }
+
+    private void GenerateUnionToString(UnionDeclaration unionDecl) {
+        var unionName = GetPrefixedName(unionDecl.Identifier);
+        _structSb.AppendLine($"const char* {unionName}_to_string({unionName}* val);");
+        
+        var body = new StringBuilder();
+        body.AppendLine($"const char* {unionName}_to_string({unionName}* val) {{");
+        body.AppendLine("    if (!val) return \"null\";");
+        body.AppendLine("    char* buf = (char*)pino_malloc(1024);");
+        body.AppendLine("    switch (val->tag) {");
+        
+        var cleanUnionName = GetCleanUnionNameForToString(unionName);
+        foreach (var variant in unionDecl.Variants) {
+            body.AppendLine($"        case {unionName}Tag_{variant.Identifier}: {{");
+            if (variant.AssociatedTypes.Count == 0) {
+                body.AppendLine($"            return \"{cleanUnionName}::{variant.Identifier}\";");
+            } else {
+                var formatStr = $"{cleanUnionName}::{variant.Identifier}(";
+                var argsList = new List<string>();
+                for (int i = 0; i < variant.AssociatedTypes.Count; i++) {
+                    if (i > 0) formatStr += ", ";
+                    var (fmt, arg) = GetFormatSpecifierAndArgForType(variant.AssociatedTypes[i], $"val->value.{variant.Identifier}._{i}");
+                    formatStr += fmt;
+                    argsList.Add(arg);
+                }
+                formatStr += ")";
+                var argsStr = string.Join(", ", argsList);
+                body.AppendLine($"            snprintf(buf, 1024, \"{formatStr}\", {argsStr});");
+                body.AppendLine("            return buf;");
+            }
+            body.AppendLine("        }");
+        }
+        body.AppendLine("        default: return \"unknown\";");
+        body.AppendLine("    }");
+        body.AppendLine("}");
+        _sb.AppendLine(body.ToString());
+    }
+
+    private void GenerateVectorToString(string pinoType) {
+        var clean = CleanTypeName(pinoType);
+        var elemType = pinoType.Substring(2);
+        
+        _structSb.AppendLine($"const char* {clean}_to_string({clean}* val);");
+        
+        var body = new StringBuilder();
+        body.AppendLine($"const char* {clean}_to_string({clean}* val) {{");
+        body.AppendLine("    if (!val) return \"[]\";");
+        body.AppendLine("    char* buf = (char*)pino_malloc(4096);");
+        body.AppendLine("    int len = snprintf(buf, 4096, \"[\");");
+        body.AppendLine("    for (int i = 0; i < val->length; i++) {");
+        body.AppendLine("        if (i > 0) len += snprintf(buf + len, 4096 - len, \", \");");
+        
+        var (fmt, arg) = GetFormatSpecifierAndArgForType(elemType, "val->items[i]");
+        body.AppendLine($"        len += snprintf(buf + len, 4096 - len, \"{fmt}\", {arg});");
+        
+        body.AppendLine("    }");
+        body.AppendLine("    snprintf(buf + len, 4096 - len, \"]\");");
+        body.AppendLine("    return buf;");
+        body.AppendLine("}");
+        _sb.AppendLine(body.ToString());
     }
 
     private string MapType(string pinoType) {
@@ -1220,10 +1374,30 @@ public class TranspilerC {
                             Write($"printf(\"{EscapeString(format)}\\n\"{argsStr})");
                         } else {
                             var type = arg.InferredType;
-                             if (type == "int" || type == "bool") {
-                                Write("pino_println_int(");
+                            var resolvedType = ResolveTypeName(type);
+                            var cleanType = CleanTypeName(resolvedType);
+                            
+                            if (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType)) {
+                                Write("pino_println_string(");
+                                Write($"{resolvedType}_to_string(");
                                 TranspileExpression(arg);
-                                Write(")");
+                                Write("))");
+                            } else if (type.StartsWith("[]")) {
+                                var vecClean = CleanTypeName(type);
+                                Write("pino_println_string(");
+                                Write($"{vecClean}_to_string(");
+                                TranspileExpression(arg);
+                                Write("))");
+                            } else if (type == "int" || type == "bool") {
+                                if (type == "bool") {
+                                    Write("pino_println_string((");
+                                    TranspileExpression(arg);
+                                    Write(") ? \"True\" : \"False\")");
+                                } else {
+                                    Write("pino_println_int(");
+                                    TranspileExpression(arg);
+                                    Write(")");
+                                }
                             } else if (type == "float") {
                                 Write("pino_println_float(");
                                 TranspileExpression(arg);
@@ -1240,6 +1414,42 @@ public class TranspilerC {
                         }
                     } else {
                         Write("pino_println_string(\"\")");
+                    }
+                } else if (call.Callee == "str") {
+                    var arg = call.Arguments[0];
+                    var type = arg.InferredType;
+                    var resolvedType = ResolveTypeName(type);
+                    var cleanType = CleanTypeName(resolvedType);
+                    
+                    if (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType)) {
+                        Write($"{resolvedType}_to_string(");
+                        TranspileExpression(arg);
+                        Write(")");
+                    } else if (type == "int" || type == "bool") {
+                        if (type == "bool") {
+                            Write("((");
+                            TranspileExpression(arg);
+                            Write(") ? \"True\" : \"False\")");
+                        } else {
+                            Write("({ char* temp = (char*)pino_malloc(32); snprintf(temp, 32, \"%d\", ");
+                            TranspileExpression(arg);
+                            Write("); temp; })");
+                        }
+                    } else if (type == "float") {
+                        Write("({ char* temp = (char*)pino_malloc(64); snprintf(temp, 64, \"%g\", ");
+                        TranspileExpression(arg);
+                        Write("); temp; })");
+                    } else if (type == "rune") {
+                        Write("({ char* temp = (char*)pino_malloc(8); snprintf(temp, 8, \"%c\", ");
+                        TranspileExpression(arg);
+                        Write("); temp; })");
+                    } else if (type.StartsWith("[]")) {
+                        var vecClean = CleanTypeName(type);
+                        Write($"{vecClean}_to_string(");
+                        TranspileExpression(arg);
+                        Write(")");
+                    } else {
+                        TranspileExpression(arg);
                     }
                 } else if (call.Callee == "time") {
                     Write("pino_time()");
@@ -1921,19 +2131,37 @@ public class TranspilerC {
                 var escapedText = lit.Value.Replace("%", "%%");
                 formatSb.Append(escapedText);
             } else {
-                var type = op.InferredType;
-                var specifier = type switch {
-                    "int" => "%d",
-                    "float" => "%g",
-                    "bool" => "%d",
-                    "string" => "%s",
-                    _ => "%s"
-                };
+                var type = op.InferredType ?? "any";
+                var resolvedType = ResolveTypeName(type);
+                var cleanType = CleanTypeName(resolvedType);
+                
+                var specifier = "%s";
+                if (type == "int") specifier = "%d";
+                else if (type == "float") specifier = "%g";
+                else if (type == "rune") specifier = "%c";
+                
                 formatSb.Append(specifier);
                 
                 var oldSb = _sb;
                 _sb = new StringBuilder();
-                TranspileExpression(op);
+                
+                if (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType)) {
+                    Write($"{resolvedType}_to_string(");
+                    TranspileExpression(op);
+                    Write(")");
+                } else if (type.StartsWith("[]")) {
+                    var vecClean = CleanTypeName(type);
+                    Write($"{vecClean}_to_string(");
+                    TranspileExpression(op);
+                    Write(")");
+                } else if (type == "bool") {
+                    Write("(");
+                    TranspileExpression(op);
+                    Write(" ? \"True\" : \"False\")");
+                } else {
+                    TranspileExpression(op);
+                }
+                
                 args.Add(_sb.ToString());
                 _sb = oldSb;
             }

@@ -45,7 +45,7 @@ public class StdlibTests {
       println(str(User { name: ""Test"" }))
     ";
     var output = RunCode(code);
-    Assert.Equal("User { name: Test }\n", output);
+    Assert.Equal("User { name: \"Test\" }\n", output);
   }
 
   [Fact]

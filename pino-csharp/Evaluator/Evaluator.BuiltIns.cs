@@ -9,7 +9,7 @@ public partial class Evaluator {
   private class PrintlnFunction : IPinoCallable {
     public int Arity => -1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
-      Console.WriteLine(string.Join(" ", arguments.Select(evaluator.FormatVal)));
+      Console.WriteLine(string.Join(" ", arguments.Select(x => evaluator.FormatVal(x))));
       return null;
     }
   }
@@ -112,7 +112,7 @@ public partial class Evaluator {
   private class StrFunction : IPinoCallable {
     public int Arity => 1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
-      return evaluator.FormatVal(arguments[0]);
+      return evaluator.FormatVal(arguments[0], true);
     }
   }
 
