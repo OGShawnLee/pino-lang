@@ -1466,20 +1466,20 @@ public class TranspilerC {
                         Write("    if (*endptr == '\\0' || *endptr == '.') success = true; ");
                         Write("} ");
                         Write("success ? ");
-                        Write("Result_int_any_Success_construct(parsed_val) : ");
-                        Write("Result_int_any_Failure_construct(\"Invalid integer format\"); })");
+                        Write("Result_int_string_Success_construct(parsed_val) : ");
+                        Write("Result_int_string_Failure_construct(\"Invalid integer format\"); })");
                     } else if (arg.InferredType == "float") {
                         Write("({ ");
                         Write("double temp_f = ");
                         TranspileExpression(arg);
                         Write("; ");
-                        Write("Result_int_any_Success_construct((int)temp_f); })");
+                        Write("Result_int_string_Success_construct((int)temp_f); })");
                     } else {
                         Write("({ ");
                         Write("int temp_i = ");
                         TranspileExpression(arg);
                         Write("; ");
-                        Write("Result_int_any_Success_construct(temp_i); })");
+                        Write("Result_int_string_Success_construct(temp_i); })");
                     }
                 } else if (call.Callee == "float") {
                     var arg = call.Arguments[0];
@@ -1496,20 +1496,20 @@ public class TranspilerC {
                         Write("    if (*endptr == '\\0') success = true; ");
                         Write("} ");
                         Write("success ? ");
-                        Write("Result_float_any_Success_construct(parsed_val) : ");
-                        Write("Result_float_any_Failure_construct(\"Invalid float format\"); })");
+                        Write("Result_float_string_Success_construct(parsed_val) : ");
+                        Write("Result_float_string_Failure_construct(\"Invalid float format\"); })");
                     } else if (arg.InferredType == "int") {
                         Write("({ ");
                         Write("int temp_i = ");
                         TranspileExpression(arg);
                         Write("; ");
-                        Write("Result_float_any_Success_construct((double)temp_i); })");
+                        Write("Result_float_string_Success_construct((double)temp_i); })");
                     } else {
                         Write("({ ");
                         Write("double temp_f = ");
                         TranspileExpression(arg);
                         Write("; ");
-                        Write("Result_float_any_Success_construct(temp_f); })");
+                        Write("Result_float_string_Success_construct(temp_f); })");
                     }
                 } else if (call.Callee == "time") {
                     Write("pino_time()");
