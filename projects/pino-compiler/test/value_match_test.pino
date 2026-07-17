@@ -1,0 +1,71 @@
+test "Value Match: String Value" {
+  match "return" {
+    when "return" {
+      assert true
+    }
+    else {
+      assert false
+    }
+  }
+}
+
+test "Value Match: Multiple String Values" {
+  match "return" {
+    when "return", "fn" {
+      assert true
+    }
+    else {
+      assert false
+    }
+  }
+}
+
+test "Value Match: Int Values" {
+  match 5 {
+    when 5 {
+      assert true
+    }
+    else {
+      assert false
+    }
+  }
+}
+
+test "Value Match: Multiple Int Values" {
+  match 5 {
+    when 5, 6 {
+      assert true
+    }
+    else {
+      assert false
+    }
+  }
+}
+
+enum Planet {
+  Earth
+  Mars
+  Jupiter
+}
+
+test "Value Match: Enum Values" {
+  match Planet::Earth {
+    when Planet::Earth {
+      assert true
+    }
+    else {
+      assert false
+    }
+  }
+}
+
+test "Value Match: Multiple Enum Values" {
+  match Planet::Earth {
+    when Planet::Earth, Planet::Mars {
+      assert true
+    }
+    else {
+      assert false
+    }
+  }
+}
