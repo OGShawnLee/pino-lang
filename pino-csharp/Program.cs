@@ -922,7 +922,6 @@ class Program {
     int failed = 0;
 
     foreach (var test in tests) {
-      Console.WriteLine($"[RUN ] test \"{test.Description}\"");
       try {
         var evaluator = new Evaluator();
         foreach (var stmt in program.Statements) {

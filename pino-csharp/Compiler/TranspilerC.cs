@@ -394,7 +394,6 @@ public class TranspilerC {
             _sb.AppendLine($"    printf(\"Running {_tests.Count} tests...\\n\");");
             for (int i = 0; i < _tests.Count; i++) {
                 var test = _tests[i].Test;
-                _sb.AppendLine($"    printf(\"[RUN ] test \\\"{test.Description}\\\"\\n\");");
                 _sb.AppendLine("    if (setjmp(_pino_test_jump_env) == 0) {");
                 _sb.AppendLine($"        _pino_test_{i}();");
                 _sb.AppendLine("        passed++;");
@@ -2259,7 +2258,9 @@ public class TranspilerC {
 
         foreach (var stmt in program.Statements) {
             if (stmt is TestDeclaration testDecl) {
-                _tests.Add((testDecl, _currentModuleName));
+                if (_currentModuleName == null) {
+                    _tests.Add((testDecl, _currentModuleName));
+                }
             }
         }
         _lambdas.Clear();
