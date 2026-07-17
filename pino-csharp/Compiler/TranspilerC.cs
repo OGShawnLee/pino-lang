@@ -27,8 +27,9 @@ public class TranspilerC {
     private string _currentFilePath = "";
     private Checker? _checker;
     private string? _currentModuleName;
-    private readonly HashSet<string> _moduleFunctions = new HashSet<string>();
+    private readonly Dictionary<string, HashSet<string>> _moduleFunctions = new Dictionary<string, HashSet<string>>();
     private Dictionary<string, string> _importedSymbols = new Dictionary<string, string>();
+    private Dictionary<string, Checker> _allModuleCheckers = new Dictionary<string, Checker>();
     private readonly StringBuilder _forwardDeclSb = new StringBuilder();
     private readonly StringBuilder _structSb = new StringBuilder();
     private HashSet<string> _emittedStructsAndUnions = new HashSet<string>();
@@ -79,13 +80,13 @@ public class TranspilerC {
         var declarations = new List<Declaration>();
         var topLevelStatements = new List<Statement>();
 
-        _moduleFunctions.Clear();
+        var modKey = _currentModuleName ?? "";
+        if (!_moduleFunctions.ContainsKey(modKey)) {
+            _moduleFunctions[modKey] = new HashSet<string>();
+        }
         foreach (var stmt in program.Statements) {
             if (stmt is FunctionDeclaration fn) {
-                _moduleFunctions.Add(fn.Identifier);
-            }
-            if (stmt is TestDeclaration testDecl) {
-                _tests.Add(testDecl);
+                _moduleFunctions[modKey].Add(fn.Identifier);
             }
         }
 
@@ -281,21 +282,30 @@ public class TranspilerC {
     public string Transpile(ProgramStatement program, Checker? checker = null) {
         _checker = checker;
         _importedSymbols.Clear();
+        _allModuleCheckers.Clear();
+        _tests.Clear();
+        _moduleFunctions.Clear();
 
         var allModules = new List<(string Name, Checker Checker)>();
         if (_checker != null) {
             CollectModules(_checker, allModules, new HashSet<string>());
         }
+        foreach (var mod in allModules) {
+            _allModuleCheckers[mod.Name] = mod.Checker;
+        }
 
         var forwardFuncSb = new StringBuilder();
         _currentFilePath = program.FilePath ?? "";
         
+        _currentModuleName = null;
         CollectAndAnalyzeLambdas(program);
         foreach (var mod in allModules) {
             if (mod.Checker.Program != null) {
+                _currentModuleName = mod.Name;
                 CollectAndAnalyzeLambdas(mod.Checker.Program);
             }
         }
+        _currentModuleName = null;
 
         _currentReturnType = "";
         _varTypes.Clear();
@@ -316,7 +326,6 @@ public class TranspilerC {
         _sb.Clear();
         _forwardDeclSb.Clear();
         _structSb.Clear();
-        _tests.Clear();
         _emittedStructsAndUnions.Clear();
         _emittedConstructors.Clear();
 
@@ -384,7 +393,7 @@ public class TranspilerC {
             _sb.AppendLine("    int failed = 0;");
             _sb.AppendLine($"    printf(\"Running {_tests.Count} tests...\\n\");");
             for (int i = 0; i < _tests.Count; i++) {
-                var test = _tests[i];
+                var test = _tests[i].Test;
                 _sb.AppendLine($"    printf(\"[RUN ] test \\\"{test.Description}\\\"\\n\");");
                 _sb.AppendLine("    if (setjmp(_pino_test_jump_env) == 0) {");
                 _sb.AppendLine($"        _pino_test_{i}();");
@@ -601,8 +610,8 @@ public class TranspilerC {
                 return pref;
             }
         }
-        if (_checker != null) {
-            foreach (var modName in _checker._moduleCheckers.Keys) {
+        if (_allModuleCheckers.Count > 0) {
+            foreach (var modName in _allModuleCheckers.Keys) {
                 var pref = $"{modName}_{type}";
                 if (_structFields.ContainsKey(pref) || _unions.ContainsKey(pref) || _enums.ContainsKey(pref)) {
                     return pref;
@@ -1194,7 +1203,7 @@ public class TranspilerC {
                     var callee = call.Callee;
                     if (_importedSymbols.TryGetValue(callee, out var mappedCallee)) {
                         Write($"{mappedCallee}(");
-                    } else if (_currentModuleName != null && _moduleFunctions.Contains(callee)) {
+                    } else if (_currentModuleName != null && _moduleFunctions.TryGetValue(_currentModuleName, out var fns) && fns.Contains(callee)) {
                         Write($"{_currentModuleName}_{callee}(");
                     } else {
                         Write($"{callee}(");
@@ -1279,7 +1288,7 @@ public class TranspilerC {
                             } else if (bin.Right is IdentifierExpression id) {
                                 Write($"{name}_{id.Name}");
                             }
-                        } else if (_checker != null && _checker._moduleCheckers.ContainsKey(name)) {
+                        } else if (_allModuleCheckers.ContainsKey(name)) {
                             if (bin.Right is FunctionCallExpression call) {
                                 Write($"{name}_{call.Callee}(");
                                 for (int i = 0; i < call.Arguments.Count; i++) {
@@ -2240,18 +2249,17 @@ public class TranspilerC {
     private Dictionary<string, string> _boxedTypes = new Dictionary<string, string>();
     
     public bool EnableTests { get; set; } = false;
-    private List<TestDeclaration> _tests = new List<TestDeclaration>();
+    private List<(TestDeclaration Test, string? ModuleName)> _tests = new List<(TestDeclaration Test, string? ModuleName)>();
 
     private void CollectAndAnalyzeLambdas(ProgramStatement program) {
         _lambdaCounter = 0;
         _lambdas.Clear();
         _boxedVariables.Clear();
         _boxedTypes.Clear();
-        _tests.Clear();
 
         foreach (var stmt in program.Statements) {
             if (stmt is TestDeclaration testDecl) {
-                _tests.Add(testDecl);
+                _tests.Add((testDecl, _currentModuleName));
             }
         }
         _lambdas.Clear();
@@ -2743,8 +2751,13 @@ public class TranspilerC {
         var oldVarTypes = new Dictionary<string, string>(_varTypes);
         var oldReturnType = _currentReturnType;
 
+
         for (int i = 0; i < _tests.Count; i++) {
-            var test = _tests[i];
+            var testInfo = _tests[i];
+            var test = testInfo.Test;
+            var oldModuleName = _currentModuleName;
+            _currentModuleName = testInfo.ModuleName;
+
             forwardFuncSb.AppendLine($"static void _pino_test_{i}(void);");
 
             _sb.AppendLine();
@@ -2765,6 +2778,7 @@ public class TranspilerC {
             
             _indent--;
             _sb.AppendLine("}");
+            _currentModuleName = oldModuleName;
         }
 
         _isGlobalScope = oldGlobalScope;

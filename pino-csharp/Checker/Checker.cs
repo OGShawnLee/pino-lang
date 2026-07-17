@@ -277,7 +277,11 @@ public partial class Checker {
         var baseDir = !string.IsNullOrEmpty(_currentFilePath)
             ? Path.GetDirectoryName(_currentFilePath) ?? System.Environment.CurrentDirectory
             : System.Environment.CurrentDirectory;
-        modulesDir = Path.Combine(baseDir, "modules");
+        if (Path.GetFileName(baseDir).ToLower() == "modules") {
+          modulesDir = baseDir;
+        } else {
+          modulesDir = Path.Combine(baseDir, "modules");
+        }
       }
 
       var filePath = Path.Combine(modulesDir, filename);
