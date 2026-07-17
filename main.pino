@@ -1,14 +1,3 @@
-import Lexer 
-
 fn main {
-  val program = "fn main { return 2 }"
-  val begin = time()
-  val token_list = Lexer::lex(program)
-  val end = time()
-
-  for token in token_list {
-    token:print()
-  }
-
-  println("Processed in $(end - begin) ms")
+  return 2
 }

@@ -1,0 +1,102 @@
+module Parser
+
+from Lexer import Token, TokenType
+
+pub struct TokenStream {
+  list []Token
+  cursor int
+
+  fn peek {
+    return list[cursor]
+  }
+
+  fn next {
+    cursor += 1
+    return list[cursor]
+  }
+
+  fn expect(content string) Result[Token, string] {
+    val curr = this:peek()
+
+    if curr:value == content {
+      this:next()
+      return Result::Success(curr)
+    }
+
+    return Result::Failure("Expected $content, but got $(curr:value).")
+  }
+
+  fn is_it(content string) bool {
+    return this:peek():value == content  
+  }
+
+  fn print {
+    for token in list {
+      token:print()
+    }
+  }
+}
+
+pub union Expression {
+  Constant(int)
+}
+
+pub union Statement {
+  Return(Expression)
+}
+
+pub union AST {
+  FunctionDeclaration(string, Statement)
+}
+
+pub struct Program {
+  children AST
+
+  fn print {
+    println("Program")
+    Program::print_ast(children)
+  }
+
+  static fn print_ast(node AST) {
+    match node {
+      when AST::FunctionDeclaration(name, stmt) {
+        println("Function: $name")
+        Program::print_ast_stmt(stmt)
+      }
+    }
+  }
+
+  static fn print_ast_stmt(stmt Statement) {
+    match stmt {
+      when Statement::Return(expr) {
+        println("Return:")
+        Program::print_ast_expr(expr)
+      }
+    }
+  }
+
+  static fn print_ast_expr(expr Expression) {
+    match expr {
+      when Expression::Constant(integer) {
+        println("Constant: $integer")
+      }
+    }
+  }
+}
+
+fn parse_function(stream TokenStream) Result[AST, string] {
+  return Result::Success(
+    AST::FunctionDeclaration(
+      "main",
+      Statement::Return(Expression::Constant(2))
+    )
+  )
+}
+
+pub fn parse(list []Token) Result[Program, string] {
+  val stream = TokenStream { list: list, cursor: 0 }
+  val program = Program { 
+    children: parse_function(stream)?
+  }
+  return Result::Success(program)
+}

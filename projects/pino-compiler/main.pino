@@ -1,0 +1,21 @@
+import Lexer
+import Parser
+
+fn main {
+  val input = "fn main { return 2 }"
+  val begin = time()
+  val list = Lexer::lex(input)
+  val program = Parser::parse(list)
+  val end = time()
+
+  match program {
+    when Result::Success(program) {
+      program:print()
+    }
+    when Result::Failure(error) {
+      println("Unable to Parse: $error")
+    }
+  }
+
+  println("Processed in $(end - begin) ms")
+}

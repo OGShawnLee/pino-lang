@@ -6,6 +6,7 @@ pub enum TokenType {
   Marker
   Literal
   Illegal
+  EOF
 }
 
 pub struct Token {
@@ -19,6 +20,7 @@ pub struct Token {
       when TokenType::Marker => "Marker"
       when TokenType::Literal => "Literal"
       when TokenType::Illegal => "Illegal"
+      when TokenType::EOF => "EOF"
     }
 
     println("Token { Type: $type_str, Value: $value }")
@@ -69,6 +71,8 @@ pub fn lex(line string) []Token {
       line = line:substring(1)
     }
   }
+
+  token_list:push(Token { type: TokenType::EOF, value: "EOF" })
 
   return token_list
 }
