@@ -192,6 +192,7 @@ public class TranspilerC {
             } else if (decl is UnionDeclaration unionDecl) {
                 if (unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) continue;
                 var unionName = GetPrefixedName(unionDecl.Identifier);
+                if ((unionName == "IOError" || unionName.EndsWith("_IOError")) && !(_usesReadFile || _usesWriteFile || _usesFileExists)) continue;
                 if (!_emittedStructsAndUnions.Add(unionName)) continue;
                 _forwardDeclSb.AppendLine($"typedef struct {unionName} {unionName};");
                 _structSb.AppendLine($"enum {unionName}Tag {{");
@@ -265,6 +266,7 @@ public class TranspilerC {
             } else if (decl is UnionDeclaration unionDecl) {
                 if (unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) continue;
                 var unionName = GetPrefixedName(unionDecl.Identifier);
+                if ((unionName == "IOError" || unionName.EndsWith("_IOError")) && !(_usesReadFile || _usesWriteFile || _usesFileExists)) continue;
                 if (!_emittedConstructors.Add(unionName)) continue;
                 foreach (var variant in unionDecl.Variants) {
                     if (variant.AssociatedTypes.Count > 0) {
@@ -355,9 +357,7 @@ public class TranspilerC {
         _globalVarTypes.Clear();
         _globalDeclSb.Clear();
         _isGlobalScope = true;
-        _usesReadFile = false;
-        _usesWriteFile = false;
-        _usesFileExists = false;
+        ScanForIOUsage(program, allModules);
         _sb.Clear();
         _forwardDeclSb.Clear();
         _structSb.Clear();
@@ -3225,5 +3225,49 @@ public class TranspilerC {
         var ret = typeStr.Substring(closeParen + 1).Trim();
         if (string.IsNullOrEmpty(ret)) ret = "void";
         return (paramTypes, ret);
+    }
+
+    private void ScanForIOUsage(ProgramStatement program, List<(string Name, Checker Checker)> allModules) {
+        _usesReadFile = false;
+        _usesWriteFile = false;
+        _usesFileExists = false;
+
+        void ScanNode(object? node) {
+            if (node == null) return;
+            if (node is FunctionCallExpression call) {
+                if (call.Callee == "read_file") _usesReadFile = true;
+                if (call.Callee == "write_file") _usesWriteFile = true;
+                if (call.Callee == "file_exists") _usesFileExists = true;
+            }
+            foreach (var prop in node.GetType().GetProperties()) {
+                if (prop.Name == "InferredType") continue;
+                if (typeof(Expression).IsAssignableFrom(prop.PropertyType) || 
+                    typeof(Statement).IsAssignableFrom(prop.PropertyType) ||
+                    prop.PropertyType.Namespace == "Pino") {
+                    try {
+                        ScanNode(prop.GetValue(node));
+                    } catch {}
+                } else if (typeof(System.Collections.IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string)) {
+                    System.Collections.IEnumerable? enumerable = null;
+                    try {
+                        enumerable = prop.GetValue(node) as System.Collections.IEnumerable;
+                    } catch {}
+                    if (enumerable != null) {
+                        foreach (var item in enumerable) {
+                            if (item != null && !item.GetType().IsPrimitive && item is not string) {
+                                ScanNode(item);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ScanNode(program);
+        foreach (var mod in allModules) {
+            if (mod.Checker.Program != null) {
+                ScanNode(mod.Checker.Program);
+            }
+        }
     }
 }
