@@ -1,0 +1,14 @@
+test "Union Is Pattern: Success and Value Equals" {
+  val name = Result::Success("Shawn")
+  assert name is Result::Success(n) and n == "Shawn"
+}
+
+test "Union Is Pattern: Success without Value" {
+  val name = Result::Success("Shawn")
+  assert name is Result::Success
+}
+
+test "Union Is Not Pattern: Success" {
+  val name = Result::Success("Shawn")
+  assert name is not Result::Failure
+}

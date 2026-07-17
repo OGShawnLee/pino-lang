@@ -1,0 +1,39 @@
+test "Int Conversion: Positive Numeric String" {
+  assert int("12") is Result::Success(n) and n == 12
+}
+
+test "Int Conversion: Negative Numeric String" {
+  assert int("-12") is Result::Success(n) and n == -12
+}
+
+test "Int Conversion: Positive Float String" {
+  assert int("12.12") is Result::Success(n) and n == 12
+}
+
+test "Int Conversion: Negative Float String" {
+  assert int("-12.12") is Result::Success(n) and n == -12
+}
+
+test "Int Conversion: Empty String" {
+  assert int("") is Result::Failure
+}
+
+test "Float Conversion: Positive Numeric String" {
+  assert float("12.12") is Result::Success(n) and n == 12.12
+}
+
+test "Float Conversion: Negative Numeric String" {
+  assert float("-12.12") is Result::Success(n) and n == -12.12
+}
+
+test "Float Conversion: Positive Integer" {
+  assert float("12") is Result::Success(n) and n == 12.0
+}
+
+test "Float Conversion: Negative Integer" {
+  assert float("-12") is Result::Success(n) and n == -12.0
+}
+
+test "Float Conversion: Empty String" {
+  assert float("") is Result::Failure
+}
