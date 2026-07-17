@@ -146,7 +146,7 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
 
 	match next_token:type {
 		when TokenType::Literal {
-			return Result::Success(Expression::Constant(int(next_token:value)))
+			return Result::Success(Expression::Constant(int(next_token:value)?))
 		}
 		when TokenType::UnaryOperator {
 			val operator = parse_unary_operator(next_token)?

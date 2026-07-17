@@ -76,7 +76,11 @@ fn translate_binary_operator_to_cond_code(binary_operator BinaryOperator) {
 
 fn translate_to_asm_operand(value Val) {
 	return match value {
-		when Val::Constant(content) => Operand::Immediate(int(content))
+		when Val::Constant(content) =>
+			match int(content) {
+				when Result::Success(value) => Operand::Immediate(value)
+				when Result::Failure(err) => panic("Failed to convert Constant '$content' to int: $err")
+			}
 		when Val::Var(name) => Operand::Pseudo(name)
 	}
 }
