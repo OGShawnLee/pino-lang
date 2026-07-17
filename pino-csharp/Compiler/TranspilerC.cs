@@ -49,7 +49,26 @@ public class TranspilerC {
     }
 
     private string GetPrefixedName(string name) {
-        if (name == "IOError" || name == "Result") {
+        if (name == "IOError" || name == "Result" || name.StartsWith("Result_") || name.StartsWith("IOError_")) {
+            if (name.Contains("_")) {
+                int firstUnderscore = name.IndexOf('_');
+                var baseName = name.Substring(0, firstUnderscore);
+                var rest = name.Substring(firstUnderscore + 1);
+                
+                var rawArgs = rest.Split('_');
+                var args = new List<string>();
+                for (int i = 0; i < rawArgs.Length; i++) {
+                    if (i < rawArgs.Length - 1 && _allModuleCheckers.ContainsKey(rawArgs[i])) {
+                        args.Add(rawArgs[i] + "_" + rawArgs[i+1]);
+                        i++;
+                    } else {
+                        args.Add(rawArgs[i]);
+                    }
+                }
+                
+                var bracketName = $"{baseName}[" + string.Join(", ", args) + "]";
+                return CleanTypeName(bracketName);
+            }
             return name;
         }
         if (!string.IsNullOrEmpty(_currentModuleName)) {
@@ -884,8 +903,13 @@ public class TranspilerC {
             int bracketIdx = pinoType.IndexOf('[');
             var baseName = pinoType.Substring(0, bracketIdx);
             var argsStr = pinoType.Substring(bracketIdx + 1, pinoType.Length - bracketIdx - 2);
-            var pinoArgs = argsStr.Split(',').Select(a => a.Trim().Replace(" ", "_").Replace("[]", "Vector_").Replace("[", "_").Replace("]", "_").Replace(",", "_")).ToList();
-            var cleanTypeName = baseName + "_" + string.Join("_", pinoArgs);
+            var resolvedBase = ResolveTypeName(baseName);
+            var pinoArgs = argsStr.Split(',').Select(a => {
+                var arg = a.Trim();
+                var resolvedArg = ResolveTypeName(arg);
+                return CleanTypeName(resolvedArg);
+            }).ToList();
+            var cleanTypeName = resolvedBase + "_" + string.Join("_", pinoArgs);
             return cleanTypeName + "*";
         }
         if (_unions.ContainsKey(pinoType)) {
@@ -1249,11 +1273,8 @@ public class TranspilerC {
                         string name = structId.Name;
                         if (_importedSymbols.TryGetValue(name, out var mappedName)) {
                             name = mappedName;
-                        } else if (_currentModuleName != null) {
-                            var pref = $"{_currentModuleName}_{name}";
-                            if (_unions.ContainsKey(pref) || _enums.ContainsKey(pref) || _structFields.ContainsKey(pref)) {
-                                name = pref;
-                            }
+                        } else {
+                            name = GetPrefixedName(name);
                         }
                         if (FindUnion(name) != null) {
                             if (bin.Right is FunctionCallExpression methodCall) {
@@ -2138,8 +2159,13 @@ public class TranspilerC {
             int bracketIdx = pinoType.IndexOf('[');
             var baseName = pinoType.Substring(0, bracketIdx);
             var argsStr = pinoType.Substring(bracketIdx + 1, pinoType.Length - bracketIdx - 2);
-            var pinoArgs = argsStr.Split(',').Select(a => a.Trim().Replace(" ", "_").Replace("[]", "Vector_").Replace("[", "_").Replace("]", "_").Replace(",", "_")).ToList();
-            return baseName + "_" + string.Join("_", pinoArgs);
+            var resolvedBase = ResolveTypeName(baseName);
+            var pinoArgs = argsStr.Split(',').Select(a => {
+                var arg = a.Trim();
+                var resolvedArg = ResolveTypeName(arg);
+                return CleanTypeName(resolvedArg);
+            }).ToList();
+            return resolvedBase + "_" + string.Join("_", pinoArgs);
         }
         return pinoType;
     }
