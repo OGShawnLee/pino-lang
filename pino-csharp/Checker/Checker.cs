@@ -41,6 +41,7 @@ public partial class Checker {
 
   // Guard against infinite recursion during return type inference of recursive functions
   private readonly HashSet<string> _inferringFunctions = new();
+  internal readonly Stack<List<string>> _returnTypesStack = new();
 
   // Standard library definitions
   private static readonly Dictionary<string, string> BuiltInFunctions = new() {

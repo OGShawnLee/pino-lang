@@ -98,6 +98,7 @@ public partial class Checker {
         }
         string previousReturnType = _currentReturnType;
         _currentReturnType = fnDecl.ReturnType;
+        _returnTypesStack.Push(new List<string>());
         try {
           PushScope();
           foreach (var param in fnDecl.Parameters) {
@@ -110,7 +111,24 @@ public partial class Checker {
           if (isMethod) {
             PopScope();
           }
-          string inferredRetType = InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
+          
+          var collected = _returnTypesStack.Pop();
+          string inferredRetType = "any";
+          if (collected.Count > 0) {
+            inferredRetType = collected[0];
+            for (int i = 1; i < collected.Count; i++) {
+              if (!IsCompatible(collected[i], inferredRetType)) {
+                if (IsCompatible(inferredRetType, collected[i])) {
+                  inferredRetType = collected[i];
+                } else {
+                  throw new Exception($"TYPE CHECK ERROR: Function '{fnDecl.Identifier}' has conflicting return types '{inferredRetType}' and '{collected[i]}'.");
+                }
+              }
+            }
+          } else {
+            // fallback if no return statements were hit during the pass
+            inferredRetType = InferFunctionReturnType(fnDecl, isMethod ? _currentStruct!.Identifier : null);
+          }
           fnDecl.InferredReturnType = inferredRetType;
         } finally {
           _currentReturnType = previousReturnType;
@@ -241,6 +259,9 @@ public partial class Checker {
           try {
             string retType = InferType(ret.Argument, _currentReturnType);
             CheckExpression(ret.Argument);
+            if (_returnTypesStack.Count > 0) {
+              _returnTypesStack.Peek().Add(retType);
+            }
             if (!string.IsNullOrEmpty(_currentReturnType)) {
               if (!IsCompatible(retType, _currentReturnType)) {
                 throw new Exception($"TYPE CHECK ERROR: Function declared return type '{_currentReturnType}', but returned '{retType}'.");
@@ -248,6 +269,10 @@ public partial class Checker {
             }
           } finally {
             _isCheckingReturn = oldCheckingReturn;
+          }
+        } else {
+          if (_returnTypesStack.Count > 0) {
+            _returnTypesStack.Peek().Add("any");
           }
         }
         break;

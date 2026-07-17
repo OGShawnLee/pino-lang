@@ -420,6 +420,7 @@ public partial class Checker {
         break;
 
       case FunctionLambdaExpression lambda: {
+        _returnTypesStack.Push(new List<string>());
         PushScope();
         foreach (var param in lambda.Parameters) {
           DeclareVariable(param.Identifier, param.Typing);
@@ -437,6 +438,7 @@ public partial class Checker {
           _currentReturnType = oldReturnType;
         }
         PopScope();
+        _returnTypesStack.Pop();
         break;
       }
 
@@ -1368,6 +1370,9 @@ public partial class Checker {
   }
 
   private string InferFunctionReturnType(FunctionDeclaration fn, string? parentStructName = null) {
+    if (!string.IsNullOrEmpty(fn.InferredReturnType)) {
+      return fn.InferredReturnType;
+    }
     string fnKey = fn.Identifier ?? "<lambda>";
 
     // Cycle guard — handles recursion detection for both explicit and implicit return paths.
