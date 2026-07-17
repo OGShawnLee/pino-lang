@@ -1451,6 +1451,66 @@ public class TranspilerC {
                     } else {
                         TranspileExpression(arg);
                     }
+                } else if (call.Callee == "int") {
+                    var arg = call.Arguments[0];
+                    if (arg.InferredType == "string") {
+                        Write("({ ");
+                        Write("const char* temp_str = ");
+                        TranspileExpression(arg);
+                        Write("; ");
+                        Write("int parsed_val = 0; ");
+                        Write("bool success = false; ");
+                        Write("if (temp_str && *temp_str != '\\0') { ");
+                        Write("    char* endptr; ");
+                        Write("    parsed_val = (int)strtol(temp_str, &endptr, 10); ");
+                        Write("    if (*endptr == '\\0' || *endptr == '.') success = true; ");
+                        Write("} ");
+                        Write("success ? ");
+                        Write("Result_int_any_Success_construct(parsed_val) : ");
+                        Write("Result_int_any_Failure_construct(\"Invalid integer format\"); })");
+                    } else if (arg.InferredType == "float") {
+                        Write("({ ");
+                        Write("double temp_f = ");
+                        TranspileExpression(arg);
+                        Write("; ");
+                        Write("Result_int_any_Success_construct((int)temp_f); })");
+                    } else {
+                        Write("({ ");
+                        Write("int temp_i = ");
+                        TranspileExpression(arg);
+                        Write("; ");
+                        Write("Result_int_any_Success_construct(temp_i); })");
+                    }
+                } else if (call.Callee == "float") {
+                    var arg = call.Arguments[0];
+                    if (arg.InferredType == "string") {
+                        Write("({ ");
+                        Write("const char* temp_str = ");
+                        TranspileExpression(arg);
+                        Write("; ");
+                        Write("double parsed_val = 0.0; ");
+                        Write("bool success = false; ");
+                        Write("if (temp_str && *temp_str != '\\0') { ");
+                        Write("    char* endptr; ");
+                        Write("    parsed_val = strtod(temp_str, &endptr); ");
+                        Write("    if (*endptr == '\\0') success = true; ");
+                        Write("} ");
+                        Write("success ? ");
+                        Write("Result_float_any_Success_construct(parsed_val) : ");
+                        Write("Result_float_any_Failure_construct(\"Invalid float format\"); })");
+                    } else if (arg.InferredType == "int") {
+                        Write("({ ");
+                        Write("int temp_i = ");
+                        TranspileExpression(arg);
+                        Write("; ");
+                        Write("Result_float_any_Success_construct((double)temp_i); })");
+                    } else {
+                        Write("({ ");
+                        Write("double temp_f = ");
+                        TranspileExpression(arg);
+                        Write("; ");
+                        Write("Result_float_any_Success_construct(temp_f); })");
+                    }
                 } else if (call.Callee == "time") {
                     Write("pino_time()");
                 } else if (call.Callee == "rand") {

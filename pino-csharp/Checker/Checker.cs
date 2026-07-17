@@ -46,9 +46,9 @@ public partial class Checker {
   private static readonly Dictionary<string, string> BuiltInFunctions = new() {
     { "println", "fn(...)" },
     { "readline", "fn(...) string" },
-    { "int", "fn(...) int" },
+    { "int", "fn(...) Result[int, any]" },
     { "rune", "fn(any) rune" },
-    { "float", "fn(...) float" },
+    { "float", "fn(...) Result[float, any]" },
     { "rand", "fn(...) float" },
     { "time", "fn() float" },
     { "sleep", "fn(int)" },

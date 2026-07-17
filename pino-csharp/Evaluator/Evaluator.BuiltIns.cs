@@ -27,16 +27,45 @@ public partial class Evaluator {
   private class IntFunction : IPinoCallable {
     public int Arity => 1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
-      var arg = arguments[0]?.ToString() ?? "0";
-      if (double.TryParse(arg, out var d)) return (long) d;
-      return long.Parse(arg);
+      var raw = arguments[0];
+      if (raw is long l) {
+        return new PinoUnionValue("Result", "Success", new List<object?> { l });
+      }
+      if (raw is double d) {
+        return new PinoUnionValue("Result", "Success", new List<object?> { (long)d });
+      }
+      var arg = raw?.ToString();
+      if (string.IsNullOrEmpty(arg)) {
+        return new PinoUnionValue("Result", "Failure", new List<object?> { "Cannot convert empty or null string to int" });
+      }
+      if (double.TryParse(arg, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedDouble)) {
+        return new PinoUnionValue("Result", "Success", new List<object?> { (long)parsedDouble });
+      }
+      if (long.TryParse(arg, out var parsedLong)) {
+        return new PinoUnionValue("Result", "Success", new List<object?> { parsedLong });
+      }
+      return new PinoUnionValue("Result", "Failure", new List<object?> { $"Invalid integer format: '{arg}'" });
     }
   }
 
   private class FloatFunction : IPinoCallable {
     public int Arity => 1;
     public object? Call(Evaluator evaluator, List<object?> arguments) {
-      return double.Parse(arguments[0]?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+      var raw = arguments[0];
+      if (raw is double d) {
+        return new PinoUnionValue("Result", "Success", new List<object?> { d });
+      }
+      if (raw is long l) {
+        return new PinoUnionValue("Result", "Success", new List<object?> { (double)l });
+      }
+      var arg = raw?.ToString();
+      if (string.IsNullOrEmpty(arg)) {
+        return new PinoUnionValue("Result", "Failure", new List<object?> { "Cannot convert empty or null string to float" });
+      }
+      if (double.TryParse(arg, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedDouble)) {
+        return new PinoUnionValue("Result", "Success", new List<object?> { parsedDouble });
+      }
+      return new PinoUnionValue("Result", "Failure", new List<object?> { $"Invalid float format: '{arg}'" });
     }
   }
 
