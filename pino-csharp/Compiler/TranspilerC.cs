@@ -50,26 +50,7 @@ public class TranspilerC {
 
     private string GetPrefixedName(string name) {
         if (name == "IOError" || name == "Result" || name.StartsWith("Result_") || name.StartsWith("IOError_")) {
-            if (name.Contains("_")) {
-                int firstUnderscore = name.IndexOf('_');
-                var baseName = name.Substring(0, firstUnderscore);
-                var rest = name.Substring(firstUnderscore + 1);
-                
-                var rawArgs = rest.Split('_');
-                var args = new List<string>();
-                for (int i = 0; i < rawArgs.Length; i++) {
-                    if (i < rawArgs.Length - 1 && _allModuleCheckers.ContainsKey(rawArgs[i])) {
-                        args.Add(rawArgs[i] + "_" + rawArgs[i+1]);
-                        i++;
-                    } else {
-                        args.Add(rawArgs[i]);
-                    }
-                }
-                
-                var bracketName = $"{baseName}[" + string.Join(", ", args) + "]";
-                return CleanTypeName(bracketName);
-            }
-            return name;
+            return ResolveTypeName(name);
         }
         if (!string.IsNullOrEmpty(_currentModuleName)) {
             return $"{_currentModuleName}_{name}";
@@ -621,6 +602,25 @@ public class TranspilerC {
         type = type.Replace("::", "_");
         if (_importedSymbols.TryGetValue(type, out var mappedType)) {
             return mappedType;
+        }
+        if ((type.StartsWith("Result_") || type.StartsWith("IOError_")) && type.Contains("_")) {
+            int firstUnderscore = type.IndexOf('_');
+            var baseName = type.Substring(0, firstUnderscore);
+            var rest = type.Substring(firstUnderscore + 1);
+            
+            var rawArgs = rest.Split('_');
+            var args = new List<string>();
+            for (int i = 0; i < rawArgs.Length; i++) {
+                if (i < rawArgs.Length - 1 && _allModuleCheckers.ContainsKey(rawArgs[i])) {
+                    args.Add(rawArgs[i] + "_" + rawArgs[i+1]);
+                    i++;
+                } else {
+                    args.Add(rawArgs[i]);
+                }
+            }
+            
+            var resolvedArgs = args.Select(a => ResolveTypeName(a)).ToList();
+            return baseName + "_" + string.Join("_", resolvedArgs);
         }
         if (_currentModuleName != null) {
             var pref = $"{_currentModuleName}_{type}";
