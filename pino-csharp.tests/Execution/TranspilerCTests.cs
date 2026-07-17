@@ -91,4 +91,32 @@ public class TranspilerCTests {
     // Verify function call translates to mapped function call
     Assert.Contains("Math_add(p->x, p->y)", cCode);
   }
+
+  [Fact]
+  public void TestTranspilerStaticMethod() {
+    var source = @"
+      struct Calculator {
+        static fn multiply(a int, b int) int {
+          return a * b
+        }
+      }
+      fn main {
+        val calc_result = Calculator::multiply(6, 7)
+      }
+    ";
+
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    // Verify static method prototype has no 'this' parameter
+    Assert.Contains("int Calculator_multiply(int a, int b);", cCode);
+    // Verify static method definition has no 'this' parameter
+    Assert.Contains("int Calculator_multiply(int a, int b) {", cCode);
+    // Verify call site has no 'this' parameter passed
+    Assert.Contains("Calculator_multiply(6, 7)", cCode);
+  }
 }

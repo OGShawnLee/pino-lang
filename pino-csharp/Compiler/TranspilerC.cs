@@ -164,9 +164,15 @@ public class TranspilerC {
 
                 foreach (var method in structDecl.Methods) {
                     var retType = MapType(method.ResolvedReturnType);
-                    var methodParams = $"struct {structName}* this";
-                    if (method.Parameters.Count > 0) {
-                        methodParams += ", " + string.Join(", ", method.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+                    string methodParams;
+                    if (method.IsStatic) {
+                        methodParams = string.Join(", ", method.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+                        if (string.IsNullOrEmpty(methodParams)) methodParams = "void";
+                    } else {
+                        methodParams = $"struct {structName}* this";
+                        if (method.Parameters.Count > 0) {
+                            methodParams += ", " + string.Join(", ", method.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+                        }
                     }
                     _structSb.AppendLine($"{retType} {structName}_{method.Identifier}({methodParams});");
                 }
@@ -577,22 +583,30 @@ public class TranspilerC {
         _currentStructFields.Clear();
         
         // Add fields to current struct fields
-        if (_structFields.TryGetValue(structName, out var fields)) {
-            foreach (var f in fields) {
-                _currentStructFields.Add(f);
+        if (!fnDecl.IsStatic) {
+            if (_structFields.TryGetValue(structName, out var fields)) {
+                foreach (var f in fields) {
+                    _currentStructFields.Add(f);
+                }
             }
+            // Add parameters to _varTypes
+            _varTypes["this"] = structName;
+            _varTypes["self"] = structName;
         }
 
-        // Add parameters to _varTypes
-        _varTypes["this"] = structName;
-        _varTypes["self"] = structName;
         foreach (var param in fnDecl.Parameters) {
             _varTypes[param.Identifier] = param.Typing;
         }
 
-        var parameters = $"struct {structName}* this";
-        if (fnDecl.Parameters.Count > 0) {
-            parameters += ", " + string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+        string parameters;
+        if (fnDecl.IsStatic) {
+            parameters = string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+            if (string.IsNullOrEmpty(parameters)) parameters = "void";
+        } else {
+            parameters = $"struct {structName}* this";
+            if (fnDecl.Parameters.Count > 0) {
+                parameters += ", " + string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+            }
         }
 
         WriteLine($"{returnType} {identifier}({parameters}) {{");
