@@ -2565,7 +2565,11 @@ public class TranspilerC {
                     TranspileExpression(litPat.Value);
                     var litStr = _sb.ToString();
                     _sb = oldSb;
-                    condList.Add($"({target} == {litStr})");
+                    if (targetType == "string" || litPat.Value.InferredType == "string") {
+                        condList.Add($"(strcmp({target}, {litStr}) == 0)");
+                    } else {
+                        condList.Add($"({target} == {litStr})");
+                    }
                 }
                 break;
 
