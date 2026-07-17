@@ -1161,6 +1161,16 @@ public class TranspilerC {
     }
 
     private void TranspileStatement(Statement stmt) {
+        if (stmt is not BlockStatement && stmt is not IfStatement) {
+            var boundVars = new List<(string Name, string Type)>();
+            ExtractBoundVariablesFromStatement(stmt, boundVars);
+            foreach (var bv in boundVars) {
+                WriteIndent();
+                Write($"{MapType(bv.Type)} {bv.Name};\n");
+                _varTypes[bv.Name] = bv.Type;
+            }
+        }
+
         switch (stmt) {
             case BlockStatement block:
                 foreach (var child in block.Statements) {
@@ -2599,17 +2609,33 @@ public class TranspilerC {
 
     private void ExtractBoundVariables(Expression expr, List<(string Name, string Type)> boundVars, bool active) {
         if (expr is IsExpression isExpr) {
-            if (active && !isExpr.IsNot) {
-                string lhsType = isExpr.Value.InferredType ?? "any";
-                CollectPatternVariables(isExpr.Pattern, lhsType, boundVars);
-            }
-        } else if (expr is UnaryExpression un && un.Operator == OperatorType.Not) {
-            ExtractBoundVariables(un.Right, boundVars, !active);
+            string lhsType = isExpr.Value.InferredType ?? "any";
+            CollectPatternVariables(isExpr.Pattern, lhsType, boundVars);
+        } else if (expr is UnaryExpression un) {
+            ExtractBoundVariables(un.Right, boundVars, active);
         } else if (expr is BinaryExpression bin) {
-            if (bin.Operator == OperatorType.And) {
-                ExtractBoundVariables(bin.Left, boundVars, active);
-                ExtractBoundVariables(bin.Right, boundVars, active);
-            }
+            ExtractBoundVariables(bin.Left, boundVars, active);
+            ExtractBoundVariables(bin.Right, boundVars, active);
+        }
+    }
+
+    private void ExtractBoundVariablesFromStatement(Statement stmt, List<(string Name, string Type)> boundVars) {
+        switch (stmt) {
+            case ReturnStatement ret:
+                if (ret.Argument != null) ExtractBoundVariables(ret.Argument, boundVars, true);
+                break;
+            case VariableDeclaration varDecl:
+                if (varDecl.Value != null) ExtractBoundVariables(varDecl.Value, boundVars, true);
+                break;
+            case TupleDestructuringDeclaration dest:
+                if (dest.Value != null) ExtractBoundVariables(dest.Value, boundVars, true);
+                break;
+            case AssertStatement assertStmt:
+                if (assertStmt.Expression != null) ExtractBoundVariables(assertStmt.Expression, boundVars, true);
+                break;
+            case Expression exprStmt:
+                ExtractBoundVariables(exprStmt, boundVars, true);
+                break;
         }
     }
 
