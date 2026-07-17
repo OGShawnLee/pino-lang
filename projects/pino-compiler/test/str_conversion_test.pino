@@ -1,0 +1,64 @@
+enum Race {
+  Human
+  Orc
+  Elf
+}
+
+struct Moon {
+  name string
+}
+
+union Planet {
+  Earth
+  Mars(Race)
+  Jupiter(int)
+  Saturn(string, bool)
+  Neptune(Moon)
+  Pluto([]string)
+}
+
+test "String Conversion: Enum" {
+  val race_str = str(Race::Human)
+  assert race_str == "Race::Human"
+}
+
+test "String Conversion: Union" {
+  val planet_str = str(Planet::Earth)
+  assert planet_str == "Planet::Earth"
+}
+
+test "String Conversion: Struct" {
+  val moon_str = str(Moon { name: "Triton" })
+  assert moon_str == "Moon { name: \"Triton\" }"
+}
+
+test "String Conversion: Vector" {
+  val pluto_moon_list = ["Charon", "Styx", "Nix", "Kerberos", "Hydra"]
+  val pluto_moon_list_str = str(pluto_moon_list)
+  assert pluto_moon_list_str == "[\"Charon\", \"Styx\", \"Nix\", \"Kerberos\", \"Hydra\"]"
+}
+
+test "String Conversion: Union with Int Payload" {
+  val planet_str = str(Planet::Jupiter(7))
+  assert planet_str == "Planet::Jupiter(7)"
+}
+
+test "String Conversion: Union with Enum Payload" {
+  val planet_str = str(Planet::Mars(Race::Human))
+  assert planet_str == "Planet::Mars(Race::Human)"
+}
+
+test "String Conversion: Union with String and Bool Payload" {
+  val planet_str = str(Planet::Saturn("Saturn", true))
+  assert planet_str == "Planet::Saturn(\"Saturn\", True)"
+}
+
+test "String Conversion: Union with Struct Payload" {
+  val planet_str = str(Planet::Neptune(Moon { name: "Triton" }))
+  assert planet_str == "Planet::Neptune(Moon { name: \"Triton\" })"
+}
+
+test "String Conversion: Union with Vector Payload" {
+  val planet_str = str(Planet::Pluto(["Charon", "Styx", "Nix", "Kerberos", "Hydra"]))
+  assert planet_str == "Planet::Pluto([\"Charon\", \"Styx\", \"Nix\", \"Kerberos\", \"Hydra\"])"
+}
