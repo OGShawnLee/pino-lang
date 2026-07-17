@@ -34,6 +34,7 @@ public class TranspilerC {
     private readonly StringBuilder _structSb = new StringBuilder();
     private HashSet<string> _emittedStructsAndUnions = new HashSet<string>();
     private HashSet<string> _emittedConstructors = new HashSet<string>();
+    private Dictionary<string, bool> _definedTypes = new Dictionary<string, bool>();
 
     private void WriteIndent() {
         _sb.Append(new string(' ', _indent * 4));
@@ -314,6 +315,31 @@ public class TranspilerC {
         _tupleSb.Clear();
         _declaredTuples.Clear();
         _declaredTuples.Add("[]string");
+        
+        _definedTypes.Clear();
+        foreach (var mod in allModules) {
+            if (mod.Checker.Program != null) {
+                foreach (var stmt in mod.Checker.Program.Statements) {
+                    if (stmt is StructDeclaration sd) {
+                        _definedTypes[$"{mod.Name}_{sd.Identifier}"] = true;
+                    } else if (stmt is UnionDeclaration ud) {
+                        _definedTypes[$"{mod.Name}_{ud.Identifier}"] = true;
+                    } else if (stmt is EnumDeclaration ed) {
+                        _definedTypes[$"{mod.Name}_{ed.Identifier}"] = true;
+                    }
+                }
+            }
+        }
+        foreach (var stmt in program.Statements) {
+            if (stmt is StructDeclaration sd) {
+                _definedTypes[$"{sd.Identifier}"] = true;
+            } else if (stmt is UnionDeclaration ud) {
+                _definedTypes[$"{ud.Identifier}"] = true;
+            } else if (stmt is EnumDeclaration ed) {
+                _definedTypes[$"{ed.Identifier}"] = true;
+            }
+        }
+
         _unions.Clear();
         _enums.Clear();
         _matchResultVars.Clear();
@@ -600,6 +626,24 @@ public class TranspilerC {
     private string ResolveTypeName(string type) {
         if (string.IsNullOrEmpty(type)) return type;
         type = type.Replace("::", "_");
+        foreach (var modName in _allModuleCheckers.Keys) {
+            if (type.StartsWith(modName + "_Result_")) {
+                type = type.Substring(modName.Length + 1);
+                break;
+            }
+            if (type.StartsWith(modName + "_IOError_")) {
+                type = type.Substring(modName.Length + 1);
+                break;
+            }
+        }
+        if (_currentModuleName != null) {
+            if (type.StartsWith(_currentModuleName + "_Result_")) {
+                type = type.Substring(_currentModuleName.Length + 1);
+            }
+            if (type.StartsWith(_currentModuleName + "_IOError_")) {
+                type = type.Substring(_currentModuleName.Length + 1);
+            }
+        }
         if (_importedSymbols.TryGetValue(type, out var mappedType)) {
             return mappedType;
         }
@@ -620,19 +664,36 @@ public class TranspilerC {
             }
             
             var resolvedArgs = args.Select(a => ResolveTypeName(a)).ToList();
-            return baseName + "_" + string.Join("_", resolvedArgs);
+            return ResolveAnyInGenericType(baseName + "_" + string.Join("_", resolvedArgs));
         }
         if (_currentModuleName != null) {
             var pref = $"{_currentModuleName}_{type}";
-            if (_structFields.ContainsKey(pref) || _unions.ContainsKey(pref) || _enums.ContainsKey(pref)) {
+            if (_definedTypes.ContainsKey(pref) || _structFields.ContainsKey(pref) || _unions.ContainsKey(pref) || _enums.ContainsKey(pref)) {
                 return pref;
             }
         }
         if (_allModuleCheckers.Count > 0) {
             foreach (var modName in _allModuleCheckers.Keys) {
                 var pref = $"{modName}_{type}";
-                if (_structFields.ContainsKey(pref) || _unions.ContainsKey(pref) || _enums.ContainsKey(pref)) {
+                if (_definedTypes.ContainsKey(pref) || _structFields.ContainsKey(pref) || _unions.ContainsKey(pref) || _enums.ContainsKey(pref)) {
                     return pref;
+                }
+            }
+        }
+        return ResolveAnyInGenericType(type);
+    }
+
+    private string ResolveAnyInGenericType(string type) {
+        if (type.Contains("_any")) {
+            var pattern = type.Replace("_any", "_");
+            foreach (var key in _unions.Keys) {
+                if (key.StartsWith(pattern)) {
+                    return key;
+                }
+            }
+            foreach (var key in _structFields.Keys) {
+                if (key.StartsWith(pattern)) {
+                    return key;
                 }
             }
         }
@@ -909,7 +970,7 @@ public class TranspilerC {
                 var resolvedArg = ResolveTypeName(arg);
                 return CleanTypeName(resolvedArg);
             }).ToList();
-            var cleanTypeName = resolvedBase + "_" + string.Join("_", pinoArgs);
+            var cleanTypeName = ResolveTypeName(resolvedBase + "_" + string.Join("_", pinoArgs));
             return cleanTypeName + "*";
         }
         if (_unions.ContainsKey(pinoType)) {
@@ -1271,7 +1332,9 @@ public class TranspilerC {
                 } else if (bin.Operator == OperatorType.StaticMemberAccess) {
                     if (bin.Left is IdentifierExpression structId) {
                         string name = structId.Name;
-                        if (_importedSymbols.TryGetValue(name, out var mappedName)) {
+                        if ((name == "Result" || name == "IOError") && !string.IsNullOrEmpty(bin.InferredType) && (bin.InferredType.StartsWith("Result") || bin.InferredType.StartsWith("IOError"))) {
+                            name = CleanTypeName(bin.InferredType);
+                        } else if (_importedSymbols.TryGetValue(name, out var mappedName)) {
                             name = mappedName;
                         } else {
                             name = GetPrefixedName(name);
@@ -2165,7 +2228,8 @@ public class TranspilerC {
                 var resolvedArg = ResolveTypeName(arg);
                 return CleanTypeName(resolvedArg);
             }).ToList();
-            return resolvedBase + "_" + string.Join("_", pinoArgs);
+            var finalCleanName = resolvedBase + "_" + string.Join("_", pinoArgs);
+            return ResolveTypeName(finalCleanName);
         }
         return pinoType;
     }
