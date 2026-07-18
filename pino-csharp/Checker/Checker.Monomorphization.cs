@@ -973,7 +973,7 @@ public partial class Checker {
       specializedName,
       specializedVariants,
       GenericParams: null,
-      IsPublic: baseUnion.IsPublic
+      IsPublic: baseUnion.IsPublic || baseName == "Result" || baseName == "IOError"
     );
 
     _unions[specializedName] = specializedUnion;
