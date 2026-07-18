@@ -12,10 +12,26 @@ pub struct TokenStream {
 
   fn next {
     cursor += 1
-    return list[cursor]
   }
 
-  fn expect(content string) Result[Token, string] {
+  fn consume {
+    val curr = this:peek()
+    this:next()
+    return curr
+  }
+
+  fn expect_type(type TokenType) Result[Token, string] {
+    val curr = this:peek()
+
+    if curr:type == type {
+      this:next()
+      return Result::Success(curr)
+    }
+
+    return Result::Failure("Expected type $type, but got $(curr:type).")
+  }
+
+  fn expect_content(content string) Result[Token, string] {
     val curr = this:peek()
 
     if curr:value == content {
@@ -84,12 +100,48 @@ pub struct Program {
   }
 }
 
+fn parse_factor(stream TokenStream) Result[Expression, string] {
+  val curr = stream:consume()
+  match curr:type {
+    when TokenType::Literal {
+      return Result::Success(Expression::Constant(int(curr:value)?))
+    }
+    else {
+      return Result::Failure("Expected literal. Got $(curr:value).")
+    }
+  }
+}
+
+fn parse_expr(stream TokenStream) Result[Expression, string] {
+  var left = parse_factor(stream)?
+  return Result::Success(left)
+}
+
+fn parse_stmt(stream TokenStream) Result[Statement, string] {
+  val curr = stream:consume()
+
+  match curr:value {
+    when "return" {
+      val expr = parse_expr(stream)?
+      return Result::Success(Statement::Return(expr))
+    }
+    else {
+      return Result::Failure("Expected 'return' keyword. Got $(curr:value).")
+    }
+  }
+}
+
 fn parse_function(stream TokenStream) Result[AST, string] {
+  stream:expect_content("fn")?
+  val name_token = stream:expect_type(TokenType::Identifier)?
+  stream:expect_content("{")?
+
+  val fn_stmt = parse_stmt(stream)?
+
+  stream:expect_content("}")?
+
   return Result::Success(
-    AST::FunctionDeclaration(
-      "main",
-      Statement::Return(Expression::Constant(2))
-    )
+    AST::FunctionDeclaration(name_token:value, fn_stmt)
   )
 }
 

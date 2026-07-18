@@ -2,9 +2,9 @@ import Lexer
 import Parser
 
 fn main {
-  val input = "fn main { return 2 }"
+  val content = "fn main { return 2 }"
   val begin = time()
-  val list = Lexer::lex(input)
+  val list = Lexer::lex(content)
   val program = Parser::parse(list)
   val end = time()
 
