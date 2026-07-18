@@ -2,7 +2,7 @@ import Lexer
 import Parser
 
 fn main {
-  val content = "fn main { return not -(2) }"
+  val content = "fn main { return (2 - (2 + 3) * 3) }"
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)

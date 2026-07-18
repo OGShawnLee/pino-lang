@@ -58,9 +58,29 @@ pub union UnaryOperator {
   Not
 }
 
+pub union BinaryOperator {
+  Add
+  Subtract
+  Multiply
+  Divide
+  Remainder
+  And
+  Or
+  Equal
+  NotEqual
+  LessThan
+  LessOrEqual
+  GreaterThan
+  GreaterOrEqual
+  Assign
+}
+
 pub union Expression {
   Constant(int)
+  Var(string)
   Unary(UnaryOperator, Expression)
+  Binary(BinaryOperator, Expression, Expression)
+  Assignment(Expression, Expression)
 }
 
 pub union Statement {
@@ -102,12 +122,59 @@ pub struct Program {
       when Expression::Constant(integer) {
         println("Constant: $integer")
       }
+      when Expression::Var(name) {
+        println("Var: $name")
+      }
       when Expression::Unary(op, expr) {
         println("Unary: $op")
         Program::print_ast_expr(expr)
       }
+      when Expression::Binary(op, left, right) {
+        println("Binary: $op")
+        Program::print_ast_expr(left)
+        Program::print_ast_expr(right)
+      }
+      when Expression::Assignment(left, right) {
+        println("Assignment")
+        Program::print_ast_expr(left)
+        Program::print_ast_expr(right)
+      }
     }
   }
+}
+
+val PRECEDENCE_MAP = map[string, int] {
+	"*": 50
+	"/": 50
+	"%": 50
+	"+": 45
+	"-": 45
+	"<": 35
+	"<=": 35
+	">": 35
+	">=": 35
+	"!=": 30
+	"==": 30
+	"and": 10
+	"or": 5
+	"=": 1
+}
+
+val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
+  "+": BinaryOperator::Add,
+  "-": BinaryOperator::Subtract,
+  "*": BinaryOperator::Multiply,
+  "/": BinaryOperator::Divide,
+  "%": BinaryOperator::Remainder,
+  "and": BinaryOperator::And,
+  "or": BinaryOperator::Or,
+  "==": BinaryOperator::Equal,
+  "!=": BinaryOperator::NotEqual,
+  "<=": BinaryOperator::LessOrEqual,
+  ">=": BinaryOperator::GreaterOrEqual,
+  "<": BinaryOperator::LessThan,
+  ">": BinaryOperator::GreaterThan,
+  "=": BinaryOperator::Assign
 }
 
 val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
@@ -119,12 +186,33 @@ fn is_unary_operator(token Token) bool {
   return token:type == TokenType::UnaryOperator and token:value in UNARY_OPERATOR_MAP
 }
 
+fn is_binary_operator(token Token) bool {
+  # DO NOT CHECK TOKEN TYPE BECAUSE '-' IS LEXED AS UNARY OP BUT IS INCLUDED IN THE MAP
+  return token:value in BINARY_OPERATOR_MAP
+}
+
+fn get_precedence(token Token) int {
+  if token:value in PRECEDENCE_MAP {
+    return PRECEDENCE_MAP[token:value]
+  }
+
+  panic("Expected precedence for token $(token:value).")
+}
+
 fn parse_unary_operator(token Token) Result[UnaryOperator, string] {
   if not is_unary_operator(token) {
     return Result::Failure("Expected unary operator. Got $(token:value).")
   }
 
   return Result::Success(UNARY_OPERATOR_MAP[token:value])
+}
+
+fn parse_binary_operator(token Token) Result[BinaryOperator, string] {
+  if not is_binary_operator(token) {
+    return Result::Failure("Expected binary operator. Got $(token:value).")
+  }
+
+  return Result::Success(BINARY_OPERATOR_MAP[token:value])
 }
 
 fn parse_factor(stream TokenStream) Result[Expression, string] {
@@ -143,11 +231,14 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
         return Result::Failure("Unable to Parse factor. Expected '(' Marker. Got '$(curr:value)'.")
       }
 
-      val expr = parse_factor(stream)?
+      val inner_expr = parse_expr(stream, 0)?
 
       stream:expect_content(")")?
 
-      return Result::Success(expr)
+      return Result::Success(inner_expr)
+    }
+    when TokenType::Identifier {
+      return Result::Success(Expression::Var(curr:value))
     }
     else {
       return Result::Failure("Expected literal. Got $(curr:value).")
@@ -155,8 +246,32 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
   }
 }
 
-fn parse_expr(stream TokenStream) Result[Expression, string] {
+fn parse_expr(stream TokenStream, min_prec int) Result[Expression, string] {
   var left = parse_factor(stream)?
+
+  for {
+    val curr = stream:peek()
+
+    if curr:type == TokenType::EOF {
+      break
+    }
+    
+    if is_binary_operator(curr) and get_precedence(curr) >= min_prec {
+      val operator = parse_binary_operator(stream:consume())?
+
+      if operator == BinaryOperator::Assign {
+        val right = parse_expr(stream, get_precedence(curr))?
+        left = Expression::Assignment(left, right)
+        continue
+      }
+
+      val right = parse_expr(stream, get_precedence(curr) + 1)?
+      left = Expression::Binary(operator, left, right)
+    } else {
+      break
+    }
+  }
+
   return Result::Success(left)
 }
 
@@ -165,7 +280,7 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
 
   match curr:value {
     when "return" {
-      val expr = parse_expr(stream)?
+      val expr = parse_expr(stream, 0)?
       return Result::Success(Statement::Return(expr))
     }
     else {
