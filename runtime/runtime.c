@@ -17,6 +17,16 @@ void pino_report_assert_fail(const char* expr, const char* file, int line) {
     }
 }
 
+void pino_panic(const char* message) {
+    if (_pino_in_test) {
+        printf("       Panicked: %s\n", message);
+        longjmp(_pino_test_jump_env, 1);
+    } else {
+        fprintf(stderr, "thread 'main' panicked at '%s'\n", message);
+        exit(101);
+    }
+}
+
 #ifdef PINO_GC
 #include <gc.h>
 #endif

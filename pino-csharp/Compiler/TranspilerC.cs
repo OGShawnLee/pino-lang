@@ -1535,6 +1535,10 @@ public class TranspilerC {
                     Write("pino_sleep(");
                     TranspileExpression(call.Arguments[0]);
                     Write(")");
+                } else if (call.Callee == "panic") {
+                    Write("pino_panic(");
+                    TranspileExpression(call.Arguments[0]);
+                    Write(")");
                 } else if (call.Callee == "clear") {
                     Write("pino_clear()");
                 } else if (call.Callee == "regex") {

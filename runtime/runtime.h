@@ -60,6 +60,7 @@ extern jmp_buf _pino_test_jump_env;
 extern int _pino_in_test;
 
 void pino_report_assert_fail(const char* expr, const char* file, int line);
+void pino_panic(const char* message);
 
 #define pino_assert(cond, expr_str, file, line) \
     if (!(cond)) { \
