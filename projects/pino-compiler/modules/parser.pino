@@ -39,7 +39,7 @@ pub struct TokenStream {
       return Result::Success(curr)
     }
 
-    return Result::Failure("Expected $content, but got $(curr:value).")
+    return Result::Failure("Expected '$content', but got '$(curr:value)'.")
   }
 
   fn is_it(content string) bool {
@@ -53,8 +53,14 @@ pub struct TokenStream {
   }
 }
 
+pub union UnaryOperator {
+  Negate
+  Not
+}
+
 pub union Expression {
   Constant(int)
+  Unary(UnaryOperator, Expression)
 }
 
 pub union Statement {
@@ -96,8 +102,29 @@ pub struct Program {
       when Expression::Constant(integer) {
         println("Constant: $integer")
       }
+      when Expression::Unary(op, expr) {
+        println("Unary: $op")
+        Program::print_ast_expr(expr)
+      }
     }
   }
+}
+
+val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
+  "-": UnaryOperator::Negate
+  "not": UnaryOperator::Not
+}
+
+fn is_unary_operator(token Token) bool {
+  return token:type == TokenType::UnaryOperator and token:value in UNARY_OPERATOR_MAP
+}
+
+fn parse_unary_operator(token Token) Result[UnaryOperator, string] {
+  if not is_unary_operator(token) {
+    return Result::Failure("Expected unary operator. Got $(token:value).")
+  }
+
+  return Result::Success(UNARY_OPERATOR_MAP[token:value])
 }
 
 fn parse_factor(stream TokenStream) Result[Expression, string] {
@@ -105,6 +132,22 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
   match curr:type {
     when TokenType::Literal {
       return Result::Success(Expression::Constant(int(curr:value)?))
+    }
+    when TokenType::UnaryOperator {
+      val operator = parse_unary_operator(curr)?
+      val expr = parse_factor(stream)?
+      return Result::Success(Expression::Unary(operator, expr))
+    }
+    when TokenType::Marker {
+      if curr:value != "(" {
+        return Result::Failure("Unable to Parse factor. Expected '(' Marker. Got '$(curr:value)'.")
+      }
+
+      val expr = parse_factor(stream)?
+
+      stream:expect_content(")")?
+
+      return Result::Success(expr)
     }
     else {
       return Result::Failure("Expected literal. Got $(curr:value).")
@@ -133,7 +176,9 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
 
 fn parse_function(stream TokenStream) Result[AST, string] {
   stream:expect_content("fn")?
+
   val name_token = stream:expect_type(TokenType::Identifier)?
+
   stream:expect_content("{")?
 
   val fn_stmt = parse_stmt(stream)?
