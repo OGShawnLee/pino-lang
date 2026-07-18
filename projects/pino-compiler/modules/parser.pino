@@ -42,10 +42,6 @@ pub struct TokenStream {
     return Result::Failure("Expected '$content', but got '$(curr:value)'.")
   }
 
-  fn is_it(content string) bool {
-    return this:peek():value == content  
-  }
-
   fn print {
     for token in list {
       token:print()
@@ -89,8 +85,13 @@ pub union Statement {
   Return(Expression)
 }
 
+pub union Typing {
+  Explicit(string)
+  Implicit
+}
+
 pub union AST {
-  FunctionDeclaration(string, Statement)
+  FunctionDeclaration(string, Typing, Statement)
 }
 
 pub struct Program {
@@ -103,8 +104,13 @@ pub struct Program {
 
   static fn print_ast(node AST) {
     match node {
-      when AST::FunctionDeclaration(name, stmt) {
+      when AST::FunctionDeclaration(name, ret_type, stmt) {
         println("Function: $name")
+        val ret_type_str = match ret_type {
+          when Typing::Explicit(type_name) => type_name
+          when Typing::Implicit => "Implicit"
+        }
+        println("Return Type: $ret_type_str")
         Program::print_ast_stmt(stmt)
       }
     }
@@ -314,22 +320,41 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
   }
 }
 
-fn parse_function(stream TokenStream) Result[AST, string] {
+fn parse_fn_ret_type(stream TokenStream) Result[Typing, string] {
+  val curr = stream:peek()
+
+  return match curr:type {
+    when TokenType::BuiltInType => Result::Success(Typing::Explicit(stream:consume():value))
+    when TokenType::Identifier => Result::Success(Typing::Explicit(stream:consume():value))
+    when TokenType::Marker => 
+      if curr:value == "{" 
+        then Result::Success(Typing::Implicit)
+        else Result::Failure("Expected Built-in type or Identifier for return type. Got '$(curr:value)'.")
+    else => Result::Failure("Expected Built-in type or Identifier for return type. Got '$(curr:value)'.")
+  }
+}
+
+fn parse_fn(stream TokenStream) Result[AST, string] {
   stream:expect_content("fn")?
   val name_token = stream:expect_type(TokenType::Identifier)?
+  val ret_type = parse_fn_ret_type(stream)?
   stream:expect_content("{")?
   val fn_stmt = parse_stmt(stream)?
   stream:expect_content("}")?
 
   return Result::Success(
-    AST::FunctionDeclaration(name_token:value, fn_stmt)
+    AST::FunctionDeclaration(
+      name_token:value, 
+      ret_type,
+      fn_stmt
+    )
   )
 }
 
 pub fn parse(list []Token) Result[Program, string] {
   val stream = TokenStream { list: list, cursor: 0 }
   val program = Program { 
-    children: parse_function(stream)?
+    children: parse_fn(stream)?
   }
   return Result::Success(program)
 }

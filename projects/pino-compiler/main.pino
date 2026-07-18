@@ -2,7 +2,7 @@ import Lexer
 import Parser
 
 fn main {
-  val content = "fn main { return (name = if 4 then 2 else 3) + 2 }"
+  val content = "fn main string { return (name = if 4 then 2 else 3) + 2 }"
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)
