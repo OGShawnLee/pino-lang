@@ -73,6 +73,7 @@ pub union BinaryOperator {
   GreaterThan
   GreaterOrEqual
   Assign
+  Conditional
 }
 
 pub union Expression {
@@ -81,6 +82,7 @@ pub union Expression {
   Unary(UnaryOperator, Expression)
   Binary(BinaryOperator, Expression, Expression)
   Assignment(Expression, Expression)
+  Conditional(Expression, Expression, Expression)
 }
 
 pub union Statement {
@@ -125,6 +127,15 @@ pub struct Program {
       when Expression::Var(name) {
         println("Var: $name")
       }
+      when Expression::Conditional(condition, then_branch, else_branch) {
+        println("Conditional:")
+        println("If:")
+        Program::print_ast_expr(condition)
+        println("Then:")
+        Program::print_ast_expr(then_branch)
+        println("Else:")
+        Program::print_ast_expr(else_branch)
+      }
       when Expression::Unary(op, expr) {
         println("Unary: $op")
         Program::print_ast_expr(expr)
@@ -157,24 +168,26 @@ val PRECEDENCE_MAP = map[string, int] {
 	"==": 30
 	"and": 10
 	"or": 5
+  "if": 3
 	"=": 1
 }
 
 val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
-  "+": BinaryOperator::Add,
-  "-": BinaryOperator::Subtract,
-  "*": BinaryOperator::Multiply,
-  "/": BinaryOperator::Divide,
-  "%": BinaryOperator::Remainder,
-  "and": BinaryOperator::And,
-  "or": BinaryOperator::Or,
-  "==": BinaryOperator::Equal,
-  "!=": BinaryOperator::NotEqual,
-  "<=": BinaryOperator::LessOrEqual,
-  ">=": BinaryOperator::GreaterOrEqual,
-  "<": BinaryOperator::LessThan,
-  ">": BinaryOperator::GreaterThan,
+  "+": BinaryOperator::Add
+  "-": BinaryOperator::Subtract
+  "*": BinaryOperator::Multiply
+  "/": BinaryOperator::Divide
+  "%": BinaryOperator::Remainder
+  "and": BinaryOperator::And
+  "or": BinaryOperator::Or
+  "==": BinaryOperator::Equal
+  "!=": BinaryOperator::NotEqual
+  "<=": BinaryOperator::LessOrEqual
+  ">=": BinaryOperator::GreaterOrEqual
+  "<": BinaryOperator::LessThan
+  ">": BinaryOperator::GreaterThan
   "=": BinaryOperator::Assign
+  "if": BinaryOperator::Conditional
 }
 
 val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
@@ -232,10 +245,22 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
       }
 
       val inner_expr = parse_expr(stream, 0)?
-
       stream:expect_content(")")?
 
       return Result::Success(inner_expr)
+    }
+    when TokenType::Keyword {
+      if curr:value != "if" {
+        return Result::Failure("Unexpected keyword '$(curr:value)' inside factor.")
+      }
+
+      val condition = parse_expr(stream, 0)?
+      stream:expect_content("then")?
+      val then_branch = parse_expr(stream, 0)?
+      stream:expect_content("else")?
+      val else_branch = parse_expr(stream, 0)?
+
+      return Result::Success(Expression::Conditional(condition, then_branch, else_branch))
     }
     when TokenType::Identifier {
       return Result::Success(Expression::Var(curr:value))
@@ -291,13 +316,9 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
 
 fn parse_function(stream TokenStream) Result[AST, string] {
   stream:expect_content("fn")?
-
   val name_token = stream:expect_type(TokenType::Identifier)?
-
   stream:expect_content("{")?
-
   val fn_stmt = parse_stmt(stream)?
-
   stream:expect_content("}")?
 
   return Result::Success(

@@ -39,7 +39,7 @@ struct TokenRule {
 val BINARY_OPERATOR_REGEX = regex("^(\+|\*|/|%|and|or|==|!=|<=|>=|<|>|=)")
 val UNARY_OPERATOR_REGEX = regex("^(-|not)")
 val IDENTIFIER_REGEX = regex("^[a-zA-Z_][a-zA-Z0-9_]*")
-val KEYWORD_REGEX = regex("^(fn|return)")
+val KEYWORD_REGEX = regex("^(fn|return|if|then)")
 val MARKER_REGEX = regex("^[{}()]")
 val NUMERIC_REGEX = regex("^[0-9]+")
 val WHITE_SPACE_REGEX = regex("^\s+")
