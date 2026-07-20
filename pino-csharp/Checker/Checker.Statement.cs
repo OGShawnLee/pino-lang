@@ -363,6 +363,22 @@ public partial class Checker {
           foreach (var name in fromImp.Imports) {
             string type = modChecker.ResolveIdentifierType(name);
             DeclareVariable(name, type);
+
+            if (modChecker._functions.TryGetValue(name, out var fnDecl)) {
+              _functions[name] = fnDecl;
+            }
+            if (modChecker._structs.TryGetValue(name, out var structDecl)) {
+              _structs[name] = structDecl;
+            }
+            if (modChecker._unions.TryGetValue(name, out var unionDecl)) {
+              _unions[name] = unionDecl;
+            }
+            if (modChecker._enums.TryGetValue(name, out var enumDecl)) {
+              _enums[name] = enumDecl;
+            }
+            if (modChecker._interfaces.TryGetValue(name, out var interfaceDecl)) {
+              _interfaces[name] = interfaceDecl;
+            }
           }
         }
         break;
