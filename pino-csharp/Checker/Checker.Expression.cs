@@ -403,6 +403,7 @@ public partial class Checker {
             }
             string specializedName = MonomorphizeFunctionCall(call);
             _functions.TryGetValue(specializedName, out fnDecl);
+            Resolve(call, call.Callee);
           } else {
             foreach (var arg in call.Arguments) {
               CheckExpression(arg);

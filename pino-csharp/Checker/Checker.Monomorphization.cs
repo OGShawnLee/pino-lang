@@ -687,7 +687,17 @@ public partial class Checker {
     _functions[specializedName] = specializedFn;
     _specializedFunctions.Add(specializedFn);
 
-    CheckStatement(specializedFn);
+    var poppedScopes = new List<Dictionary<string, string>>();
+    while (_scopes.Count > 1) {
+      poppedScopes.Add(_scopes.Pop());
+    }
+    try {
+      CheckStatement(specializedFn);
+    } finally {
+      for (int i = poppedScopes.Count - 1; i >= 0; i--) {
+        _scopes.Push(poppedScopes[i]);
+      }
+    }
 
     return specializedName;
   }
@@ -750,7 +760,17 @@ public partial class Checker {
     var oldStatic = _inStaticMethod;
     _currentStruct = structDecl;
     _inStaticMethod = specializedMethod.IsStatic;
-    CheckStatement(specializedMethod);
+    var poppedScopes = new List<Dictionary<string, string>>();
+    while (_scopes.Count > 1) {
+      poppedScopes.Add(_scopes.Pop());
+    }
+    try {
+      CheckStatement(specializedMethod);
+    } finally {
+      for (int i = poppedScopes.Count - 1; i >= 0; i--) {
+        _scopes.Push(poppedScopes[i]);
+      }
+    }
     _currentStruct = oldStruct;
     _inStaticMethod = oldStatic;
 

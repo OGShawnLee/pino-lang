@@ -1,0 +1,93 @@
+@generic[Item]
+pub fn reverse(list []Item) []Item {
+  return []Item {
+    len: list:len
+    init: list[list:len - it - 1]
+  }
+}
+
+test "Generic Vector Mapping: Should infer the correct primitive int type." {
+  val int_list = [1, 2, 3, 4, 5]
+  val reverse_int_list = reverse(int_list)
+
+  fn expect_int_list(list []int) {
+    assert true
+  }
+
+  fn expect_int(i int) {
+    assert true
+  }
+
+  expect_int_list(reverse_int_list)
+
+  for i in reverse_int_list {
+    expect_int(i)
+  }
+}
+
+test "Generic Vector Mapping: Should infer the correct primitive string type." {
+  val string_list = ["hello", "world", "pino"]
+  val reverse_string_list = reverse(string_list)
+
+  fn expect_string_list(list []string) {
+    assert true
+  }
+
+  fn expect_string(s string) {
+    assert true
+  }
+
+  expect_string_list(reverse_string_list)
+
+  for s in reverse_string_list {
+    expect_string(s)
+  }
+}
+
+struct Point {
+  x int
+  y int
+}
+
+test "Generic Vector Mapping: Should infer the correct user-defined struct type." {
+  val point_list = [Point { x: 1, y: 2 }, Point { x: 3, y: 4 }, Point { x: 5, y: 6 }]
+  val reverse_point_list = reverse(point_list)
+
+  fn expect_point_list(list []Point) {
+    assert true
+  }
+
+  fn expect_point(p Point) {
+    assert true
+  }
+
+  expect_point_list(reverse_point_list)
+
+  for p in reverse_point_list {
+    expect_point(p)
+  }
+}
+
+union Dynamic {
+  Int(int)
+  String(string)
+}
+
+test "Generic Vector Mapping: Should infer the correct union type." {
+  val dynamic_list = [Dynamic::Int(1), Dynamic::String("Hello"), Dynamic::Int(2), Dynamic::String("World")]
+  val reverse_dynamic_list = reverse(dynamic_list)
+
+  fn expect_dynamic_list(list []Dynamic) {
+    assert true
+  }
+
+  fn expect_dynamic(d Dynamic) {
+    assert true
+  }
+
+  expect_dynamic_list(reverse_dynamic_list)
+
+  for d in reverse_dynamic_list {
+    expect_dynamic(d)
+  }
+}
