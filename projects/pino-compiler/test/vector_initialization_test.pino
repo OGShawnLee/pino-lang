@@ -1,0 +1,77 @@
+test "Vector Initialization: Should allow creating a vector literal." {
+  val int_list = [1, 2, 3, 4]
+
+  assert int_list:len == 4
+  assert int_list[0] == 1
+  assert int_list[1] == 2
+  assert int_list[2] == 3
+  assert int_list[3] == 4
+}
+
+test "Vector Initialization: Should allow creating a vector with init block." {
+  val int_list = []int { len: 4, init: it  + 1 }
+
+  assert int_list:len == 4
+  assert int_list[0] == 1
+  assert int_list[1] == 2
+  assert int_list[2] == 3
+  assert int_list[3] == 4
+}
+
+test "Vector Initialization: Should allow creating a vector with an init block and zero length." {
+  val int_list = []int { len: 0, init: it }
+
+  assert int_list:len == 0
+}
+
+test "Vector Initialization: Should allow creating an empty vector." {
+  val int_list = []int
+
+  assert int_list:len == 0
+}
+
+test "Vector Initialization: Should allow creating a vector from another vector." {
+  val int_list = [1, 2, 3, 4]
+  val double_int_list = []int { len: int_list:len, init: int_list[it] * 2 }
+
+  assert double_int_list:len == int_list:len
+  assert double_int_list[0] == int_list[0] * 2
+  assert double_int_list[1] == int_list[1] * 2
+  assert double_int_list[2] == int_list[2] * 2
+  assert double_int_list[3] == int_list[3] * 2
+}
+
+test "Vector Initialization: Should allow creating a vector with init block using an anonymous function." {
+  val string_list = []string { len: 4, init: fn (idx int) { return "Numeric String $idx" } }
+
+  assert string_list:len == 4
+  assert string_list[0] == "Numeric String 0"
+  assert string_list[1] == "Numeric String 1"
+  assert string_list[2] == "Numeric String 2"
+  assert string_list[3] == "Numeric String 3"
+}
+
+test "Vector Initialization: Should allow creating a vector with init block using a function reference." {
+  fn get_string_by_index(idx int) string {
+    return "Numeric String $idx"
+  }
+
+  val string_list = []string { len: 4, init: get_string_by_index }
+
+  assert string_list:len == 4
+  assert string_list[0] == "Numeric String 0"
+  assert string_list[1] == "Numeric String 1"
+  assert string_list[2] == "Numeric String 2"
+  assert string_list[3] == "Numeric String 3"
+}
+
+test "Vector Initialization: Should allow creating a vector with init block using a function reference with closure." {
+  val str_val = "Numeric String"
+  val string_list = []string { len: 4, init: fn (idx int) { return "$str_val $idx" } }
+
+  assert string_list:len == 4
+  assert string_list[0] == "Numeric String 0"
+  assert string_list[1] == "Numeric String 1"
+  assert string_list[2] == "Numeric String 2"
+  assert string_list[3] == "Numeric String 3"
+}

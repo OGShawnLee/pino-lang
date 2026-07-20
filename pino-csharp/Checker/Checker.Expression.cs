@@ -329,7 +329,12 @@ public partial class Checker {
           }
         }
         if (vec.Len != null) CheckExpression(vec.Len);
-        if (vec.Init != null) CheckExpression(vec.Init);
+        if (vec.Init != null) {
+          PushScope();
+          DeclareVariable("it", "int");
+          CheckExpression(vec.Init);
+          PopScope();
+        }
         break;
 
       case StructInstanceExpression inst:

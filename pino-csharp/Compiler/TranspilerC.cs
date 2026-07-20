@@ -384,6 +384,16 @@ public class TranspilerC {
         _currentModuleName = null;
         TranspilePass2(program);
 
+        foreach (var fnDecl in _nestedFunctions) {
+            var returnType = MapType(fnDecl.ResolvedReturnType);
+            var parameters = string.Join(", ", fnDecl.Parameters.Select(p => $"{MapType(p.Typing)} {p.Identifier}"));
+            if (string.IsNullOrEmpty(parameters)) parameters = "void";
+            var fnName = GetPrefixedName(fnDecl.Identifier);
+            forwardFuncSb.AppendLine($"{returnType} {fnName}({parameters});");
+            
+            TranspileFunction(fnDecl);
+        }
+
         TranspileLambdas(forwardFuncSb);
         TranspileTests(forwardFuncSb);
 
@@ -1283,6 +1293,9 @@ public class TranspilerC {
                 _sb.AppendLine(";");
                 break;
 
+            case FunctionDeclaration fn:
+                break;
+
             default:
                 throw new NotImplementedException($"Statement type {stmt.GetType().Name} not implemented in Transpiler.");
         }
@@ -2001,7 +2014,20 @@ public class TranspilerC {
                         _varTypes["it"] = "int";
 
                         Write($"for (int it = 0; it < {limitVar}; it++) {{ temp->items[it] = ");
-                        TranspileExpression(vec.Init);
+                        if (vec.Init.InferredType != null && vec.Init.InferredType.StartsWith("fn(")) {
+                            var (paramTypes, retType) = ParseFunctionType(vec.Init.InferredType);
+                            var cRetType = MapType(retType);
+                            if (IsDirectFunctionReference(vec.Init, out var funcCName)) {
+                                Write($"{funcCName}(it)");
+                            } else {
+                                var closureVar = $"_pino_closure_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                                Write($"({{ PinoClosure {closureVar} = ");
+                                TranspileExpression(vec.Init);
+                                Write($"; (({cRetType}(*)(void*, int)){closureVar}.fn_ptr)({closureVar}.env, it); }})");
+                            }
+                        } else {
+                            TranspileExpression(vec.Init);
+                        }
                         Write("; } ");
 
                         if (hadIt && oldIt != null) _varTypes["it"] = oldIt;
@@ -2672,6 +2698,8 @@ public class TranspilerC {
     private List<FunctionLambdaExpression> _lambdas = new List<FunctionLambdaExpression>();
     private HashSet<string> _boxedVariables = new HashSet<string>();
     private Dictionary<string, string> _boxedTypes = new Dictionary<string, string>();
+    private List<FunctionDeclaration> _nestedFunctions = new List<FunctionDeclaration>();
+    private int _nestedFunctionDepth = 0;
     
     public bool EnableTests { get; set; } = false;
     private List<(TestDeclaration Test, string? ModuleName)> _tests = new List<(TestDeclaration Test, string? ModuleName)>();
@@ -2692,6 +2720,8 @@ public class TranspilerC {
         _lambdas.Clear();
         _boxedVariables.Clear();
         _boxedTypes.Clear();
+        _nestedFunctions.Clear();
+        _nestedFunctionDepth = 0;
 
         var userFunctions = new HashSet<string>();
         foreach (var stmt in program.Statements) {
@@ -2846,7 +2876,12 @@ public class TranspilerC {
                 FindLambdas(loop.End);
                 break;
             case FunctionDeclaration fn:
+                if (_nestedFunctionDepth > 0) {
+                    _nestedFunctions.Add(fn);
+                }
+                _nestedFunctionDepth++;
                 FindLambdas(fn.Body);
+                _nestedFunctionDepth--;
                 break;
             case StructDeclaration str:
                 foreach (var m in str.Methods) FindLambdas(m);
@@ -2898,10 +2933,19 @@ public class TranspilerC {
                 foreach (var f in tupleLit.Fields) FindLambdas(f.Value);
                 break;
             case TestDeclaration testDecl:
+                _nestedFunctionDepth++;
                 FindLambdas(testDecl.Body);
+                _nestedFunctionDepth--;
                 break;
             case AssertStatement assertStmt:
                 FindLambdas(assertStmt.Expression);
+                break;
+            case VectorExpression vec:
+                if (vec.Elements != null) {
+                    foreach (var el in vec.Elements) FindLambdas(el);
+                }
+                if (vec.Len != null) FindLambdas(vec.Len);
+                if (vec.Init != null) FindLambdas(vec.Init);
                 break;
             case Expression expr:
                 // Since Expression is Statement, fallback to children inside expression types
@@ -3029,6 +3073,17 @@ public class TranspilerC {
             case AssertStatement assertStmt:
                 AnalyzeFreeVars(assertStmt.Expression, localScope, free);
                 break;
+            case VectorExpression vec:
+                if (vec.Elements != null) {
+                    foreach (var el in vec.Elements) AnalyzeFreeVars(el, localScope, free);
+                }
+                AnalyzeFreeVars(vec.Len, localScope, free);
+                if (vec.Init != null) {
+                    var initScope = new HashSet<string>(localScope);
+                    initScope.Add("it");
+                    AnalyzeFreeVars(vec.Init, initScope, free);
+                }
+                break;
         }
     }
 
@@ -3144,6 +3199,23 @@ public class TranspilerC {
             _indent--;
             _sb.AppendLine("}");
         }
+    }
+
+    private bool IsDirectFunctionReference(Expression expr, out string funcCName) {
+        funcCName = "";
+        if (expr is IdentifierExpression id) {
+            var name = id.Name;
+            if (_nestedFunctions.Any(f => f.Identifier == name)) {
+                funcCName = GetPrefixedName(name);
+                return true;
+            }
+            var modKey = _currentModuleName ?? "";
+            if (_moduleFunctions.TryGetValue(modKey, out var fns) && fns.Contains(name)) {
+                funcCName = GetPrefixedName(name);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void TranspileClosureRef(string name) {
