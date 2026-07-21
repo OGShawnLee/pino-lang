@@ -33,6 +33,7 @@ pub union Expression {
 	Binary(BinaryOperator, Expression, Expression)
 	Assignment(Expression, Expression)
 	Conditional(Expression, Expression, Expression)
+	FunctionCall(string, []Expression)
 }
 
 pub union ForInit {
@@ -53,8 +54,26 @@ pub union Statement {
 	Null
 }
 
+pub struct Parameter {
+	name string
+	type string
+}
+
+pub struct VariableDeclaration {
+	name string
+	init Option[Expression]
+}
+
+pub struct FunctionDeclaration {
+	name string
+	ret_type string
+	parameter_list []Parameter
+	body Option[Block]
+}
+
 pub union Declaration {
-	Declaration(string, Option[Expression])
+	VariableDeclaration(VariableDeclaration)
+	FunctionDeclaration(FunctionDeclaration)
 }
 
 pub union BlockItem {
@@ -66,12 +85,11 @@ pub union Block {
 	Block([]BlockItem)
 }
 
-pub union AST {
-	Program(AST)
-	Function(string, string, []string, Block)
+pub struct Program {
+	content []FunctionDeclaration
 }
 
-val PRECEDENCE_MAP = map[string, int] {
+val precedence_map = map[string, int] {
 	"*": 50
 	"/": 50
 	"%": 50
@@ -89,7 +107,7 @@ val PRECEDENCE_MAP = map[string, int] {
 	"=": 1
 }
 
-val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
+val binary_operator_map = map[string, BinaryOperator] {
 	"+": BinaryOperator::Add
 	"-": BinaryOperator::Subtract
 	"*": BinaryOperator::Multiply
@@ -107,38 +125,78 @@ val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
 	"?": BinaryOperator::Conditional
 }
 
-val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
+val unary_operator_map = map[string, UnaryOperator] {
 	"~": UnaryOperator::Complement
 	"-": UnaryOperator::Negate
 	"!": UnaryOperator::Not
 }
 
 fn is_binary_operator(token Token) bool {
-	return token:value in BINARY_OPERATOR_MAP
+	return token:value in binary_operator_map
 }
 
 fn get_precedence(token Token) int {
-	if token:value in PRECEDENCE_MAP	{
-		return PRECEDENCE_MAP[token:value]
+	if token:value in precedence_map	{
+		return precedence_map[token:value]
 	}
 
 	panic("PARSER: Invalid operator: \"$(token:value)\"")
 }
 
 fn parse_unary_operator(token Token) Result[UnaryOperator, string] {
-	if token:value in UNARY_OPERATOR_MAP	{
-		return Result::Success(UNARY_OPERATOR_MAP[token:value])
+	if token:value in unary_operator_map	{
+		return Result::Success(unary_operator_map[token:value])
 	}
 
 	return Result::Failure("PARSER: Expected operator. Got $(token:value)")
 }
 
 fn parse_binary_operator(token Token) Result[BinaryOperator, string] {
-	if token:value in BINARY_OPERATOR_MAP	{
-		return Result::Success(BINARY_OPERATOR_MAP[token:value])
+	if token:value in binary_operator_map	{
+		return Result::Success(binary_operator_map[token:value])
 	}
 
 	return Result::Failure("PARSER: Expected operator. Got $(token:value)")
+}
+
+fn parse_argument_list(stream TokenStream) Result[[]Expression, string] {
+	val argument_list = []Expression
+
+	if stream:is_match_and(TokenType::Marker, it:value == ",") {
+		return Result::Failure("PARSER: Expected argument before ',' in argument list.")
+	}
+
+	for {
+		val curr = stream:current() or {
+			break
+		}
+
+		if curr:value == ")" {
+			break
+		}
+
+		if curr:value == "," {
+			if stream:peek(1)?:value == "," {
+				return Result::Failure("PARSER: Expected argument after ',' in argument list.")
+			}
+
+			if stream:peek(1)?:value == ")" {
+				return Result::Failure("PARSER: Expected expression before ')' in argument list.")
+			}
+
+			stream:next()? 
+			continue
+		}
+
+		val expression = parse_expression(stream, 0)?
+		argument_list:push(expression)
+	}
+
+	stream:expect_and(TokenType::Marker, it:value == ")") or {
+		return Result::Failure("PARSER: Expected ')' Marker.")
+	}
+
+	return Result::Success(argument_list)
 }
 
 fn parse_factor(stream TokenStream) Result[Expression, string] {
@@ -167,6 +225,12 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
 			return Result::Success(inner_expression)
 		}
 		when TokenType::Identifier {
+			if stream:is_match_and(TokenType::Marker, it:value == "(") {
+				stream:next()
+				val arg_list = parse_argument_list(stream)?
+				return Result::Success(Expression::FunctionCall(next_token:value, arg_list))
+			}
+
 			return Result::Success(Expression::Var(next_token:value))
 		}
 		else {
@@ -236,14 +300,28 @@ fn parse_declaration(stream TokenStream) Result[Declaration, string] {
 			return Result::Failure("PARSER: Unable to parse declaration. Expected ';' Marker.")
 		}
 
-		return Result::Success(Declaration::Declaration(name_token:value, Option::Some(value)))
+		return Result::Success(
+			Declaration::VariableDeclaration(
+				VariableDeclaration {
+					name: name_token:value
+					init: Option::Some(value)
+				}
+			)
+		)
 	}
 
 	stream:expect_and(TokenType::Marker, it:value == ";") or {
 		return Result::Failure("PARSER: Unable to parse declaration. Expected ';' Marker.")
 	}
 
-	return Result::Success(Declaration::Declaration(name_token:value, Option::None))
+	return Result::Success(
+		Declaration::VariableDeclaration(
+			VariableDeclaration {
+				name: name_token:value
+				init: Option::None
+			}
+		)
+	)
 }
 
 fn parse_optional_expression(stream TokenStream, delimiter string) Result[Option[Expression], string] {
@@ -384,6 +462,15 @@ fn parse_statement(stream TokenStream) Result[Statement, string] {
 
 fn parse_block_item(stream TokenStream) Result[BlockItem, string] {
 	if stream:is_it(it:type == TokenType::Keyword and it:value == "int") {
+		if stream:peek(1)?:type == TokenType::Identifier and stream:peek(2)?:value == "(" {
+			val function_declaration = parse_function_definition(stream, false)?
+			return Result::Success(
+				BlockItem::Declaration(
+					Declaration::FunctionDeclaration(function_declaration)
+				)
+			)
+		}
+
 		val declaration = parse_declaration(stream)?
 		return Result::Success(BlockItem::Declaration(declaration))
 	}
@@ -418,37 +505,113 @@ fn parse_block(stream TokenStream) Result[Block, string] {
 	return Result::Success(Block::Block(block))
 }
 
-fn parse_function_definition(stream TokenStream) Result[AST, string] {
+fn parse_parameter_list(stream TokenStream) Result[[]Parameter, string] {
+	stream:expect_and(TokenType::Marker, it:value == "(") or {
+		return Result::Failure("PARSER: Unable to parse parameter list. Expected '(' Marker.")
+	}
+
+	if stream:is_it(it:value == ",") {
+		return Result::Failure("PARSER: Expected Type but found ',' in parameter list.")
+	}
+
+	if stream:is_it(it:value == ")") {
+		return Result::Failure("PARSER: Empty parameter list should be written as ('void') and not ().")
+	}
+
+	if stream:is_it(it:value == "void") {
+		stream:next()? 
+		stream:expect_and(TokenType::Marker, it:value == ")") or {
+			return Result::Failure("PARSER: Expected ')' Marker after 'void' in parameter list.")
+		}
+		return Result::Success([]Parameter)
+	}
+
+	val parameter_list = []Parameter
+
+	for {
+		val curr = stream:current() or { 
+			break
+		}
+
+		if curr:value == ")" {
+			break
+		}
+
+		if curr:value == "," {
+			if stream:peek(1)?:value == "," {
+				return Result::Failure("PARSER: Expected Type but found ','.")
+			}
+
+			if stream:peek(1)?:value == ")" {
+				return Result::Failure("PARSER: Expected Type but found ')' in parameter list.")
+			}
+
+			stream:next()? 
+			continue
+		}
+
+		val param_type_token = stream:expect(TokenType::Keyword) or {
+			return Result::Failure("PARSER: Unable to parse parameter. Expected parameter type.")
+		}
+		val param_name_token = stream:expect(TokenType::Identifier) or {
+			return Result::Failure("PARSER: Unable to parse parameter. Expected parameter name.")
+		}
+		parameter_list:push(Parameter { name: param_name_token:value, type: param_type_token:value })
+	}
+
+	stream:expect_and(TokenType::Marker, it:value == ")") or {
+		return Result::Failure("PARSER: Unable to parse parameter list. Expected ')' Marker.")
+	}
+
+	return Result::Success(parameter_list)
+}
+
+fn parse_function_definition(stream TokenStream, is_definition_allowed bool) Result[FunctionDeclaration, string] {
 	val return_type_token = stream:expect(TokenType::Keyword) or {
 		return Result::Failure("PARSER: Unable to parse function. Expected return type.");
 	}
 	val name_token = stream:expect(TokenType::Identifier) or {
 		return Result::Failure("PARSER: Unable to parse function. Expected function name.");
 	}
-	stream:expect_and(TokenType::Marker, it:value == "(") or {
-		return Result::Failure("PARSER: Unable to parse function. Expected '(' Marker.")
+	val parameter_list = parse_parameter_list(stream)?
+
+	if stream:is_it(it:value == ";") {
+		stream:next()? 
+		return Result::Success(
+			FunctionDeclaration {
+				ret_type: return_type_token:value,
+				name: name_token:value,
+				parameter_list: parameter_list,
+				body: Option::None
+			}
+		)
 	}
-	val parameter_type_token = stream:expect(TokenType::Keyword) or {
-		return Result::Failure("PARSER: Unable to parse function. Expected parameter type.")
-	}
-	stream:expect_and(TokenType::Marker, it:value == ")") or {
-		return Result::Failure("PARSER: Unable to parse function. Expected ')' Marker.")
+
+	if not is_definition_allowed {
+		return Result::Failure("PARSER: Function definition not allowed.")
 	}
 
 	return Result::Success(
-		AST::Function(
-			return_type_token:value,
-			name_token:value,
-			[parameter_type_token:value],
-			parse_block(stream)?
-		)
+		FunctionDeclaration {
+			ret_type: return_type_token:value,
+			name: name_token:value,
+			parameter_list: parameter_list,
+			body: Option::Some(parse_block(stream)?)
+		}
 	)
 }
 
-pub fn parse(stream TokenStream) Result[AST, string] {
+pub fn parse(stream TokenStream) Result[Program, string] {
+	val function_declarations = []FunctionDeclaration
+	
+	for {
+		val curr = stream:current() or { break }
+		function_declarations:push(parse_function_definition(stream, true)?)
+	}
+
 	return Result::Success(
-		AST::Program(
-			parse_function_definition(stream)?
-		)
+		Program {
+			content: function_declarations
+		}
 	)
 }

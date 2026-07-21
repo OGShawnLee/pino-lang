@@ -1,28 +1,30 @@
 module Checker
 
-from Parser import AST, Block, BlockItem, Declaration, Statement, Expression, ForInit
+from Parser import Program, Block, BlockItem, Declaration, VariableDeclaration, FunctionDeclaration, Parameter, Statement, Expression, ForInit
 
 struct Entity {
   unique_name string
   is_from_current_block bool
-} 
+  has_linkage bool
+}
 
-val TEMP_NAME_COUNTER = [0]
+val pseudo_name_counter = [0]
 
 fn copy_variable_map(variable_map map[string, Entity]) {
 	val new_map = map[string, Entity] {}
 	for name, entity in variable_map {
 		new_map[name] = Entity {
       unique_name: entity:unique_name,
-      is_from_current_block: false
+      is_from_current_block: false,
+      has_linkage: entity:has_linkage
     }
 	}
 	return new_map
-}
+} 
 
-fn generate_temp_name(initial_name string) {
-	val new_name = "$initial_name.$(TEMP_NAME_COUNTER[0])"
-	TEMP_NAME_COUNTER[0] += 1
+fn generate_pseudonym(name string) {
+	val new_name = "$name.$(pseudo_name_counter[0])"
+	pseudo_name_counter[0] += 1
 	return new_name
 }
 
@@ -62,29 +64,60 @@ fn resolve_expression(expression Expression, variable_map map[string, Entity]) R
       val resolved_false = resolve_expression(false_expr, variable_map)?
       return Result::Success(Expression::Conditional(resolved_condition, resolved_true, resolved_false))
     }
+    when Expression::FunctionCall(fn_name, arg_list) {
+      if fn_name not in variable_map {
+        return Result::Failure("CHECKER: Undeclared function '$(fn_name)'")
+      }
+
+      val new_fn_name = variable_map[fn_name]:unique_name
+      var resolved_arg_list = []Expression
+      for arg in arg_list {
+        resolved_arg_list:push(resolve_expression(arg, variable_map)?)
+      }
+
+      return Result::Success(Expression::FunctionCall(new_fn_name, resolved_arg_list))
+    }
 	}
 }
  
 fn resolve_declaration(declaration Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
   match declaration {
-    when Declaration::Declaration(declaration_name, init) {
-      if declaration_name in variable_map and variable_map[declaration_name]:is_from_current_block {
-        return Result::Failure("CHECKER: Variable '$(declaration_name)' already declared.")
+    when Declaration::VariableDeclaration(var_decl) {
+      if var_decl:name in variable_map and variable_map[var_decl:name]:is_from_current_block {
+        return Result::Failure("CHECKER: Variable '$(var_decl:name)' already declared.")
       }
 
-      val unique_name = generate_temp_name(declaration_name)
-      variable_map[declaration_name] = Entity { unique_name: unique_name, is_from_current_block: true }
+      val unique_name = generate_pseudonym(var_decl:name)
+      variable_map[var_decl:name] = Entity { 
+        unique_name: unique_name 
+        is_from_current_block: true
+        has_linkage: false
+      }
 
-      if init is Option::Some(expr) {
-        val resolved_init = resolve_expression(expr, variable_map)?
+      if var_decl:init is Option::Some(init) {
+        val resolved_init = resolve_expression(init, variable_map)?
         return Result::Success(
-          Declaration::Declaration(unique_name, Option::Some(resolved_init))
+          Declaration::VariableDeclaration(
+            VariableDeclaration {
+              name: unique_name
+              init: Option::Some(resolved_init)
+            }
+          )
         )
       }
 
       return Result::Success(
-        Declaration::Declaration(unique_name, Option::None)
+        Declaration::VariableDeclaration(
+          VariableDeclaration {
+            name: unique_name
+            init: Option::None
+          }
+        )
       )
+    }
+    when Declaration::FunctionDeclaration(fn_decl) {
+      val resolved_fn_decl = resolve_fn_decl(fn_decl, variable_map)?
+      return Result::Success(Declaration::FunctionDeclaration(resolved_fn_decl))
     }
   }
 }
@@ -201,27 +234,91 @@ fn resolve_block(block Block, variable_map map[string, Entity]) Result[Block, st
   }
 }
 
-pub fn resolve_ast(program AST) Result[AST, string] {
-  match program {
-    when AST::Program(body) {
-      return Result::Success(
-        AST::Program(resolve_ast(body)?)
-      )
-    }
-    when AST::Function(name, return_type, params, body_block) {
-      val variable_map = map[string, Entity] {}
-      return Result::Success(
-        AST::Function(name, return_type, params, resolve_block(body_block, variable_map)?)
-      )
-    }
+fn resolve_param(parameter Parameter, variable_map map[string, Entity]) Result[Parameter, string] {
+  if parameter:name in variable_map and variable_map[parameter:name]:is_from_current_block {
+    return Result::Failure("CHECKER: Parameter '$(parameter:name)' already declared.")
   }
+
+  val unique_name = generate_pseudonym(parameter:name)
+
+  variable_map[parameter:name] = Entity {
+    unique_name: unique_name
+    is_from_current_block: true
+    has_linkage: false
+  }
+
+  return Result::Success(
+    Parameter {
+      name: unique_name
+      type: parameter:type
+    }
+  )
 }
 
-val LOOP_LABEL_COUNTER = [0]
+fn resolve_fn_decl(fn_decl FunctionDeclaration, variable_map map[string, Entity]) Result[FunctionDeclaration, string] {
+  if fn_decl:name in variable_map {
+    val prev_entry = variable_map[fn_decl:name]
+    if prev_entry:is_from_current_block and not prev_entry:has_linkage {
+      return Result::Failure("CHECKER: Function $(fn_decl:name) already exists in current block.")
+    }
+  }
+
+  variable_map[fn_decl:name] = Entity {
+    unique_name: fn_decl:name
+    is_from_current_block: true
+    has_linkage: true
+  }
+
+  val inner_map = copy_variable_map(variable_map)
+  val new_param_list = []Parameter
+
+  for param in fn_decl:parameter_list {
+    new_param_list:push(
+      resolve_param(param, inner_map)?
+    )
+  }
+
+  if fn_decl:body is Option::Some(body) {
+    val resolved_body = resolve_block(body, inner_map)?
+    return Result::Success(
+      FunctionDeclaration {
+        name: fn_decl:name
+        ret_type: fn_decl:ret_type
+        parameter_list: new_param_list
+        body: Option::Some(resolved_body)
+      }
+    )
+  }
+
+  return Result::Success(
+    FunctionDeclaration {
+      name: fn_decl:name
+      ret_type: fn_decl:ret_type
+      parameter_list: new_param_list
+      body: Option::None
+    }
+  )
+}
+
+pub fn resolve_ast(program Program) Result[Program, string] {
+  val resolved_fn_decl_list = []FunctionDeclaration
+  val variable_map = map[string, Entity] {}
+  
+  for fn_decl in program:content {
+    val resolved_fn_decl = resolve_fn_decl(fn_decl, variable_map)?
+    resolved_fn_decl_list:push(resolved_fn_decl)
+  }
+  
+  return Result::Success(
+    Program { content: resolved_fn_decl_list }
+  )
+}
+
+val loop_label_counter = [0]
 
 fn generate_loop_label() string {
-  val label = "loop_label_$(LOOP_LABEL_COUNTER[0])"
-  LOOP_LABEL_COUNTER[0] += 1
+  val label = "loop_label_$(loop_label_counter[0])"
+  loop_label_counter[0] += 1
   return label
 }
 
@@ -329,19 +426,227 @@ fn label_block(block Block, current_label_opt Option[string]) Result[Block, stri
   }
 }
 
-pub fn label_ast(program AST) Result[AST, string] {
-  match program {
-    when AST::Program(body) {
-      val labeled_body = label_ast(body)?
-      return Result::Success(
-        AST::Program(labeled_body)
+pub fn label_ast(program Program) Result[Program, string] {
+  val labeled_fn_decl_list = []FunctionDeclaration
+
+  for fn_decl in program:content {
+    if fn_decl:body is Option::Some(block) {
+      val resolved_block = label_block(block, Option::None)?
+      labeled_fn_decl_list:push(
+        FunctionDeclaration {
+          name: fn_decl:name
+          ret_type: fn_decl:ret_type
+          parameter_list: fn_decl:parameter_list
+          body: Option::Some(resolved_block)
+        }
       )
-    }
-    when AST::Function(name, return_type, params, body_block) {
-      val resolved_body = label_block(body_block, Option::None)?
-      return Result::Success(
-        AST::Function(name, return_type, params, resolved_body)
-      )
+    } else {
+      labeled_fn_decl_list:push(fn_decl)
     }
   }
+
+  return Result::Success(Program { content: labeled_fn_decl_list })
+}
+
+pub union Type {
+  Integer
+  FunctionSignature(int, bool)
+}
+
+pub val symbol_table = map[string, Type] {}
+
+fn type_check_fn_call(name string, arg_list []Expression) Result[Type, string] {
+  if name not in symbol_table {
+    return Result::Failure("CHECKER: Function '$(name)' not defined.")
+  }
+  
+  return match symbol_table[name] {
+    when Type::Integer {
+      yield Result::Failure("CHECKER: Variable '$(name)' is not a function.")
+    }
+    when Type::FunctionSignature(param_list_len, is_defined) {
+      if param_list_len != arg_list:len {
+        yield Result::Failure("CHECKER: '$(name)' expects $(param_list_len) arguments, but got $(arg_list:len)")
+      }
+      
+      for arg in arg_list {
+        type_check_expr(arg)?
+      }
+
+      yield Result::Success(Type::Integer)
+    }
+  }
+}
+
+fn type_check_expr(expr Expression) Result[Type, string] {
+  match expr {
+    when Expression::Constant(n) {
+      return Result::Success(Type::Integer)
+    }
+    when Expression::Var(name) {
+      if name not in symbol_table {
+        return Result::Failure("CHECKER: Variable '$(name)' not defined.")
+      }
+
+      if symbol_table[name] is not Type::Integer {
+        return Result::Failure("CHECKER: Function '$(name)' used as an expression.")
+      }
+
+      return Result::Success(Type::Integer)
+    }
+    when Expression::Unary(un_operator, expr) {
+      type_check_expr(expr)?
+      return Result::Success(Type::Integer)
+    }
+    when Expression::Binary(bin_operator, left_expr, right_expr) {
+      type_check_expr(left_expr)?
+      type_check_expr(right_expr)?
+      return Result::Success(Type::Integer)
+    }
+    when Expression::Assignment(assignee, assigned) {
+      type_check_expr(assignee)?
+      type_check_expr(assigned)?
+      return Result::Success(Type::Integer)
+    }
+    when Expression::Conditional(condition_expr, then_expr, else_expr) {
+      type_check_expr(condition_expr)?
+      type_check_expr(then_expr)?
+      type_check_expr(else_expr)?
+      return Result::Success(Type::Integer)
+    }
+    when Expression::FunctionCall(name, arg_list) {
+      return type_check_fn_call(name, arg_list)
+    }
+  }
+}
+
+fn type_check_variable_decl(decl VariableDeclaration) Result[Type, string] {
+  symbol_table[decl:name] = Type::Integer
+  if decl:init is Option::Some(init_expr) {
+    type_check_expr(init_expr)?
+  }
+  return Result::Success(Type::Integer)
+}
+
+fn type_check_statement(statement Statement) Result[Type, string] {
+  return match statement {
+    when Statement::Return(expr) => type_check_expr(expr)
+    when Statement::Expression(expr) => type_check_expr(expr)
+    when Statement::If(condition_expr, then_stmt, else_stmt_opt) {
+      type_check_expr(condition_expr)?
+      type_check_statement(then_stmt)?
+      if else_stmt_opt is Option::Some(else_stmt) {
+        type_check_statement(else_stmt)?
+      }
+      yield Result::Success(Type::Integer)
+    }
+    when Statement::Compound(block) => type_check_block(block)
+    when Statement::Break(label_opt) => Result::Success(Type::Integer)
+    when Statement::Continue(label_opt) => Result::Success(Type::Integer)
+    when Statement::While(condition_expr, body_statement, label_opt) {
+      type_check_expr(condition_expr)?
+      type_check_statement(body_statement)?
+      yield Result::Success(Type::Integer)
+    }
+    when Statement::DoWhile(body_statement, condition_expr, label_opt) {
+      type_check_statement(body_statement)?
+      type_check_expr(condition_expr)?
+      yield Result::Success(Type::Integer)
+    }
+    when Statement::For(init_expr, condition_expr, increment_expr, body_statement, label_opt) {
+      type_check_for_init(init_expr)?
+      if condition_expr is Option::Some(condition) {
+        type_check_expr(condition)?
+      }
+      if increment_expr is Option::Some(increment) {
+        type_check_expr(increment)?
+      }
+      type_check_statement(body_statement)?
+      yield Result::Success(Type::Integer)
+    }
+    when Statement::Null => Result::Success(Type::Integer)
+  }
+}
+
+fn type_check_for_init(init ForInit) Result[Type, string] {
+  return match init {
+    when ForInit::Declaration(decl) => type_check_declaration(decl)
+    when ForInit::Expression(expr_opt) {
+      if expr_opt is Option::Some(expr) {
+        yield type_check_expr(expr)
+      }
+      yield Result::Success(Type::Integer)
+    }
+  }
+}
+
+fn type_check_declaration(decl Declaration) Result[Type, string] {
+  return match decl {
+    when Declaration::VariableDeclaration(var_decl) => type_check_variable_decl(var_decl)
+    when Declaration::FunctionDeclaration(fn_decl) => type_check_fn_declaration(fn_decl)
+  }
+}
+
+fn type_check_block_item(block_item BlockItem) Result[Type, string] {
+  return match block_item {
+    when BlockItem::Declaration(declaration) => type_check_declaration(declaration)
+    when BlockItem::Statement(statement) => type_check_statement(statement)
+  }
+}
+
+fn type_check_block(block Block) Result[Type, string] {
+  match block {
+    when Block::Block(block_items) {
+      for block_item in block_items {
+        type_check_block_item(block_item)?
+      }
+    }
+  }
+  
+  return Result::Success(Type::Integer)
+}
+
+fn type_check_fn_declaration(decl FunctionDeclaration) Result[Type, string] {
+  val has_body = decl:body is Option::Some
+  val fn_type = Type::FunctionSignature(decl:parameter_list:len, has_body)
+  var already_defined = false
+
+  if decl:name in symbol_table {
+    val old_decl = symbol_table[decl:name]
+    
+    match old_decl {
+      when Type::Integer {
+        return Result::Failure("CHECKER: '$(decl:name)' is a variable, not a function.")
+      }
+      when Type::FunctionSignature(old_param_list_len, old_has_body) {
+        if old_param_list_len != decl:parameter_list:len or old_has_body != has_body {
+          return Result::Failure("CHECKER: Function '$(decl:name)' has different signature than previous declaration.")
+        }
+        already_defined = old_has_body
+        if already_defined and has_body {
+          return Result::Failure("CHECKER: Function '$(decl:name)' has multiple definitions.")
+        }
+      }
+    }
+  }
+
+  symbol_table[decl:name] = fn_type
+
+  if decl:body is Option::Some(block) {
+    for param in decl:parameter_list {
+      symbol_table[param:name] = Type::Integer
+    }
+    
+    type_check_block(block)?
+  }
+
+  return Result::Success(fn_type)
+}
+
+pub fn type_check_ast(program Program) Result[map[string, Type], string] {
+  for fn_decl in program:content {
+    type_check_fn_declaration(fn_decl)?
+  }
+  
+  return Result::Success(symbol_table)
 }

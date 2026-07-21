@@ -1,6 +1,6 @@
 module Precompiler
 
-from Translator import ASTAssembly, ASMInstruction, ASMUnaryOperator, Operand, Reg
+from Translator import ASTAssembly, ASMFunctionDefinition, ASMInstruction, ASMUnaryOperator, Operand, Reg
 
 fn is_stack_operand(operand Operand) {
 	return match operand {
@@ -144,11 +144,17 @@ fn precompile_asm_instruction(instr ASMInstruction, pseudo_map map[string, int],
 			val resolved_operand = precompile_asm_operand(operand, pseudo_map, stack_counter)
 			yield [ASMInstruction::SetCC(cond_code, resolved_operand)]
 		}
+		when ASMInstruction::Push(dst_operand) => 
+			[ASMInstruction::Push(precompile_asm_operand(dst_operand, pseudo_map, stack_counter))]
 		else => [instr]
 	}
 }
 
-fn precompile_asm_instr_list(instr_list []ASMInstruction) []ASMInstruction {
+fn round_stack_size(stack_size int) int {
+	return ((stack_size + 15) / 16) * 16
+}
+
+fn precompile_asm_instr_list(instr_list []ASMInstruction) @(instr_list []ASMInstruction, stack_size int) {
 	val pseudo_map = map[string, int] {}
 	val stack_counter = [0]
 	val new_instr_list = []ASMInstruction
@@ -160,9 +166,12 @@ fn precompile_asm_instr_list(instr_list []ASMInstruction) []ASMInstruction {
 	}
 
 	val final_instr_list = []ASMInstruction
-	if stack_counter[0] > 0 {
+	val raw_stack_size = -stack_counter[0]
+	val size_in_bytes = round_stack_size(raw_stack_size)
+
+	if raw_stack_size > 0 {
 		final_instr_list:push(
-			ASMInstruction::AllocateStack(stack_counter[0])
+			ASMInstruction::AllocateStack(size_in_bytes)
 		)
 	}
 
@@ -170,16 +179,24 @@ fn precompile_asm_instr_list(instr_list []ASMInstruction) []ASMInstruction {
 		final_instr_list:push(instr)
 	}
 
-	return final_instr_list
+	return @(instr_list: final_instr_list, stack_size: stack_counter[0])
+}
+
+fn precompile_asm_fn_def(fn_def ASMFunctionDefinition) ASMFunctionDefinition {
+	match fn_def {
+		when ASMFunctionDefinition::Function(name, instr_list, stack_size) {
+			val @(instr_list: new_instr_list, stack_size: new_stack_size) = precompile_asm_instr_list(instr_list)
+			return ASMFunctionDefinition::Function(name, new_instr_list, new_stack_size)
+		}
+	}
 }
 
 pub fn precompile_asm(node ASTAssembly) ASTAssembly {
 	match node {
-		when ASTAssembly::Program(inner_node) {
-			return ASTAssembly::Program(precompile_asm(inner_node))
-		}
-		when ASTAssembly::Function(name, instr_list) {
-			return ASTAssembly::Function(name, precompile_asm_instr_list(instr_list))
+		when ASTAssembly::Program(fn_def_list) {
+			return ASTAssembly::Program(
+				fn_def_list:map(precompile_asm_fn_def)
+			)
 		}
 	}
 }

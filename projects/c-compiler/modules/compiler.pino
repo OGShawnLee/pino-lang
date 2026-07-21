@@ -1,24 +1,20 @@
 module Compiler
 
+from Utility import reduce
 from Translator import ASTAssembly, ASMInstruction, ASMUnaryOperator, Operand, Reg
 from Precompiler import precompile_asm
-
-struct Vector {
-	@generic[Item, Value]
-	static fn reduce(list []Item, initial Value, accumulator fn (Item, Value) Value) Value {
-		var result = initial
-		for element in list {
-			result = accumulator(element, result)
-		}
-		return result
-	}
-}
+from Checker import Type, symbol_table
 
 fn compile_operand_to_one_byte_reg_asm_alias(operand Operand) {
 	return match operand {
 		when Operand::Register(reg) => 
 			match reg {
 				when Reg::AX => "%al"
+				when Reg::CX => "%cl"
+				when Reg::DI => "%dil"
+				when Reg::SI => "%sil"
+				when Reg::R8 => "%r8b"
+				when Reg::R9 => "%r9b"
 				when Reg::DX => "%dl"
 				when Reg::R10 => "%r10b"
 				when Reg::R11 => "%r11b"
@@ -39,10 +35,29 @@ fn compile_cond_code_to_asm(cond_code CondCode) string {
 	}
 }
 
-fn compile_register_to_asm(reg Reg) string {
+fn compile_register_to_eight_byte_reg_asm_alias(reg Reg) string {
+	return match reg {
+		when Reg::AX => "%rax"
+		when Reg::DX => "%rdx"
+		when Reg::CX => "%rcx"
+		when Reg::DI => "%rdi"
+		when Reg::SI => "%rsi"
+		when Reg::R8 => "%r8"
+		when Reg::R9 => "%r9"
+		when Reg::R10 => "%r10"
+		when Reg::R11 => "%r11"
+	}
+}
+
+fn compile_register_to_four_byte_reg_asm_alias(reg Reg) string {
 	return match reg {
 		when Reg::AX => "%eax"
 		when Reg::DX => "%edx"
+		when Reg::CX => "%ecx"
+		when Reg::DI => "%edi"
+		when Reg::SI => "%esi"
+		when Reg::R8 => "%r8d"
+		when Reg::R9 => "%r9d"
 		when Reg::R10 => "%r10d"
 		when Reg::R11 => "%r11d"
 	}
@@ -51,9 +66,9 @@ fn compile_register_to_asm(reg Reg) string {
 fn compile_operand_to_asm(op Operand) string {
 	return match op {
 		when Operand::Immediate(integer) => "\$$integer"
-		when Operand::Register(reg) => compile_register_to_asm(reg)
+		when Operand::Register(reg) => compile_register_to_four_byte_reg_asm_alias(reg)
 		when Operand::Stack(offset) => "$offset(%rbp)"
-		when Operand::Pseudo(name) => panic("Unresolved pseudo: $name.")
+		when Operand::Pseudo(name) => panic("Compiler: Unresolved pseudo variable '$name'. Should have been caught by Precompiler.")
 	}
 }
 
@@ -88,20 +103,54 @@ fn compile_instruction_to_asm(inst ASMInstruction) string {
 		when ASMInstruction::JumpCC(cond_code, label) => "    j$(compile_cond_code_to_asm(cond_code)) .L$label\n"
 		when ASMInstruction::SetCC(cond_code, dst) => "    set$(compile_cond_code_to_asm(cond_code)) $(compile_operand_to_one_byte_reg_asm_alias(dst))\n"
 		when ASMInstruction::Label(label) => ".L$label:\n"
+		when ASMInstruction::DeallocateStack(size) => "    addq \$$size, %rsp\n"
+		when ASMInstruction::Push(operand) {
+			if operand is Operand::Register(reg) {
+				val compiled_reg_operand = compile_register_to_eight_byte_reg_asm_alias(reg)
+				yield "    pushq $compiled_reg_operand\n"
+			} 
+
+			val compiled_operand = compile_operand_to_asm(operand)
+			yield "    pushq $compiled_operand\n"
+		}
+		when ASMInstruction::Call(name) {
+			if name not in symbol_table {
+				panic("Compiler: Undeclared function: $name. Should have been caught by Type Checker.")
+			} 
+
+			val symbol_type = symbol_table[name]
+
+			if symbol_type is Type::FunctionSignature(param_list, is_defined) {
+				yield if is_defined then "    call $name\n" else "    call $name@PLT\n"
+			} 
+				
+			panic("Compiler: Unhandled symbol type: '$symbol_type' for function call '$name'. Should have been caught by Type Checker.")
+		}
+	}
+}
+
+fn compile_function_definition_to_asm(fn_def ASMFunctionDefinition) {
+	match fn_def {
+		when ASMFunctionDefinition::Function(name, instr_list, stack_size) {
+			return reduce(
+				instr_list,
+				".globl $name\n$name:\n    pushq %rbp\n    movq %rsp, %rbp\n",
+				fn (inst ASMInstruction, asm string) => asm + compile_instruction_to_asm(inst)
+			)
+		}
 	}
 }
 
 pub fn compile_ast_to_asm(node ASTAssembly) string {
 	match precompile_asm(node) {
-		when ASTAssembly::Program(inner_node) {
-			return compile_ast_to_asm(inner_node)
-		}
-		when ASTAssembly::Function(name, instructions) {
-			return Vector::reduce(
-				instructions,
-				".globl _$name\n_$name:\n    pushq %rbp\n    movq %rsp, %rbp\n",
-				fn (inst ASMInstruction, asm string) => asm + compile_instruction_to_asm(inst)
+		when ASTAssembly::Program(fn_def_list) {
+			val program = reduce(
+				fn_def_list,
+				"",
+				fn (fn_def ASMFunctionDefinition, asm string) => asm + compile_function_definition_to_asm(fn_def)
 			)
+
+			return "$program\n    .section .note.GNU-stack,\"\",@progbits\n"
 		}
 	}
 }

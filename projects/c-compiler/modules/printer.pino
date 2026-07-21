@@ -1,8 +1,8 @@
 module Printer
 
-from Parser import AST, Statement, Expression
+from Parser import Statement, Expression
 from Transformer import TACKY, Instruction
-from Translator import ASTAssembly, ASMInstruction
+from Translator import ASTAssembly, ASMFunctionDefinition, ASMInstruction
 
 fn get_indent(level int) string {
 	var indentation_string = ""
@@ -51,20 +51,37 @@ fn print_asm_instr(instr ASMInstruction, depth int) {
 		when ASMInstruction::Label(label) {
 			println("$indent $(label):")
 		}
+		when ASMInstruction::DeallocateStack(size) {
+			println("$indent add $size, %rsp")
+		}
+		when ASMInstruction::Push(operand) {
+			println("$indent push $(operand)")
+		}
+		when ASMInstruction::Call(label) {
+			println("$indent call $(label)")
+		}
+	}
+}
+
+fn print_asm_fn_decl(fn_decl ASMFunctionDefinition, depth int) {
+	match fn_decl {
+		when ASMFunctionDefinition::Function(name, instr_list, stack_size) {
+			val indent = get_indent(depth)
+			println("$indent $name:")
+			println("$indent $stack_size rsp")
+			for instruction in instr_list {
+				print_asm_instr(instruction, depth + 1)
+			}
+		}
 	}
 }
 
 pub fn print_asm(node ASTAssembly, depth int) {
 	match node {
-		when ASTAssembly::Program(inner_node) {
+		when ASTAssembly::Program(fn_decl_list) {
 			println("Program:")
-			print_asm(inner_node, depth + 1)
-		}
-		when ASTAssembly::Function(name, instructions) {
-			val indent = get_indent(depth)
-			println("$indent $(name):")
-			for instruction in instructions {
-				print_asm_instr(instruction, depth + 1)
+			for fn_decl in fn_decl_list {
+				print_asm_fn_decl(fn_decl, depth + 1)
 			}
 		}
 	}
@@ -99,18 +116,27 @@ fn print_ast_expression(node Expression, depth int) {
 			print_ast_expression(right, depth + 1)
 			print_ast_expression(left, depth + 1)
 		}
+		when Expression::FunctionCall(name, arguments) {
+			println("$indent Function Call: $name")
+			for argument in arguments {
+				print_ast_expression(argument, depth + 1)
+			}
+		}
 	}
 }
 
 fn print_ast_declaration(declaration Declaration, depth int) {
 	var indent = get_indent(depth)
 	match declaration {
-		when Declaration::Declaration(name, expr_option) {
-			println("$indent Declaration: $name")
-			val expression = expr_option or { 
+		when Declaration::VariableDeclaration(var_decl) {
+			println("$indent Variable Declaration: $(var_decl:name)")
+			val expr = var_decl:init or { 
 				return
 			}
-			print_ast_expression(expression, depth + 1)
+			print_ast_expression(expr, depth + 1)
+		}
+		when Declaration::FunctionDeclaration(fn_decl) {
+			print_ast_fn(fn_decl, depth)
 		}
 	}
 }
@@ -122,8 +148,8 @@ fn print_ast_statement(node Statement, depth int) {
 			println("$indent Return:":trim())
 			print_ast_expression(value, depth + 1)
 		}
-		when Statement::Expression(expression) {
-			print_ast_expression(expression, depth)
+		when Statement::Expression(expr) {
+			print_ast_expression(expr, depth)
 		}
 		when Statement::If(condition, then_stmt, else_stmt_opt) {
 			println("$indent If")
@@ -216,18 +242,29 @@ fn print_ast_block(block Block, depth int) {
 	}
 }
 
-pub fn print_ast(node AST, depth int) {
+fn print_ast_fn(fn_decl FunctionDeclaration, depth int) {
 	val indent = get_indent(depth)
-	match node {
-		when AST::Program(node) {
-			println("Program:")
-			print_ast(node, depth + 1)
+
+	if fn_decl:body is Option::Some(block) {
+		println("$indent Function Definition: $(fn_decl:ret_type) $(fn_decl:name)")
+		println("$(get_indent(depth + 1)) Parameters:")
+		for param in fn_decl:parameter_list {
+			println("$(get_indent(depth + 2)) $(param:type) $(param:name)")
 		}
-		when AST::Function(return_type, name, parameters, body_block) {
-			val parameter_list_str = parameters:join(", ")
-			println("$indent Function $return_type $name($parameter_list_str):":trim())
-			print_ast_block(body_block, depth + 1)
+		print_ast_block(block, depth + 1)
+	} else {
+		println("$indent Function Declaration: $(fn_decl:ret_type) $(fn_decl:name)")
+		println("$(get_indent(depth + 1)) Parameters:")
+		for param in fn_decl:parameter_list {
+			println("$(get_indent(depth + 2)) $(param:type) $(param:name)")
 		}
+	}
+}
+
+pub fn print_ast(program Program, depth int) {
+	println("Program:")
+	for func in program:content {
+		print_ast_fn(func, depth + 1)
 	}
 }
 
@@ -239,14 +276,15 @@ fn print_instruction(inst Instruction, depth int) {
 pub fn print_tacky(node TACKY, depth int) {
 	val indent = get_indent(depth)
 	match node {
-		when TACKY::Program(node) {
+		when TACKY::Program(fn_def_list) {
 			println("Program:")
-			print_tacky(node, depth + 1)
-		}
-		when TACKY::Function(name, instructions) {
-			println("$indent $(name):")
-			for instruction in instructions {
-				print_instruction(instruction, depth + 1)
+
+			for fn_def in fn_def_list {
+				val indent = get_indent(depth + 1)
+				println("$indent Function: $(fn_def:name)")
+				for instr in fn_def:instr_list {
+					print_instruction(instr, depth + 2)
+				}
 			}
 		}
 	}

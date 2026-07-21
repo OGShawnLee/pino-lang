@@ -1,40 +1,47 @@
 module Transformer
 
-from Parser import AST, Statement, Expression, UnaryOperator, BinaryOperator, Block, BlockItem, Declaration
+import Utility
+from Parser import Program, Statement, FunctionDeclaration, Expression, UnaryOperator, BinaryOperator, Block, BlockItem, Declaration
 
 pub union Val {
  Constant(int)
- Var(string) # identifier
+ Var(string)
 }
 
 pub union Instruction {
  Ret(Val)
- Unary(UnaryOperator, Val, Val) # op, src, dst
- Binary(BinaryOperator, Val, Val, Val) # op, left, right, dst
- Copy(Val, Val) # src, dst
- Jump(string) # target_label
- JumpIfZero(Val, string) # val, target_label
- JumpIfNotZero(Val, string) # val, target_label
- Label(string) # identifier
+ Unary(UnaryOperator, Val, Val)
+ Binary(BinaryOperator, Val, Val, Val)
+ Copy(Val, Val)
+ Jump(string)
+ JumpIfZero(Val, string)
+ JumpIfNotZero(Val, string)
+ Label(string)
+ FunctionCall(string, []Val, Val)
+}
+
+pub struct FunctionDefinition {
+	name string
+	parameter_list []string
+	instr_list []Instruction
 }
 
 pub union TACKY {
- Program(TACKY)
- Function(string, []Instruction)
+ Program([]FunctionDefinition)
 }
 
-val TEMP_VAR_NAME_COUNTER = [0]
-val LABEL_COUNTER = [0]
+val temp_var_name_counter = [0]
+val label_counter = [0]
 
 fn generate_temp_var_name() {
- val name = "tmp.$(TEMP_VAR_NAME_COUNTER[0])"
- TEMP_VAR_NAME_COUNTER[0] += 1
+ val name = "tmp.$(temp_var_name_counter[0])"
+ temp_var_name_counter[0] += 1
  return name
 }
 
 fn generate_label(prefix string) string {
-	val label = "$(prefix)_label_$(LABEL_COUNTER[0])"
-	LABEL_COUNTER[0] += 1
+	val label = "$(prefix)_label_$(label_counter[0])"
+	label_counter[0] += 1
 	return label
 }
 
@@ -146,6 +153,17 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
 		instr_list:push(Instruction::Copy(false_val, dst))
 		instr_list:push(Instruction::Label(true_label))
 
+		return dst
+	}
+	when Expression::FunctionCall(name, arg_list) {
+		val dst_name = generate_temp_var_name()
+		val dst = Val::Var(dst_name)
+
+		val evaluated_arg_list = arg_list:map(
+			fn (arg Expression) => emit_tacky(arg, instr_list)
+		)
+
+		instr_list:push(Instruction::FunctionCall(name, evaluated_arg_list, dst))
 		return dst
 	}
  }
@@ -282,10 +300,15 @@ fn translate_stmt_to_tacky_instr_list(stmt Statement, instr_list []Instruction) 
 
 fn translate_declaration_to_tacky_instr_list(declaration Declaration, instr_list []Instruction) {
 	match declaration {
-		when Declaration::Declaration(name, init_option) {
-			if init_option is Option::Some(expr) {
+		when Declaration::VariableDeclaration(var_decl) {
+			if var_decl:init is Option::Some(expr) {
 				val result = emit_tacky(expr, instr_list)
-				instr_list:push(Instruction::Copy(result, Val::Var(name)))
+				instr_list:push(Instruction::Copy(result, Val::Var(var_decl:name)))
+			}
+		}
+		when Declaration::FunctionDeclaration(fn_decl) {
+			if fn_decl:body is not Option::None {
+				panic("TACKY: Function Definition for '$(fn_decl:name)' outside of global scope.")
 			}
 		}
 	}
@@ -312,25 +335,37 @@ fn translate_block_to_tacky_instr_list(block Block, instr_list []Instruction) {
 	}
 }
 
-pub fn translate_ast_to_tacky(node AST) {
- match node {
-	when AST::Program(node) {
-		return TACKY::Program(translate_ast_to_tacky(node))
-	}
-	when AST::Function(return_type, name, parameters, body_block) {
+fn translate_fn_decl_to_fn_def(fn_decl FunctionDeclaration) Option[FunctionDefinition] {
+	if fn_decl:body is Option::Some(block) {
 		val instr_list = []Instruction
 
-		translate_block_to_tacky_instr_list(body_block, instr_list)
+		translate_block_to_tacky_instr_list(block, instr_list)
 
 		val is_empty_list = instr_list:len == 0
 		if is_empty_list or (instr_list[instr_list:len - 1] is not Instruction::Ret) {
 			instr_list:push(Instruction::Ret(Val::Constant(0)))
 		}
 
-		return TACKY::Function(
-			name,
-			instr_list
-		)
+		return Option::Some(FunctionDefinition {
+			name: fn_decl:name
+			parameter_list: fn_decl:parameter_list:map(it:name)
+			instr_list: instr_list
+		})
+	}
+
+	return Option::None
+}
+
+pub fn translate_ast_to_tacky(program Program) {
+ val fn_def_list = []FunctionDefinition
+ 
+ for fn_declaration in program:content {
+	val fn_definition_opt = translate_fn_decl_to_fn_def(fn_declaration)
+	
+	if fn_definition_opt is Option::Some(fn_definition) {
+		fn_def_list:push(fn_definition)
 	}
  }
+
+ return TACKY::Program(fn_def_list)
 }

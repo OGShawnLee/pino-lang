@@ -1,19 +1,29 @@
-from Lexer import TokenType, TokenStream, lex
-from Parser import AST, parse
-from Checker import resolve_ast, label_ast
+from Lexer import TokenType, TokenStream, lex_line_list
+from Parser import parse
+from Checker import resolve_ast, label_ast, type_check_ast
 from Transformer import translate_ast_to_tacky
 from Printer import print_ast, print_tacky, print_asm
 from Translator import translate_ast_to_asm
 from Compiler import compile_ast_to_asm
 
+fn get_file_lines() Result[[]string, string]{
+	val content = read_file("projects/c-compiler/main.c") or {
+		println(err)
+		return Result::Failure("Unable to read 'main.c'.")
+	}
+
+	return Result::Success(content:split("\n"))
+}
+
 fn main {
+	val begin = time()
 	println("Welcome to the Pino C Compiler!")
 
-	val program = "int main(void) { for (int a = 12; a > 0; a = a - 1) { while (a < 12) { continue; } break; } }"
+	val line_list = get_file_lines() or {
+		panic(err)
+	}
 
-	println("C Input: $program")
-
-	val token_stream = lex(program) or {
+	val token_stream = lex_line_list(line_list) or {
 		panic(err)
 	}
 
@@ -28,6 +38,14 @@ fn main {
 	}
 
 	println("Abstract Syntax Tree (VARIABLE RESOLUTION PASSED):")
+	
+	val variable_map = type_check_ast(resolved_program_ast) or {
+		panic(err)
+	}
+
+	println("Abstract Syntax Tree (TYPE CHECKING PASSED):")
+	println("Symbol Table")
+	println(variable_map)
 
 	val labeled_program_ast = label_ast(resolved_program_ast) or {
 		panic(err)
@@ -50,4 +68,10 @@ fn main {
 
 	println("ASM Output:")
 	println(assembly)
+
+	write_file("projects/c-compiler/main.s", assembly) or {
+		panic("Unable to write Assembly Output to 'main.s'")
+	}
+	
+	println("Done in $(time() - begin) ms")
 }

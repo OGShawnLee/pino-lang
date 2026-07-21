@@ -67,3 +67,7 @@ benchmarks/benchmark_rust.pdb
 # Temp Issue Tracking
 issue.md
 /tooling
+
+# C Compiler
+/projects/c-compiler/*.s
+/projects/c-compiler/*.c

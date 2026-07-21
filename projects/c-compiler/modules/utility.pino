@@ -1,0 +1,18 @@
+module Utility
+
+@generic[Item, Value]
+pub fn reduce(list []Item, initial Value, accumulator fn (Item, Value) Value) Value {
+  var result = initial
+  for element in list {
+    result = accumulator(element, result)
+  }
+  return result
+}
+
+@generic[Item]
+pub fn reverse(list []Item) []Item {
+  return []Item {
+    len: list:len
+    init: list[list:len - it - 1]
+  }
+}

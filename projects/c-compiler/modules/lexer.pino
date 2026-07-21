@@ -111,7 +111,7 @@ val BINARY_OPERATOR_REGEX = regex("^(\+|\*|/|%|&&|\|\||==|!=|<=|>=|<|>|=)")
 val UNARY_OPERATOR_REGEX = regex("^(--|-|~|!)")
 val IDENTIFIER_REGEX = regex("^[a-zA-Z_][a-zA-Z0-9_]*")
 val KEYWORD_REGEX = regex("^(int|void|return|if|else|do|while|for|continue|break)")
-val MARKER_REGEX = regex("^[(){};?:]")
+val MARKER_REGEX = regex("^[(){};?:,]")
 val NUMERIC_REGEX = regex("^[0-9]+")
 val WHITE_SPACE_REGEX = regex("^\s+")
 val TOKEN_RULE_LIST = [
@@ -123,7 +123,7 @@ val TOKEN_RULE_LIST = [
 	TokenRule { pattern: UNARY_OPERATOR_REGEX, type: TokenType::UnaryOperator }
 ]
 
-pub fn lex(line string) Result[TokenStream, string] {
+pub fn lex_line(line string) Result[[]Token, string] {
 	val token_list = []Token
 
 	for line:len > 0 {
@@ -147,6 +147,22 @@ pub fn lex(line string) Result[TokenStream, string] {
 
 		if not match_found {
 			return Result::Failure("No rule matched for line '$line'")
+		}
+	}
+
+	return Result::Success(token_list)
+}
+
+pub fn lex_line_list(line_list []string) Result[TokenStream, string] {
+	val token_list = []Token
+
+	for line in line_list {
+		val token_on_line_list = lex_line(line) or {
+			return Result::Failure("LEXER: Failed to lex line '$line'")
+		}
+		
+		for token in token_on_line_list {
+			token_list:push(token)
 		}
 	}
 

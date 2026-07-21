@@ -1,7 +1,8 @@
 module Translator
 
 from Parser import UnaryOperator, BinaryOperator
-from Transformer import TACKY, Instruction, Val
+from Transformer import TACKY, FunctionDefinition, Instruction, Val
+from Utility import reverse
 
 pub union CondCode {
 	E
@@ -25,7 +26,12 @@ pub union ASMBinaryOperator {
 
 pub union Reg {
 	AX
+	CX
 	DX
+	DI
+	SI
+	R8
+	R9
 	R10
 	R11
 }
@@ -49,15 +55,30 @@ pub union ASMInstruction {
 	Label(string)
 	Unary(ASMUnaryOperator, Operand)
 	AllocateStack(int)
+	DeallocateStack(int)
+	Push(Operand)
+	Call(string)
 	Ret
 }
 
-pub union ASTAssembly {
-	Program(ASTAssembly)
-	Function(string, []ASMInstruction)
+pub union ASMFunctionDefinition {
+	Function(string, []ASMInstruction, int)
 }
 
-val BINARY_OPERATOR_TO_COND_CODE_MAP = map[BinaryOperator, CondCode] {
+pub union ASTAssembly {
+	Program([]ASMFunctionDefinition)
+}
+
+val arg_register_list = [
+	Reg::DI
+	Reg::SI
+	Reg::DX
+	Reg::CX
+	Reg::R8
+	Reg::R9
+]
+
+val binary_operator_to_cond_code_map = map[BinaryOperator, CondCode] {
 	BinaryOperator::GreaterThan: CondCode::G
 	BinaryOperator::LessThan: CondCode::L
 	BinaryOperator::Equal: CondCode::E
@@ -67,8 +88,8 @@ val BINARY_OPERATOR_TO_COND_CODE_MAP = map[BinaryOperator, CondCode] {
 }
 
 fn translate_binary_operator_to_cond_code(binary_operator BinaryOperator) {
-	if binary_operator in BINARY_OPERATOR_TO_COND_CODE_MAP {
-		return BINARY_OPERATOR_TO_COND_CODE_MAP[binary_operator]
+	if binary_operator in binary_operator_to_cond_code_map {
+		return binary_operator_to_cond_code_map[binary_operator]
 	}
 
 	panic("Cannot translate binary operator $binary_operator to cond code.")
@@ -181,6 +202,60 @@ fn translate_unary_instr_to_asm_instr(
 	}
 }
 
+val is_odd = fn (n int) => n % 2 != 0
+
+fn convert_function_call(name string, arg_list []Val, dst Val) {
+	val instr_list = []ASMInstruction
+	val register_arg_list = []Val
+	val stack_arg_list = []Val
+	
+	for index, tacky_arg in arg_list {
+		if index < 6 {
+			register_arg_list:push(tacky_arg)
+		}	 else {
+			stack_arg_list:push(tacky_arg)
+		}
+	}
+
+	val stack_padding = if is_odd(stack_arg_list:len) then 8 else 0
+
+	if stack_padding != 0 {
+		instr_list:push(ASMInstruction::AllocateStack(stack_padding))
+	}
+
+	for index, tacky_arg in register_arg_list {
+		val register = arg_register_list[index]
+		val asm_arg = translate_to_asm_operand(tacky_arg)
+		instr_list:push(
+			ASMInstruction::Mov(asm_arg, Operand::Register(register))
+		)
+	}
+
+	for tacky_arg in reverse(stack_arg_list) {
+		val asm_arg = translate_to_asm_operand(tacky_arg)
+		if asm_arg is Operand::Register or asm_arg is Operand::Immediate {
+			instr_list:push(ASMInstruction::Push(asm_arg))
+		} else {
+			instr_list:push(ASMInstruction::Mov(asm_arg, Operand::Register(Reg::AX)))
+			instr_list:push(ASMInstruction::Push(Operand::Register(Reg::AX)))
+		}
+	}
+
+	instr_list:push(ASMInstruction::Call(name))
+
+	val bytes_to_remove = 8 * stack_arg_list:len + stack_padding
+	if bytes_to_remove != 0{
+		instr_list:push(ASMInstruction::DeallocateStack(bytes_to_remove))
+	}
+
+	val asm_dst = translate_to_asm_operand(dst)
+	instr_list:push(
+		ASMInstruction::Mov(Operand::Register(Reg::AX), asm_dst)
+	)
+
+	return instr_list
+}
+
 fn translate_instr_to_asm_instr_list(instr Instruction) []ASMInstruction {
 	return match instr {
 		when Instruction::Ret(value) => [
@@ -207,22 +282,53 @@ fn translate_instr_to_asm_instr_list(instr Instruction) []ASMInstruction {
 		when Instruction::Copy(src, dst) => [
 			ASMInstruction::Mov(translate_to_asm_operand(src), translate_to_asm_operand(dst))
 		]
+		when Instruction::FunctionCall(name, arg_list, dst) =>
+			convert_function_call(name, arg_list, dst)
 	}
+}
+
+fn translate_fn_def_to_asm_fn_def(fn_def FunctionDefinition) ASMFunctionDefinition {
+	val instr_list = []ASMInstruction
+	val register_arg_list = []string
+	val stack_arg_list = []string
+
+	for index, param_name in fn_def:parameter_list {
+		if index < 6 {
+			register_arg_list:push(param_name)
+		} else {
+			stack_arg_list:push(param_name)
+		}
+	}
+
+	for index, param_name in register_arg_list {
+		val register = arg_register_list[index]
+		instr_list:push(
+			ASMInstruction::Mov(Operand::Register(register), Operand::Pseudo(param_name))
+		)
+	}
+
+	for index, param_name in stack_arg_list {
+		val stack_offset = 8 * index + 16
+		instr_list:push(
+			ASMInstruction::Mov(Operand::Stack(stack_offset), Operand::Pseudo(param_name))
+		)
+	}
+
+	for instr in fn_def:instr_list {
+		for asm_instr in translate_instr_to_asm_instr_list(instr) {
+			instr_list:push(asm_instr)
+		}
+	}
+
+	return ASMFunctionDefinition::Function(fn_def:name, instr_list, 0)
 }
 
 pub fn translate_ast_to_asm(node TACKY) ASTAssembly {
 	match node {
-		when TACKY::Program(inner_node) {
-			return ASTAssembly::Program(translate_ast_to_asm(inner_node))
-		}
-		when TACKY::Function(name, instr_list) {
-			val asm_instr_list = []ASMInstruction
-			for instr in instr_list {
-				for asm_instr in translate_instr_to_asm_instr_list(instr) {
-					asm_instr_list:push(asm_instr)
-				}
-			}
-			return ASTAssembly::Function(name, asm_instr_list)
+		when TACKY::Program(fn_def_list) {
+			return ASTAssembly::Program(
+				fn_def_list:map(translate_fn_def_to_asm_fn_def)
+			)
 		}
 	}
 }
