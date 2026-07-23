@@ -1,0 +1,159 @@
+struct Point {
+  x int
+  y int
+}
+
+fn get_one_option(n int) Option[int] {
+  if n > 0 {
+    return Option::Some(n)
+  }
+  return Option::None
+}
+
+fn get_struct_option(n int) Option[Point] {
+  if n > 0 {
+    return Option::Some(Point { x: n, y: n * 2 })
+  }
+  return Option::None
+}
+
+fn get_one_result(n int) Result[int, string] {
+  if n > 0 {
+    return Result::Success(n)
+  }
+  return Result::Failure("Value is not positive.")
+}
+
+fn get_struct_result(n int) Result[Point, string] {
+  if n > 0 {
+    return Result::Success(Point { x: n, y: n * 10 })
+  }
+  return Result::Failure("Point creation failed.")
+}
+
+fn helper_early_return(n int) int {
+  val val_opt = get_one_option(n) or {
+    return -1
+  }
+  return val_opt * 2
+}
+
+fn helper_result_early_return(n int) Result[int, string] {
+  val res_val = get_one_result(n) or {
+    return Result::Failure("Propagated: $err")
+  }
+  return Result::Success(res_val + 100)
+}
+
+test "OR Block: Should yield the given default value with an Option." {
+  val n = get_one_option(0) or {
+    yield 20
+  }
+  assert n == 20 
+}
+
+test "OR Block: Should not yield the option value when Option has a value." {
+  val n = get_one_option(1) or {
+    yield 20
+  }
+  assert n == 1
+}
+
+test "OR Block: Should yield the given default value with a Result." {
+  val n = get_one_result(0) or {
+    yield 20
+  }
+  assert n == 20
+}
+
+test "OR Block: Should not yield the result value when Result has a value." {
+  val n = get_one_result(1) or {
+    yield 20
+  }
+  assert n == 1
+}
+
+test "OR Block: Should expose implicit 'err' variable in Result failure." {
+  var caught_err = ""
+  val n = get_one_result(-5) or {
+    caught_err = err
+    yield 99
+  }
+  assert n == 99
+  assert caught_err == "Value is not positive."
+}
+
+test "OR Block: Should allow early return from function when Option is None." {
+  assert helper_early_return(0) == -1
+  assert helper_early_return(5) == 10
+}
+
+test "OR Block: Should allow early return with Result error propagation." {
+  val fail_res = helper_result_early_return(-1)
+  match fail_res {
+    when Result::Failure(msg) {
+      assert msg == "Propagated: Value is not positive."
+    }
+    when Result::Success(v) {
+      assert false
+    }
+  }
+
+  val succ_res = helper_result_early_return(5)
+  match succ_res {
+    when Result::Success(v) {
+      assert v == 105
+    }
+    when Result::Failure(msg) {
+      assert false
+    }
+  }
+}
+
+test "OR Block: Should mutate outer variables within OR block." {
+  var side_effect_counter = 0
+  val val1 = get_one_option(0) or {
+    side_effect_counter += 1
+    yield 100
+  }
+  assert val1 == 100
+  assert side_effect_counter == 1
+
+  val val2 = get_one_option(5) or {
+    side_effect_counter += 1
+    yield 200
+  }
+  assert val2 == 5
+  assert side_effect_counter == 1
+}
+
+test "OR Block: Should work with custom structs for Option and Result." {
+  val p1 = get_struct_option(0) or {
+    yield Point { x: 0, y: 0 }
+  }
+  assert p1:x == 0
+  assert p1:y == 0
+
+  val p2 = get_struct_option(3) or {
+    yield Point { x: 0, y: 0 }
+  }
+  assert p2:x == 3
+  assert p2:y == 6
+
+  val p3 = get_struct_result(-1) or {
+    assert err == "Point creation failed."
+    yield Point { x: -1, y: -1 }
+  }
+  assert p3:x == -1
+  assert p3:y == -1
+}
+
+test "OR Block: Should support nested OR blocks." {
+  val res = get_one_option(0) or {
+    val inner = get_one_option(0) or {
+      yield 777
+    }
+    yield inner + 1
+  }
+  assert res == 778
+}

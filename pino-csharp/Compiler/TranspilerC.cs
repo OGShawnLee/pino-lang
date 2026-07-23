@@ -2197,6 +2197,68 @@ public class TranspilerC {
                 }
                 break;
 
+            case RecoveryExpression rec:
+                {
+                    Write("({ ");
+                    var innerType = rec.Value.InferredType!;
+                    var cleanInner = CleanTypeName(innerType);
+                    var varName = $"_pino_or_val_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                    var resultType = rec.InferredType ?? "any";
+                    var resVar = $"_pino_or_res_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+
+                    Write($"{cleanInner}* {varName} = ");
+                    TranspileExpression(rec.Value);
+                    Write("; ");
+
+                    Write($"{MapType(resultType)} {resVar}; ");
+
+                    var unionDecl = FindUnion(innerType);
+                    string successVariant = "Success";
+                    string failureVariant = "Failure";
+                    if (unionDecl != null) {
+                        if (unionDecl.Variants.Exists(v => v.Identifier == "Some")) {
+                            successVariant = "Some";
+                            failureVariant = "None";
+                        }
+                    }
+
+                    Write($"if ({varName}->tag == {cleanInner}Tag_{successVariant}) {{ ");
+                    Write($"{resVar} = {varName}->value.{successVariant}._0; ");
+                    Write("} else { ");
+
+                    _matchResultVars.Push(resVar);
+                    if (failureVariant == "Failure") {
+                        Write($"const char* err = {varName}->value.Failure._0; ");
+                    } else {
+                        Write($"const char* err = \"None\"; ");
+                    }
+
+                    if (rec.Body is BlockStatement block) {
+                        for (int i = 0; i < block.Statements.Count; i++) {
+                            var s = block.Statements[i];
+                            if (i == block.Statements.Count - 1 && s is Expression exprStmt && !(exprStmt is YieldStatement)) {
+                                Write($"{resVar} = ");
+                                TranspileExpression(exprStmt);
+                                Write("; ");
+                            } else {
+                                TranspileStatement(s);
+                            }
+                        }
+                    } else if (rec.Body is Expression bodyExpr && !(bodyExpr is YieldStatement)) {
+                        Write($"{resVar} = ");
+                        TranspileExpression(bodyExpr);
+                        Write("; ");
+                    } else {
+                        TranspileStatement(rec.Body);
+                    }
+
+                    _matchResultVars.Pop();
+                    Write("} ");
+
+                    Write($"{resVar}; }})");
+                }
+                break;
+
             default:
                 throw new NotImplementedException($"Expression type {expr.GetType().Name} not implemented in Transpiler.");
         }

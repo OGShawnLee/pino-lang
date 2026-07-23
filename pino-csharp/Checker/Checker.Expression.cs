@@ -480,9 +480,20 @@ public partial class Checker {
         CheckExpression(isExpr.Value);
         break;
 
-      case RecoveryExpression rec:
+      case RecoveryExpression rec: {
         CheckExpression(rec.Value);
+        var savedYield = _currentYieldType;
+        _currentYieldType = "any";
+        PushScope();
+        DeclareVariable("err", "string");
+        try {
+          CheckStatement(rec.Body);
+        } finally {
+          PopScope();
+          _currentYieldType = savedYield;
+        }
         break;
+      }
 
       case MatchStatement match:
         CheckExpression(match.Condition);

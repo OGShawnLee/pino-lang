@@ -12,6 +12,8 @@ public partial class Parser {
            current.IsKeyword(KeywordType.Match) ||
            current.IsMarker(MarkerType.ParenthesisBegin) ||
            (current.IsMarker(MarkerType.At) && stream.Peek(1).IsMarker(MarkerType.ParenthesisBegin)) ||
+           current.IsOperator(OperatorType.Not) ||
+           current.IsOperator(OperatorType.Subtraction) ||
            current.IsType(TokenType.Identifier, TokenType.Literal);
   }
 
