@@ -177,6 +177,7 @@ public class TranspilerC {
                     _structSb.AppendLine($"{retType} {structName}_{method.Identifier}({methodParams});");
                 }
                 GenerateStructToString(structDecl);
+                GenerateStructEquals(structDecl);
                 _structSb.AppendLine();
             } else if (decl is EnumDeclaration enumDecl) {
                 var enumName = GetPrefixedName(enumDecl.Identifier);
@@ -235,6 +236,7 @@ public class TranspilerC {
                     }
                 }
                 GenerateUnionToString(unionDecl);
+                GenerateUnionEquals(unionDecl);
                 _structSb.AppendLine();
             } else if (decl is FunctionDeclaration fnDecl && fnDecl.Identifier != "main") {
                 if (fnDecl.GenericParams != null && fnDecl.GenericParams.Count > 0) continue;
@@ -878,6 +880,94 @@ public class TranspilerC {
         _sb.AppendLine(body.ToString());
     }
 
+    private string EmitTypeEqualityCheck(string rawType, string aVal, string bVal) {
+        string mappedType = MapType(rawType);
+        string typeName = CleanTypeName(rawType);
+
+        if (rawType == "string" || mappedType == "const char*" || mappedType == "char*") {
+            return $"(({aVal} == {bVal}) || ({aVal} && {bVal} && strcmp({aVal}, {bVal}) == 0))";
+        }
+        if (rawType == "int" || rawType == "float" || rawType == "bool" || rawType == "rune" || mappedType == "int" || mappedType == "double" || mappedType == "bool" || mappedType == "long" || mappedType == "uint32_t") {
+            return $"({aVal} == {bVal})";
+        }
+        if (rawType.StartsWith("[]") || rawType.StartsWith("Vector_")) {
+            MapType(rawType);
+            return $"{typeName}_equals({aVal}, {bVal})";
+        }
+        if (FindUnion(typeName) != null || FindUnion(rawType) != null) {
+            return $"{typeName}_equals({aVal}, {bVal})";
+        }
+        if (_structFields.ContainsKey(typeName) || _structFields.ContainsKey(rawType)) {
+            return $"{typeName}_equals({aVal}, {bVal})";
+        }
+        return $"({aVal} == {bVal})";
+    }
+
+    private bool IsComplexType(string? type) {
+        if (string.IsNullOrEmpty(type) || type == "any") return false;
+        string clean = CleanTypeName(type);
+        if (type.StartsWith("[]") || type.StartsWith("Vector_")) return true;
+        if (FindUnion(clean) != null || FindUnion(type) != null) return true;
+        if (_structFields.ContainsKey(clean) || _structFields.ContainsKey(type)) return true;
+        return false;
+    }
+
+    private void GenerateStructEquals(StructDeclaration structDecl) {
+        var structName = GetPrefixedName(structDecl.Identifier);
+        _structSb.AppendLine($"bool {structName}_equals(const {structName}* a, const {structName}* b);");
+
+        var body = new StringBuilder();
+        body.AppendLine($"bool {structName}_equals(const {structName}* a, const {structName}* b) {{");
+        body.AppendLine("    if (a == b) return true;");
+        body.AppendLine("    if (!a || !b) return false;");
+        var allFields = structDecl.Fields;
+        if (allFields.Count == 0) {
+            body.AppendLine("    return true;");
+        } else {
+            var conds = new List<string>();
+            foreach (var field in allFields) {
+                var aVal = $"a->{field.Identifier}";
+                var bVal = $"b->{field.Identifier}";
+                conds.Add(EmitTypeEqualityCheck(field.Typing, aVal, bVal));
+            }
+            body.AppendLine($"    return {string.Join(" && ", conds)};");
+        }
+        body.AppendLine("}");
+        _sb.AppendLine(body.ToString());
+    }
+
+    private void GenerateUnionEquals(UnionDeclaration unionDecl) {
+        var unionName = GetPrefixedName(unionDecl.Identifier);
+        _structSb.AppendLine($"bool {unionName}_equals(const {unionName}* a, const {unionName}* b);");
+
+        var body = new StringBuilder();
+        body.AppendLine($"bool {unionName}_equals(const {unionName}* a, const {unionName}* b) {{");
+        body.AppendLine("    if (a == b) return true;");
+        body.AppendLine("    if (!a || !b) return false;");
+        body.AppendLine("    if (a->tag != b->tag) return false;");
+        body.AppendLine("    switch (a->tag) {");
+        foreach (var variant in unionDecl.Variants) {
+            body.AppendLine($"        case {unionName}Tag_{variant.Identifier}: {{");
+            if (variant.AssociatedTypes.Count == 0) {
+                body.AppendLine("            return true;");
+            } else {
+                var conds = new List<string>();
+                for (int i = 0; i < variant.AssociatedTypes.Count; i++) {
+                    var type = variant.AssociatedTypes[i];
+                    var aVal = $"a->value.{variant.Identifier}._{i}";
+                    var bVal = $"b->value.{variant.Identifier}._{i}";
+                    conds.Add(EmitTypeEqualityCheck(type, aVal, bVal));
+                }
+                body.AppendLine($"            return {string.Join(" && ", conds)};");
+            }
+            body.AppendLine("        }");
+        }
+        body.AppendLine("        default: return false;");
+        body.AppendLine("    }");
+        body.AppendLine("}");
+        _sb.AppendLine(body.ToString());
+    }
+
     private string MapType(string pinoType) {
         if (string.IsNullOrEmpty(pinoType)) return "void";
         pinoType = ResolveTypeName(pinoType);
@@ -1119,6 +1209,28 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"        if ({elemEqExpr}) return true;");
                 _tupleSb.AppendLine($"    }}");
                 _tupleSb.AppendLine($"    return false;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                string vecEqExpr;
+                if (elemType == "string") {
+                    vecEqExpr = "((a == b) || (a && b && strcmp(a, b) == 0))";
+                } else if (elemType == "int" || elemType == "float" || elemType == "bool" || elemType == "rune" || cElemType == "int" || cElemType == "double" || cElemType == "bool" || cElemType == "long") {
+                    vecEqExpr = "(a == b)";
+                } else {
+                    vecEqExpr = $"{CleanTypeName(elemType)}_equals(a, b)";
+                }
+
+                _tupleSb.AppendLine($"static inline bool {clean}_equals({clean}* a, {clean}* b) {{");
+                _tupleSb.AppendLine($"    if (a == b) return true;");
+                _tupleSb.AppendLine($"    if (!a || !b) return false;");
+                _tupleSb.AppendLine($"    if (a->length != b->length) return false;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < a->length; i++) {{");
+                _tupleSb.AppendLine($"        {cElemType} a_elem = a->items[i];");
+                _tupleSb.AppendLine($"        {cElemType} b_elem = b->items[i];");
+                _tupleSb.AppendLine($"        if (!({vecEqExpr.Replace("a", "a_elem").Replace("b", "b_elem")})) return false;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return true;");
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
             }
@@ -1839,6 +1951,19 @@ public class TranspilerC {
                         _ => throw new NotImplementedException()
                     };
                     Write($" {opStr}");
+                    Write(")");
+                } else if ((bin.Operator == OperatorType.Equal || bin.Operator == OperatorType.NotEqual) &&
+                           IsComplexType(bin.Left.InferredType ?? bin.Right.InferredType)) {
+                    string type = bin.Left.InferredType ?? bin.Right.InferredType ?? "any";
+                    string cleanType = CleanTypeName(type);
+                    if (type.StartsWith("[]") || type.StartsWith("Vector_")) {
+                        MapType(type);
+                    }
+                    if (bin.Operator == OperatorType.NotEqual) Write("!");
+                    Write($"{cleanType}_equals(");
+                    TranspileExpression(bin.Left);
+                    Write(", ");
+                    TranspileExpression(bin.Right);
                     Write(")");
                 } else {
                     Write("(");

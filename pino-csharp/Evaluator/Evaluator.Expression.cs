@@ -864,6 +864,35 @@ public partial class Evaluator {
     throw new Exception($"RUNTIME ERROR: Target is neither a module, struct, union, nor an enum.");
   }
 
+  public static bool ValuesEqual(object? a, object? b) {
+    if (ReferenceEquals(a, b)) return true;
+    if (a is null || b is null) return false;
+    if (a is PinoStructInstance s1 && b is PinoStructInstance s2) {
+      return s1.Equals(s2);
+    }
+    if (a is PinoUnionValue u1 && b is PinoUnionValue u2) {
+      return u1.Equals(u2);
+    }
+    if (a is System.Collections.IList list1 && b is System.Collections.IList list2) {
+      if (list1.Count != list2.Count) return false;
+      for (int i = 0; i < list1.Count; i++) {
+        if (!ValuesEqual(list1[i], list2[i])) return false;
+      }
+      return true;
+    }
+    if (a is PinoRune r1 && b is PinoRune r2) {
+      return r1.CodePoint == r2.CodePoint;
+    }
+    if (a is double || a is long || a is int || a is float || b is double || b is long || b is int || b is float) {
+      try {
+        return Convert.ToDouble(a) == Convert.ToDouble(b);
+      } catch {
+        return false;
+      }
+    }
+    return Equals(a, b);
+  }
+
   private bool IsNumeric(object? val) => val is double || val is long || val is int || val is float;
 
   private object EvaluateBinaryOperation(object? left, OperatorType op, object? right) {
@@ -940,15 +969,9 @@ public partial class Evaluator {
         return isFloat ? GetDouble(left) >= GetDouble(right) : GetLong(left) >= GetLong(right);
 
       case OperatorType.Equal:
-        if (IsNumeric(left) && IsNumeric(right)) {
-          return GetDouble(left) == GetDouble(right);
-        }
-        return Equals(left, right);
+        return ValuesEqual(left, right);
       case OperatorType.NotEqual:
-        if (IsNumeric(left) && IsNumeric(right)) {
-          return GetDouble(left) != GetDouble(right);
-        }
-        return !Equals(left, right);
+        return !ValuesEqual(left, right);
 
       case OperatorType.And:
         return IsTruthy(left) && IsTruthy(right);

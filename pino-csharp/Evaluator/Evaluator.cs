@@ -156,6 +156,23 @@ public class PinoStructInstance {
     Struct = @struct;
   }
 
+  public override bool Equals(object? obj) {
+    if (obj is not PinoStructInstance other) return false;
+    if (Struct.Name != other.Struct.Name) return false;
+    if (Fields.Count != other.Fields.Count) return false;
+    foreach (var kvp in Fields) {
+      if (!other.Fields.TryGetValue(kvp.Key, out var otherVal)) return false;
+      if (!Evaluator.ValuesEqual(kvp.Value, otherVal)) return false;
+    }
+    return true;
+  }
+
+  public override int GetHashCode() {
+    var hash = HashCode.Combine(Struct.Name);
+    foreach (var kvp in Fields) hash = HashCode.Combine(hash, kvp.Key, kvp.Value);
+    return hash;
+  }
+
   public override string ToString() {
     var fieldsStr = string.Join(", ", Fields.Select(f => $"{f.Key}: {f.Value}"));
     return $"{Struct.Name} {{ {fieldsStr} }}";
@@ -219,7 +236,7 @@ public class PinoUnionValue {
     if (GetBaseUnionName(UnionName) != GetBaseUnionName(other.UnionName) || VariantName != other.VariantName) return false;
     if (Payload.Count != other.Payload.Count) return false;
     for (int i = 0; i < Payload.Count; i++) {
-      if (!Equals(Payload[i], other.Payload[i])) return false;
+      if (!Evaluator.ValuesEqual(Payload[i], other.Payload[i])) return false;
     }
     return true;
   }

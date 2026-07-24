@@ -1,0 +1,101 @@
+union Race {
+  Human
+  Elf
+  Orc(string)
+  Dwarf(string)
+}
+
+test "Union Equality: Should be equal when both are the same variant with no payload" {
+  val race = Race::Human
+  assert race == Race::Human
+}
+
+test "Union Equality: Should not be equal when both are different variant" {
+  val race = Race::Human
+  assert race != Race::Elf
+}
+
+test "Union Equality: Should be equal when both are the same variant with same payload" {
+  val race = Race::Orc("Thrall")
+  assert race == Race::Orc("Thrall")
+}
+
+test "Union Equality: Should not be equal when both are the same variant with different payload" {
+  val race = Race::Orc("Thrall")
+  assert race != Race::Orc
+}
+
+# TODO: Make this a Compiler error -> "Use is operator instead"
+test "Union Equality: Should not be equal when both are the same variant but different payload" {
+  val race = Race::Orc("Thrall")
+  assert race != Race::Orc("Gazlowe")
+}
+
+test "Union Equality: Should work with Result built-in union" {
+  fn divide(a int, b int) Result[int, string] {
+    if b == 0 {
+      return Result::Failure("Cannot divide by zero")
+    }
+
+    return Result::Success(a / b)
+  }
+
+  assert divide(10, 2) == Result::Success(5)
+  # TODO: Make this a Compiler error -> "Use is operator instead"
+  assert divide(10, 0) != Result::Failure
+  assert divide(10, 0) != Result::Success(5)
+}
+
+@generic[T]
+union Entity {
+  Person(T)
+}
+
+struct Warrior {
+  name string
+}
+
+struct Paladin {
+  name string
+  companion Warrior
+}
+
+test "Union Equality With Primitive Type: Should be equal when both are the same variant with same payload" {
+  val character = Entity::Person("Gazlowe")
+  assert character == Entity::Person("Gazlowe")
+}
+
+test "Union Equality With Primitive Type: Should not be equal when both are the same variant with different payload" {
+  val character = Entity::Person("Thrall")
+  assert character != Entity::Person("Gazlowe")
+}
+
+test "Union Equality With Struct: Should be equal when both are the same variant with same payload" {
+  val character = Entity::Person(Warrior { name: "Gazlowe" })
+  assert character == Entity::Person(Warrior { name: "Gazlowe" })
+}
+
+test "Union Equality With Struct: Should not be equal when both are the same variant with different payload" {
+  val character = Entity::Person(Warrior { name: "Thrall" })
+  assert character != Entity::Person(Warrior { name: "Gazlowe" })
+}
+
+test "Union Equality With Struct Recursive: Should be equal when both are the same variant with same payload" {
+  val character = Entity::Person(Paladin { name: "Thrall", companion: Warrior { name: "Gazlowe" } })
+  assert character == Entity::Person(Paladin { name: "Thrall", companion: Warrior { name: "Gazlowe" } })
+}
+
+test "Union Equality With Struct Recursive: Should not be equal when both are the same variant with different payload" {
+  val character = Entity::Person(Paladin { name: "Thrall", companion: Warrior { name: "Gazlowe" } })
+  assert character != Entity::Person(Paladin { name: "Thrall", companion: Warrior { name: "Thrall" } })
+}
+
+test "Union Equality With Vector: Should be equal when both are the same variant with same payload" {
+  val character = Entity::Person([1, 2, 3])
+  assert character == Entity::Person([1, 2, 3])
+}
+
+test "Union Equality With Vector: Should not be equal when both are the same variant with different payload" {
+  val character = Entity::Person([1, 2, 3])
+  assert character != Entity::Person([1, 2, 4])
+}
