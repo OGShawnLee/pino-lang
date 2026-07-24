@@ -98,13 +98,15 @@ class Program {
         break;
 
       case "compile":
+      case "c":
         var compileFileName = argList.Count > 1 ? argList[1] : "main.pino";
         var compileFilePath = Path.Combine(System.Environment.CurrentDirectory, compileFileName);
         if (!File.Exists(compileFilePath)) {
           Console.WriteLine($"Error: File '{compileFileName}' not found.");
           System.Environment.Exit(1);
         }
-        CompileFile(compileFilePath);
+        var outCPath = argList.Count > 2 ? argList[2] : null;
+        EmitCFile(compileFilePath, outCPath);
         break;
 
       default:
@@ -116,21 +118,21 @@ class Program {
   static void ShowHelp() {
     Console.WriteLine("Usage: pino [command] [arguments] [flags]");
     Console.WriteLine("Commands:");
-    Console.WriteLine("  help, h             : Display this help message");
-    Console.WriteLine("  repl                : Start the Pino interactive REPL");
-    Console.WriteLine("  run [file-name]     : Run the given .pino file (defaults to main.pino)");
-    Console.WriteLine("  compile [file-name] : Compile the given .pino file to a native executable (defaults to main.pino)");
-    Console.WriteLine("  watch [file-name]   : Monitor and execute the file in real-time on save (defaults to main.pino)");
-    Console.WriteLine("  test [file-name]    : Run test blocks in the given file (defaults to main.pino)");
-    Console.WriteLine("  play [game-name]    : Launch an interactive console game from the pino.games directory");
-    Console.WriteLine("  play update         : Download or update the official Pino games library from GitHub");
-    Console.WriteLine("  version, v          : Show Pino version information");
-    Console.WriteLine("  update              : Check for and install compiler updates");
-    Console.WriteLine("  <empty>             : Run main.pino in current directory if exists");
+    Console.WriteLine("  help, h                   : Display this help message");
+    Console.WriteLine("  repl                      : Start the Pino interactive REPL");
+    Console.WriteLine("  run [file-name]           : Run the given .pino file (defaults to main.pino)");
+    Console.WriteLine("  compile, c [file] [out.c] : Transpile .pino source to a C source file (defaults to main.pino -> main.c)");
+    Console.WriteLine("  watch [file-name]         : Monitor and execute the file in real-time on save (defaults to main.pino)");
+    Console.WriteLine("  test [file-name]          : Run test blocks in the given file (defaults to main.pino)");
+    Console.WriteLine("  play [game-name]          : Launch an interactive console game from the pino.games directory");
+    Console.WriteLine("  play update               : Download or update the official Pino games library from GitHub");
+    Console.WriteLine("  version, v                : Show Pino version information");
+    Console.WriteLine("  update                    : Check for and install compiler updates");
+    Console.WriteLine("  <empty>                   : Run main.pino in current directory if exists");
     Console.WriteLine();
     Console.WriteLine("Flags:");
-    Console.WriteLine("  --vm                : Run code using the bytecode VM (available for run, watch)");
-    Console.WriteLine("  --c, --compile      : Transpile to C, compile using TCC, execute, and auto-delete binary (available for run, watch)");
+    Console.WriteLine("  --vm                      : Run code using the bytecode VM (available for run, watch)");
+    Console.WriteLine("  --c, --compile            : Transpile to C, compile using TCC, execute, and auto-delete binary (available for run, watch, test)");
   }
 
   static void RunUpdate() {
@@ -700,6 +702,32 @@ class Program {
       Console.WriteLine($"🌲 Success! Downloaded and installed {count} games in '{targetDir}'.");
     } catch (Exception ex) {
       Console.WriteLine($"Error downloading games: {ex.Message}");
+    }
+  }
+
+  static void EmitCFile(string path, string? outputPath = null) {
+    try {
+      var program = Parser.ParseFile(path);
+      var checker = new Checker();
+      checker.Check(program);
+
+      var transpiler = new TranspilerC();
+      var cCode = transpiler.Transpile(program, checker);
+
+      var currentDir = System.Environment.CurrentDirectory;
+      if (string.IsNullOrEmpty(outputPath)) {
+        outputPath = Path.Combine(currentDir, Path.GetFileNameWithoutExtension(path) + ".c");
+      } else if (!Path.IsPathRooted(outputPath)) {
+        outputPath = Path.Combine(currentDir, outputPath);
+      }
+
+      File.WriteAllText(outputPath, cCode);
+      Console.WriteLine($"🌲 C code successfully generated at: {outputPath}");
+    } catch (Exception ex) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.WriteLine($"Error transpiling to C: {ex.Message}");
+      Console.ResetColor();
+      System.Environment.Exit(1);
     }
   }
 
