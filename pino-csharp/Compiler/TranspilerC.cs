@@ -1212,14 +1212,7 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
 
-                string vecEqExpr;
-                if (elemType == "string") {
-                    vecEqExpr = "((a == b) || (a && b && strcmp(a, b) == 0))";
-                } else if (elemType == "int" || elemType == "float" || elemType == "bool" || elemType == "rune" || cElemType == "int" || cElemType == "double" || cElemType == "bool" || cElemType == "long") {
-                    vecEqExpr = "(a == b)";
-                } else {
-                    vecEqExpr = $"{CleanTypeName(elemType)}_equals(a, b)";
-                }
+                string vecEqCheck = EmitTypeEqualityCheck(elemType, "a_elem", "b_elem");
 
                 _tupleSb.AppendLine($"static inline bool {clean}_equals({clean}* a, {clean}* b) {{");
                 _tupleSb.AppendLine($"    if (a == b) return true;");
@@ -1228,7 +1221,7 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"    for (int i = 0; i < a->length; i++) {{");
                 _tupleSb.AppendLine($"        {cElemType} a_elem = a->items[i];");
                 _tupleSb.AppendLine($"        {cElemType} b_elem = b->items[i];");
-                _tupleSb.AppendLine($"        if (!({vecEqExpr.Replace("a", "a_elem").Replace("b", "b_elem")})) return false;");
+                _tupleSb.AppendLine($"        if (!({vecEqCheck})) return false;");
                 _tupleSb.AppendLine($"    }}");
                 _tupleSb.AppendLine($"    return true;");
                 _tupleSb.AppendLine($"}}");
