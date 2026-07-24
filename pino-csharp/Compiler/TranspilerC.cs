@@ -2743,7 +2743,8 @@ public class TranspilerC {
                 }
                 break;
             case VariantPattern varPat:
-                var unionDecl = FindUnion(varPat.UnionName);
+                var unionName = ResolveTypeName(varPat.UnionName);
+                var unionDecl = FindUnion(unionName);
                 if (unionDecl != null) {
                     var variant = unionDecl.Variants.Find(v => v.Identifier == varPat.VariantName);
                     if (variant != null) {
