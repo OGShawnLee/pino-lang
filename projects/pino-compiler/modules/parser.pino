@@ -91,7 +91,7 @@ pub union Typing {
 }
 
 pub union AST {
-  FunctionDeclaration(string, Typing, Statement)
+  FunctionDefinition(string, Typing, Statement)
 }
 
 pub struct Program {
@@ -104,7 +104,7 @@ pub struct Program {
 
   static fn print_ast(node AST) {
     match node {
-      when AST::FunctionDeclaration(name, ret_type, stmt) {
+      when AST::FunctionDefinition(name, ret_type, stmt) {
         println("Function: $name")
         val ret_type_str = match ret_type {
           when Typing::Explicit(type_name) => type_name
@@ -174,7 +174,6 @@ val PRECEDENCE_MAP = map[string, int] {
 	"==": 30
 	"and": 10
 	"or": 5
-  "if": 3
 	"=": 1
 }
 
@@ -193,7 +192,6 @@ val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
   "<": BinaryOperator::LessThan
   ">": BinaryOperator::GreaterThan
   "=": BinaryOperator::Assign
-  "if": BinaryOperator::Conditional
 }
 
 val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
@@ -343,7 +341,7 @@ fn parse_fn(stream TokenStream) Result[AST, string] {
   stream:expect_content("}")?
 
   return Result::Success(
-    AST::FunctionDeclaration(
+    AST::FunctionDefinition(
       name_token:value, 
       ret_type,
       fn_stmt

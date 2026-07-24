@@ -1,0 +1,115 @@
+module Transformer
+
+from Parser import AST, BinaryOperator, Expression, Statement, UnaryOperator
+
+pub union Val {
+  Constant(int)
+  Var(string)
+}
+
+pub union Instruction {
+  Ret(Val)
+  Unary(UnaryOperator, Val, Val)
+  Binary(BinaryOperator, Val, Val, Val)
+  Copy(Val, Val)
+}
+
+pub union TAC {
+  FunctionDefinition(string, []Instruction)
+}
+
+val pseudo_var_name_counter = [0]
+
+fn pseudo_var_name {
+  val name = "tmp.$(pseudo_var_name_counter[0])"
+  pseudo_var_name_counter[0] += 1
+  return name
+}
+
+fn emit_tacky(expr Expression, instr_list []Instruction) {
+  match expr {
+    when Expression::Constant(value) {
+      return Val::Constant(value)
+    }
+    when Expression::Var(name) {
+      return Val::Var(name)
+    }
+    when Expression::Unary(un_operator, inner_expr) {
+      val src = emit_tacky(inner_expr, instr_list)
+      val dst_name = pseudo_var_name()
+      val dst = Val::Var(dst_name)
+      instr_list:push(Instruction::Unary(un_operator, src, dst))
+      return dst
+    }
+    when Expression::Binary(bin_operator, left_expr, right_expr) {
+      if bin_operator == BinaryOperator::And or bin_operator == BinaryOperator::Or {
+        panic("Binary Add/Or Operator it not supported yet.")
+      }
+
+      val left_val = emit_tacky(left_expr, instr_list)
+      val right_val = emit_tacky(right_expr, instr_list)
+      val dst_name = pseudo_var_name()
+      val dst = Val::Var(dst_name)
+      instr_list:push(Instruction::Binary(bin_operator, left_val, right_val, dst))
+      return dst
+    }
+    when Expression::Assignment(target_expr, expr) {
+      if target_expr is Expression::Var(name) {
+        val dst = emit_tacky(expr, instr_list)
+        instr_list:push(Instruction::Copy(dst, Val::Var(name)))
+        return Val::Var(name)
+      }
+
+      panic("Assignment to non-variable should have been caught by Variable Resolution Checker.")
+    }
+    when Expression::Conditional(cond_expr, then_expr, else_expr) {
+      panic("Conditional Expression is not supported yet.")
+    }
+  }
+}
+
+fn transform_stmt(stmt Statement, instr_list []Instruction) {
+  match stmt {
+    when Statement::Return(expr) {
+      val result = emit_tacky(expr, instr_list)
+      instr_list:push(Instruction::Ret(result))
+    }
+  }
+}
+
+fn transform_fn_definition(name string, stmt Statement) {
+  val instr_list = []Instruction
+
+  transform_stmt(stmt, instr_list)
+
+  val is_empty_list = instr_list:len == 0
+  if is_empty_list or (instr_list[instr_list:len - 1] is not Instruction::Ret) {
+    instr_list:push(Instruction::Ret(Val::Constant(0)))
+  }
+
+  return TAC::FunctionDefinition(name, instr_list)
+}
+
+pub fn transform_program(program Program) {
+  match program:children {
+    when AST::FunctionDefinition(name, typing, stmt) {
+      return transform_fn_definition(name, stmt)  
+    }
+  }
+}
+
+fn print_instr(instr Instruction) {
+	println(instr)
+}
+
+pub fn print_tacky(program TAC) {
+	match program {
+		when TAC::FunctionDefinition(name, instr_list) {
+			println("IM Program Representation (TAC):")
+			println("Function: $(name)")
+			for instr in instr_list {
+				print_instr(instr)
+			}
+		}
+	}
+}
