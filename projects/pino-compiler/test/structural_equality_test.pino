@@ -1,0 +1,232 @@
+val int_primitive = 1
+val float_primitive = 1.0
+val string_primitive = "Hello"
+val bool_primitive = true
+val rune_primitive = 'a'
+
+test "Structural Equality (Primitive): Should return true when primitive values are value equal." {
+  assert int_primitive == 1
+  assert float_primitive == 1.0
+  assert string_primitive == "Hello"
+  assert bool_primitive == true
+  assert rune_primitive == 'a'
+}
+
+test "Structural Equality (Primitive): Should return true when primitive values are reference equal." {
+  assert int_primitive == int_primitive
+  assert float_primitive == float_primitive
+  assert string_primitive == string_primitive
+  assert bool_primitive == bool_primitive
+  assert rune_primitive == rune_primitive
+
+  val int_copy = int_primitive
+  val float_copy = float_primitive
+  val string_copy = string_primitive
+  val bool_copy = bool_primitive
+  val rune_copy = rune_primitive
+
+  assert int_primitive == int_copy
+  assert float_primitive == float_copy
+  assert string_primitive == string_copy
+  assert bool_primitive == bool_copy
+  assert rune_primitive == rune_copy
+}
+
+test "Structural Equality (Primitive): Should return false when primitive values are not value equal." {
+  assert int_primitive != 2
+  assert float_primitive != 2.0
+  assert string_primitive != "World"
+  assert bool_primitive != false
+  assert rune_primitive != 'b'
+}
+
+struct Item {
+  name string
+  price int
+}
+
+struct Person {
+  name string
+  item Item
+}
+
+test "Structural Equality (Struct): Should return true when Struct values are value equal" {
+  val item_1 = Item { name: "Book", price: 10 }
+  val item_2 = Item { name: "Book", price: 10 }
+
+  assert item_1 == item_2
+}
+
+test "Structural Equality (Struct): Should return false when Struct values are not value equal" {
+  val item_1 = Item { name: "Book", price: 10 }
+  val item_2 = Item { name: "Tablet", price: 100 }
+
+  assert item_1 != item_2
+}
+
+test "Structural Equality (Struct): Should return true when Struct values are reference equal" {
+  val item_1 = Item { name: "Book", price: 10 }
+  val item_2 = item_1
+
+  assert item_1 == item_2
+}
+
+test "Structural Equality (Struct): Should return true when Struct values are value equal recursively" {
+  val person_1 = Person { name: "Alice", item: Item { name: "Book", price: 10 } }
+  val person_2 = Person { name: "Alice", item: Item { name: "Book", price: 10 } }
+
+  assert person_1 == person_2
+}
+
+test "Structural Equality (Struct): Should return false when Struct values are not value equal recursively" {
+  val person_1 = Person { name: "Alice", item: Item { name: "Book", price: 10 } }
+  val person_2 = Person { name: "Alice", item: Item { name: "Tablet", price: 100 } }
+
+  assert person_1 != person_2
+}
+
+test "Structural Equality (Vector): Should return true when Vector values are value equal" {
+  val vector_1 = [1, 2, 3]
+  val vector_2 = [1, 2, 3]
+
+  assert vector_1 == vector_2
+}
+
+test "Structural Equality (Vector): Should return false when Vector values are not value equal" {
+  val vector_1 = [1, 2, 3]
+  val vector_2 = [1, 2, 4]
+
+  assert vector_1 != vector_2
+}
+
+test "Structural Equality (Vector): Should return true when Vector values are reference equal" {
+  val vector_1 = [1, 2, 3]
+  val vector_2 = vector_1
+
+  assert vector_1 == vector_2
+}
+
+test "Structural Equality (Vector): Should return true when Vector values are value equal recursively" {
+  val vector_1 = [
+    [1, 2, 3]
+  ]
+  val vector_2 = [
+    [1, 2, 3]
+  ]
+
+  assert vector_1 == vector_2
+}
+
+test "Structural Equality (Vector): Should return false when Vector values are not value equal recursively" {
+  val vector_1 = [
+    [1, 2, 3]
+  ]
+  val vector_2 = [
+    [1, 2, 4]
+  ]
+
+  assert vector_1 != vector_2
+}
+
+test "Structural Equality (Map): Should return true when Map values are value equal" {
+  val map_1 = map[string, int] {
+    "a": 1,
+    "b": 2
+  }
+  val map_2 = map[string, int] {
+    "a": 1,
+    "b": 2
+  }
+
+  assert map_1 == map_2
+}
+
+test "Structural Equality (Map): Should return false when Map values have different values" {
+  val map_1 = map[string, int] {
+    "a": 1,
+    "b": 2
+  }
+  val map_2 = map[string, int] {
+    "a": 1,
+    "b": 3
+  }
+
+  assert map_1 != map_2
+}
+
+test "Structural Equality (Map): Should return false when Map values have different keys" {
+  val map_1 = map[string, int] {
+    "a": 1,
+    "b": 2
+  }
+  val map_2 = map[string, int] {
+    "a": 1,
+    "c": 2
+  }
+
+  assert map_1 != map_2
+}
+
+test "Structural Equality (Map): Should return true when Map values are reference equal" {
+  val map_1 = map[string, int] {
+    "a": 1
+  }
+  val map_2 = map_1
+
+  assert map_1 == map_2
+}
+
+test "Structural Equality (Regex): Should return true when Regex patterns are value equal" {
+  val reg_1 = regex("^[0-9]+")
+  val reg_2 = regex("^[0-9]+")
+
+  assert reg_1 == reg_2
+}
+
+test "Structural Equality (Regex): Should return false when Regex patterns are not value equal" {
+  val reg_1 = regex("^[0-9]+")
+  val reg_2 = regex("^[a-z]+")
+
+  assert reg_1 != reg_2
+}
+
+union Shape {
+  Circle(int)
+  Rectangle(int, int)
+  Point
+}
+
+test "Structural Equality (Union): Should return true when Union values are value equal without payload" {
+  val shape_1 = Shape::Point
+  val shape_2 = Shape::Point
+
+  assert shape_1 == shape_2
+}
+
+test "Structural Equality (Union): Should return true when Union values are value equal with payload" {
+  val shape_1 = Shape::Circle(5)
+  val shape_2 = Shape::Circle(5)
+
+  assert shape_1 == shape_2
+}
+
+test "Structural Equality (Union): Should return false when Union values have different payloads" {
+  val shape_1 = Shape::Circle(5)
+  val shape_2 = Shape::Circle(10)
+
+  assert shape_1 != shape_2
+}
+
+test "Structural Equality (Union): Should return false when Union values have different variants" {
+  val shape_1 = Shape::Circle(5)
+  val shape_2 = Shape::Point
+
+  assert shape_1 != shape_2
+}
+
+test "Structural Equality (Union): Should return true when Union values are reference equal" {
+  val shape_1 = Shape::Rectangle(10, 20)
+  val shape_2 = shape_1
+
+  assert shape_1 == shape_2
+}

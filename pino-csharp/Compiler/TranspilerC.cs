@@ -885,10 +885,17 @@ public class TranspilerC {
         if (rawType == "string" || mappedType == "const char*" || mappedType == "char*") {
             return $"(({aVal} == {bVal}) || ({aVal} && {bVal} && strcmp({aVal}, {bVal}) == 0))";
         }
+        if (rawType == "regex" || mappedType == "regex*") {
+            return $"(({aVal} == {bVal}) || ({aVal} && {bVal} && strcmp({aVal}->pattern, {bVal}->pattern) == 0))";
+        }
         if (rawType == "int" || rawType == "float" || rawType == "bool" || rawType == "rune" || mappedType == "int" || mappedType == "double" || mappedType == "bool" || mappedType == "long" || mappedType == "uint32_t") {
             return $"({aVal} == {bVal})";
         }
         if (rawType.StartsWith("[]") || rawType.StartsWith("Vector_")) {
+            MapType(rawType);
+            return $"{typeName}_equals({aVal}, {bVal})";
+        }
+        if (rawType.StartsWith("map[") || rawType.StartsWith("map_")) {
             MapType(rawType);
             return $"{typeName}_equals({aVal}, {bVal})";
         }
@@ -905,6 +912,8 @@ public class TranspilerC {
         if (string.IsNullOrEmpty(type) || type == "any") return false;
         string clean = CleanTypeName(type);
         if (type.StartsWith("[]") || type.StartsWith("Vector_")) return true;
+        if (type.StartsWith("map[") || type.StartsWith("map_")) return true;
+        if (type == "regex" || type == "regex*") return true;
         if (FindUnion(clean) != null || FindUnion(type) != null) return true;
         if (_structFields.ContainsKey(clean) || _structFields.ContainsKey(type)) return true;
         return false;
@@ -1148,6 +1157,24 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"        }}");
                 _tupleSb.AppendLine($"    }}");
                 _tupleSb.AppendLine($"    return vec;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                var valEqCheck = EmitTypeEqualityCheck(valType, "map_a->entries[i].value", "b_val");
+
+                _tupleSb.AppendLine($"static inline bool {clean}_equals({clean}* map_a, {clean}* map_b) {{");
+                _tupleSb.AppendLine($"    if (map_a == map_b) return true;");
+                _tupleSb.AppendLine($"    if (!map_a || !map_b) return false;");
+                _tupleSb.AppendLine($"    if (map_a->size != map_b->size) return false;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < map_a->capacity; i++) {{");
+                _tupleSb.AppendLine($"        if (map_a->entries[i].occupied == 1) {{");
+                _tupleSb.AppendLine($"            {cKeyType} key = map_a->entries[i].key;");
+                _tupleSb.AppendLine($"            if (!{clean}_has(map_b, key)) return false;");
+                _tupleSb.AppendLine($"            {cValType} b_val = {clean}_get(map_b, key);");
+                _tupleSb.AppendLine($"            if (!({valEqCheck})) return false;");
+                _tupleSb.AppendLine($"        }}");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return true;");
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
             }

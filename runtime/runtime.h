@@ -2,6 +2,8 @@
 #define PINO_RUNTIME_H
 
 #include <stddef.h>
+#include <stdbool.h>
+#include <string.h>
 #include <time.h>
 #include <gc.h>
 
@@ -75,6 +77,11 @@ struct regex {
 };
 
 regex* regex_compile(const char* pattern);
+static inline bool regex_equals(const regex* a, const regex* b) {
+    if (a == b) return true;
+    if (!a || !b) return false;
+    return (a->pattern == b->pattern) || (a->pattern && b->pattern && strcmp(a->pattern, b->pattern) == 0);
+}
 int regex_has_match(regex* re, const char* text);
 const char* regex_match_prefix(regex* re, const char* text);
 const char* regex_find(regex* re, const char* text);
