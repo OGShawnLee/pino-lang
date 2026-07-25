@@ -355,6 +355,8 @@ public partial class Parser {
 
       OperatorType.Equal => 4,
       OperatorType.NotEqual => 4,
+      OperatorType.IdentityEqual => 4,
+      OperatorType.IdentityNotEqual => 4,
 
       OperatorType.LessThan => 5,
       OperatorType.LessThanEqual => 5,

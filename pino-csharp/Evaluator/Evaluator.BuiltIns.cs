@@ -169,6 +169,8 @@ public partial class Evaluator {
     }
 
     public override string ToString() => $"regex(\"{Pattern}\")";
+    public override bool Equals(object? obj) => obj is PinoRegex other && Pattern == other.Pattern;
+    public override int GetHashCode() => Pattern.GetHashCode();
   }
 
   private class RegexFunction : IPinoCallable {

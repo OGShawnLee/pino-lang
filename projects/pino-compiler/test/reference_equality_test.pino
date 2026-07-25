@@ -1,0 +1,79 @@
+val int_a = 42
+val int_b = 42
+val int_c = 100
+
+test "Reference Equality (Primitive): Should return true for equal primitive values" {
+  assert int_a === int_b
+  assert int_a !== int_c
+}
+
+struct Node {
+  id int
+  name string
+}
+
+test "Reference Equality (Struct): Same reference should be true, distinct heap allocations with same data should be false" {
+  val node1 = Node { id: 1, name: "Alpha" }
+  val node2 = Node { id: 1, name: "Alpha" }
+  val node3 = node1
+
+  # Structural equality (==) should be true for both
+  assert node1 == node2
+  assert node1 == node3
+
+  # Reference equality (===) must differentiate physical memory instances
+  assert node1 === node3
+  assert node1 !== node2
+}
+
+test "Reference Equality (Vector): Same reference should be true, distinct heap allocations should be false" {
+  val vec1 = [1, 2, 3]
+  val vec2 = [1, 2, 3]
+  val vec3 = vec1
+
+  assert vec1 == vec2
+  assert vec1 === vec3
+  assert vec1 !== vec2
+}
+
+test "Reference Equality (Map): Same reference should be true, distinct heap allocations should be false" {
+  val map1 = map[string, int] { "key": 10 }
+  val map2 = map[string, int] { "key": 10 }
+  val map3 = map1
+
+  assert map1 == map2
+  assert map1 === map3
+  assert map1 !== map2
+}
+
+union Option {
+  Some(string)
+  None
+}
+
+test "Reference Equality (Union): Same reference should be true, distinct heap allocations should be false" {
+  val opt1 = Option::Some("data")
+  val opt2 = Option::Some("data")
+  val opt3 = opt1
+
+  assert opt1 == opt2
+  assert opt1 === opt3
+  assert opt1 !== opt2
+}
+
+enum Severity {
+  Low
+  Medium
+  High
+}
+
+test "Reference Equality (Enum): Same reference should be true" {
+  val s1 = Severity::Medium
+  val s2 = Severity::Medium
+  val s3 = s1
+
+  assert s1 == s2
+  assert s1 === s3
+  assert s1 === s2
+  assert s1 !== Severity::Low
+}

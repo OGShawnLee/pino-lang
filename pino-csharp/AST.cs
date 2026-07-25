@@ -227,6 +227,8 @@ public static class ExpressionExtensions {
       case OperatorType.GreaterThanEqual: return ">=";
       case OperatorType.Equal: return "==";
       case OperatorType.NotEqual: return "!=";
+      case OperatorType.IdentityEqual: return "===";
+      case OperatorType.IdentityNotEqual: return "!==";
       case OperatorType.And: return "and";
       case OperatorType.Or: return "or";
       case OperatorType.Not: return "not";

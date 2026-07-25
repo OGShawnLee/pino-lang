@@ -873,6 +873,24 @@ public partial class Evaluator {
     if (a is PinoUnionValue u1 && b is PinoUnionValue u2) {
       return u1.Equals(u2);
     }
+    if (a is PinoRegex re1 && b is PinoRegex re2) {
+      return re1.Pattern == re2.Pattern;
+    }
+    if (a is System.Collections.IDictionary map1 && b is System.Collections.IDictionary map2) {
+      if (map1.Count != map2.Count) return false;
+      foreach (System.Collections.DictionaryEntry entry1 in map1) {
+        bool found = false;
+        foreach (System.Collections.DictionaryEntry entry2 in map2) {
+          if (ValuesEqual(entry1.Key, entry2.Key)) {
+            if (!ValuesEqual(entry1.Value, entry2.Value)) return false;
+            found = true;
+            break;
+          }
+        }
+        if (!found) return false;
+      }
+      return true;
+    }
     if (a is System.Collections.IList list1 && b is System.Collections.IList list2) {
       if (list1.Count != list2.Count) return false;
       for (int i = 0; i < list1.Count; i++) {
@@ -972,6 +990,10 @@ public partial class Evaluator {
         return ValuesEqual(left, right);
       case OperatorType.NotEqual:
         return !ValuesEqual(left, right);
+      case OperatorType.IdentityEqual:
+        return ReferenceEquals(left, right) || (ValuesEqual(left, right) && (left is int || left is long || left is double || left is bool || left is char || left is string || left is PinoEnumValue));
+      case OperatorType.IdentityNotEqual:
+        return !(ReferenceEquals(left, right) || (ValuesEqual(left, right) && (left is int || left is long || left is double || left is bool || left is char || left is string || left is PinoEnumValue)));
 
       case OperatorType.And:
         return IsTruthy(left) && IsTruthy(right);

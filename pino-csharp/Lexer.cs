@@ -68,6 +68,8 @@ public class Lexer {
         { ">=", OperatorType.GreaterThanEqual },
         { "==", OperatorType.Equal },
         { "!=", OperatorType.NotEqual },
+        { "===", OperatorType.IdentityEqual },
+        { "!==", OperatorType.IdentityNotEqual },
         { "and", OperatorType.And },
         { "or", OperatorType.Or },
         { "not", OperatorType.Not },
@@ -119,7 +121,17 @@ public class Lexer {
         continue;
       }
 
-      // 5. Multi-character Operators (like ==, !=, +=, -=, ::, <=, >=)
+      // 5a. Triple-character Operators (like ===, !==)
+      if (index + 2 < line.Length) {
+        var tripleOp = line.Substring(index, 3);
+        if (Operators.TryGetValue(tripleOp, out var tripleOpType) && !char.IsLetter(tripleOp[0])) {
+          tokens.Add(new Token(TokenType.Operator, tripleOp, Operator: tripleOpType));
+          index += 3;
+          continue;
+        }
+      }
+
+      // 5b. Multi-character Operators (like ==, !=, +=, -=, ::, <=, >=)
       if (index + 1 < line.Length) {
         var dualOp = line.Substring(index, 2);
         if (Operators.TryGetValue(dualOp, out var dualOpType) && !char.IsLetter(dualOp[0])) {

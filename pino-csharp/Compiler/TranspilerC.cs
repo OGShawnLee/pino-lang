@@ -2491,6 +2491,8 @@ public class TranspilerC {
             OperatorType.GreaterThanEqual => ">=",
             OperatorType.Equal => "==",
             OperatorType.NotEqual => "!=",
+            OperatorType.IdentityEqual => "==",
+            OperatorType.IdentityNotEqual => "!=",
             OperatorType.And => "&&",
             OperatorType.Or => "||",
             _ => throw new NotImplementedException($"Operator {op} not implemented in Transpiler.")
