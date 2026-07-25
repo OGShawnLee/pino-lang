@@ -91,9 +91,23 @@ void pino_clear(void) {
 }
 
 regex* regex_compile(const char* pattern) {
+    if (!pattern) pattern = "";
     regex* re = (regex*)pino_malloc(sizeof(regex));
     re->pattern = pattern;
-    slre_compile(&re->compiled, pattern);
+    
+    size_t len = strlen(pattern);
+    char* wrapped = (char*)pino_malloc(len + 3);
+    if (pattern[0] == '^') {
+        wrapped[0] = '^';
+        wrapped[1] = '(';
+        strcpy(wrapped + 2, pattern + 1);
+        strcat(wrapped, ")");
+    } else {
+        wrapped[0] = '(';
+        strcpy(wrapped + 1, pattern);
+        strcat(wrapped, ")");
+    }
+    slre_compile(&re->compiled, wrapped);
     return re;
 }
 
