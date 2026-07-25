@@ -210,7 +210,46 @@ Tuples work seamlessly with higher-order function references and generic monomor
     }
     
     val @(value: v1, label: l1) = return_tuple[int](42)
-    ```
+### Structural Equality vs. Reference Identity Operators
+
+Pino cleanly separates **Deep Structural Value Equality** (`==`, `!=`) from **Reference Memory Identity** (`===`, `!==`):
+
+| Operator | Name | Behavior | Transpiled C Behavior |
+| :--- | :--- | :--- | :--- |
+| **`==`** | **Structural Value Equality** | Deep recursive comparison across elements, fields, and payloads ($O(1)$ short-circuit if identical reference) | Emits recursive equality functions (e.g. `Vector_int_equals`) |
+| **`!=`** | **Structural Value Inequality** | Negation of deep recursive value comparison ($O(1)$ short-circuit if identical reference) | Emits `!Vector_int_equals` |
+| **`===`** | **Reference Memory Identity** | Compares physical memory addresses (pointers) | Emits raw C pointer comparison `(a == b)` |
+| **`!==`** | **Reference Memory Non-Identity** | Checks if references point to different memory addresses | Emits raw C pointer inequality `(a != b)` |
+
+#### 1. Deep Structural Comparison (`==` and `!=`)
+The `==` operator compares contents recursively across all Pino data types:
+- **Primitives & Enums (`int`, `float`, `bool`, `rune`, `string`, `enum`)**: Compares values directly.
+- **Vectors (`[]T`)**: Returns `true` if both vectors have equal length and each corresponding element at index `i` is structurally equal (`a[i] == b[i]`).
+- **Maps (`map[K, V]`)**: Returns `true` if both maps have equal size and key-value pairs match structurally.
+- **Structs**: Returns `true` if all fields match structurally.
+- **Tagged Unions**: Returns `true` if tags match and payload fields match structurally.
+- **Regex (`regex`)**: Returns `true` if pattern strings match.
+
+> [!TIP]
+> **Identity Short-Circuiting**: Structural equality functions (`==` and `!=`) automatically perform an $O(1)$ pointer identity check (`if (a == b) return true;`) first. If two variables reference the exact same memory instance in RAM, `==` short-circuits instantly to `true` without scanning nested elements or fields.
+
+> [!NOTE]
+> **Tuple Constraint**: Tuples (`@(a, b)`) are exclusive constructs for multi-return values and destructuring bindings; they do not exist as independent dynamic heap objects and do not participate in equality operations.
+
+#### 2. Reference Memory Identity (`===` and `!==`)
+The `===` operator tests physical memory identity:
+- **Primitives & Enums**: Scalar stack values evaluate to `true` if their values are identical (`42 === 42`, `Severity::Medium === Severity::Medium`).
+- **Heap Objects (Structs, Vectors, Maps, Unions)**: `a === b` returns `true` if and only if `a` and `b` point to the exact same memory address. Distinct heap allocations containing identical data return `==` (`true`), but `===` (`false`).
+
+```pino
+val vec1 = [1, 2, 3]
+val vec2 = [1, 2, 3]
+val vec3 = vec1
+
+assert vec1 == vec2  # true  (deep structural equality)
+assert vec1 === vec3 # true  (same memory reference)
+assert vec1 !== vec2 # true  (distinct memory allocations)
+```
 
 ---
 
@@ -347,8 +386,9 @@ for index, fruit in fruits {
 
 ### Pattern Matching (`match-when`)
 
-A clean structure to evaluate multiple branches based on an expression's value. It supports multiple values per branch separated optionally by commas (commas are optional here too, e.g. `when "start" "run"`). The `else` branch is optional, and it is not mandatory to cover all cases exhaustively.
+A clean structure to evaluate multiple branches based on an expression's value. It supports multiple values per branch separated optionally by commas (commas are optional here too, e.g. `when "start", "run"`). The `else` branch is optional, and it is not mandatory to cover all cases exhaustively (unless the value is an enum or union type, in that case it is mandatory to cover all cases exhaustively and if not covered, it will result in a compilation error).
 
+#### 1. Statement Form (Block Arms):
 ```pino
 val command = "start"
 match command {
@@ -360,6 +400,23 @@ match command {
   }
   else {
     println("Unknown command")
+  }
+}
+```
+
+#### 2. Expression Form (`=>` Arms and `yield` in Blocks):
+`match` can be evaluated as an expression that returns a value.
+- **Single Expression Arms (`=>`)**: Use `=>` for concise single-line expressions without curly braces.
+- **Block Arms with `yield`**: When a branch contains a multi-statement block `{ ... }`, use `yield` to return the branch's final value.
+
+```pino
+val level = 2
+val label = match level {
+  when 1 => "Beginner"
+  when 2 => "Intermediate"
+  else {
+    println("Advanced level detected")
+    yield "Expert"
   }
 }
 ```
@@ -896,6 +953,34 @@ Compiles a regular expression pattern for matching operations.
 *   **Arguments**: A `string` containing the regex pattern.
 *   **Return**: `regex`
 *   **Example**: `val r = regex("[0-9]+")`
+
+### `read_file(path)`
+Reads the entire text content of a file specified by `path`.
+*   **Arguments**: `path` (`string`).
+*   **Return**: `Result[string, IOError]`
+*   **Example**:
+    ```pino
+    val content = read_file("data.txt") or {
+      yield "default content"
+    }
+    ```
+
+### `write_file(path, content)`
+Writes `content` string to a file at `path`.
+*   **Arguments**: `path` (`string`), `content` (`string`).
+*   **Return**: `Result[string, IOError]`
+*   **Example**:
+    ```pino
+    write_file("output.txt", "Hello Pino") or {
+      println("Failed to write file")
+    }
+    ```
+
+### `file_exists(path)`
+Checks whether a file or directory exists at `path`.
+*   **Arguments**: `path` (`string`).
+*   **Return**: `bool`
+*   **Example**: `val exists = file_exists("config.pino")`
 
 ---
 
