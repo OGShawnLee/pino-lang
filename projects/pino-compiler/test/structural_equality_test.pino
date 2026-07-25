@@ -230,3 +230,155 @@ test "Structural Equality (Union): Should return true when Union values are refe
 
   assert shape_1 == shape_2
 }
+
+enum Severity {
+  Low
+  Medium
+  High
+}
+
+test "Structural Equality (Enum): Should return true when Enum values are equal" {
+  val s1 = Severity::Medium
+  val s2 = Severity::Medium
+
+  assert s1 == s2
+}
+
+test "Structural Equality (Enum): Should return false when Enum values are not equal" {
+  val s1 = Severity::Low
+  val s2 = Severity::High
+
+  assert s1 != s2
+}
+
+union NodePayload {
+  Text(string)
+  Number(int)
+  System
+}
+
+struct NodeMeta {
+  flags []string
+  counts map[string, int]
+  severity Severity
+  payload NodePayload
+}
+
+struct ComplexNode {
+  id int
+  name string
+  meta NodeMeta
+  tags []string
+}
+
+test "Structural Equality (Complex Deep Structure): Should return true when deeply nested structures are value equal" {
+  val node_1 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin", "active", "verified"],
+      counts: map[string, int] { "cpu": 50, "mem": 1024 },
+      severity: Severity::High,
+      payload: NodePayload::Text("System Log Payload")
+    },
+    tags: ["core", "v1"]
+  }
+
+  val node_2 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin", "active", "verified"],
+      counts: map[string, int] { "cpu": 50, "mem": 1024 },
+      severity: Severity::High,
+      payload: NodePayload::Text("System Log Payload")
+    },
+    tags: ["core", "v1"]
+  }
+
+  assert node_1 == node_2
+}
+
+test "Structural Equality (Complex Deep Structure): Should return false when deeply nested vector flag differs" {
+  val node_1 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin", "active", "verified"],
+      counts: map[string, int] { "cpu": 50, "mem": 1024 },
+      severity: Severity::High,
+      payload: NodePayload::Text("System Log Payload")
+    },
+    tags: ["core", "v1"]
+  }
+
+  val node_2 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin", "active", "disabled"],
+      counts: map[string, int] { "cpu": 50, "mem": 1024 },
+      severity: Severity::High,
+      payload: NodePayload::Text("System Log Payload")
+    },
+    tags: ["core", "v1"]
+  }
+
+  assert node_1 != node_2
+}
+
+test "Structural Equality (Complex Deep Structure): Should return false when deeply nested map value differs" {
+  val node_1 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin", "active"],
+      counts: map[string, int] { "cpu": 50, "mem": 1024 },
+      severity: Severity::High,
+      payload: NodePayload::Text("System Log Payload")
+    },
+    tags: ["core"]
+  }
+
+  val node_2 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin", "active"],
+      counts: map[string, int] { "cpu": 50, "mem": 2048 },
+      severity: Severity::High,
+      payload: NodePayload::Text("System Log Payload")
+    },
+    tags: ["core"]
+  }
+
+  assert node_1 != node_2
+}
+
+test "Structural Equality (Complex Deep Structure): Should return false when deeply nested union payload differs" {
+  val node_1 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin"],
+      counts: map[string, int] { "cpu": 50 },
+      severity: Severity::High,
+      payload: NodePayload::Text("System Log Payload")
+    },
+    tags: ["core"]
+  }
+
+  val node_2 = ComplexNode {
+    id: 101,
+    name: "RootNode",
+    meta: NodeMeta {
+      flags: ["admin"],
+      counts: map[string, int] { "cpu": 50 },
+      severity: Severity::High,
+      payload: NodePayload::Number(404)
+    },
+    tags: ["core"]
+  }
+
+  assert node_1 != node_2
+}

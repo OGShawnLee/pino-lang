@@ -50,6 +50,18 @@ static inline Vector_string* Vector_string_push(Vector_string* vec, const char* 
     return vec;
 }
 
+static inline bool Vector_string_equals(const Vector_string* a, const Vector_string* b) {
+    if (a == b) return true;
+    if (!a || !b) return false;
+    if (a->length != b->length) return false;
+    for (int i = 0; i < a->length; i++) {
+        const char* a_elem = a->items[i];
+        const char* b_elem = b->items[i];
+        if (!((a_elem == b_elem) || (a_elem && b_elem && strcmp(a_elem, b_elem) == 0))) return false;
+    }
+    return true;
+}
+
 #include "re.h"
 
 #include <setjmp.h>
