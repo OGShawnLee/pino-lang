@@ -404,17 +404,17 @@ match command {
 }
 ```
 
-#### 2. Expression Form (`=>` Arms and `yield` in Blocks):
+#### 2. Expression Form (`=>` for Single Expressions vs. Block Arms with `yield`):
 `match` can be evaluated as an expression that returns a value.
-- **Single Expression Arms (`=>`)**: Use `=>` for concise single-line expressions without curly braces.
-- **Block Arms with `yield`**: When a branch contains a multi-statement block `{ ... }`, use `yield` to return the branch's final value.
+- **Single Expression Arms (`=>`)**: Use `=>` exclusively for single-expression cases without curly braces (e.g. `when 1 => "Beginner"`).
+- **Block Arms (`{ ... yield }`)**: When a branch contains a multi-statement block `{ ... }`, **do not use `=>`**. Simply write the block `{ ... }` and use `yield` to return the branch's value.
 
 ```pino
 val level = 2
 val label = match level {
-  when 1 => "Beginner"
-  when 2 => "Intermediate"
-  else {
+  when 1 => "Beginner"     # Single expression arm: uses =>
+  when 2 => "Intermediate" # Single expression arm: uses =>
+  else {                   # Block arm: NO =>, uses block { ... }
     println("Advanced level detected")
     yield "Expert"
   }
