@@ -498,18 +498,13 @@ class Program {
       var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
       var outputExePath = Path.Combine(currentDir, outputExeName);
 
-      var hasGc = false;
-      var libDir = Path.Combine(tccDir, "lib");
-      if (Directory.Exists(libDir)) {
-        if (File.Exists(Path.Combine(libDir, "gc.lib")) || File.Exists(Path.Combine(libDir, "libgc.a"))) {
-          hasGc = true;
-        }
-      }
-      var gcFlags = hasGc ? "-DPINO_GC -lgc" : "";
+      var gcCPath = Path.Combine(System.Environment.CurrentDirectory, "tooling", "gc", "gc.c");
+      var gcIncDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "gc", "include");
+      var runtimeIncDir = Path.Combine(System.Environment.CurrentDirectory, "runtime");
 
       var startInfo = new System.Diagnostics.ProcessStartInfo {
         FileName = tccPath,
-        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
+        Arguments = $"-I\"{gcIncDir}\" -I\"{runtimeIncDir}\" \"{gcCPath}\" \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
         RedirectStandardOutput = true,
         RedirectStandardError = true,
         UseShellExecute = false,
@@ -781,18 +776,13 @@ class Program {
       var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
       var outputExePath = Path.Combine(currentDir, outputExeName);
 
-      var hasGc = false;
-      var libDir = Path.Combine(tccDir, "lib");
-      if (Directory.Exists(libDir)) {
-        if (File.Exists(Path.Combine(libDir, "gc.lib")) || File.Exists(Path.Combine(libDir, "libgc.a"))) {
-          hasGc = true;
-        }
-      }
-      var gcFlags = hasGc ? "-DPINO_GC -lgc" : "";
+      var gcCPath = Path.Combine(System.Environment.CurrentDirectory, "tooling", "gc", "gc.c");
+      var gcIncDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "gc", "include");
+      var runtimeIncDir = Path.Combine(System.Environment.CurrentDirectory, "runtime");
 
       var startInfo = new System.Diagnostics.ProcessStartInfo {
         FileName = tccPath,
-        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
+        Arguments = $"-I\"{gcIncDir}\" -I\"{runtimeIncDir}\" \"{gcCPath}\" \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
         RedirectStandardOutput = true,
         RedirectStandardError = true,
         UseShellExecute = false,
@@ -1047,18 +1037,13 @@ class Program {
       var outputExeName = Path.GetFileNameWithoutExtension(path) + ".exe";
       var outputExePath = Path.Combine(currentDir, outputExeName);
 
-      var hasGc = false;
-      var libDir = Path.Combine(tccDir, "lib");
-      if (Directory.Exists(libDir)) {
-        if (File.Exists(Path.Combine(libDir, "gc.lib")) || File.Exists(Path.Combine(libDir, "libgc.a"))) {
-          hasGc = true;
-        }
-      }
-      var gcFlags = hasGc ? "-DPINO_GC -lgc" : "";
+      var gcCPath = Path.Combine(System.Environment.CurrentDirectory, "tooling", "gc", "gc.c");
+      var gcIncDir = Path.Combine(System.Environment.CurrentDirectory, "tooling", "gc", "include");
+      var runtimeIncDir = Path.Combine(System.Environment.CurrentDirectory, "runtime");
 
       var startInfo = new System.Diagnostics.ProcessStartInfo {
         FileName = tccPath,
-        Arguments = $"{gcFlags} \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
+        Arguments = $"-I\"{gcIncDir}\" -I\"{runtimeIncDir}\" \"{gcCPath}\" \"{cFilePath}\" \"{runtimeCPath}\" \"{reCPath}\" -o \"{outputExePath}\"",
         RedirectStandardOutput = true,
         RedirectStandardError = true,
         UseShellExecute = false,
