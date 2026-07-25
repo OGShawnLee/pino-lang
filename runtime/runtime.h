@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <time.h>
+#include <gc.h>
 
 void* pino_malloc(size_t size);
 void pino_println_string(const char* str);

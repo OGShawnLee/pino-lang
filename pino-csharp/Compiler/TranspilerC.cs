@@ -401,9 +401,7 @@ public class TranspilerC {
 
         _sb.AppendLine("int main(int argc, char** argv) {");
         _indent = 1;
-        _sb.AppendLine("#ifdef PINO_GC");
         _sb.AppendLine("    GC_INIT();");
-        _sb.AppendLine("#endif");
         _sb.AppendLine("    srand((unsigned int)time(NULL));");
 
         _isGlobalScope = true;
@@ -1189,9 +1187,6 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"        {cElemType}* new_items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
                 _tupleSb.AppendLine($"        if (vec->items) {{");
                 _tupleSb.AppendLine($"            memcpy(new_items, vec->items, vec->length * sizeof({cElemType}));");
-                _tupleSb.AppendLine($"#ifndef PINO_GC");
-                _tupleSb.AppendLine($"            free(vec->items);");
-                _tupleSb.AppendLine($"#endif");
                 _tupleSb.AppendLine($"        }}");
                 _tupleSb.AppendLine($"        vec->items = new_items;");
                 _tupleSb.AppendLine($"    }}");
@@ -2789,7 +2784,7 @@ public class TranspilerC {
                         if (isInExpression) {
                             condList.Add($"({idPat.Name} = {target}, 1)");
                         } else {
-                            bindingList.Add($"const {MapType(targetType)} {idPat.Name} = {target};");
+                            bindingList.Add($"{MapType(targetType)} {idPat.Name} = {target};");
                         }
                     }
                 }
