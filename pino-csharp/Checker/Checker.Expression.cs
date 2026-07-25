@@ -419,6 +419,10 @@ public partial class Checker {
             }
           }
         } else {
+          string calleeType = ResolveIdentifierType(call.Callee);
+          if (calleeType == "unknown") {
+            throw new Exception($"TYPE CHECK ERROR: Undefined function or variable '{call.Callee}'.");
+          }
           foreach (var arg in call.Arguments) {
             CheckExpression(arg);
           }
