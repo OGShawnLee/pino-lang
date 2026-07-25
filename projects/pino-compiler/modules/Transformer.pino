@@ -12,6 +12,10 @@ pub union Instruction {
   Unary(UnaryOperator, Val, Val)
   Binary(BinaryOperator, Val, Val, Val)
   Copy(Val, Val)
+  Jump(string)
+  JumpIfZero(Val, string)
+  JumpIfNotZero(Val, string)
+  Label(string)
 }
 
 pub union TAC {
@@ -19,11 +23,66 @@ pub union TAC {
 }
 
 val pseudo_var_name_counter = [0]
+val label_counter = [0]
 
-fn pseudo_var_name {
+fn generate_pseudo_var_name() {
   val name = "tmp.$(pseudo_var_name_counter[0])"
   pseudo_var_name_counter[0] += 1
   return name
+}
+
+fn generate_label(prefix string) {
+  val label = "$(prefix)_label_$(label_counter[0])"
+  label_counter[0] += 1
+  return label
+}
+
+fn generate_short_circuit_labels(prefix string) @(true_label string, false_label string) {
+  val true_label = generate_label("$(prefix)_true")
+  val false_label = generate_label("$(prefix)_false")
+  return @(true_label, false_label)
+}
+
+fn emit_binary_and(
+  left_expr Expression
+  right_expr Expression
+  instr_list []Instruction
+) {
+  val @(true_label, false_label) = generate_short_circuit_labels("and")
+  val dst = Val::Var(generate_pseudo_var_name())
+  val left_val = emit_tacky(left_expr, instr_list)
+
+  instr_list:push(Instruction::JumpIfZero(left_val, false_label))
+
+  val right_val = emit_tacky(right_expr, instr_list)
+
+  instr_list:push(Instruction::JumpIfZero(right_val, false_label))
+  instr_list:push(Instruction::Copy(Val::Constant(1), dst))
+  instr_list:push(Instruction::Jump(true_label))
+  instr_list:push(Instruction::Label(false_label))
+  instr_list:push(Instruction::Copy(Val::Constant(0), dst))
+  instr_list:push(Instruction::Label(true_label))
+
+  return dst
+}
+
+fn emit_binary_or(left_expr Expression, right_expr Expression, instr_list []Instruction) {
+  val @(true_label, false_label) = generate_short_circuit_labels("or")
+  val dst = Val::Var(generate_pseudo_var_name())
+  val left_val = emit_tacky(left_expr, instr_list)
+
+  instr_list:push(Instruction::JumpIfNotZero(left_val, true_label))
+
+  val right_val = emit_tacky(right_expr, instr_list)
+
+  instr_list:push(Instruction::JumpIfNotZero(right_val, true_label))
+  instr_list:push(Instruction::Copy(Val::Constant(0), dst))
+  instr_list:push(Instruction::Jump(false_label))
+  instr_list:push(Instruction::Label(true_label))
+  instr_list:push(Instruction::Copy(Val::Constant(1), dst))
+  instr_list:push(Instruction::Label(false_label))
+
+  return dst  
 }
 
 fn emit_tacky(expr Expression, instr_list []Instruction) {
@@ -36,19 +95,23 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
     }
     when Expression::Unary(un_operator, inner_expr) {
       val src = emit_tacky(inner_expr, instr_list)
-      val dst_name = pseudo_var_name()
+      val dst_name = generate_pseudo_var_name()
       val dst = Val::Var(dst_name)
       instr_list:push(Instruction::Unary(un_operator, src, dst))
       return dst
     }
     when Expression::Binary(bin_operator, left_expr, right_expr) {
-      if bin_operator == BinaryOperator::And or bin_operator == BinaryOperator::Or {
-        panic("Binary Add/Or Operator it not supported yet.")
+      if bin_operator == BinaryOperator::And {
+        return emit_binary_and(left_expr, right_expr, instr_list)
+      }
+      
+      if bin_operator == BinaryOperator::Or {
+        return emit_binary_or(left_expr, right_expr, instr_list)
       }
 
       val left_val = emit_tacky(left_expr, instr_list)
       val right_val = emit_tacky(right_expr, instr_list)
-      val dst_name = pseudo_var_name()
+      val dst_name = generate_pseudo_var_name()
       val dst = Val::Var(dst_name)
       instr_list:push(Instruction::Binary(bin_operator, left_val, right_val, dst))
       return dst
@@ -63,7 +126,26 @@ fn emit_tacky(expr Expression, instr_list []Instruction) {
       panic("Assignment to non-variable should have been caught by Variable Resolution Checker.")
     }
     when Expression::Conditional(cond_expr, then_expr, else_expr) {
-      panic("Conditional Expression is not supported yet.")
+      val condition = emit_tacky(cond_expr, instr_list)
+      val @(true_label, false_label) = generate_short_circuit_labels("conditional")
+
+      val dst_name = generate_pseudo_var_name()
+      val dst = Val::Var(dst_name)
+
+      instr_list:push(Instruction::JumpIfZero(condition, false_label))
+
+      val true_val = emit_tacky(then_expr, instr_list)
+
+      instr_list:push(Instruction::Copy(true_val, dst))
+      instr_list:push(Instruction::Jump(true_label))
+      instr_list:push(Instruction::Label(false_label))
+
+      val false_val = emit_tacky(else_expr, instr_list)
+
+      instr_list:push(Instruction::Copy(false_val, dst))
+      instr_list:push(Instruction::Label(true_label))
+
+      return dst
     }
   }
 }

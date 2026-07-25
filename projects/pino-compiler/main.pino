@@ -3,7 +3,7 @@ import Parser
 import Transformer
 
 fn main {
-  val content = "fn main string { return 2 + 2 }"
+  val content = "fn main string { return if 2 == 2 then 1 else 2 }"
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)
