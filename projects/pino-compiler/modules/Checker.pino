@@ -1,0 +1,429 @@
+module Checker
+
+from Parser import AST, Declaration, Typing, Statement, Expression, BinaryOperator, parse_line
+
+struct Entity {
+  unique_name string
+  is_from_current_block bool
+}
+
+val pseudo_name_counter = [0]
+
+fn generate_pseudonym(name string) string {
+	val new_name = "$(name)_$(pseudo_name_counter[0])"
+	pseudo_name_counter[0] += 1
+	return new_name
+}
+
+fn copy_variable_map(variable_map map[string, Entity]) map[string, Entity] {
+	val new_variable_map = map[string, Entity] {}
+	for name, entity in variable_map {
+		new_variable_map[name] = Entity {
+			unique_name: entity:unique_name,
+			is_from_current_block: false
+		}
+	}
+	return new_variable_map
+}
+
+fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Statement, string] {
+  match stmt {
+   when Statement::Return(expr) {
+    val resolved_expr = resolve_expr(expr, variable_map)?
+
+    return Result::Success(Statement::Return(resolved_expr))
+   }  
+  }
+}
+
+fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
+  match expr {
+    when Expression::Constant(integer) {
+      return Result::Success(Expression::Constant(integer))
+    }
+    when Expression::Var(name) {
+      if name in variable_map {
+        return Result::Success(Expression::Var(variable_map[name]:unique_name))
+      }
+
+      return Result::Failure("Type Checker Error: Variable '$name' has not been declared in the current scope.")
+    }
+    when Expression::Unary(un_operator, expr) {
+      val resolved_expr = resolve_expr(expr, variable_map)?
+
+      return Result::Success(Expression::Unary(un_operator, resolved_expr))
+    }
+    when Expression::Binary(bin_operator, left_expr, right_expr) {
+      val resolved_left_expr = resolve_expr(left_expr, variable_map)?
+      val resolved_right_expr = resolve_expr(right_expr, variable_map)?
+
+      return Result::Success(Expression::Binary(bin_operator, resolved_left_expr, resolved_right_expr))
+    }
+    when Expression::Assignment(left_expr, right_expr) {
+      val resolved_left_expr = resolve_expr(left_expr, variable_map)?
+      val resolved_right_expr = resolve_expr(right_expr, variable_map)?
+
+      return Result::Success(Expression::Assignment(resolved_left_expr, resolved_right_expr))
+    }
+    when Expression::Conditional(condition_expr, then_expr, else_expr) {
+      val resolved_condition_expr = resolve_expr(condition_expr, variable_map)?
+      val resolved_then_expr = resolve_expr(then_expr, variable_map)?
+      val resolved_else_expr = resolve_expr(else_expr, variable_map)?
+
+      return Result::Success(Expression::Conditional(resolved_condition_expr, resolved_then_expr, resolved_else_expr))
+    }
+  }
+}
+
+fn resolve_var_or_val_decl(
+  name string
+  expr Expression 
+  is_constant bool 
+  variable_map map[string, Entity]
+) Result[Declaration, string] {
+  val resolved_expr = resolve_expr(expr, variable_map)?
+
+  if name in variable_map {
+    val prev_entry = variable_map[name]
+    
+    if prev_entry:is_from_current_block {
+      val type_name = if is_constant then "Constant" else "Variable"
+      return Result::Failure("Type Checker Error: $type_name '$name' has been already declared in the current scope.")
+    }
+  }
+
+  val unique_name = generate_pseudonym(name)
+
+  variable_map[name] = Entity {
+    unique_name: unique_name
+    is_from_current_block: true
+  }
+
+
+  return Result::Success(
+    if is_constant 
+      then Declaration::ConstantDeclaration(unique_name, resolved_expr) 
+      else Declaration::VariableDeclaration(unique_name, resolved_expr)
+  )
+}
+
+fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
+  match decl {
+    when Declaration::FunctionDeclaration(name, ret_type, node_list) {
+      if name in variable_map {
+        val prev_entry = variable_map[name] 
+        if prev_entry:is_from_current_block {
+          return Result::Failure("Type Checker Error: Function '$(name)' has been already declared in the current scope.")
+        }
+      }
+
+      variable_map[name] = Entity {
+        unique_name: name
+        is_from_current_block: true
+      }
+
+      val inner_map = copy_variable_map(variable_map)
+      val resolved_node_list = resolve_node_ast_list(node_list, inner_map)?
+
+      return Result::Success(
+        Declaration::FunctionDeclaration(name, ret_type, resolved_node_list)
+      )
+    }
+    when Declaration::ConstantDeclaration(name, expr) {
+      return resolve_var_or_val_decl(name, expr, true, variable_map)
+    }
+    when Declaration::VariableDeclaration(name, expr) {
+      return resolve_var_or_val_decl(name, expr, false, variable_map)
+    }
+  }
+}
+
+fn resolve_ast_node(node AST, variable_map map[string, Entity]) Result[AST, string] {
+  match node {
+    when AST::Declaration(decl)  {
+      return Result::Success(
+        AST::Declaration(resolve_decl(decl, variable_map)?)
+      )
+    }
+    when AST::Statement(stmt) {
+      return Result::Success(
+        AST::Statement(resolve_stmt(stmt, variable_map)?)
+      )
+    }
+    when AST::Expression(expr) {
+      return Result::Success(
+        AST::Expression(resolve_expr(expr, variable_map)?)
+      )
+    }
+  }
+}
+
+fn resolve_node_ast_list(node_list []AST, variable_map map[string, Entity]) Result[[]AST, string] {
+  val resolved_node_list = []AST
+
+  for child in node_list {
+    val resolved_node = resolve_ast_node(child, variable_map)?
+    resolved_node_list:push(resolved_node)  
+  }
+
+  return Result::Success(resolved_node_list)
+}
+
+pub fn resolve_program(program Program) Result[Program, string] {
+  val resolved_node_list = resolve_node_ast_list(program:children, map[string, Entity] {})?
+  return Result::Success(
+    Program { children: resolved_node_list }
+  )
+}
+
+test "Identifier Resolution: Should return a valid Program" {
+  val program = parse_line("val a = 12 val b = 12 fn main { return a + b }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
+        AST::Declaration(Declaration::ConstantDeclaration("b_1", Expression::Constant(12))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Statement(Statement::Return(
+            Expression::Binary(
+              BinaryOperator::Add,
+              Expression::Var("a_0"),
+              Expression::Var("b_1")
+            )
+          ))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should catch undeclared variable" {
+  val program = parse_line("val a = 12 fn main { return a + b }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'b' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch declaring a variable with an expression referencing it with no shadowing" {
+  val program = parse_line("val a = a") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should allow self referencing the declaration name if there is shadowing" {
+  val program = parse_line("val a = 12 fn main { val a = a }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Var("a_0")))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should catch redeclaring constant as constant in the same scope" {
+  val program = parse_line("val a = 12 val a = 10") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring variable as variable in the same scope" {
+  val program = parse_line("var a = 12 var a = 10") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring variable as constant in the same scope" {
+  val program = parse_line("var a = 12 val a = 10") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring constant as variable in the same scope" {
+  val program = parse_line("val a = 12 var a = 10") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring a function in the same scope" {
+  val program = parse_line("fn a {} fn a {}") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring a function as a variable in the same scope" {
+  val program = parse_line("fn a {} var a = 12") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring a constant as a function in the same scope" {
+  val program = parse_line("val a = 12 fn a {}") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should allow redeclaration of function in new scope" {
+  val program = parse_line("fn a {} fn main { fn a {} }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of function as variable in new scope" {
+  val program = parse_line("fn a {} fn main { var a = 12 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12)))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of function as constant in new scope" {
+  val program = parse_line("fn a {} fn main { val a = 12 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12)))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of constant in new scope" {
+  val program = parse_line("val a = 12 fn main { val a = 10 return a }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10))),
+          AST::Statement(Statement::Return(Expression::Var("a_1")))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of variable in new scope" {
+  val program = parse_line("var a = 12 fn main { var a = 10 return a }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10))),
+          AST::Statement(Statement::Return(Expression::Var("a_1")))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of constant as variable in new scope" {
+  val program = parse_line("val a = 12 fn main { var a = 10 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10)))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of variable as constant in new scope" {
+  val program = parse_line("var a = 12 fn main { val a = 10 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10)))
+        ]))
+      ]
+    }
+  )
+}

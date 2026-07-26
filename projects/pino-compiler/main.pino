@@ -1,9 +1,10 @@
 import Lexer
 import Parser
+import Checker
 # import Transformer
 
 fn main {
-  val content = "val a = 12 var b = 20 b = b + 1 fn add int { val double_n = a * 2 return double_n + b }"
+  val content = "fn a {} fn main { fn a {} }"
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)
@@ -12,6 +13,19 @@ fn main {
   match program {
     when Result::Success(program) {
       program:print()
+
+      val checker_result = Checker::resolve_program(program)
+
+      match checker_result {
+        when Result::Success(resolved_program) {
+          println("Resolved AST")
+          resolved_program:print()
+        }
+        when Result::Failure(error) {
+          println("Unable to Resolve: $error")
+        }
+      }
+
       # val intermediate_representation = Transformer::transform_program(program)
       # Transformer::print_tacky(intermediate_representation)
     }

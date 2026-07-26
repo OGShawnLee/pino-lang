@@ -460,7 +460,7 @@ pub fn parse(list []Token) Result[Program, string] {
   return Result::Success(program)
 }
 
-fn parse_line(line string) {
+pub fn parse_line(line string) {
   val list = lex(line)
   return parse(list)
 }
@@ -638,7 +638,7 @@ test "Expression: Should parse a parse a higher precedence parenthesized express
   )
 }
 
-test "Expression:: Should parse a conditional expression" {
+test "Expression: Should parse a conditional expression" {
   val content = "if 12 > 0 then 2 else 1"
   val list = lex(content)
   val program = parse_expr(TokenStream { list: list, cursor: 0 }, 0)
