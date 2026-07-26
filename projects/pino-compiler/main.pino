@@ -1,9 +1,9 @@
 import Lexer
 import Parser
-import Transformer
+# import Transformer
 
 fn main {
-  val content = "fn main string { return if 2 == 2 then 1 else 2 }"
+  val content = "val a = 12 val b = 20 fn add int { val double_n = a * 2 return double_n + b }"
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)
@@ -12,8 +12,8 @@ fn main {
   match program {
     when Result::Success(program) {
       program:print()
-      val intermediate_representation = Transformer::transform_program(program)
-      Transformer::print_tacky(intermediate_representation)
+      # val intermediate_representation = Transformer::transform_program(program)
+      # Transformer::print_tacky(intermediate_representation)
     }
     when Result::Failure(error) {
       println("Unable to Parse: $error")

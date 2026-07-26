@@ -1,6 +1,6 @@
 module Parser
 
-from Lexer import Token, TokenType
+from Lexer import Token, TokenType, lex
 
 pub struct TokenStream {
   list []Token
@@ -90,28 +90,58 @@ pub union Typing {
   Implicit
 }
 
+pub union Declaration {
+  FunctionDeclaration(string, Typing, []AST)
+  ConstantDeclaration(string, Expression)
+  VariableDeclaration(string, Expression)
+}
+
 pub union AST {
-  FunctionDefinition(string, Typing, Statement)
+  Declaration(Declaration)
+  Statement(Statement)
 }
 
 pub struct Program {
-  children AST
+  children []AST
 
   fn print {
     println("Program")
-    Program::print_ast(children)
+    for child in children {
+      Program::print_ast(child)
+    }
   }
 
   static fn print_ast(node AST) {
     match node {
-      when AST::FunctionDefinition(name, ret_type, stmt) {
+      when AST::Declaration(decl) {
+        Program::print_ast_decl(decl)
+      }
+      when AST::Statement(stmt) {
+        Program::print_ast_stmt(stmt)
+      }
+    }
+  }
+
+  static fn print_ast_decl(decl Declaration) {
+    match decl {
+      when Declaration::FunctionDeclaration(name, ret_type, children) {
         println("Function: $name")
         val ret_type_str = match ret_type {
           when Typing::Explicit(type_name) => type_name
           when Typing::Implicit => "Implicit"
         }
         println("Return Type: $ret_type_str")
-        Program::print_ast_stmt(stmt)
+        for child in children {
+          Program::print_ast(child)
+        }
+      }
+      when Declaration::VariableDeclaration(name, expr) {
+        println("Variable: $name")
+        Program::print_ast_expr(expr)
+      }
+      when Declaration::ConstantDeclaration(name, expr) {
+        println("Constant Variable: $name")
+        Program::print_ast_expr(expr)
       }
     }
   }
@@ -332,27 +362,282 @@ fn parse_fn_ret_type(stream TokenStream) Result[Typing, string] {
   }
 }
 
-fn parse_fn(stream TokenStream) Result[AST, string] {
+fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
+  val curr = stream:consume()
+
+  if curr:value != "val" and curr:value != "var" {
+    return Result::Failure("Expected 'val' or 'var' keyword. Got '$(curr:value)'.")
+  }
+
+  val name_token = stream:expect_type(TokenType::Identifier)?
+  stream:expect_content("=")?
+  val expr = parse_expr(stream, 0)?
+
+  return Result::Success(
+    if curr:value == "val" then
+      Declaration::ConstantDeclaration(name_token:value, expr)
+    else
+      Declaration::VariableDeclaration(name_token:value, expr)
+  )
+}
+
+fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   stream:expect_content("fn")?
   val name_token = stream:expect_type(TokenType::Identifier)?
   val ret_type = parse_fn_ret_type(stream)?
-  stream:expect_content("{")?
-  val fn_stmt = parse_stmt(stream)?
-  stream:expect_content("}")?
+  val fn_ast = parse_ast(stream, true)?
 
   return Result::Success(
-    AST::FunctionDefinition(
+    Declaration::FunctionDeclaration(
       name_token:value, 
       ret_type,
-      fn_stmt
+      fn_ast
     )
   )
+}
+
+fn parse_decl(stream TokenStream) Result[Declaration, string] {
+  val curr = stream:peek()
+  match curr:value {
+    when "fn" {
+      val res = parse_fn_decl(stream)?
+      return Result::Success(res)
+    }
+    when "val", "var" {
+      val res = parse_var_or_val_decl(stream)?
+      return Result::Success(res)
+    }
+    else {
+      return Result::Failure("Expected 'fn', 'var' or 'val' keyword. Got $(curr:value).")
+    }
+  }
+}
+
+fn parse_ast(stream TokenStream, as_block bool) Result[[]AST, string] {
+  if as_block {
+    stream:expect_content("{")?
+  }
+
+  val ast_list = []AST
+
+  for {
+    val curr = stream:peek()
+
+    if curr:type == TokenType::EOF or (as_block and curr:value == "}") {
+      break
+    }
+
+    match curr:value {
+      when "fn", "var", "val" {
+        ast_list:push(AST::Declaration(parse_decl(stream)?))
+      }
+      when "return" {
+        ast_list:push(AST::Statement(parse_stmt(stream)?))
+      }
+      else {
+        return Result::Failure("Expected 'fn', 'var', 'val' or 'return' keyword. Got '$(curr:value)'.")
+      }
+    }
+  }
+
+  if as_block {
+    stream:expect_content("}")?
+  }
+
+  return Result::Success(ast_list)
 }
 
 pub fn parse(list []Token) Result[Program, string] {
   val stream = TokenStream { list: list, cursor: 0 }
   val program = Program { 
-    children: parse_fn(stream)?
+    children: parse_ast(stream, false)?
   }
   return Result::Success(program)
+}
+
+fn parse_line(line string) {
+  val list = lex(line)
+  return parse(list)
+}
+
+test "AST: Should parse a Program with multiple top-level declarations" {
+  val program = parse_line("val a = 12 var b = 20 fn add int { val double_n = a * 2 return double_n + b }")
+  assert program == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(12))),
+        AST::Declaration(Declaration::VariableDeclaration("b", Expression::Constant(20))),
+        AST::Declaration(Declaration::FunctionDeclaration("add", Typing::Explicit("int"), [
+          AST::Declaration(Declaration::ConstantDeclaration(
+            "double_n",
+            Expression::Binary(
+              BinaryOperator::Multiply,
+              Expression::Var("a"),
+              Expression::Constant(2)
+            )
+          )),
+          AST::Statement(Statement::Return(
+            Expression::Binary(
+              BinaryOperator::Add,
+              Expression::Var("double_n"),
+              Expression::Var("b")
+            )
+          ))
+        ]))
+      ]
+    }
+  )
+}
+
+test "AST: Should parse a block of multiple declarations" {
+  val content = "{ val a = 10 val b = 20 val c = a - b }"
+  val list = lex(content)
+  val stream = TokenStream { list: list, cursor: 0 }
+  val block = parse_ast(stream, true)
+  assert block == Result::Success([
+    AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(10))),
+    AST::Declaration(Declaration::ConstantDeclaration("b", Expression::Constant(20))),
+    AST::Declaration(Declaration::ConstantDeclaration(
+      "c", 
+      Expression::Binary(
+        BinaryOperator::Subtract,
+        Expression::Var("a"),
+        Expression::Var("b")
+      )
+    ))
+  ])
+}
+
+test "Declaration: Should parse a var declaration" {
+  val program = parse_line("var n = 2")
+  assert program == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::VariableDeclaration("n", Expression::Constant(2)))
+      ]
+    }
+  )
+}
+
+test "Declaration: Should parse a val declaration" {
+  val program = parse_line("val n = 2")
+  assert program == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("n", Expression::Constant(2)))
+      ]
+    }
+  )
+}
+
+test "Declaration: Should parse a fn declaration" {
+  val program = parse_line("fn main int { return 2 }")
+  assert program == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "main",
+            Typing::Explicit("int"),
+            [
+              AST::Statement(Statement::Return(Expression::Constant(2)))
+            ]
+          )
+        )
+      ]
+    }
+  )
+}
+
+test "Expression: Should parse a parse a binary expression" {
+  val content = "12 + 2"
+  val list = lex(content)
+  val program = parse_expr(TokenStream { list: list, cursor: 0 }, 0)
+  assert program == Result::Success(
+    Expression::Binary(
+      BinaryOperator::Add,
+      Expression::Constant(12),
+      Expression::Constant(2)
+    )
+  )
+}
+
+test "Expression: Should parse a parse a higher precedence binary expression" {
+  val content = "12 + 2 * 2"
+  val list = lex(content)
+  val program = parse_expr(TokenStream { list: list, cursor: 0 }, 0)
+  assert program == Result::Success(
+    Expression::Binary(
+      BinaryOperator::Add,
+      Expression::Constant(12),
+      Expression::Binary(
+        BinaryOperator::Multiply,
+        Expression::Constant(2),
+        Expression::Constant(2)
+      )
+    )
+  )
+}
+
+test "Expression: Should parse a parse a unary expression" {
+  val content = "12 + -2"
+  val list = lex(content)
+  val program = parse_expr(TokenStream { list: list, cursor: 0 }, 0)
+  assert program == Result::Success(
+    Expression::Binary(
+      BinaryOperator::Add,
+      Expression::Constant(12),
+      Expression::Unary(
+        UnaryOperator::Negate,
+        Expression::Constant(2)
+      )
+    )
+  )
+}
+
+test "Expression: Should parse a parse a parenthesized expression" {
+  val content = "(12 + 2)"
+  val list = lex(content)
+  val program = parse_expr(TokenStream { list: list, cursor: 0 }, 0)
+  assert program == Result::Success(
+    Expression::Binary(
+      BinaryOperator::Add,
+      Expression::Constant(12),
+      Expression::Constant(2)
+    )
+  )
+}
+
+test "Expression: Should parse a parse a higher precedence parenthesized expression" {
+  val content = "(12 + 2) * 2"
+  val list = lex(content)
+  val program = parse_expr(TokenStream { list: list, cursor: 0 }, 0)
+  assert program == Result::Success(
+    Expression::Binary(
+      BinaryOperator::Multiply,
+      Expression::Binary(
+        BinaryOperator::Add,
+        Expression::Constant(12),
+        Expression::Constant(2)
+      ),
+      Expression::Constant(2)
+    )
+  )
+}
+
+test "Expression:: Should parse a conditional expression" {
+  val content = "if 12 > 0 then 2 else 1"
+  val list = lex(content)
+  val program = parse_expr(TokenStream { list: list, cursor: 0 }, 0)
+  assert program == Result::Success(
+    Expression::Conditional(
+      Expression::Binary(
+        BinaryOperator::GreaterThan,
+        Expression::Constant(12),
+        Expression::Constant(0)
+      ),
+      Expression::Constant(2),
+      Expression::Constant(1)
+    )
+  )
 }
