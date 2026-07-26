@@ -1069,6 +1069,8 @@ public partial class Checker {
             if (missing.Count > 0 && match.Alternate == null) {
               throw new Exception($"TYPE CHECK ERROR: Match statement on enum '{condType}' is not exhaustive. Missing member(s): {string.Join(", ", missing)}.");
             }
+          } else if (match.Alternate == null) {
+            throw new Exception($"TYPE CHECK ERROR: Match expression on type '{condType}' is not exhaustive. Provide an 'else' fallback branch.");
           }
         }
 
