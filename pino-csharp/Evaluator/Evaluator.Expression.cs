@@ -337,7 +337,7 @@ public partial class Evaluator {
         throw new Exception("RUNTIME ERROR: Cannot apply index access to non-vector, non-string, and non-map object.");
 
       case MapExpression map:
-        var mapDict = new Dictionary<object, object?>();
+        var mapDict = new PinoMap(map.KeyType, map.ValueType);
         foreach (var entry in map.Entries) {
           var k = Evaluate(entry.Key, env);
           if (k == null) {
@@ -1037,6 +1037,14 @@ public partial class Evaluator {
     }
     if (arg is List<object?> list) {
       return "[" + string.Join(", ", list.Select(item => FormatVal(item, false))) + "]";
+    }
+    if (arg is PinoMap pinoMap) {
+      var entries = pinoMap.Select(kv => {
+        var keyStr = FormatVal(kv.Key, false);
+        var valStr = FormatVal(kv.Value, false);
+        return $"{keyStr}: {valStr}";
+      });
+      return $"map[{pinoMap.KeyType}, {pinoMap.ValueType}] {{ {string.Join(", ", entries)} }}";
     }
     if (arg is Dictionary<object, object?> dict) {
       var entries = dict.Select(kv => {

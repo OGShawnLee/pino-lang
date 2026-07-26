@@ -766,6 +766,9 @@ public class TranspilerC {
         } else if (pinoType.StartsWith("[]")) {
             var vecClean = CleanTypeName(pinoType);
             return ("%s", $"{vecClean}_to_string({valExpr})");
+        } else if (pinoType.StartsWith("map[")) {
+            var mapClean = CleanTypeName(pinoType);
+            return ("%s", $"{mapClean}_to_string({valExpr})");
         } else {
             return ("%s", valExpr);
         }
@@ -1176,6 +1179,28 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"    }}");
                 _tupleSb.AppendLine($"    return true;");
                 _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                _tupleSb.AppendLine($"const char* {clean}_to_string({clean}* map);");
+                _tupleSb.AppendLine($"static inline const char* {clean}_to_string({clean}* map) {{");
+                _tupleSb.AppendLine($"    if (!map) return \"{pinoType} {{}}\";");
+                _tupleSb.AppendLine("    char* buf = (char*)pino_malloc(8192);");
+                _tupleSb.AppendLine($"    int len = snprintf(buf, 8192, \"{pinoType} {{\");");
+                _tupleSb.AppendLine("    int count = 0;");
+                _tupleSb.AppendLine("    for (int i = 0; i < map->capacity; i++) {");
+                _tupleSb.AppendLine("        if (map->entries[i].occupied == 1) {");
+                _tupleSb.AppendLine("            if (count > 0) len += snprintf(buf + len, 8192 - len, \", \");");
+                _tupleSb.AppendLine("            else len += snprintf(buf + len, 8192 - len, \" \");");
+                var (kFmt, kArg) = GetFormatSpecifierAndArgForType(keyType, "map->entries[i].key");
+                var (vFmt, vArg) = GetFormatSpecifierAndArgForType(valType, "map->entries[i].value");
+                _tupleSb.AppendLine($"            len += snprintf(buf + len, 8192 - len, \"{kFmt}: {vFmt}\", {kArg}, {vArg});");
+                _tupleSb.AppendLine("            count++;");
+                _tupleSb.AppendLine("        }");
+                _tupleSb.AppendLine("    }");
+                _tupleSb.AppendLine("    if (count > 0) len += snprintf(buf + len, 8192 - len, \" \");");
+                _tupleSb.AppendLine("    snprintf(buf + len, 8192 - len, \"}\");");
+                _tupleSb.AppendLine("    return buf;");
+                _tupleSb.AppendLine("}");
                 _tupleSb.AppendLine();
             }
             return clean + "*";
@@ -1596,6 +1621,11 @@ public class TranspilerC {
                     } else if (type.StartsWith("[]")) {
                         var vecClean = CleanTypeName(type);
                         Write($"{vecClean}_to_string(");
+                        TranspileExpression(arg);
+                        Write(")");
+                    } else if (type.StartsWith("map[")) {
+                        var mapClean = CleanTypeName(type);
+                        Write($"{mapClean}_to_string(");
                         TranspileExpression(arg);
                         Write(")");
                     } else {

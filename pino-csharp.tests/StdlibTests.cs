@@ -285,7 +285,7 @@ public class StdlibTests {
       println(str(m))
     ";
     var output = RunCode(code);
-    Assert.Equal("{\"James\": 20, \"Julian\": 32}\n", output);
+    Assert.Equal("map[string, int] { \"James\": 20, \"Julian\": 32 }\n", output);
   }
 
   [Fact]

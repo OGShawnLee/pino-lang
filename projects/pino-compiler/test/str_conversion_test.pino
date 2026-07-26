@@ -62,3 +62,19 @@ test "String Conversion: Union with Vector Payload" {
   val planet_str = str(Planet::Pluto(["Charon", "Styx", "Nix", "Kerberos", "Hydra"]))
   assert planet_str == "Planet::Pluto([\"Charon\", \"Styx\", \"Nix\", \"Kerberos\", \"Hydra\"])"
 }
+
+test "String Conversion: Map" {
+  val map_str_str = map[string, string] {
+    "Earth": "Earth"
+  }
+  val map_str_str_str = str(map_str_str)
+  assert map_str_str_str == "map[string, string] { \"Earth\": \"Earth\" }"
+}
+
+test "String Conversion: Map with Struct" {
+  val map_str_moon = map[string, Moon] {
+    "Earth": Moon { name: "Earth" }
+  }
+  val map_str_moon_str = str(map_str_moon)
+  assert map_str_moon_str == "map[string, Moon] { \"Earth\": Moon { name: \"Earth\" } }"
+}

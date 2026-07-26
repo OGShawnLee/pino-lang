@@ -159,6 +159,16 @@ public partial class Evaluator {
     }
   }
 
+  public class PinoMap : Dictionary<object, object?> {
+    public string KeyType { get; }
+    public string ValueType { get; }
+
+    public PinoMap(string keyType, string valueType) {
+      KeyType = keyType;
+      ValueType = valueType;
+    }
+  }
+
   public class PinoRegex {
     public System.Text.RegularExpressions.Regex Value { get; }
     public string Pattern { get; }
