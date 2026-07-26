@@ -3,7 +3,7 @@ import Parser
 # import Transformer
 
 fn main {
-  val content = "val a = 12 val b = 20 fn add int { val double_n = a * 2 return double_n + b }"
+  val content = "val a = 12 var b = 20 b = b + 1 fn add int { val double_n = a * 2 return double_n + b }"
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)

@@ -99,6 +99,7 @@ pub union Declaration {
 pub union AST {
   Declaration(Declaration)
   Statement(Statement)
+  Expression(Expression)
 }
 
 pub struct Program {
@@ -118,6 +119,9 @@ pub struct Program {
       }
       when AST::Statement(stmt) {
         Program::print_ast_stmt(stmt)
+      }
+      when AST::Expression(expr) {
+        Program::print_ast_expr(expr)
       }
     }
   }
@@ -435,7 +439,8 @@ fn parse_ast(stream TokenStream, as_block bool) Result[[]AST, string] {
         ast_list:push(AST::Statement(parse_stmt(stream)?))
       }
       else {
-        return Result::Failure("Expected 'fn', 'var', 'val' or 'return' keyword. Got '$(curr:value)'.")
+        val expr = parse_expr(stream, 0)?
+        ast_list:push(AST::Expression(expr))
       }
     }
   }
@@ -460,13 +465,17 @@ fn parse_line(line string) {
   return parse(list)
 }
 
-test "AST: Should parse a Program with multiple top-level declarations" {
-  val program = parse_line("val a = 12 var b = 20 fn add int { val double_n = a * 2 return double_n + b }")
+test "AST: Should parse a Program with multiple top-level declarations and expressions" {
+  val program = parse_line("val a = 12 var b = 20 b = b + 10 fn add int { val double_n = a * 2 return double_n + b }")
   assert program == Result::Success(
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(12))),
         AST::Declaration(Declaration::VariableDeclaration("b", Expression::Constant(20))),
+        AST::Expression(Expression::Assignment(
+          Expression::Var("b"),
+          Expression::Binary(BinaryOperator::Add, Expression::Var("b"), Expression::Constant(10))
+        )),
         AST::Declaration(Declaration::FunctionDeclaration("add", Typing::Explicit("int"), [
           AST::Declaration(Declaration::ConstantDeclaration(
             "double_n",
@@ -489,14 +498,18 @@ test "AST: Should parse a Program with multiple top-level declarations" {
   )
 }
 
-test "AST: Should parse a block of multiple declarations" {
-  val content = "{ val a = 10 val b = 20 val c = a - b }"
+test "AST: Should parse a block of multiple declarations and expressions" {
+  val content = "{ val a = 10 var b = 20 b = b + 10 val c = a - b }"
   val list = lex(content)
   val stream = TokenStream { list: list, cursor: 0 }
   val block = parse_ast(stream, true)
   assert block == Result::Success([
     AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(10))),
-    AST::Declaration(Declaration::ConstantDeclaration("b", Expression::Constant(20))),
+    AST::Declaration(Declaration::VariableDeclaration("b", Expression::Constant(20))),
+    AST::Expression(Expression::Assignment(
+      Expression::Var("b"),
+      Expression::Binary(BinaryOperator::Add, Expression::Var("b"), Expression::Constant(10))
+    )),
     AST::Declaration(Declaration::ConstantDeclaration(
       "c", 
       Expression::Binary(
