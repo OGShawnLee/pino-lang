@@ -1,0 +1,80 @@
+enum Status {
+  Active
+  Inactive
+  Pending
+}
+
+union Shape {
+  Circle(float)
+  Rectangle(float, float)
+  Point
+}
+
+test "Match Expression (Primitive Int): Single-expression arms" {
+  val level = 2
+  val label = match level {
+    when 1 => "Beginner"
+    when 2, 3 => "Intermediate"
+    else => "Expert"
+  }
+  assert label == "Intermediate"
+}
+
+test "Match Expression (Primitive String): Multiple pattern arms" {
+  val diff = "Medium"
+  val msg = match diff {
+    when "Easy", "Medium" => "You got this!"
+    when "High" => "You are cooked!"
+    else => "Unknown level"
+  }
+  assert msg == "You got this!"
+}
+
+test "Match Expression (Block Arm with Yield): Block execution returning value" {
+  val code = 404
+  val description = match code {
+    when 200 => "OK"
+    when 404 {
+      val prefix = "HTTP Error"
+      yield "$prefix: Not Found"
+    }
+    else => "Unknown Error"
+  }
+  assert description == "HTTP Error: Not Found"
+}
+
+test "Match Expression (Enum): Match against enum variants" {
+  val current_status = Status::Pending
+  val status_str = match current_status {
+    when Status::Active => "Running"
+    when Status::Inactive => "Stopped"
+    when Status::Pending => "Waiting"
+  }
+  assert status_str == "Waiting"
+}
+
+test "Match Expression (Union Payload): Match against union payload variants" {
+  val s1 = Shape::Circle(5.0)
+  val area = match s1 {
+    when Shape::Circle(r) => 3.14159 * r * r
+    when Shape::Rectangle(w, h) => w * h
+    when Shape::Point => 0.0
+  }
+  assert area > 78.0
+}
+
+test "Match Statement (Side-Effects): Executing statement branches without return" {
+  val flag = true
+  var result_val = 0
+
+  match flag {
+    when true {
+      result_val = 100
+    }
+    when false {
+      result_val = 200
+    }
+  }
+
+  assert result_val == 100
+}

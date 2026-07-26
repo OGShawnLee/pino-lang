@@ -161,7 +161,8 @@ public partial class Parser {
             stream.Current.IsKeyword(KeywordType.In) || 
             stream.Current.IsKeyword(KeywordType.Is) ||
             (stream.Current.IsOperator(OperatorType.Not) && stream.Peek(1).IsKeyword(KeywordType.In))) && 
-           !stream.Current.IsOperator(OperatorType.QuestionMark)) {
+           !stream.Current.IsOperator(OperatorType.QuestionMark) &&
+           !stream.Current.IsOperator(OperatorType.Arrow)) {
       var opToken = stream.Current;
 
       if (opToken.IsKeyword(KeywordType.Is)) {
