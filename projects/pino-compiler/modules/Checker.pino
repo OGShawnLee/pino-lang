@@ -1,6 +1,6 @@
 module Checker
 
-from Parser import AST, Declaration, Typing, Statement, Expression, BinaryOperator, parse_line
+from Parser import AST, Declaration, Parameter, Typing, Statement, Expression, BinaryOperator, parse_line
 
 struct Entity {
   unique_name string
@@ -107,9 +107,24 @@ fn resolve_var_or_val_decl(
   )
 }
 
+fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Parameter, string] {
+  if param:name in variable_map and variable_map[param:name]:is_from_current_block {
+    return Result::Failure("Type Checker Error: Parameter '$(param:name)' has been already declared in the current scope.")
+  }
+
+  val unique_name = generate_pseudonym(param:name)
+
+  variable_map[param:name] = Entity {
+    unique_name: unique_name
+    is_from_current_block: true
+  }
+
+  return Result::Success(Parameter { name: unique_name, type: param:type }) 
+}
+
 fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
   match decl {
-    when Declaration::FunctionDeclaration(name, ret_type, node_list) {
+    when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
       if name in variable_map {
         val prev_entry = variable_map[name] 
         if prev_entry:is_from_current_block {
@@ -123,10 +138,18 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
       }
 
       val inner_map = copy_variable_map(variable_map)
+      val resolved_param_list = []Parameter
+
+      for param in param_list {
+        resolved_param_list:push(
+          resolve_param(param, inner_map)?
+        )
+      }
+
       val resolved_node_list = resolve_node_ast_list(node_list, inner_map)?
 
       return Result::Success(
-        Declaration::FunctionDeclaration(name, ret_type, resolved_node_list)
+        Declaration::FunctionDeclaration(name, resolved_param_list, ret_type, resolved_node_list)
       )
     }
     when Declaration::ConstantDeclaration(name, expr) {
@@ -187,7 +210,7 @@ test "Identifier Resolution: Should return a valid Program" {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
         AST::Declaration(Declaration::ConstantDeclaration("b_1", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Statement(Statement::Return(
             Expression::Binary(
               BinaryOperator::Add,
@@ -229,7 +252,7 @@ test "Identifier Resolution: Should allow self referencing the declaration name 
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Var("a_0")))
         ]))
       ]
@@ -273,6 +296,42 @@ test "Identifier Resolution: Should catch redeclaring constant as variable in th
   assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
 }
 
+test "Identifier Resolution: Should catch redeclaring a parameter in the same function scope as a parameter" {
+  val program = parse_line("fn a(b int, b int) {}") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Parameter 'b' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring a parameter in the same scope as a constant" {
+  val program = parse_line("fn a(b int) { val b = 10 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Constant 'b' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring a parameter in the same scope as a variable" {
+  val program = parse_line("fn a(b int) { var b = 10 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'b' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring a parameter in the same function scope as a function" {
+  val program = parse_line("fn a(b int) { fn b() {} }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'b' has been already declared in the current scope.")
+}
+
 test "Identifier Resolution: Should catch redeclaring a function in the same scope" {
   val program = parse_line("fn a {} fn a {}") or {
     assert false
@@ -309,9 +368,9 @@ test "Identifier Resolution: Should allow redeclaration of function in new scope
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
-          AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST))
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+          AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST))
         ]))
       ]
     }
@@ -327,8 +386,8 @@ test "Identifier Resolution: Should allow redeclaration of function as variable 
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12)))
         ]))
       ]
@@ -345,8 +404,8 @@ test "Identifier Resolution: Should allow redeclaration of function as constant 
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", Typing::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12)))
         ]))
       ]
@@ -364,7 +423,7 @@ test "Identifier Resolution: Should allow redeclaration of constant in new scope
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10))),
           AST::Statement(Statement::Return(Expression::Var("a_1")))
         ]))
@@ -383,7 +442,7 @@ test "Identifier Resolution: Should allow redeclaration of variable in new scope
     Program {
       children: [
         AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10))),
           AST::Statement(Statement::Return(Expression::Var("a_1")))
         ]))
@@ -402,7 +461,7 @@ test "Identifier Resolution: Should allow redeclaration of constant as variable 
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10)))
         ]))
       ]
@@ -420,7 +479,7 @@ test "Identifier Resolution: Should allow redeclaration of variable as constant 
     Program {
       children: [
         AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10)))
         ]))
       ]

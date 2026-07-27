@@ -6,8 +6,12 @@ pub struct TokenStream {
   list []Token
   cursor int
 
-  fn peek {
-    return list[cursor]
+  fn peek(offset int) {
+    if cursor + offset >= list:len {
+      return Token { type: TokenType::EOF, value: "" }
+    }
+
+    return list[cursor + offset]
   }
 
   fn next {
@@ -15,13 +19,13 @@ pub struct TokenStream {
   }
 
   fn consume {
-    val curr = this:peek()
+    val curr = this:peek(0)
     this:next()
     return curr
   }
 
   fn expect_type(type TokenType) Result[Token, string] {
-    val curr = this:peek()
+    val curr = this:peek(0)
 
     if curr:type == type {
       this:next()
@@ -32,7 +36,7 @@ pub struct TokenStream {
   }
 
   fn expect_content(content string) Result[Token, string] {
-    val curr = this:peek()
+    val curr = this:peek(0)
 
     if curr:value == content {
       this:next()
@@ -49,12 +53,12 @@ pub struct TokenStream {
   }
 }
 
-pub union UnaryOperator {
+pub enum UnaryOperator {
   Negate
   Not
 }
 
-pub union BinaryOperator {
+pub enum BinaryOperator {
   Add
   Subtract
   Multiply
@@ -90,8 +94,13 @@ pub union Typing {
   Implicit
 }
 
+pub struct Parameter {
+  name string
+  type string
+}
+
 pub union Declaration {
-  FunctionDeclaration(string, Typing, []AST)
+  FunctionDeclaration(string, []Parameter, Typing, []AST)
   ConstantDeclaration(string, Expression)
   VariableDeclaration(string, Expression)
 }
@@ -128,12 +137,21 @@ pub struct Program {
 
   static fn print_ast_decl(decl Declaration) {
     match decl {
-      when Declaration::FunctionDeclaration(name, ret_type, children) {
+      when Declaration::FunctionDeclaration(name, param_list, ret_type, children) {
         println("Function: $name")
+
+        if param_list:len > 0 {
+          println("Parameters: ")
+          for param in param_list {
+            println(param)
+          }
+        }
+
         val ret_type_str = match ret_type {
           when Typing::Explicit(type_name) => type_name
           when Typing::Implicit => "Implicit"
         }
+
         println("Return Type: $ret_type_str")
         for child in children {
           Program::print_ast(child)
@@ -313,7 +331,7 @@ fn parse_expr(stream TokenStream, min_prec int) Result[Expression, string] {
   var left = parse_factor(stream)?
 
   for {
-    val curr = stream:peek()
+    val curr = stream:peek(0)
 
     if curr:type == TokenType::EOF {
       break
@@ -352,20 +370,6 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
   }
 }
 
-fn parse_fn_ret_type(stream TokenStream) Result[Typing, string] {
-  val curr = stream:peek()
-
-  return match curr:type {
-    when TokenType::BuiltInType => Result::Success(Typing::Explicit(stream:consume():value))
-    when TokenType::Identifier => Result::Success(Typing::Explicit(stream:consume():value))
-    when TokenType::Marker => 
-      if curr:value == "{" 
-        then Result::Success(Typing::Implicit)
-        else Result::Failure("Expected Built-in type or Identifier for return type. Got '$(curr:value)'.")
-    else => Result::Failure("Expected Built-in type or Identifier for return type. Got '$(curr:value)'.")
-  }
-}
-
 fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
   val curr = stream:consume()
 
@@ -385,15 +389,68 @@ fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
   )
 }
 
+fn parse_fn_ret_type(stream TokenStream) Result[Typing, string] {
+  val curr = stream:peek(0)
+
+  return match curr:type {
+    when TokenType::Identifier => Result::Success(Typing::Explicit(stream:consume():value))
+    when TokenType::Marker => 
+      if curr:value == "{"
+        then Result::Success(Typing::Implicit)
+        else Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
+    else => Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
+  }
+}
+
+fn parse_fn_parameter_list(stream TokenStream) Result[[]Parameter, string] {
+  stream:expect_content("(")?
+
+  if stream:peek(0):value == "," {
+    return Result::Failure("Expected parameter name or ')' before ',' in parameter list.")
+  }
+
+  var parameter_list = []Parameter
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:value == ")" or curr:type == TokenType::EOF {
+      break
+    }
+
+    if curr:value == "," {
+      if stream:peek(1):value == "," or stream:peek(2):value == ")" {
+        return Result::Failure("Expected parameter name after ',' in parameter list.")
+      }
+
+      stream:next()
+      continue
+    }
+
+    val name = stream:expect_type(TokenType::Identifier)?
+    val type = stream:expect_type(TokenType::Identifier)?
+
+    parameter_list:push(Parameter { name: name:value, type: type:value })
+  }
+
+  stream:expect_content(")")?
+
+  return Result::Success(parameter_list)
+}
+
 fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   stream:expect_content("fn")?
   val name_token = stream:expect_type(TokenType::Identifier)?
+  val parameter_list = if stream:peek(0):value == "(" 
+    then parse_fn_parameter_list(stream)? 
+    else []Parameter
   val ret_type = parse_fn_ret_type(stream)?
   val fn_ast = parse_ast(stream, true)?
 
   return Result::Success(
     Declaration::FunctionDeclaration(
       name_token:value, 
+      parameter_list,
       ret_type,
       fn_ast
     )
@@ -401,7 +458,7 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
 }
 
 fn parse_decl(stream TokenStream) Result[Declaration, string] {
-  val curr = stream:peek()
+  val curr = stream:peek(0)
   match curr:value {
     when "fn" {
       val res = parse_fn_decl(stream)?
@@ -425,7 +482,7 @@ fn parse_ast(stream TokenStream, as_block bool) Result[[]AST, string] {
   val ast_list = []AST
 
   for {
-    val curr = stream:peek()
+    val curr = stream:peek(0)
 
     if curr:type == TokenType::EOF or (as_block and curr:value == "}") {
       break
@@ -476,7 +533,7 @@ test "AST: Should parse a Program with multiple top-level declarations and expre
           Expression::Var("b"),
           Expression::Binary(BinaryOperator::Add, Expression::Var("b"), Expression::Constant(10))
         )),
-        AST::Declaration(Declaration::FunctionDeclaration("add", Typing::Explicit("int"), [
+        AST::Declaration(Declaration::FunctionDeclaration("add", []Parameter, Typing::Explicit("int"), [
           AST::Declaration(Declaration::ConstantDeclaration(
             "double_n",
             Expression::Binary(
@@ -543,22 +600,130 @@ test "Declaration: Should parse a val declaration" {
   )
 }
 
-test "Declaration: Should parse a fn declaration" {
-  val program = parse_line("fn main int { return 2 }")
-  assert program == Result::Success(
-    Program {
-      children: [
-        AST::Declaration(
-          Declaration::FunctionDeclaration(
-            "main",
-            Typing::Explicit("int"),
-            [
-              AST::Statement(Statement::Return(Expression::Constant(2)))
-            ]
-          )
-        )
-      ]
+test "Declaration: Should parse a fn declaration (no parameter-list, explicit return-type)" {
+  val function = parse_fn_decl(
+    TokenStream { 
+      list: lex("fn main int { return 2 }"), 
+      cursor: 0 
     }
+  )
+  assert function == Result::Success(
+    Declaration::FunctionDeclaration(
+      "main",
+      []Parameter,
+      Typing::Explicit("int"),
+      [
+        AST::Statement(Statement::Return(Expression::Constant(2)))
+      ]
+    )
+  )
+}
+
+test "Declaration: Should parse a fn declaration (no parameter-list, implicit return-type)" {
+  val function = parse_fn_decl(
+    TokenStream { 
+      list: lex("fn main { return 2 }"), 
+      cursor: 0 
+    }
+  )
+  assert function == Result::Success(
+    Declaration::FunctionDeclaration(
+      "main",
+      []Parameter,
+      Typing::Implicit,
+      [
+        AST::Statement(Statement::Return(Expression::Constant(2)))
+      ]
+    )
+  )
+}
+
+test "Declaration: Should parse a fn declaration (empty parameter-list, explicit return-type)" {
+  val function = parse_fn_decl(
+    TokenStream { 
+      list: lex("fn main() int { return 2 }"), 
+      cursor: 0 
+    }
+  )
+  assert function == Result::Success(
+    Declaration::FunctionDeclaration(
+      "main",
+      []Parameter,
+      Typing::Explicit("int"),
+      [
+        AST::Statement(Statement::Return(Expression::Constant(2)))
+      ]
+    )
+  )
+}
+
+
+test "Declaration: Should parse a fn declaration (empty parameter-list, implicit return-type)" {
+  val function = parse_fn_decl(
+    TokenStream { 
+      list: lex("fn main() { return 2 }"), 
+      cursor: 0 
+    }
+  )
+  assert function == Result::Success(
+    Declaration::FunctionDeclaration(
+      "main",
+      []Parameter,
+      Typing::Implicit,
+      [
+        AST::Statement(Statement::Return(Expression::Constant(2)))
+      ]
+    )
+  )
+}
+
+test "Declaration: Should parse a fn declaration (parameter-list, explicit return-type)" {
+  val function = parse_fn_decl(
+    TokenStream { 
+      list: lex("fn main(a int, b int) int { return a + b }"), 
+      cursor: 0 
+    }
+  )
+
+  assert function == Result::Success(
+    Declaration::FunctionDeclaration(
+      "main",
+      [
+        Parameter { name: "a", type: "int" },
+        Parameter { name: "b", type: "int" }
+      ],
+      Typing::Explicit("int"),
+      [
+        AST::Statement(Statement::Return(
+          Expression::Binary(BinaryOperator::Add, Expression::Var("a"), Expression::Var("b"))
+        ))
+      ]
+    )
+  )
+}
+
+test "Declaration: Should parse a fn declaration (parameter-list, implicit return-type)" {
+  val function = parse_fn_decl(
+    TokenStream { 
+      list: lex("fn main(a int, b int) { return a + b }"), 
+      cursor: 0 
+    }
+  )
+
+  assert function == Result::Success(
+    Declaration::FunctionDeclaration(
+      "main",
+      [
+        Parameter { name: "a", type: "int" },
+        Parameter { name: "b", type: "int" }
+      ],
+      Typing::Implicit,
+      [
+        AST::Statement(Statement::Return(
+          Expression::Binary(BinaryOperator::Add, Expression::Var("a"), Expression::Var("b"))
+        ))
+      ]
+    )
   )
 }
 
