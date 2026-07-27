@@ -1,0 +1,123 @@
+test "Vector Instance Method: Length: Should return the length of an empty vector." {
+  val vector = []int
+
+  assert vector:len == 0
+}
+
+test "Vector Instance Method: Length: Should return the length of a vector with one element." {
+  val vector = [1]
+
+  assert vector:len == 1
+}
+
+test "Vector Instance Method: Length: Should return the length of a vector with multiple elements." {
+  val vector = [1, 2, 3, 4, 5]
+
+  assert vector:len == 5
+}
+
+test "Vector Instance Method: Length: Should be dynamic and return the length of the vector at runtime." {
+  val vector = [1, 2, 3, 4, 5]
+
+  assert vector:len == 5
+
+  vector:push(6)
+
+  assert vector:len == 6
+
+  vector:pop()
+
+  assert vector:len == 5
+}
+
+test "Vector Instance Method: Map: Should generate a new list with the given transform function." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:map(fn (n int) {
+    return n * 2
+  }) == [2, 4, 6, 8, 10]
+}
+
+test "Vector Instance Method: Map: Should generate a new list with the given transform lambda." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:map(fn (n int) => n * 2) == [2, 4, 6, 8, 10]
+}
+
+test "Vector Instance Method: Map: Should generate a new list with the given implicit lambda." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:map(it * 2) == [2, 4, 6, 8, 10]
+}
+
+test "Vector Instance Method: Should generate a new list with the new type" {
+  val int_list = [1, 2, 3, 4, 5]
+  val str_list = int_list:map("$it: is a number")
+  assert str_list == []string { len: 5, init: "$(it + 1): is a number" }
+}
+
+test "Vector Instance Method: Filter: Should generate a new list with the given filter lambda." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:filter(fn (n int) {
+    return n % 2 == 0
+  }) == [2, 4]
+}
+
+test "Vector Instance Method: Filter: Should generate a new list with the given filter lambda." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:filter(fn (n int) => n % 2 == 0) == [2, 4]
+}
+
+test "Vector Instance Method: Filter: Should generate a new list with the given implicit filter lambda." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:filter(it % 2 == 0) == [2, 4]
+}
+
+test "Vector Instance Method: Any: Should return true if any element matches the predicate function." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:any(fn (n int) {
+    return n % 2 == 0
+  })
+}
+
+test "Vector Instance Method: Any: Should return true if any element matches the predicate lambda." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:any(fn (n int) => n % 2 == 0)
+}
+
+test "Vector Instance Method: Any: Should return true if any element matches the implicit predicate lambda." {
+  val int_list = [1, 2, 3, 4, 5]
+  assert int_list:any(it % 2 == 0)
+}
+
+test "Vector Instance Method: Any: Should return false if no element matches the predicate." {
+  val int_list = [1, 3, 5]
+  assert not int_list:any(fn (n int) {
+    return n % 2 == 0
+  })
+  assert not int_list:any(fn (n int) => n % 2 == 0)
+  assert not int_list:any(it % 2 == 0)
+}
+
+test "Vector Instance Method: All: Should return true if all elements match the predicate function." {
+  val int_list = [2, 4, 6]
+  assert int_list:all(fn (n int) {
+    return n % 2 == 0
+  })
+}
+
+test "Vector Instance Method: All: Should return true if all elements match the predicate lambda." {
+  val int_list = [2, 4, 6]
+  assert int_list:all(fn (n int) => n % 2 == 0)
+}
+
+test "Vector Instance Method: All: Should return true if all elements match the implicit predicate lambda." {
+  val int_list = [2, 4, 6]
+  assert int_list:all(it % 2 == 0)
+}
+
+test "Vector Instance Method: All: Should return false if no element matches the predicate." {
+  val int_list = [2, 4, 6]
+  assert not int_list:all(fn (n int) {
+    return n % 2 != 0
+  })
+  assert not int_list:all(fn (n int) => n % 2 != 0)
+  assert not int_list:all(it % 2 != 0)
+}

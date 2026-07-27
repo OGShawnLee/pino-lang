@@ -169,7 +169,7 @@ public partial class Checker {
                         : $"fn({elemType}) any";
                     
                     var tempParams = new List<VariableDeclaration> {
-                      new VariableDeclaration(VariableKind.Parameter, "it", null, elemType)
+                      new VariableDeclaration(VariableKind.Parameter, "callback", null, expectedSig)
                     };
                     ResolveImplicitLambdas(methodCall.Arguments, tempParams, null, null);
                   }

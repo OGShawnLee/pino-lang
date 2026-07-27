@@ -13,6 +13,7 @@ public class TranspilerC {
     private HashSet<string> _currentStructFields = new HashSet<string>();
     private StringBuilder _tupleSb = new StringBuilder();
     private HashSet<string> _declaredTuples = new HashSet<string>();
+    private HashSet<string> _declaredMapFuncs = new HashSet<string>();
     private string _currentReturnType = "";
     private Dictionary<string, UnionDeclaration> _unions = new Dictionary<string, UnionDeclaration>();
     private Dictionary<string, EnumDeclaration> _enums = new Dictionary<string, EnumDeclaration>();
@@ -32,6 +33,7 @@ public class TranspilerC {
     private Dictionary<string, Checker> _allModuleCheckers = new Dictionary<string, Checker>();
     private readonly StringBuilder _forwardDeclSb = new StringBuilder();
     private readonly StringBuilder _structSb = new StringBuilder();
+    private readonly StringBuilder _enumSb = new StringBuilder();
     private HashSet<string> _emittedStructsAndUnions = new HashSet<string>();
     private HashSet<string> _emittedConstructors = new HashSet<string>();
     private Dictionary<string, bool> _definedTypes = new Dictionary<string, bool>();
@@ -182,14 +184,15 @@ public class TranspilerC {
             } else if (decl is EnumDeclaration enumDecl) {
                 var enumName = GetPrefixedName(enumDecl.Identifier);
                 if (!_emittedStructsAndUnions.Add(enumName)) continue;
-                _structSb.AppendLine($"enum {enumName} {{");
+                _enumSb.AppendLine($"typedef enum {enumName} {enumName};");
+                _enumSb.AppendLine($"enum {enumName} {{");
                 foreach (var member in enumDecl.Members) {
-                    _structSb.AppendLine($"    {enumName}_{member},");
+                    _enumSb.AppendLine($"    {enumName}_{member},");
                 }
-                _structSb.AppendLine("};");
-                _structSb.AppendLine($"typedef enum {enumName} {enumName};");
+                _enumSb.AppendLine("};");
+                _enumSb.AppendLine();
                 GenerateEnumToString(enumDecl);
-                _structSb.AppendLine();
+                _enumSb.AppendLine();
             } else if (decl is UnionDeclaration unionDecl) {
                 if (unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) continue;
                 var unionName = GetPrefixedName(unionDecl.Identifier);
@@ -327,7 +330,8 @@ public class TranspilerC {
         _currentStructFields.Clear();
         _tupleSb.Clear();
         _declaredTuples.Clear();
-        _declaredTuples.Add("[]string");
+        _declaredMapFuncs.Clear();
+        MapType("[]string");
         
         _definedTypes.Clear();
         foreach (var mod in allModules) {
@@ -362,6 +366,7 @@ public class TranspilerC {
         ScanForIOUsage(program, allModules);
         _sb.Clear();
         _forwardDeclSb.Clear();
+        _enumSb.Clear();
         _structSb.Clear();
         _emittedStructsAndUnions.Clear();
         _emittedConstructors.Clear();
@@ -548,6 +553,7 @@ public class TranspilerC {
         finalSb.AppendLine("#include \"runtime/runtime.h\"");
         finalSb.AppendLine();
         finalSb.Append(_forwardDeclSb.ToString());
+        finalSb.Append(_enumSb.ToString());
         finalSb.Append(_tupleSb.ToString());
         finalSb.Append(_globalDeclSb.ToString());
         finalSb.Append(_structSb.ToString());
@@ -776,7 +782,7 @@ public class TranspilerC {
 
     private void GenerateEnumToString(EnumDeclaration enumDecl) {
         var enumName = GetPrefixedName(enumDecl.Identifier);
-        _structSb.AppendLine($"const char* {enumName}_to_string({enumName} val);");
+        _enumSb.AppendLine($"const char* {enumName}_to_string({enumName} val);");
         
         var body = new StringBuilder();
         body.AppendLine($"const char* {enumName}_to_string({enumName} val) {{");
@@ -788,7 +794,7 @@ public class TranspilerC {
         body.AppendLine("        default: return \"unknown\";");
         body.AppendLine("    }");
         body.AppendLine("}");
-        _sb.AppendLine(body.ToString());
+        _enumSb.AppendLine(body.ToString());
     }
 
     private void GenerateStructToString(StructDeclaration structDecl) {
@@ -817,7 +823,7 @@ public class TranspilerC {
         body.AppendLine($"    snprintf(buf, 1024, \"{formatStr}\"{argsStr});");
         body.AppendLine("    return buf;");
         body.AppendLine("}");
-        _sb.AppendLine(body.ToString());
+        _structSb.AppendLine(body.ToString());
     }
 
     private void GenerateUnionToString(UnionDeclaration unionDecl) {
@@ -854,7 +860,7 @@ public class TranspilerC {
         body.AppendLine("        default: return \"unknown\";");
         body.AppendLine("    }");
         body.AppendLine("}");
-        _sb.AppendLine(body.ToString());
+        _structSb.AppendLine(body.ToString());
     }
 
     private void GenerateVectorToString(string pinoType) {
@@ -878,7 +884,7 @@ public class TranspilerC {
         body.AppendLine("    snprintf(buf + len, 4096 - len, \"]\");");
         body.AppendLine("    return buf;");
         body.AppendLine("}");
-        _sb.AppendLine(body.ToString());
+        _tupleSb.AppendLine(body.ToString());
     }
 
     private string EmitTypeEqualityCheck(string rawType, string aVal, string bVal) {
@@ -980,6 +986,8 @@ public class TranspilerC {
 
     private string MapType(string pinoType) {
         if (string.IsNullOrEmpty(pinoType)) return "void";
+        if (pinoType == "implicit") return "int";
+        if (pinoType.StartsWith("[]implicit")) pinoType = "[]int";
         pinoType = ResolveTypeName(pinoType);
         if (pinoType.StartsWith("fn(")) return "PinoClosure";
         if (pinoType.StartsWith("map[")) {
@@ -1212,38 +1220,109 @@ public class TranspilerC {
                 var elemType = pinoType.Substring(2);
                 var cElemType = MapType(elemType);
                 
-                // Define the struct
-                _tupleSb.AppendLine($"struct {clean};");
-                _tupleSb.AppendLine($"typedef struct {clean} {clean};");
-                _tupleSb.AppendLine($"struct {clean} {{");
-                _tupleSb.AppendLine($"    {cElemType}* items;");
-                _tupleSb.AppendLine($"    int length;");
-                _tupleSb.AppendLine($"    int capacity;");
-                _tupleSb.AppendLine($"}};");
-                _tupleSb.AppendLine();
-                
-                // Define constructor and push functions
-                _tupleSb.AppendLine($"static inline {clean}* {clean}_construct(int length) {{");
-                _tupleSb.AppendLine($"    {clean}* vec = ({clean}*)pino_malloc(sizeof({clean}));");
-                _tupleSb.AppendLine($"    vec->length = length;");
-                _tupleSb.AppendLine($"    vec->capacity = length > 0 ? length : 4;");
-                _tupleSb.AppendLine($"    vec->items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
-                _tupleSb.AppendLine($"    memset(vec->items, 0, vec->capacity * sizeof({cElemType}));");
-                _tupleSb.AppendLine($"    return vec;");
+                // Define the struct and basic methods (unless []string which is in runtime.h)
+                if (pinoType != "[]string") {
+                    _tupleSb.AppendLine($"struct {clean};");
+                    _tupleSb.AppendLine($"typedef struct {clean} {clean};");
+                    _tupleSb.AppendLine($"struct {clean} {{");
+                    _tupleSb.AppendLine($"    {cElemType}* items;");
+                    _tupleSb.AppendLine($"    int length;");
+                    _tupleSb.AppendLine($"    int capacity;");
+                    _tupleSb.AppendLine($"}};");
+                    _tupleSb.AppendLine();
+                    
+                    // Define constructor and push functions
+                    _tupleSb.AppendLine($"static inline {clean}* {clean}_construct(int length) {{");
+                    _tupleSb.AppendLine($"    {clean}* vec = ({clean}*)pino_malloc(sizeof({clean}));");
+                    _tupleSb.AppendLine($"    vec->length = length;");
+                    _tupleSb.AppendLine($"    vec->capacity = length > 0 ? length : 4;");
+                    _tupleSb.AppendLine($"    vec->items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
+                    _tupleSb.AppendLine($"    memset(vec->items, 0, vec->capacity * sizeof({cElemType}));");
+                    _tupleSb.AppendLine($"    return vec;");
+                    _tupleSb.AppendLine($"}}");
+                    _tupleSb.AppendLine();
+                    
+                    _tupleSb.AppendLine($"static inline {clean}* {clean}_push({clean}* vec, {cElemType} item) {{");
+                    _tupleSb.AppendLine($"    if (vec->length >= vec->capacity) {{");
+                    _tupleSb.AppendLine($"        vec->capacity = vec->capacity == 0 ? 4 : vec->capacity * 2;");
+                    _tupleSb.AppendLine($"        {cElemType}* new_items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
+                    _tupleSb.AppendLine($"        if (vec->items) {{");
+                    _tupleSb.AppendLine($"            memcpy(new_items, vec->items, vec->length * sizeof({cElemType}));");
+                    _tupleSb.AppendLine($"        }}");
+                    _tupleSb.AppendLine($"        vec->items = new_items;");
+                    _tupleSb.AppendLine($"    }}");
+                    _tupleSb.AppendLine($"    vec->items[vec->length++] = item;");
+                    _tupleSb.AppendLine($"    return vec;");
+                    _tupleSb.AppendLine($"}}");
+                    _tupleSb.AppendLine();
+                }
+
+                _tupleSb.AppendLine($"static inline {cElemType} {clean}_pop({clean}* vec) {{");
+                _tupleSb.AppendLine($"    if (!vec || vec->length == 0) {{");
+                _tupleSb.AppendLine($"        pino_panic(\"RUNTIME ERROR: Pop on empty vector\");");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    vec->length--;");
+                _tupleSb.AppendLine($"    return vec->items[vec->length];");
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
-                
-                _tupleSb.AppendLine($"static inline {clean}* {clean}_push({clean}* vec, {cElemType} item) {{");
-                _tupleSb.AppendLine($"    if (vec->length >= vec->capacity) {{");
-                _tupleSb.AppendLine($"        vec->capacity = vec->capacity == 0 ? 4 : vec->capacity * 2;");
-                _tupleSb.AppendLine($"        {cElemType}* new_items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
-                _tupleSb.AppendLine($"        if (vec->items) {{");
-                _tupleSb.AppendLine($"            memcpy(new_items, vec->items, vec->length * sizeof({cElemType}));");
-                _tupleSb.AppendLine($"        }}");
-                _tupleSb.AppendLine($"        vec->items = new_items;");
+
+                _tupleSb.AppendLine($"static inline {clean}* {clean}_map({clean}* vec, PinoClosure fn) {{");
+                _tupleSb.AppendLine($"    if (!vec) return {clean}_construct(0);");
+                _tupleSb.AppendLine($"    {clean}* res = {clean}_construct(0);");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        {cElemType} ret = (({cElemType}(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
+                _tupleSb.AppendLine($"        {clean}_push(res, ret);");
                 _tupleSb.AppendLine($"    }}");
-                _tupleSb.AppendLine($"    vec->items[vec->length++] = item;");
-                _tupleSb.AppendLine($"    return vec;");
+                _tupleSb.AppendLine($"    return res;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                _tupleSb.AppendLine($"static inline {clean}* {clean}_filter({clean}* vec, PinoClosure fn) {{");
+                _tupleSb.AppendLine($"    if (!vec) return {clean}_construct(0);");
+                _tupleSb.AppendLine($"    {clean}* res = {clean}_construct(0);");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        int keep = ((int(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
+                _tupleSb.AppendLine($"        if (keep) {clean}_push(res, vec->items[i]);");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return res;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                _tupleSb.AppendLine($"static inline void {clean}_each({clean}* vec, PinoClosure fn) {{");
+                _tupleSb.AppendLine($"    if (!vec) return;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        ((void(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                _tupleSb.AppendLine($"static inline bool {clean}_any({clean}* vec, PinoClosure fn) {{");
+                _tupleSb.AppendLine($"    if (!vec) return false;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        int cond = ((int(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
+                _tupleSb.AppendLine($"        if (cond) return true;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return false;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                _tupleSb.AppendLine($"static inline bool {clean}_all({clean}* vec, PinoClosure fn) {{");
+                _tupleSb.AppendLine($"    if (!vec) return true;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        int cond = ((int(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
+                _tupleSb.AppendLine($"        if (!cond) return false;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return true;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
+                _tupleSb.AppendLine($"static inline {cElemType} {clean}_find({clean}* vec, PinoClosure fn) {{");
+                _tupleSb.AppendLine($"    if (!vec) return ({cElemType})0;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        int cond = ((int(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
+                _tupleSb.AppendLine($"        if (cond) return vec->items[i];");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return ({cElemType})0;");
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
 
@@ -1259,20 +1338,22 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
 
-                string vecEqCheck = EmitTypeEqualityCheck(elemType, "a_elem", "b_elem");
+                if (pinoType != "[]string") {
+                    string vecEqCheck = EmitTypeEqualityCheck(elemType, "a_elem", "b_elem");
 
-                _tupleSb.AppendLine($"static inline bool {clean}_equals({clean}* a, {clean}* b) {{");
-                _tupleSb.AppendLine($"    if (a == b) return true;");
-                _tupleSb.AppendLine($"    if (!a || !b) return false;");
-                _tupleSb.AppendLine($"    if (a->length != b->length) return false;");
-                _tupleSb.AppendLine($"    for (int i = 0; i < a->length; i++) {{");
-                _tupleSb.AppendLine($"        {cElemType} a_elem = a->items[i];");
-                _tupleSb.AppendLine($"        {cElemType} b_elem = b->items[i];");
-                _tupleSb.AppendLine($"        if (!({vecEqCheck})) return false;");
-                _tupleSb.AppendLine($"    }}");
-                _tupleSb.AppendLine($"    return true;");
-                _tupleSb.AppendLine($"}}");
-                _tupleSb.AppendLine();
+                    _tupleSb.AppendLine($"static inline bool {clean}_equals({clean}* a, {clean}* b) {{");
+                    _tupleSb.AppendLine($"    if (a == b) return true;");
+                    _tupleSb.AppendLine($"    if (!a || !b) return false;");
+                    _tupleSb.AppendLine($"    if (a->length != b->length) return false;");
+                    _tupleSb.AppendLine($"    for (int i = 0; i < a->length; i++) {{");
+                    _tupleSb.AppendLine($"        {cElemType} a_elem = a->items[i];");
+                    _tupleSb.AppendLine($"        {cElemType} b_elem = b->items[i];");
+                    _tupleSb.AppendLine($"        if (!({vecEqCheck})) return false;");
+                    _tupleSb.AppendLine($"    }}");
+                    _tupleSb.AppendLine($"    return true;");
+                    _tupleSb.AppendLine($"}}");
+                    _tupleSb.AppendLine();
+                }
             }
             return clean + "*";
         }
@@ -1303,6 +1384,22 @@ public class TranspilerC {
             var cleanTypeName = ResolveTypeName(resolvedBase + "_" + string.Join("_", pinoArgs));
             return cleanTypeName + "*";
         }
+        var enumDecl = FindEnum(pinoType);
+        if (enumDecl != null) {
+            var enumName = GetPrefixedName(enumDecl.Identifier);
+            if (_emittedStructsAndUnions.Add(enumName)) {
+                _enumSb.AppendLine($"typedef enum {enumName} {enumName};");
+                _enumSb.AppendLine($"enum {enumName} {{");
+                foreach (var member in enumDecl.Members) {
+                    _enumSb.AppendLine($"    {enumName}_{member},");
+                }
+                _enumSb.AppendLine("};");
+                _enumSb.AppendLine();
+                GenerateEnumToString(enumDecl);
+                _enumSb.AppendLine();
+            }
+            return enumName;
+        }
         if (_unions.ContainsKey(pinoType)) {
             return pinoType + "*";
         }
@@ -1320,6 +1417,40 @@ public class TranspilerC {
             "rune" => "int",
             _ => pinoType
         };
+    }
+
+    private string GetVectorMapFunctionName(string inVecType, string outVecType) {
+        if (inVecType == "implicit" || string.IsNullOrEmpty(inVecType)) inVecType = "[]int";
+        if (outVecType == "implicit" || string.IsNullOrEmpty(outVecType) || outVecType == "[]any") outVecType = inVecType;
+        
+        MapType(inVecType);
+        MapType(outVecType);
+
+        var cleanIn = CleanTypeName(inVecType);
+        var cleanOut = CleanTypeName(outVecType);
+        var inElemType = inVecType.Substring(2);
+        var outElemType = outVecType.Substring(2);
+        var cInElem = MapType(inElemType);
+        var cOutElem = MapType(outElemType);
+
+        var funcName = $"{cleanIn}_map_{cleanOut}";
+        var key = $"{inVecType}->{outVecType}";
+
+        if (!_declaredMapFuncs.Contains(key)) {
+            _declaredMapFuncs.Add(key);
+            _tupleSb.AppendLine($"static inline {cleanOut}* {funcName}({cleanIn}* vec, PinoClosure fn) {{");
+            _tupleSb.AppendLine($"    if (!vec) return {cleanOut}_construct(0);");
+            _tupleSb.AppendLine($"    {cleanOut}* res = {cleanOut}_construct(0);");
+            _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+            _tupleSb.AppendLine($"        {cOutElem} ret = (({cOutElem}(*)(void*, {cInElem}))fn.fn_ptr)(fn.env, vec->items[i]);");
+            _tupleSb.AppendLine($"        {cleanOut}_push(res, ret);");
+            _tupleSb.AppendLine($"    }}");
+            _tupleSb.AppendLine($"    return res;");
+            _tupleSb.AppendLine($"}}");
+            _tupleSb.AppendLine();
+        }
+
+        return funcName;
     }
 
     private void TranspileStatement(Statement stmt) {
@@ -1361,6 +1492,16 @@ public class TranspilerC {
                     Write($"snprintf(pino_ret_temp, 1024, \"{EscapeString(format)}\"{argsStr});\n");
                     WriteIndent();
                     Write("return pino_ret_temp;");
+                } else if (ret.Argument != null && (ret.Argument.InferredType == "void" || (ret.Argument is FunctionCallExpression fnCall && (fnCall.Callee == "println" || fnCall.Callee == "print")))) {
+                    TranspileExpression(ret.Argument);
+                    _sb.AppendLine(";");
+                    WriteIndent();
+                    if (_currentLambda != null) {
+                        var lambdaRet = GetLambdaReturnType(_currentLambda);
+                        Write(lambdaRet == "void" ? "return" : "return NULL");
+                    } else {
+                        Write(_currentReturnType == "void" ? "return" : "return NULL");
+                    }
                 } else {
                     Write("return");
                     if (ret.Argument != null) {
@@ -1875,6 +2016,39 @@ public class TranspilerC {
                             Write(", ");
                             TranspileExpression(call.Arguments[0]);
                             Write(")");
+                        } else if (bin.Right is FunctionCallExpression popCall && popCall.Callee == "pop") {
+                            var cleanType = CleanTypeName(bin.Left.InferredType);
+                            Write($"{cleanType}_pop(");
+                            TranspileExpression(bin.Left);
+                            Write(")");
+                        } else if (bin.Right is FunctionCallExpression methodCall) {
+                            if (methodCall.Callee == "map") {
+                                var inVecType = bin.Left.InferredType ?? "[]int";
+                                var outVecType = bin.InferredType;
+                                if (string.IsNullOrEmpty(outVecType) || !outVecType.StartsWith("[]") || outVecType == "[]any") {
+                                    outVecType = methodCall.InferredType;
+                                }
+                                if (string.IsNullOrEmpty(outVecType) || !outVecType.StartsWith("[]") || outVecType == "[]any") {
+                                    outVecType = inVecType;
+                                }
+                                var mapFnName = GetVectorMapFunctionName(inVecType, outVecType);
+                                Write($"{mapFnName}(");
+                                TranspileExpression(bin.Left);
+                                for (int i = 0; i < methodCall.Arguments.Count; i++) {
+                                    Write(", ");
+                                    TranspileExpression(methodCall.Arguments[i]);
+                                }
+                                Write(")");
+                            } else {
+                                var cleanType = CleanTypeName(bin.Left.InferredType);
+                                Write($"{cleanType}_{methodCall.Callee}(");
+                                TranspileExpression(bin.Left);
+                                for (int i = 0; i < methodCall.Arguments.Count; i++) {
+                                    Write(", ");
+                                    TranspileExpression(methodCall.Arguments[i]);
+                                }
+                                Write(")");
+                            }
                         } else if (bin.Right is IdentifierExpression id && (id.Name == "len" || id.Name == "length")) {
                             TranspileExpression(bin.Left);
                             Write("->length");
@@ -2781,6 +2955,8 @@ public class TranspilerC {
     }
 
     private string CleanTypeName(string pinoType) {
+        if (pinoType == "implicit") return "int";
+        if (pinoType.StartsWith("[]implicit")) pinoType = "[]int";
         pinoType = ResolveTypeName(pinoType);
         if (pinoType.StartsWith("[]")) {
             return "Vector_" + CleanTypeName(pinoType.Substring(2));
@@ -3403,8 +3579,16 @@ public class TranspilerC {
         foreach (var lambda in _lambdas) {
             var retType = MapType(GetLambdaReturnType(lambda));
             var paramList = new List<string> { "void* env_ptr" };
-            foreach (var p in lambda.Parameters) {
-                paramList.Add($"{MapType(p.Typing)} {p.Identifier}");
+            List<string>? inferredParamTypes = null;
+            if (!string.IsNullOrEmpty(lambda.InferredType) && lambda.InferredType.StartsWith("fn(")) {
+                var (pTypes, _) = ParseFunctionType(lambda.InferredType);
+                inferredParamTypes = pTypes;
+            }
+            for (int i = 0; i < lambda.Parameters.Count; i++) {
+                var p = lambda.Parameters[i];
+                var pType = (p.Typing == "implicit" || string.IsNullOrEmpty(p.Typing)) && inferredParamTypes != null && i < inferredParamTypes.Count ? inferredParamTypes[i] : p.Typing;
+                if (pType == "implicit" || string.IsNullOrEmpty(pType)) pType = "int";
+                paramList.Add($"{MapType(pType)} {p.Identifier}");
             }
             
             forwardFuncSb.AppendLine($"static {retType} {lambda.LambdaId}({string.Join(", ", paramList)});");
