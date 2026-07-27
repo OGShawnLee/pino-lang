@@ -83,6 +83,7 @@ pub union Expression {
   Binary(BinaryOperator, Expression, Expression)
   Assignment(Expression, Expression)
   Conditional(Expression, Expression, Expression)
+  FunctionCall(string, []Expression)
 }
 
 pub union Statement {
@@ -208,6 +209,12 @@ pub struct Program {
         Program::print_ast_expr(left)
         Program::print_ast_expr(right)
       }
+      when Expression::FunctionCall(name, args) {
+        println("Function Call: $name")
+        for arg in args {
+          Program::print_ast_expr(arg)
+        }
+      }
     }
   }
 }
@@ -284,6 +291,42 @@ fn parse_binary_operator(token Token) Result[BinaryOperator, string] {
   return Result::Success(BINARY_OPERATOR_MAP[token:value])
 }
 
+fn parse_arg_list(stream TokenStream) Result[[]Expression, string] {
+  val arg_list = []Expression
+
+  if stream:peek(0):value == "," {
+    return Result::Failure("Expected argument before ',' in argument list.")
+  }
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:value == ")" {
+      break
+    }
+
+    if curr:value == "," {
+      if stream:peek(1):value == "," {
+        return Result::Failure("Expected argument before consecutive ',' in argument list.")
+      }
+
+      if stream:peek(1):value == ")" {
+        return Result::Failure("Expected argument before ')' in argument list.")
+      }
+
+      stream:next()
+      continue
+    }
+
+    val arg_expr = parse_expr(stream, 0)?
+    arg_list:push(arg_expr)
+  }
+
+  stream:expect_content(")")?
+
+  return Result::Success(arg_list)
+}
+
 fn parse_factor(stream TokenStream) Result[Expression, string] {
   val curr = stream:consume()
   match curr:type {
@@ -319,6 +362,12 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
       return Result::Success(Expression::Conditional(condition, then_branch, else_branch))
     }
     when TokenType::Identifier {
+      if stream:peek(0):value == "(" {
+        stream:next()
+        val arg_list = parse_arg_list(stream)?
+        return Result::Success(Expression::FunctionCall(curr:value, arg_list))
+      }      
+
       return Result::Success(Expression::Var(curr:value))
     }
     else {
@@ -402,14 +451,14 @@ fn parse_fn_ret_type(stream TokenStream) Result[Typing, string] {
   }
 }
 
-fn parse_fn_parameter_list(stream TokenStream) Result[[]Parameter, string] {
+fn parse_fn_param_list(stream TokenStream) Result[[]Parameter, string] {
   stream:expect_content("(")?
 
   if stream:peek(0):value == "," {
     return Result::Failure("Expected parameter name or ')' before ',' in parameter list.")
   }
 
-  var parameter_list = []Parameter
+  var param_list = []Parameter
 
   for {
     val curr = stream:peek(0)
@@ -430,19 +479,19 @@ fn parse_fn_parameter_list(stream TokenStream) Result[[]Parameter, string] {
     val name = stream:expect_type(TokenType::Identifier)?
     val type = stream:expect_type(TokenType::Identifier)?
 
-    parameter_list:push(Parameter { name: name:value, type: type:value })
+    param_list:push(Parameter { name: name:value, type: type:value })
   }
 
   stream:expect_content(")")?
 
-  return Result::Success(parameter_list)
+  return Result::Success(param_list)
 }
 
 fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   stream:expect_content("fn")?
   val name_token = stream:expect_type(TokenType::Identifier)?
-  val parameter_list = if stream:peek(0):value == "(" 
-    then parse_fn_parameter_list(stream)? 
+  val param_list = if stream:peek(0):value == "(" 
+    then parse_fn_param_list(stream)? 
     else []Parameter
   val ret_type = parse_fn_ret_type(stream)?
   val fn_ast = parse_ast(stream, true)?
@@ -450,7 +499,7 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   return Result::Success(
     Declaration::FunctionDeclaration(
       name_token:value, 
-      parameter_list,
+      param_list,
       ret_type,
       fn_ast
     )

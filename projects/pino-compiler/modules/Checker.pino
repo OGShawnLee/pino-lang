@@ -72,6 +72,20 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
 
       return Result::Success(Expression::Conditional(resolved_condition_expr, resolved_then_expr, resolved_else_expr))
     }
+    when Expression::FunctionCall(name, arg_list) {
+      if name not in variable_map {
+        return Result::Failure("Type Checker Error: Function '$name' has not been declared in the current scope.")
+      }
+
+      val resolved_fn_name = variable_map[name]:unique_name
+      
+      val resolved_arg_list = []Expression
+      for arg in arg_list {
+        resolved_arg_list:push(resolve_expr(arg, variable_map)?)
+      }
+
+      return Result::Success(Expression::FunctionCall(resolved_fn_name, resolved_arg_list))
+    }
   }
 }
 
@@ -98,7 +112,6 @@ fn resolve_var_or_val_decl(
     unique_name: unique_name
     is_from_current_block: true
   }
-
 
   return Result::Success(
     if is_constant 
@@ -224,13 +237,22 @@ test "Identifier Resolution: Should return a valid Program" {
   )
 }
 
-test "Identifier Resolution: Should catch undeclared variable" {
+test "Identifier Resolution: Should catch undeclared constant/variable" {
   val program = parse_line("val a = 12 fn main { return a + b }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Variable 'b' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch undeclared function call" {
+  val program = parse_line("val a = 12 add(a, 12)") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'add' has not been declared in the current scope.")
 }
 
 test "Identifier Resolution: Should catch declaring a variable with an expression referencing it with no shadowing" {
