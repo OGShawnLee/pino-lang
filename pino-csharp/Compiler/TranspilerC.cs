@@ -901,8 +901,12 @@ public class TranspilerC {
         if (rawType == "regex" || mappedType == "regex*") {
             return $"(({aVal} == {bVal}) || ({aVal} && {bVal} && strcmp({aVal}->pattern, {bVal}->pattern) == 0))";
         }
-        if (rawType == "int" || rawType == "float" || rawType == "bool" || rawType == "rune" || mappedType == "int" || mappedType == "double" || mappedType == "bool" || mappedType == "long" || mappedType == "uint32_t") {
+        if (rawType == "int" || rawType == "float" || rawType == "bool" || rawType == "rune" || mappedType == "int" || mappedType == "double" || mappedType == "bool" || mappedType == "long" || mappedType == "uint32_t" || FindEnum(rawType) != null || FindEnum(typeName) != null) {
             return $"({aVal} == {bVal})";
+        }
+        if (rawType.Contains("[") && rawType.EndsWith("]")) {
+            MapType(rawType);
+            return $"{typeName}_equals({aVal}, {bVal})";
         }
         if (rawType.StartsWith("[]") || rawType.StartsWith("Vector_")) {
             MapType(rawType);
@@ -912,7 +916,7 @@ public class TranspilerC {
             MapType(rawType);
             return $"{typeName}_equals({aVal}, {bVal})";
         }
-        if (FindUnion(typeName) != null || FindUnion(rawType) != null) {
+        if (FindUnion(typeName) != null || FindUnion(rawType) != null || _unions.ContainsKey(typeName) || _unions.ContainsKey(rawType) || _emittedStructsAndUnions.Contains(typeName)) {
             return $"{typeName}_equals({aVal}, {bVal})";
         }
         if (_structFields.ContainsKey(typeName) || _structFields.ContainsKey(rawType)) {
@@ -1543,16 +1547,16 @@ public class TranspilerC {
                 }
             }
 
-            _tupleSb.AppendLine($"const char* {cleanTypeName}_to_string({cleanTypeName}* val);");
-            _tupleSb.AppendLine($"const char* {cleanTypeName}_to_string({cleanTypeName}* val) {{");
-            _tupleSb.AppendLine("    if (!val) return \"null\";");
-            _tupleSb.AppendLine("    char* buf = (char*)pino_malloc(1024);");
-            _tupleSb.AppendLine("    switch (val->tag) {");
+            var toStrBody = new StringBuilder();
+            toStrBody.AppendLine($"const char* {cleanTypeName}_to_string({cleanTypeName}* val) {{");
+            toStrBody.AppendLine("    if (!val) return \"null\";");
+            toStrBody.AppendLine("    char* buf = (char*)pino_malloc(1024);");
+            toStrBody.AppendLine("    switch (val->tag) {");
             var cleanBaseName = GetCleanUnionNameForToString(baseName);
             foreach (var variant in unionDecl.Variants) {
-                _tupleSb.AppendLine($"        case {cleanTypeName}Tag_{variant.Identifier}: {{");
+                toStrBody.AppendLine($"        case {cleanTypeName}Tag_{variant.Identifier}: {{");
                 if (variant.AssociatedTypes.Count == 0) {
-                    _tupleSb.AppendLine($"            return \"{cleanBaseName}::{variant.Identifier}\";");
+                    toStrBody.AppendLine($"            return \"{cleanBaseName}::{variant.Identifier}\";");
                 } else {
                     var formatStr = $"{cleanBaseName}::{variant.Identifier}(";
                     var argsList = new List<string>();
@@ -1565,14 +1569,47 @@ public class TranspilerC {
                     }
                     formatStr += ")";
                     var argsStr = string.Join(", ", argsList);
-                    _tupleSb.AppendLine($"            snprintf(buf, 1024, \"{formatStr}\", {argsStr});");
-                    _tupleSb.AppendLine("            return buf;");
+                    toStrBody.AppendLine($"            snprintf(buf, 1024, \"{formatStr}\", {argsStr});");
+                    toStrBody.AppendLine("            return buf;");
                 }
-                _tupleSb.AppendLine("        }");
+                toStrBody.AppendLine("        }");
             }
-            _tupleSb.AppendLine("        default: return \"unknown\";");
-            _tupleSb.AppendLine("    }");
-            _tupleSb.AppendLine("}");
+            toStrBody.AppendLine("        default: return \"unknown\";");
+            toStrBody.AppendLine("    }");
+            toStrBody.AppendLine("}");
+
+            var eqBody = new StringBuilder();
+            eqBody.AppendLine($"bool {cleanTypeName}_equals(const {cleanTypeName}* a, const {cleanTypeName}* b) {{");
+            eqBody.AppendLine("    if (a == b) return true;");
+            eqBody.AppendLine("    if (!a || !b) return false;");
+            eqBody.AppendLine("    if (a->tag != b->tag) return false;");
+            eqBody.AppendLine("    switch (a->tag) {");
+            foreach (var variant in unionDecl.Variants) {
+                eqBody.AppendLine($"        case {cleanTypeName}Tag_{variant.Identifier}: {{");
+                if (variant.AssociatedTypes.Count == 0) {
+                    eqBody.AppendLine("            return true;");
+                } else {
+                    var conds = new List<string>();
+                    for (int i = 0; i < variant.AssociatedTypes.Count; i++) {
+                        var subType = SubstituteType(variant.AssociatedTypes[i]);
+                        var aVal = $"a->value.{variant.Identifier}._{i}";
+                        var bVal = $"b->value.{variant.Identifier}._{i}";
+                        conds.Add(EmitTypeEqualityCheck(subType, aVal, bVal));
+                    }
+                    eqBody.AppendLine($"            return {string.Join(" && ", conds)};");
+                }
+                eqBody.AppendLine("        }");
+            }
+            eqBody.AppendLine("        default: return false;");
+            eqBody.AppendLine("    }");
+            eqBody.AppendLine("}");
+
+            _forwardDeclSb.AppendLine($"const char* {cleanTypeName}_to_string({cleanTypeName}* val);");
+            _forwardDeclSb.AppendLine($"bool {cleanTypeName}_equals(const {cleanTypeName}* a, const {cleanTypeName}* b);");
+
+            _tupleSb.AppendLine(toStrBody.ToString());
+            _tupleSb.AppendLine();
+            _tupleSb.AppendLine(eqBody.ToString());
             _tupleSb.AppendLine();
         }
     }

@@ -231,6 +231,38 @@ test "Structural Equality (Union): Should return true when Union values are refe
   assert shape_1 == shape_2
 }
 
+union CelestialBody {
+  Planet(string, Option[[]string])
+}
+
+test "Structural Equality (Union): Should return true when Union values are value equal with Option::Some" {
+  val planet_1 = CelestialBody::Planet("Earth", Option::Some(["Moon", "Mars"]))
+  val planet_2 = CelestialBody::Planet("Earth", Option::Some(["Moon", "Mars"]))
+
+  assert planet_1 == planet_2
+}
+
+test "Structural Equality (Union): Should return false when Union values are not value equal with Option::Some" {
+  val planet_1 = CelestialBody::Planet("Earth", Option::Some(["Moon", "Mars"]))
+  val planet_2 = CelestialBody::Planet("Earth", Option::Some(["Moon", "Jupiter"]))
+
+  assert planet_1 != planet_2
+}
+
+test "Structural Equality (Union): Should return true when Union values are value equal with Option::None" {
+  val planet_1 = CelestialBody::Planet("Earth", Option::None)
+  val planet_2 = CelestialBody::Planet("Earth", Option::None)
+
+  assert planet_1 == planet_2
+}
+
+test "Structural Equality (Union): Should return false when Union values are not value equal with Option::None" {
+  val planet_1 = CelestialBody::Planet("Earth", Option::None)
+  val planet_2 = CelestialBody::Planet("Mars", Option::None)
+
+  assert planet_1 != planet_2
+}
+
 enum Severity {
   Low
   Medium
