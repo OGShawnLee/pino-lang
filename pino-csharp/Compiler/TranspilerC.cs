@@ -763,12 +763,15 @@ public class TranspilerC {
             return ("%s", $"{valExpr} ? \"True\" : \"False\"");
         } else if (pinoType == "rune") {
             return ("%c", valExpr);
-        } else if (FindEnum(pinoType) != null) {
-            return ("%s", $"{pinoType}_to_string({valExpr})");
-        } else if (FindUnion(pinoType) != null) {
-            return ("%s", $"{pinoType}_to_string({valExpr})");
-        } else if (_structFields.ContainsKey(pinoType)) {
-            return ("%s", $"{pinoType}_to_string({valExpr})");
+        } else if (pinoType.Contains("[") && pinoType.EndsWith("]")) {
+            MapType(pinoType);
+            return ("%s", $"{cleanType}_to_string({valExpr})");
+        } else if (FindEnum(pinoType) != null || FindEnum(cleanType) != null) {
+            return ("%s", $"{cleanType}_to_string({valExpr})");
+        } else if (FindUnion(pinoType) != null || FindUnion(cleanType) != null || _unions.ContainsKey(cleanType) || _emittedStructsAndUnions.Contains(cleanType)) {
+            return ("%s", $"{cleanType}_to_string({valExpr})");
+        } else if (_structFields.ContainsKey(pinoType) || _structFields.ContainsKey(cleanType)) {
+            return ("%s", $"{cleanType}_to_string({valExpr})");
         } else if (pinoType.StartsWith("[]")) {
             var vecClean = CleanTypeName(pinoType);
             return ("%s", $"{vecClean}_to_string({valExpr})");
@@ -828,7 +831,7 @@ public class TranspilerC {
 
     private void GenerateUnionToString(UnionDeclaration unionDecl) {
         var unionName = GetPrefixedName(unionDecl.Identifier);
-        _structSb.AppendLine($"const char* {unionName}_to_string({unionName}* val);");
+        _forwardDeclSb.AppendLine($"const char* {unionName}_to_string({unionName}* val);");
         
         var body = new StringBuilder();
         body.AppendLine($"const char* {unionName}_to_string({unionName}* val) {{");
@@ -867,7 +870,8 @@ public class TranspilerC {
         var clean = CleanTypeName(pinoType);
         var elemType = pinoType.Substring(2);
         
-        _structSb.AppendLine($"const char* {clean}_to_string({clean}* val);");
+        _forwardDeclSb.AppendLine($"typedef struct {clean} {clean};");
+        _forwardDeclSb.AppendLine($"const char* {clean}_to_string({clean}* val);");
         
         var body = new StringBuilder();
         body.AppendLine($"const char* {clean}_to_string({clean}* val) {{");
@@ -1538,6 +1542,38 @@ public class TranspilerC {
                     _tupleSb.AppendLine($"{cleanTypeName}* {cleanTypeName}_{variant.Identifier}_construct({paramsStr});");
                 }
             }
+
+            _tupleSb.AppendLine($"const char* {cleanTypeName}_to_string({cleanTypeName}* val);");
+            _tupleSb.AppendLine($"const char* {cleanTypeName}_to_string({cleanTypeName}* val) {{");
+            _tupleSb.AppendLine("    if (!val) return \"null\";");
+            _tupleSb.AppendLine("    char* buf = (char*)pino_malloc(1024);");
+            _tupleSb.AppendLine("    switch (val->tag) {");
+            var cleanBaseName = GetCleanUnionNameForToString(baseName);
+            foreach (var variant in unionDecl.Variants) {
+                _tupleSb.AppendLine($"        case {cleanTypeName}Tag_{variant.Identifier}: {{");
+                if (variant.AssociatedTypes.Count == 0) {
+                    _tupleSb.AppendLine($"            return \"{cleanBaseName}::{variant.Identifier}\";");
+                } else {
+                    var formatStr = $"{cleanBaseName}::{variant.Identifier}(";
+                    var argsList = new List<string>();
+                    for (int i = 0; i < variant.AssociatedTypes.Count; i++) {
+                        if (i > 0) formatStr += ", ";
+                        var subType = SubstituteType(variant.AssociatedTypes[i]);
+                        var (fmt, arg) = GetFormatSpecifierAndArgForType(subType, $"val->value.{variant.Identifier}._{i}");
+                        formatStr += fmt;
+                        argsList.Add(arg);
+                    }
+                    formatStr += ")";
+                    var argsStr = string.Join(", ", argsList);
+                    _tupleSb.AppendLine($"            snprintf(buf, 1024, \"{formatStr}\", {argsStr});");
+                    _tupleSb.AppendLine("            return buf;");
+                }
+                _tupleSb.AppendLine("        }");
+            }
+            _tupleSb.AppendLine("        default: return \"unknown\";");
+            _tupleSb.AppendLine("    }");
+            _tupleSb.AppendLine("}");
+            _tupleSb.AppendLine();
         }
     }
 
