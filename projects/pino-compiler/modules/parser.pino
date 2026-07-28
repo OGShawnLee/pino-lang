@@ -1,223 +1,7 @@
 module Parser
 
-from Lexer import Token, TokenType, lex
-
-pub struct TokenStream {
-  list []Token
-  cursor int
-
-  fn peek(offset int) {
-    if cursor + offset >= list:len {
-      return Token { type: TokenType::EOF, value: "" }
-    }
-
-    return list[cursor + offset]
-  }
-
-  fn next {
-    cursor += 1
-  }
-
-  fn consume {
-    val curr = this:peek(0)
-    this:next()
-    return curr
-  }
-
-  fn expect_type(type TokenType) Result[Token, string] {
-    val curr = this:peek(0)
-
-    if curr:type == type {
-      this:next()
-      return Result::Success(curr)
-    }
-
-    return Result::Failure("Expected type $type, but got $(curr:type).")
-  }
-
-  fn expect_content(content string) Result[Token, string] {
-    val curr = this:peek(0)
-
-    if curr:value == content {
-      this:next()
-      return Result::Success(curr)
-    }
-
-    return Result::Failure("Expected '$content', but got '$(curr:value)'.")
-  }
-
-  fn print {
-    for token in list {
-      token:print()
-    }
-  }
-}
-
-pub enum UnaryOperator {
-  Negate
-  Not
-}
-
-pub enum BinaryOperator {
-  Add
-  Subtract
-  Multiply
-  Divide
-  Remainder
-  And
-  Or
-  Equal
-  NotEqual
-  LessThan
-  LessOrEqual
-  GreaterThan
-  GreaterOrEqual
-  Assign
-  Conditional
-}
-
-pub union Expression {
-  Constant(int)
-  Var(string)
-  Unary(UnaryOperator, Expression)
-  Binary(BinaryOperator, Expression, Expression)
-  Assignment(Expression, Expression)
-  Conditional(Expression, Expression, Expression)
-  FunctionCall(string, []Expression)
-}
-
-pub union Statement {
-  Return(Expression)
-}
-
-pub union Typing {
-  Explicit(string)
-  Implicit
-}
-
-pub struct Parameter {
-  name string
-  type string
-}
-
-pub union Declaration {
-  FunctionDeclaration(string, []Parameter, Typing, []AST)
-  ConstantDeclaration(string, Expression)
-  VariableDeclaration(string, Expression)
-}
-
-pub union AST {
-  Declaration(Declaration)
-  Statement(Statement)
-  Expression(Expression)
-}
-
-pub struct Program {
-  children []AST
-
-  fn print {
-    println("Program")
-    for child in children {
-      Program::print_ast(child)
-    }
-  }
-
-  static fn print_ast(node AST) {
-    match node {
-      when AST::Declaration(decl) {
-        Program::print_ast_decl(decl)
-      }
-      when AST::Statement(stmt) {
-        Program::print_ast_stmt(stmt)
-      }
-      when AST::Expression(expr) {
-        Program::print_ast_expr(expr)
-      }
-    }
-  }
-
-  static fn print_ast_decl(decl Declaration) {
-    match decl {
-      when Declaration::FunctionDeclaration(name, param_list, ret_type, children) {
-        println("Function: $name")
-
-        if param_list:len > 0 {
-          println("Parameters: ")
-          for param in param_list {
-            println(param)
-          }
-        }
-
-        val ret_type_str = match ret_type {
-          when Typing::Explicit(type_name) => type_name
-          when Typing::Implicit => "Implicit"
-        }
-
-        println("Return Type: $ret_type_str")
-        for child in children {
-          Program::print_ast(child)
-        }
-      }
-      when Declaration::VariableDeclaration(name, expr) {
-        println("Variable: $name")
-        Program::print_ast_expr(expr)
-      }
-      when Declaration::ConstantDeclaration(name, expr) {
-        println("Constant Variable: $name")
-        Program::print_ast_expr(expr)
-      }
-    }
-  }
-
-  static fn print_ast_stmt(stmt Statement) {
-    match stmt {
-      when Statement::Return(expr) {
-        println("Return:")
-        Program::print_ast_expr(expr)
-      }
-    }
-  }
-
-  static fn print_ast_expr(expr Expression) {
-    match expr {
-      when Expression::Constant(integer) {
-        println("Constant: $integer")
-      }
-      when Expression::Var(name) {
-        println("Var: $name")
-      }
-      when Expression::Conditional(condition, then_branch, else_branch) {
-        println("Conditional:")
-        println("If:")
-        Program::print_ast_expr(condition)
-        println("Then:")
-        Program::print_ast_expr(then_branch)
-        println("Else:")
-        Program::print_ast_expr(else_branch)
-      }
-      when Expression::Unary(op, expr) {
-        println("Unary: $op")
-        Program::print_ast_expr(expr)
-      }
-      when Expression::Binary(op, left, right) {
-        println("Binary: $op")
-        Program::print_ast_expr(left)
-        Program::print_ast_expr(right)
-      }
-      when Expression::Assignment(left, right) {
-        println("Assignment")
-        Program::print_ast_expr(left)
-        Program::print_ast_expr(right)
-      }
-      when Expression::FunctionCall(name, args) {
-        println("Function Call: $name")
-        for arg in args {
-          Program::print_ast_expr(arg)
-        }
-      }
-    }
-  }
-}
+from Lexer import lex
+from Entities import AST, Expression, Token, TokenType, TokenStream, UnaryOperator, BinaryOperator, Type, Declaration, Parameter, Statement, Program
 
 val PRECEDENCE_MAP = map[string, int] {
 	"*": 50
@@ -438,14 +222,14 @@ fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
   )
 }
 
-fn parse_fn_ret_type(stream TokenStream) Result[Typing, string] {
+fn parse_fn_ret_type(stream TokenStream) Result[Type, string] {
   val curr = stream:peek(0)
 
   return match curr:type {
-    when TokenType::Identifier => Result::Success(Typing::Explicit(stream:consume():value))
+    when TokenType::Identifier => Result::Success(Type::Explicit(stream:consume():value))
     when TokenType::Marker => 
       if curr:value == "{"
-        then Result::Success(Typing::Implicit)
+        then Result::Success(Type::Implicit)
         else Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
     else => Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
   }
@@ -582,7 +366,7 @@ test "AST: Should parse a Program with multiple top-level declarations and expre
           Expression::Var("b"),
           Expression::Binary(BinaryOperator::Add, Expression::Var("b"), Expression::Constant(10))
         )),
-        AST::Declaration(Declaration::FunctionDeclaration("add", []Parameter, Typing::Explicit("int"), [
+        AST::Declaration(Declaration::FunctionDeclaration("add", []Parameter, Type::Explicit("int"), [
           AST::Declaration(Declaration::ConstantDeclaration(
             "double_n",
             Expression::Binary(
@@ -660,7 +444,7 @@ test "Declaration: Should parse a fn declaration (no parameter-list, explicit re
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Typing::Explicit("int"),
+      Type::Explicit("int"),
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -679,7 +463,7 @@ test "Declaration: Should parse a fn declaration (no parameter-list, implicit re
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Typing::Implicit,
+      Type::Implicit,
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -698,7 +482,7 @@ test "Declaration: Should parse a fn declaration (empty parameter-list, explicit
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Typing::Explicit("int"),
+      Type::Explicit("int"),
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -718,7 +502,7 @@ test "Declaration: Should parse a fn declaration (empty parameter-list, implicit
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Typing::Implicit,
+      Type::Implicit,
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -741,7 +525,7 @@ test "Declaration: Should parse a fn declaration (parameter-list, explicit retur
         Parameter { name: "a", type: "int" },
         Parameter { name: "b", type: "int" }
       ],
-      Typing::Explicit("int"),
+      Type::Explicit("int"),
       [
         AST::Statement(Statement::Return(
           Expression::Binary(BinaryOperator::Add, Expression::Var("a"), Expression::Var("b"))
@@ -766,7 +550,7 @@ test "Declaration: Should parse a fn declaration (parameter-list, implicit retur
         Parameter { name: "a", type: "int" },
         Parameter { name: "b", type: "int" }
       ],
-      Typing::Implicit,
+      Type::Implicit,
       [
         AST::Statement(Statement::Return(
           Expression::Binary(BinaryOperator::Add, Expression::Var("a"), Expression::Var("b"))

@@ -1,6 +1,7 @@
 module Checker
 
-from Parser import AST, Declaration, Parameter, Typing, Statement, Expression, BinaryOperator, parse_line
+from Entities import AST, Declaration, Parameter, Typing, Statement, Expression, BinaryOperator
+from Parser import parse_line
 
 struct Entity {
   unique_name string

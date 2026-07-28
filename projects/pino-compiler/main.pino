@@ -4,7 +4,7 @@ import Checker
 # import Transformer
 
 fn main {
-  val content = "val a = 12 fn a {}"
+  val content = "val a = 12 val b = 10 val c = a * b"
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)

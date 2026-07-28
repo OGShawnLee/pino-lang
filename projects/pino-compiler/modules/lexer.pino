@@ -1,35 +1,6 @@
 module Lexer
 
-pub enum TokenType {
-  Keyword
-  Identifier
-  Marker
-  Literal
-  Illegal
-  UnaryOperator
-  BinaryOperator
-  EOF
-}
-
-pub struct Token {
-  type TokenType
-  value string
-
-  fn print {
-    val type_str = match type {
-      when TokenType::Keyword => "Keyword"
-      when TokenType::Identifier => "Identifier"
-      when TokenType::Marker => "Marker"
-      when TokenType::Literal => "Literal"
-      when TokenType::Illegal => "Illegal"
-      when TokenType::UnaryOperator => "Unary Operator"
-      when TokenType::BinaryOperator => "Binary Operator"
-      when TokenType::EOF => "EOF"
-    }
-
-    println("Token { Type: $type_str, Value: $value }")
-  }
-}
+from Entities import Token, TokenType
 
 struct TokenRule {
   pattern regex

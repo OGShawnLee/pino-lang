@@ -1,0 +1,249 @@
+module Entities
+
+pub enum TokenType {
+  Keyword
+  Identifier
+  Marker
+  Literal
+  Illegal
+  UnaryOperator
+  BinaryOperator
+  EOF
+}
+
+pub struct Token {
+  type TokenType
+  value string
+
+  fn print {
+    val type_str = match type {
+      when TokenType::Keyword => "Keyword"
+      when TokenType::Identifier => "Identifier"
+      when TokenType::Marker => "Marker"
+      when TokenType::Literal => "Literal"
+      when TokenType::Illegal => "Illegal"
+      when TokenType::UnaryOperator => "Unary Operator"
+      when TokenType::BinaryOperator => "Binary Operator"
+      when TokenType::EOF => "EOF"
+    }
+
+    println("Token { Type: $type_str, Value: $value }")
+  }
+}
+
+pub struct TokenStream {
+  list []Token
+  cursor int
+
+  fn peek(offset int) {
+    if cursor + offset >= list:len {
+      return Token { type: TokenType::EOF, value: "" }
+    }
+
+    return list[cursor + offset]
+  }
+
+  fn next {
+    cursor += 1
+  }
+
+  fn consume {
+    val curr = this:peek(0)
+    this:next()
+    return curr
+  }
+
+  fn expect_type(type TokenType) Result[Token, string] {
+    val curr = this:peek(0)
+
+    if curr:type == type {
+      this:next()
+      return Result::Success(curr)
+    }
+
+    return Result::Failure("Expected type $type, but got $(curr:type).")
+  }
+
+  fn expect_content(content string) Result[Token, string] {
+    val curr = this:peek(0)
+
+    if curr:value == content {
+      this:next()
+      return Result::Success(curr)
+    }
+
+    return Result::Failure("Expected '$content', but got '$(curr:value)'.")
+  }
+
+  fn print {
+    for token in list {
+      token:print()
+    }
+  }
+}
+
+pub enum UnaryOperator {
+  Negate
+  Not
+}
+
+pub enum BinaryOperator {
+  Add
+  Subtract
+  Multiply
+  Divide
+  Remainder
+  And
+  Or
+  Equal
+  NotEqual
+  LessThan
+  LessOrEqual
+  GreaterThan
+  GreaterOrEqual
+  Assign
+  Conditional
+}
+
+pub union Expression {
+  Constant(int)
+  Var(string)
+  Unary(UnaryOperator, Expression)
+  Binary(BinaryOperator, Expression, Expression)
+  Assignment(Expression, Expression)
+  Conditional(Expression, Expression, Expression)
+  FunctionCall(string, []Expression)
+}
+
+pub union Statement {
+  Return(Expression)
+}
+
+pub union Type {
+  Explicit(string)
+  Implicit
+}
+
+pub struct Parameter {
+  name string
+  type string
+}
+
+pub union Declaration {
+  FunctionDeclaration(string, []Parameter, Type, []AST)
+  ConstantDeclaration(string, Expression)
+  VariableDeclaration(string, Expression)
+}
+
+pub union AST {
+  Declaration(Declaration)
+  Statement(Statement)
+  Expression(Expression)
+}
+
+pub struct Program {
+  children []AST
+
+  fn print {
+    println("Program")
+    for child in children {
+      Program::print_ast(child)
+    }
+  }
+
+  static fn print_ast(node AST) {
+    match node {
+      when AST::Declaration(decl) {
+        Program::print_ast_decl(decl)
+      }
+      when AST::Statement(stmt) {
+        Program::print_ast_stmt(stmt)
+      }
+      when AST::Expression(expr) {
+        Program::print_ast_expr(expr)
+      }
+    }
+  }
+
+  static fn print_ast_decl(decl Declaration) {
+    match decl {
+      when Declaration::FunctionDeclaration(name, param_list, ret_type, children) {
+        println("Function: $name")
+
+        if param_list:len > 0 {
+          println("Parameters: ")
+          for param in param_list {
+            println(param)
+          }
+        }
+
+        val ret_type_str = match ret_type {
+          when Type::Explicit(type_name) => type_name
+          when Type::Implicit => "Implicit"
+        }
+
+        println("Return Type: $ret_type_str")
+        for child in children {
+          Program::print_ast(child)
+        }
+      }
+      when Declaration::VariableDeclaration(name, expr) {
+        println("Variable: $name")
+        Program::print_ast_expr(expr)
+      }
+      when Declaration::ConstantDeclaration(name, expr) {
+        println("Constant Variable: $name")
+        Program::print_ast_expr(expr)
+      }
+    }
+  }
+
+  static fn print_ast_stmt(stmt Statement) {
+    match stmt {
+      when Statement::Return(expr) {
+        println("Return:")
+        Program::print_ast_expr(expr)
+      }
+    }
+  }
+
+  static fn print_ast_expr(expr Expression) {
+    match expr {
+      when Expression::Constant(integer) {
+        println("Constant: $integer")
+      }
+      when Expression::Var(name) {
+        println("Var: $name")
+      }
+      when Expression::Conditional(condition, then_branch, else_branch) {
+        println("Conditional:")
+        println("If:")
+        Program::print_ast_expr(condition)
+        println("Then:")
+        Program::print_ast_expr(then_branch)
+        println("Else:")
+        Program::print_ast_expr(else_branch)
+      }
+      when Expression::Unary(op, expr) {
+        println("Unary: $op")
+        Program::print_ast_expr(expr)
+      }
+      when Expression::Binary(op, left, right) {
+        println("Binary: $op")
+        Program::print_ast_expr(left)
+        Program::print_ast_expr(right)
+      }
+      when Expression::Assignment(left, right) {
+        println("Assignment")
+        Program::print_ast_expr(left)
+        Program::print_ast_expr(right)
+      }
+      when Expression::FunctionCall(name, args) {
+        println("Function Call: $name")
+        for arg in args {
+          Program::print_ast_expr(arg)
+        }
+      }
+    }
+  }
+}
