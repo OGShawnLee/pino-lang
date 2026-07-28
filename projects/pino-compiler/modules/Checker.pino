@@ -138,16 +138,8 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
 fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
   match decl {
     when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
-      if name in variable_map {
-        val prev_entry = variable_map[name] 
-        if prev_entry:is_from_current_block {
-          return Result::Failure("Type Checker Error: Function '$(name)' has been already declared in the current scope.")
-        }
-      }
-
-      variable_map[name] = Entity {
-        unique_name: name
-        is_from_current_block: true
+      if name not in variable_map {
+        panic("Undeclared function '$name' should have been caught by Declaration Hoisting Pass.")
       }
 
       val inner_map = copy_variable_map(variable_map)
@@ -194,11 +186,29 @@ fn resolve_ast_node(node AST, variable_map map[string, Entity]) Result[AST, stri
   }
 }
 
+fn hoist_decl_map(node_list []AST, variable_map map[string, Entity]) Result[map[string, Entity], string] {
+  for node in node_list {
+    if node is AST::Declaration(decl) and decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+      if name in variable_map and variable_map[name]:is_from_current_block {
+        return Result::Failure("Type Checker Error: Function '$(name)' has been already declared in the current scope.")
+      }
+      
+      variable_map[name] = Entity {
+        unique_name: name
+        is_from_current_block: true
+      }
+    }
+  }
+
+  return Result::Success(variable_map)
+}
+
 fn resolve_node_ast_list(node_list []AST, variable_map map[string, Entity]) Result[[]AST, string] {
   val resolved_node_list = []AST
+  val hoisted_map = hoist_decl_map(node_list, variable_map)?
 
-  for child in node_list {
-    val resolved_node = resolve_ast_node(child, variable_map)?
+  for node in node_list {
+    val resolved_node = resolve_ast_node(node, hoisted_map)?
     resolved_node_list:push(resolved_node)  
   }
 
@@ -378,7 +388,7 @@ test "Identifier Resolution: Should catch redeclaring a constant as a function i
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has been already declared in the current scope.")
+  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
 }
 
 test "Identifier Resolution: Should allow redeclaration of function in new scope" {
@@ -504,6 +514,150 @@ test "Identifier Resolution: Should allow redeclaration of variable as constant 
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10)))
         ]))
+      ]
+    }
+  )
+}
+
+test "Declaration Hoisting: Should allow calling function before declaration" {
+  val program = parse_line("fn main { val n = square(1) } fn square(n int) { return n * n }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "main",
+            []Parameter,
+            Typing::Implicit,
+            [
+              AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::FunctionCall("square", [Expression::Constant(1)])))
+            ]
+          )
+        ),
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "square",
+            [Parameter { name: "n_1", type: "int" }],
+            Typing::Implicit,
+            [AST::Statement(
+              Statement::Return(
+                Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_1"), Expression::Var("n_1"))
+              )
+            )]
+          )
+        )
+      ]
+    }
+  )
+}
+
+test "Declaration Hoisting: Should allow redeclaring a hoisted function in new scope" {
+  val program = parse_line("fn main { val n = square(1) fn square(n int) { return n * n } } fn square(n int) { return n * n }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "main",
+            []Parameter,
+            Typing::Implicit,
+            [
+              AST::Declaration(
+                Declaration::ConstantDeclaration(
+                  "n_0",
+                  Expression::FunctionCall(
+                    "square",
+                    [Expression::Constant(1)]
+                  )
+                )
+              ),
+              AST::Declaration(
+                Declaration::FunctionDeclaration(
+                  "square", 
+                  [Parameter { name: "n_1", type: "int" }],
+                  Typing::Implicit,
+                  [AST::Statement(
+                    Statement::Return(
+                      Expression::Binary(
+                        BinaryOperator::Multiply,
+                        Expression::Var("n_1"),
+                        Expression::Var("n_1")
+                      )
+                    )
+                  )]
+                )
+              )
+            ]
+          )
+        ),
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "square",
+            [Parameter { name: "n_2", type: "int" }],
+            Typing::Implicit,
+            [AST::Statement(
+              Statement::Return(
+                Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_2"), Expression::Var("n_2"))
+              )
+            )]
+          )
+        )
+      ]
+    }
+  )
+}
+
+test "Declaration Hoisting: Should allow calling function before declaration in new scope" {
+  val program = parse_line("fn main { val n = square(1) fn square(n int) { return n * n } }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "main",
+            []Parameter,
+            Typing::Implicit,
+            [
+              AST::Declaration(
+                Declaration::ConstantDeclaration(
+                  "n_0",
+                  Expression::FunctionCall(
+                    "square",
+                    [Expression::Constant(1)]
+                  )
+                )
+              ),
+              AST::Declaration(
+                Declaration::FunctionDeclaration(
+                  "square", 
+                  [Parameter { name: "n_1", type: "int" }],
+                  Typing::Implicit,
+                  [AST::Statement(
+                    Statement::Return(
+                      Expression::Binary(
+                        BinaryOperator::Multiply,
+                        Expression::Var("n_1"),
+                        Expression::Var("n_1")
+                      )
+                    )
+                  )]
+                )
+              )
+            ]
+          )
+        )
       ]
     }
   )
