@@ -1376,12 +1376,17 @@ public class TranspilerC {
             var baseName = pinoType.Substring(0, bracketIdx);
             var argsStr = pinoType.Substring(bracketIdx + 1, pinoType.Length - bracketIdx - 2);
             var resolvedBase = ResolveTypeName(baseName);
-            var pinoArgs = argsStr.Split(',').Select(a => {
-                var arg = a.Trim();
-                var resolvedArg = ResolveTypeName(arg);
-                return CleanTypeName(resolvedArg);
-            }).ToList();
+            
+            var rawArgs = ParseGenericArgs(argsStr);
+            var pinoArgs = new List<string>();
+            foreach (var arg in rawArgs) {
+                var trimmed = arg.Trim();
+                MapType(trimmed);
+                pinoArgs.Add(CleanTypeName(ResolveTypeName(trimmed)));
+            }
+
             var cleanTypeName = ResolveTypeName(resolvedBase + "_" + string.Join("_", pinoArgs));
+            EmitMonomorphizedGeneric(pinoType, cleanTypeName, resolvedBase, rawArgs);
             return cleanTypeName + "*";
         }
         var enumDecl = FindEnum(pinoType);
@@ -1451,6 +1456,89 @@ public class TranspilerC {
         }
 
         return funcName;
+    }
+
+    private List<string> ParseGenericArgs(string argsStr) {
+        var result = new List<string>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < argsStr.Length; i++) {
+            char c = argsStr[i];
+            if (c == '[' || c == '(') depth++;
+            else if (c == ']' || c == ')') depth--;
+            else if (c == ',' && depth == 0) {
+                result.Add(argsStr.Substring(start, i - start).Trim());
+                start = i + 1;
+            }
+        }
+        if (start < argsStr.Length) {
+            var s = argsStr.Substring(start).Trim();
+            if (!string.IsNullOrEmpty(s)) result.Add(s);
+        }
+        return result;
+    }
+
+    private void EmitMonomorphizedGeneric(string fullPinoType, string cleanTypeName, string baseName, List<string> typeArgs) {
+        if (!_emittedStructsAndUnions.Add(cleanTypeName)) return;
+
+        var unionDecl = FindUnion(baseName);
+        if (unionDecl != null && unionDecl.GenericParams != null && unionDecl.GenericParams.Count > 0) {
+            var typeMap = new Dictionary<string, string>();
+            for (int i = 0; i < unionDecl.GenericParams.Count && i < typeArgs.Count; i++) {
+                typeMap[unionDecl.GenericParams[i].Name] = typeArgs[i];
+            }
+
+            string SubstituteType(string typeStr) {
+                if (typeMap.TryGetValue(typeStr, out var sub)) return sub;
+                var res = typeStr;
+                foreach (var kvp in typeMap) {
+                    res = res.Replace(kvp.Key, kvp.Value);
+                }
+                return res;
+            }
+
+            _forwardDeclSb.AppendLine($"typedef struct {cleanTypeName} {cleanTypeName};");
+            _tupleSb.AppendLine($"enum {cleanTypeName}Tag {{");
+            foreach (var variant in unionDecl.Variants) {
+                _tupleSb.AppendLine($"    {cleanTypeName}Tag_{variant.Identifier},");
+            }
+            _tupleSb.AppendLine("};");
+            _tupleSb.AppendLine();
+
+            foreach (var variant in unionDecl.Variants) {
+                if (variant.AssociatedTypes.Count > 0) {
+                    _tupleSb.AppendLine($"struct {cleanTypeName}_{variant.Identifier}_payload {{");
+                    for (int i = 0; i < variant.AssociatedTypes.Count; i++) {
+                        var subType = SubstituteType(variant.AssociatedTypes[i]);
+                        _tupleSb.AppendLine($"    {MapType(subType)} _{i};");
+                    }
+                    _tupleSb.AppendLine("};");
+                    _tupleSb.AppendLine();
+                }
+            }
+
+            _tupleSb.AppendLine($"struct {cleanTypeName} {{");
+            _tupleSb.AppendLine($"    enum {cleanTypeName}Tag tag;");
+            bool hasPayloads = unionDecl.Variants.Any(v => v.AssociatedTypes.Count > 0);
+            if (hasPayloads) {
+                _tupleSb.AppendLine("    union {");
+                foreach (var variant in unionDecl.Variants) {
+                    if (variant.AssociatedTypes.Count > 0) {
+                        _tupleSb.AppendLine($"        struct {cleanTypeName}_{variant.Identifier}_payload {variant.Identifier};");
+                    }
+                }
+                _tupleSb.AppendLine("    } value;");
+            }
+            _tupleSb.AppendLine("};");
+            _tupleSb.AppendLine();
+
+            foreach (var variant in unionDecl.Variants) {
+                if (variant.AssociatedTypes.Count > 0) {
+                    var paramsStr = string.Join(", ", variant.AssociatedTypes.Select((t, i) => $"{MapType(SubstituteType(t))} _{i}"));
+                    _tupleSb.AppendLine($"{cleanTypeName}* {cleanTypeName}_{variant.Identifier}_construct({paramsStr});");
+                }
+            }
+        }
     }
 
     private void TranspileStatement(Statement stmt) {

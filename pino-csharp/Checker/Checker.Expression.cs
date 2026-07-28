@@ -1209,6 +1209,19 @@ public partial class Checker {
       return true;
     }
 
+    if ((srcType == "Option_any" || srcType == "Option[any]") && (destType.StartsWith("Option_") || destType.StartsWith("Option["))) {
+      return true;
+    }
+    if ((destType == "Option_any" || destType == "Option[any]") && (srcType.StartsWith("Option_") || srcType.StartsWith("Option["))) {
+      return true;
+    }
+    if ((srcType == "Result_any" || srcType == "Result[any]") && (destType.StartsWith("Result_") || destType.StartsWith("Result["))) {
+      return true;
+    }
+    if ((destType == "Result_any" || destType == "Result[any]") && (srcType.StartsWith("Result_") || srcType.StartsWith("Result["))) {
+      return true;
+    }
+
     if (srcType.StartsWith("@(") && srcType.EndsWith(")") && destType.StartsWith("@(") && destType.EndsWith(")")) {
       if (TryParseTupleType(srcType, out var srcFields) && TryParseTupleType(destType, out var destFields)) {
         if (srcFields.Count != destFields.Count) return false;
