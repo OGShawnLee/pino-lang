@@ -277,11 +277,13 @@ public class PinoModule {
   public string Name { get; }
   public Environment Environment { get; }
   public HashSet<string> PublicExports { get; }
+  public HashSet<string> PubTestingExports { get; }
 
-  public PinoModule(string name, Environment environment, HashSet<string> publicExports) {
+  public PinoModule(string name, Environment environment, HashSet<string> publicExports, HashSet<string> pubTestingExports) {
     Name = name;
     Environment = environment;
     PublicExports = publicExports;
+    PubTestingExports = pubTestingExports;
   }
 }
 

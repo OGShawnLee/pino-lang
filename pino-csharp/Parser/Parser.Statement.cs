@@ -34,6 +34,7 @@ public partial class Parser {
   private static Statement ParseStatement(TokenStream stream) {
     List<GenericParam>? genericParams = null;
     bool isPublic = false;
+    bool isPubTesting = false;
 
     while (true) {
       if (stream.Current.IsMarker(MarkerType.At)) {
@@ -41,6 +42,8 @@ public partial class Parser {
         var decorator = ConsumeIdentifier(stream);
         if (decorator == "generic") {
           genericParams = ParseGenericParamsList(stream);
+        } else if (decorator == "pub_testing") {
+          isPubTesting = true;
         } else {
           throw new Exception($"PARSER: Unknown decorator '@{decorator}'");
         }
@@ -54,6 +57,10 @@ public partial class Parser {
       break;
     }
 
+    if (isPublic && isPubTesting) {
+      throw new Exception("PARSER: 'pub' and '@pub_testing' are mutually exclusive and cannot be combined on the same declaration. Tip: No need to mark as '@pub_testing' if you are already marking as 'pub'.");
+    }
+
     var current = stream.Current;
 
     if (current.Type == TokenType.Keyword) {
@@ -61,66 +68,78 @@ public partial class Parser {
         case KeywordType.Variable:
         case KeywordType.Constant:
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to variable declarations");
-          return ParseVariableDeclaration(stream, isPublic);
+          return ParseVariableDeclaration(stream, isPublic, isPubTesting);
         case KeywordType.Function:
-          return ParseFunctionDeclaration(stream, genericParams, isPublic);
+          return ParseFunctionDeclaration(stream, genericParams, isPublic, isPubTesting);
         case KeywordType.Struct:
-          return ParseStructDeclaration(stream, genericParams, isPublic);
+          return ParseStructDeclaration(stream, genericParams, isPublic, isPubTesting);
         case KeywordType.Interface:
-          return ParseInterfaceDeclaration(stream, genericParams, isPublic);
+          return ParseInterfaceDeclaration(stream, genericParams, isPublic, isPubTesting);
         case KeywordType.Enum:
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to enum declarations");
-          return ParseEnumDeclaration(stream, isPublic);
+          return ParseEnumDeclaration(stream, isPublic, isPubTesting);
         case KeywordType.Union:
-          return ParseUnionDeclaration(stream, genericParams, isPublic);
+          return ParseUnionDeclaration(stream, genericParams, isPublic, isPubTesting);
         case KeywordType.Module:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'module' declaration");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'module' declaration");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to module declarations");
           return ParseModuleDeclaration(stream);
         case KeywordType.Import:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'import' statement");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'import' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to import statements");
           return ParseImportStatement(stream);
         case KeywordType.From:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'from ... import' statement");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'from ... import' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to from-import statements");
           return ParseFromImportStatement(stream);
         case KeywordType.Return:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'return' statement");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'return' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to return statements");
           return ParseReturnStatement(stream);
         case KeywordType.Yield:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'yield' statement");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'yield' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to yield statements");
           return ParseYieldStatement(stream);
         case KeywordType.Test:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'test' block");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'test' block");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to test blocks");
           return ParseTestDeclaration(stream);
         case KeywordType.Assert:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'assert' statement");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'assert' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to assert statements");
           return ParseAssertStatement(stream);
         case KeywordType.Loop:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'for' loop");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'for' loop");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to loops");
           return ParseLoopStatement(stream);
         case KeywordType.If:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'if' statement");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'if' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to if statements");
           return ParseIfStatement(stream);
         case KeywordType.Break:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'break'");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'break'");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to break");
           stream.Consume();
           return new IdentifierExpression("break");
         case KeywordType.Continue:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'continue'");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'continue'");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to continue");
           stream.Consume();
           return new IdentifierExpression("continue");
         case KeywordType.Match:
           if (isPublic) throw new Exception("PARSER: 'pub' cannot prefix 'match' statement");
+          if (isPubTesting) throw new Exception("PARSER: '@pub_testing' cannot prefix 'match' statement");
           if (genericParams != null) throw new Exception("PARSER: '@generic' cannot be applied to match statements");
           return ParseMatchStatement(stream);
         case KeywordType.Else:
@@ -134,6 +153,9 @@ public partial class Parser {
 
     if (isPublic) {
       throw new Exception("PARSER: 'pub' can only prefix declarations (var, val, fn, struct, enum)");
+    }
+    if (isPubTesting) {
+      throw new Exception("PARSER: '@pub_testing' can only prefix declarations (var, val, fn, struct, enum, union)");
     }
     if (genericParams != null) {
       throw new Exception("PARSER: '@generic' can only prefix declarations (fn, struct, interface)");
@@ -189,7 +211,7 @@ public partial class Parser {
     return new FromImportStatement(moduleName, imports);
   }
 
-  private static Statement ParseVariableDeclaration(TokenStream stream, bool isPublic = false) {
+  private static Statement ParseVariableDeclaration(TokenStream stream, bool isPublic = false, bool isPubTesting = false) {
     var keywordToken = stream.Consume();
     var kind = keywordToken.Keyword == KeywordType.Constant ? VariableKind.Constant : VariableKind.Variable;
 
@@ -226,11 +248,11 @@ public partial class Parser {
       var value = ParseExpression(stream);
 
       DeclareVariable(stream, identifier);
-      return new VariableDeclaration(kind, identifier, value, IsPublic: isPublic);
+      return new VariableDeclaration(kind, identifier, value, IsPublic: isPublic, IsPubTesting: isPubTesting);
     }
   }
 
-  private static FunctionDeclaration ParseFunctionDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {
+  private static FunctionDeclaration ParseFunctionDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false, bool isPubTesting = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Function)) {
       throw new Exception("PARSER: Expected 'fn' keyword");
     }
@@ -276,12 +298,12 @@ public partial class Parser {
 
     DeclareVariable(stream, identifier);
 
-    var fnDecl = new FunctionDeclaration(identifier, parameters, body, returnType, IsPublic: isPublic, GenericParams: decoratorGenerics);
+    var fnDecl = new FunctionDeclaration(identifier, parameters, body, returnType, IsPublic: isPublic, IsPubTesting: isPubTesting, GenericParams: decoratorGenerics);
     fnDecl.TupleReturnType = tupleReturnType;
     return fnDecl;
   }
 
-  private static StructDeclaration ParseStructDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {
+  private static StructDeclaration ParseStructDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false, bool isPubTesting = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Struct)) {
       throw new Exception("PARSER: Expected 'struct' keyword");
     }
@@ -315,10 +337,10 @@ public partial class Parser {
 
     ConsumeAttributesAndMethods(stream, fields, methods, inheritedStructs);
 
-    return new StructDeclaration(identifier, fields, methods, inheritedStructs, genericParams, IsPublic: isPublic);
+    return new StructDeclaration(identifier, fields, methods, inheritedStructs, genericParams, IsPublic: isPublic, IsPubTesting: isPubTesting);
   }
 
-  private static InterfaceDeclaration ParseInterfaceDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false) {
+  private static InterfaceDeclaration ParseInterfaceDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics = null, bool isPublic = false, bool isPubTesting = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Interface)) {
       throw new Exception("PARSER: Expected 'interface' keyword");
     }
@@ -353,7 +375,7 @@ public partial class Parser {
       }
     }
 
-    return new InterfaceDeclaration(identifier, fields, methods, decoratorGenerics, IsPublic: isPublic);
+    return new InterfaceDeclaration(identifier, fields, methods, decoratorGenerics, IsPublic: isPublic, IsPubTesting: isPubTesting);
   }
 
   private static FunctionDeclaration ParseInterfaceMethodSignature(TokenStream stream) {
@@ -374,7 +396,7 @@ public partial class Parser {
     return new FunctionDeclaration(identifier, parameters, null, returnType, IsPublic: false);
   }
 
-  private static EnumDeclaration ParseEnumDeclaration(TokenStream stream, bool isPublic = false) {
+  private static EnumDeclaration ParseEnumDeclaration(TokenStream stream, bool isPublic = false, bool isPubTesting = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Enum)) {
       throw new Exception("PARSER: Expected 'enum' keyword");
     }
@@ -382,7 +404,7 @@ public partial class Parser {
     var identifier = ConsumeIdentifier(stream);
     var members = ConsumeEnumMembers(stream);
 
-    return new EnumDeclaration(identifier, members, IsPublic: isPublic);
+    return new EnumDeclaration(identifier, members, IsPublic: isPublic, IsPubTesting: isPubTesting);
   }
 
   private static ReturnStatement ParseReturnStatement(TokenStream stream) {
@@ -565,7 +587,7 @@ public partial class Parser {
     return new WhenStatement(conditions, body);
   }
 
-  private static UnionDeclaration ParseUnionDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics, bool isPublic = false) {
+  private static UnionDeclaration ParseUnionDeclaration(TokenStream stream, List<GenericParam>? decoratorGenerics, bool isPublic = false, bool isPubTesting = false) {
     if (!stream.Consume().IsKeyword(KeywordType.Union)) {
       throw new Exception("PARSER: Expected 'union' keyword");
     }
@@ -628,7 +650,7 @@ public partial class Parser {
       }
     }
 
-    return new UnionDeclaration(identifier, variants, genericParams, IsPublic: isPublic);
+    return new UnionDeclaration(identifier, variants, genericParams, IsPublic: isPublic, IsPubTesting: isPubTesting);
   }
 
   private static Pattern ParsePattern(TokenStream stream) {

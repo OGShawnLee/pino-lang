@@ -41,4 +41,11 @@ public static class ModuleResolver {
         : System.Environment.CurrentDirectory;
     return Path.Combine(fallbackBase, "modules", filename);
   }
+
+  public static bool IsTestingFile(string? filePath) {
+    if (string.IsNullOrEmpty(filePath)) return false;
+    var fileName = Path.GetFileNameWithoutExtension(filePath);
+    return fileName.EndsWith("_test", StringComparison.OrdinalIgnoreCase) ||
+           filePath.EndsWith("_test.pino", StringComparison.OrdinalIgnoreCase);
+  }
 }

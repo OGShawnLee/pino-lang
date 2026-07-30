@@ -762,7 +762,9 @@ public partial class Evaluator {
       // Case 1: module::method(...)
       if (rightExpr is FunctionCallExpression methodCall) {
         var memberName = methodCall.Callee;
-        if (!module.PublicExports.Contains(memberName)) {
+        bool isExported = module.PublicExports.Contains(memberName) ||
+          (module.PubTestingExports.Contains(memberName) && ModuleResolver.IsTestingFile(_currentFilePath));
+        if (!isExported) {
           throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
         }
         var callableObj = module.Environment.Get(memberName);
@@ -776,7 +778,9 @@ public partial class Evaluator {
       // Case 2: module::member reference
       if (rightExpr is IdentifierExpression memberId) {
         var memberName = memberId.Name;
-        if (!module.PublicExports.Contains(memberName)) {
+        bool isExported = module.PublicExports.Contains(memberName) ||
+          (module.PubTestingExports.Contains(memberName) && ModuleResolver.IsTestingFile(_currentFilePath));
+        if (!isExported) {
           throw new Exception($"RUNTIME ERROR: Member '{memberName}' is not exported by module '{module.Name}' (or is private).");
         }
         return module.Environment.Get(memberName);
@@ -789,7 +793,9 @@ public partial class Evaluator {
         if (structName.StartsWith(module.Name + "::")) {
           lookupName = structName.Substring(module.Name.Length + 2);
         }
-        if (!module.PublicExports.Contains(lookupName)) {
+        bool isExported = module.PublicExports.Contains(lookupName) ||
+          (module.PubTestingExports.Contains(lookupName) && ModuleResolver.IsTestingFile(_currentFilePath));
+        if (!isExported) {
           throw new Exception($"RUNTIME ERROR: Member '{structName}' is not exported by module '{module.Name}' (or is private).");
         }
         var structDefObj = module.Environment.Get(lookupName);

@@ -3338,6 +3338,13 @@ public class TranspilerC {
     }
 
     private string FindVariableType(object node, string name) {
+        if (string.IsNullOrEmpty(name)) return "any";
+        if (_importedSymbols.TryGetValue(name, out var prefixed) && _globalVarTypes.TryGetValue(prefixed, out var impType)) {
+            return impType;
+        }
+        if (_globalVarTypes.TryGetValue(name, out var gType)) {
+            return gType;
+        }
         if (node == null) return "any";
         if (node is VariableDeclaration varDecl && varDecl.Identifier == name) {
             if (!string.IsNullOrEmpty(varDecl.Typing)) return varDecl.Typing;

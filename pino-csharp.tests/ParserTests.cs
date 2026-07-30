@@ -207,6 +207,17 @@ public class ParserTests {
     var stmtPub = Parser.ParseString(inputPub);
     var fnDecl = Assert.IsType<FunctionDeclaration>(stmtPub);
     Assert.True(fnDecl.IsPublic);
+    Assert.False(fnDecl.IsPubTesting);
+
+    var inputPubTesting = "@pub_testing fn sub(a int) {}";
+    var stmtPubTesting = Parser.ParseString(inputPubTesting);
+    var fnTestingDecl = Assert.IsType<FunctionDeclaration>(stmtPubTesting);
+    Assert.False(fnTestingDecl.IsPublic);
+    Assert.True(fnTestingDecl.IsPubTesting);
+
+    // Mutual exclusivity: pub and @pub_testing cannot be combined
+    Assert.ThrowsAny<Exception>(() => Parser.ParseString("pub @pub_testing fn foo() {}"));
+    Assert.ThrowsAny<Exception>(() => Parser.ParseString("@pub_testing pub fn foo() {}"));
   }
 
   [Fact]

@@ -55,7 +55,7 @@ public record WhenStatement(List<Pattern> Conditions, Statement Body) : Statemen
 public record MatchStatement(Expression Condition, List<WhenStatement> Branches, ElseStatement? Alternate) : Expression;
 
 // --- DECLARATIONS ---
-public abstract record Declaration(string Identifier, bool IsPublic = false) : Statement;
+public abstract record Declaration(string Identifier, bool IsPublic = false, bool IsPubTesting = false) : Statement;
 
 public enum VariableKind {
   Constant,
@@ -66,19 +66,19 @@ public enum VariableKind {
 
 public record GenericParam(string Name, string? Constraint = null);
 
-public record VariableDeclaration(VariableKind Kind, string Identifier, Expression? Value, string Typing = "", bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record VariableDeclaration(VariableKind Kind, string Identifier, Expression? Value, string Typing = "", bool IsPublic = false, bool IsPubTesting = false) : Declaration(Identifier, IsPublic, IsPubTesting);
 
-public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false, List<GenericParam>? GenericParams = null) : Declaration(Identifier, IsPublic) {
+public record FunctionDeclaration(string Identifier, List<VariableDeclaration> Parameters, Statement? Body, string ReturnType = "", bool IsStatic = false, bool IsPublic = false, List<GenericParam>? GenericParams = null, bool IsPubTesting = false) : Declaration(Identifier, IsPublic, IsPubTesting) {
   public List<VariableDeclaration>? TupleReturnType { get; set; } = null;
   public string InferredReturnType { get; set; } = "";
   public string ResolvedReturnType => string.IsNullOrEmpty(InferredReturnType) ? ReturnType : InferredReturnType;
 }
 
-public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record StructDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<string> InheritedStructs, List<GenericParam>? GenericParams = null, bool IsPublic = false, bool IsPubTesting = false) : Declaration(Identifier, IsPublic, IsPubTesting);
 
-public record InterfaceDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record InterfaceDeclaration(string Identifier, List<VariableDeclaration> Fields, List<FunctionDeclaration> Methods, List<GenericParam>? GenericParams = null, bool IsPublic = false, bool IsPubTesting = false) : Declaration(Identifier, IsPublic, IsPubTesting);
 
-public record EnumDeclaration(string Identifier, List<string> Members, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record EnumDeclaration(string Identifier, List<string> Members, bool IsPublic = false, bool IsPubTesting = false) : Declaration(Identifier, IsPublic, IsPubTesting);
 
 public record ModuleDeclaration(string Identifier) : Statement;
 
@@ -152,7 +152,7 @@ public record MapExpression(string KeyType, string ValueType, List<KeyValuePair<
 
 // --- UNION & PATTERN DEVELOPMENTS ---
 public record UnionVariant(string Identifier, List<string> AssociatedTypes);
-public record UnionDeclaration(string Identifier, List<UnionVariant> Variants, List<GenericParam>? GenericParams = null, bool IsPublic = false) : Declaration(Identifier, IsPublic);
+public record UnionDeclaration(string Identifier, List<UnionVariant> Variants, List<GenericParam>? GenericParams = null, bool IsPublic = false, bool IsPubTesting = false) : Declaration(Identifier, IsPublic, IsPubTesting);
 
 public abstract record Pattern;
 public record LiteralPattern(Expression Value) : Pattern;

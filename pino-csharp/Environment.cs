@@ -19,6 +19,7 @@ public class Environment {
   private readonly Dictionary<string, GlobalBox> _values = new();
   private readonly Environment? _parent;
   public HashSet<string> PublicExports { get; } = new();
+  public HashSet<string> PubTestingExports { get; } = new();
 
   public Environment(Environment? parent = null) {
     _parent = parent;

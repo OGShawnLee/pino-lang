@@ -13,6 +13,8 @@ public partial class Checker {
   private readonly Dictionary<string, EnumDeclaration> _enums = new();
   private readonly Dictionary<string, UnionDeclaration> _unions = new();
   private readonly Dictionary<string, FunctionDeclaration> _functions = new();
+  internal readonly Dictionary<string, VariableDeclaration> _variables = new();
+  internal readonly Dictionary<string, string> _variableTypes = new();
   private readonly List<StructDeclaration> _specializedStructs = new();
   private readonly List<FunctionDeclaration> _specializedFunctions = new();
   private readonly List<UnionDeclaration> _specializedUnions = new();
@@ -64,6 +66,23 @@ public partial class Checker {
     { "file_exists", "fn(string) bool" }
   };
 
+  public bool IsAccessible(Declaration decl) {
+    if (decl.IsPublic) return true;
+    if (decl.IsPubTesting) {
+      return ModuleResolver.IsTestingFile(_currentFilePath);
+    }
+    return false;
+  }
+
+  public Declaration? FindDeclaration(string name) {
+    if (_functions.TryGetValue(name, out var fn)) return fn;
+    if (_structs.TryGetValue(name, out var st)) return st;
+    if (_unions.TryGetValue(name, out var un)) return un;
+    if (_enums.TryGetValue(name, out var en)) return en;
+    if (_interfaces.TryGetValue(name, out var itf)) return itf;
+    return null;
+  }
+
   public StructDeclaration? FindStruct(string name) {
     if (name.Contains("::")) {
       var parts = name.Split("::");
@@ -72,7 +91,7 @@ public partial class Checker {
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindStruct(localName);
         if (imported != null) {
-          if (!imported.IsPublic) {
+          if (!IsAccessible(imported)) {
             throw new Exception($"TYPE CHECK ERROR: Struct '{name}' is not public.");
           }
           return imported;
@@ -85,7 +104,7 @@ public partial class Checker {
     }
     foreach (var modChecker in _moduleCheckers.Values) {
       var importedStruct = modChecker.FindStruct(name);
-      if (importedStruct != null && importedStruct.IsPublic) {
+      if (importedStruct != null && IsAccessible(importedStruct)) {
         return importedStruct;
       }
     }
@@ -100,7 +119,7 @@ public partial class Checker {
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindInterface(localName);
         if (imported != null) {
-          if (!imported.IsPublic) {
+          if (!IsAccessible(imported)) {
             throw new Exception($"TYPE CHECK ERROR: Interface '{name}' is not public.");
           }
           return imported;
@@ -113,7 +132,7 @@ public partial class Checker {
     }
     foreach (var modChecker in _moduleCheckers.Values) {
       var importedInterface = modChecker.FindInterface(name);
-      if (importedInterface != null && importedInterface.IsPublic) {
+      if (importedInterface != null && IsAccessible(importedInterface)) {
         return importedInterface;
       }
     }
@@ -128,7 +147,7 @@ public partial class Checker {
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindEnum(localName);
         if (imported != null) {
-          if (!imported.IsPublic) {
+          if (!IsAccessible(imported)) {
             throw new Exception($"TYPE CHECK ERROR: Enum '{name}' is not public.");
           }
           return imported;
@@ -141,7 +160,7 @@ public partial class Checker {
     }
     foreach (var modChecker in _moduleCheckers.Values) {
       var importedEnum = modChecker.FindEnum(name);
-      if (importedEnum != null && importedEnum.IsPublic) {
+      if (importedEnum != null && IsAccessible(importedEnum)) {
         return importedEnum;
       }
     }
@@ -156,7 +175,7 @@ public partial class Checker {
       if (_moduleCheckers.TryGetValue(modName, out var modChecker)) {
         var imported = modChecker.FindUnion(localName);
         if (imported != null) {
-          if (!imported.IsPublic) {
+          if (!IsAccessible(imported)) {
             throw new Exception($"TYPE CHECK ERROR: Union '{name}' is not public.");
           }
           return imported;
@@ -169,7 +188,7 @@ public partial class Checker {
     }
     foreach (var modChecker in _moduleCheckers.Values) {
       var importedUnion = modChecker.FindUnion(name);
-      if (importedUnion != null && importedUnion.IsPublic) {
+      if (importedUnion != null && IsAccessible(importedUnion)) {
         return importedUnion;
       }
     }
@@ -322,6 +341,10 @@ public partial class Checker {
       if (scope.TryGetValue(name, out var type)) {
         return type;
       }
+    }
+
+    if (_variableTypes.TryGetValue(name, out var varType)) {
+      return varType;
     }
 
     // Check global functions

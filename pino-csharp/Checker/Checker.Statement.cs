@@ -15,8 +15,16 @@ public partial class Checker {
             if (!IsCompatible(valType, expectedType)) {
               throw new Exception($"TYPE CHECK ERROR: Cannot assign type '{valType}' to variable '{varDecl.Identifier}' of type '{expectedType}'.");
             }
+            if (_scopes.Count <= 1) {
+              _variables[varDecl.Identifier] = varDecl;
+              _variableTypes[varDecl.Identifier] = expectedType;
+            }
             DeclareVariable(varDecl.Identifier, expectedType);
           } else {
+            if (_scopes.Count <= 1) {
+              _variables[varDecl.Identifier] = varDecl;
+              _variableTypes[varDecl.Identifier] = valType;
+            }
             DeclareVariable(varDecl.Identifier, valType);
           }
 
@@ -361,7 +369,16 @@ public partial class Checker {
         ResolveAndCheckModule(fromImp.ModuleName);
         if (_moduleCheckers.TryGetValue(fromImp.ModuleName, out var modChecker)) {
           foreach (var name in fromImp.Imports) {
+            var decl = modChecker.FindDeclaration(name);
+            if (decl != null && !IsAccessible(decl)) {
+              throw new Exception($"TYPE CHECK ERROR: Module '{fromImp.ModuleName}' does not export '{name}' (or it is private).");
+            }
+
             string type = modChecker.ResolveIdentifierType(name);
+            _variableTypes[name] = type;
+            if (modChecker._variables.TryGetValue(name, out var varDecl)) {
+              _variables[name] = varDecl;
+            }
             DeclareVariable(name, type);
 
             if (modChecker._functions.TryGetValue(name, out var fnDecl)) {

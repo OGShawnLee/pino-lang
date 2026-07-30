@@ -86,6 +86,8 @@ public partial class Evaluator {
           env.Define(varDecl.Identifier, val, varDecl.Kind == VariableKind.Constant);
           if (varDecl.IsPublic) {
             env.PublicExports.Add(varDecl.Identifier);
+          } else if (varDecl.IsPubTesting) {
+            env.PubTestingExports.Add(varDecl.Identifier);
           }
         }
         break;
@@ -109,6 +111,8 @@ public partial class Evaluator {
         env.Define(fnDecl.Identifier, fn, true);
         if (fnDecl.IsPublic) {
           env.PublicExports.Add(fnDecl.Identifier);
+        } else if (fnDecl.IsPubTesting) {
+          env.PubTestingExports.Add(fnDecl.Identifier);
         }
         break;
 
@@ -139,6 +143,8 @@ public partial class Evaluator {
         env.Define(structDecl.Identifier, @struct, true);
         if (structDecl.IsPublic) {
           env.PublicExports.Add(structDecl.Identifier);
+        } else if (structDecl.IsPubTesting) {
+          env.PubTestingExports.Add(structDecl.Identifier);
         }
         break;
 
@@ -147,6 +153,8 @@ public partial class Evaluator {
         env.Define(enumDecl.Identifier, @enum, true);
         if (enumDecl.IsPublic) {
           env.PublicExports.Add(enumDecl.Identifier);
+        } else if (enumDecl.IsPubTesting) {
+          env.PubTestingExports.Add(enumDecl.Identifier);
         }
         break;
 
@@ -159,6 +167,8 @@ public partial class Evaluator {
         env.Define(unionDecl.Identifier, union, true);
         if (unionDecl.IsPublic) {
           env.PublicExports.Add(unionDecl.Identifier);
+        } else if (unionDecl.IsPubTesting) {
+          env.PubTestingExports.Add(unionDecl.Identifier);
         }
         break;
 
@@ -174,7 +184,9 @@ public partial class Evaluator {
       case FromImportStatement fromImpStmt:
         var fromModule = ResolveAndLoadModule(fromImpStmt.ModuleName);
         foreach (var name in fromImpStmt.Imports) {
-          if (!fromModule.PublicExports.Contains(name)) {
+          bool isExported = fromModule.PublicExports.Contains(name) ||
+            (fromModule.PubTestingExports.Contains(name) && ModuleResolver.IsTestingFile(_currentFilePath));
+          if (!isExported) {
             throw new Exception($"RUNTIME ERROR: Module '{fromImpStmt.ModuleName}' does not export '{name}' (or it is private).");
           }
           env.Define(name, fromModule.Environment.Get(name), true);
@@ -333,7 +345,7 @@ public partial class Evaluator {
         Execute(stmt, moduleEnv);
       }
 
-      var pinoModule = new PinoModule(moduleName, moduleEnv, moduleEnv.PublicExports);
+      var pinoModule = new PinoModule(moduleName, moduleEnv, moduleEnv.PublicExports, moduleEnv.PubTestingExports);
       _moduleCache[moduleName] = pinoModule;
       return pinoModule;
     } finally {
