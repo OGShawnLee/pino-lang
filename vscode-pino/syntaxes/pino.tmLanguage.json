@@ -106,7 +106,7 @@
       "patterns": [
         {
           "name": "support.type.pino",
-          "match": "\\b(int|float|string|bool|rune|regex|any)\\b"
+          "match": "\\b(int|float|string|bool|rune|regex|map|any)\\b"
         }
       ]
     },
