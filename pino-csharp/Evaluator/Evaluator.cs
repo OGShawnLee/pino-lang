@@ -292,6 +292,7 @@ public partial class Evaluator {
   private readonly Dictionary<string, PinoModule> _moduleCache = new();
   private readonly HashSet<string> _currentlyLoadingModules = new();
   private string _currentFilePath = "";
+  public string CurrentFilePath { get => _currentFilePath; set => _currentFilePath = value; }
   public Stack<string> CallStack { get; } = new();
   private Dictionary<string, object?>? _lastConditionBindings = null;
 

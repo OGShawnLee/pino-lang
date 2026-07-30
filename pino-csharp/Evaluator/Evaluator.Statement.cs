@@ -296,12 +296,7 @@ public partial class Evaluator {
       return cachedModule;
     }
 
-    var filename = moduleName.ToLower() + ".pino";
-    var baseDir = !string.IsNullOrEmpty(_currentFilePath)
-        ? Path.GetDirectoryName(_currentFilePath) ?? System.Environment.CurrentDirectory
-        : System.Environment.CurrentDirectory;
-    var modulesDir = Path.Combine(baseDir, "modules");
-    var filePath = Path.Combine(modulesDir, filename);
+    var filePath = ModuleResolver.ResolveModuleFilePath(_currentFilePath, moduleName);
 
     if (!File.Exists(filePath)) {
       throw new Exception($"RUNTIME ERROR: Module '{moduleName}' not found. Expected file at '{filePath}'.");

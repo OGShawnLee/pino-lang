@@ -925,7 +925,7 @@ class Program {
   }
 
   static (int Passed, int Failed) RunTestsTreeWalkForProgram(ProgramStatement program, string path) {
-    var checker = new Checker();
+    var checker = new Checker { CurrentFilePath = path };
     try {
       checker.Check(program);
     } catch (Exception ex) {
@@ -941,7 +941,7 @@ class Program {
 
     foreach (var test in tests) {
       try {
-        var evaluator = new Evaluator();
+        var evaluator = new Evaluator { CurrentFilePath = path };
         foreach (var stmt in program.Statements) {
           if (!(stmt is TestDeclaration)) {
             evaluator.Execute(stmt);
