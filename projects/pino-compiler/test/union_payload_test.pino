@@ -1,0 +1,103 @@
+union Primitive {
+  Integer(int)
+  Boolean(bool)
+  Float(float)
+  String(string)
+}
+
+test "Union Payload: Should be able of defining variants with Primitive Types" {
+  assert Primitive::Integer(42) == Primitive::Integer(42)
+  assert Primitive::Boolean(true) == Primitive::Boolean(true)
+  assert Primitive::Float(3.14) == Primitive::Float(3.14)
+  assert Primitive::String("Hello") == Primitive::String("Hello")
+  
+  assert Primitive::Integer(42) != Primitive::Integer(43)
+  assert Primitive::Boolean(true) != Primitive::Boolean(false)
+  assert Primitive::Float(3.14) != Primitive::Float(3.15)
+  assert Primitive::String("Hello") != Primitive::String("World")
+}
+
+struct Person {
+  name string
+}
+
+enum Race {
+  Human
+  Elf
+  Orc
+}
+
+union Complex {
+  Vector([]int)
+  Map(map[string, int])
+  Struct(Person)
+  Enum(Race)
+  Union(Primitive)
+}
+
+test "Union Payload: Should be able of defining variants with Complex Types" {
+  assert Complex::Vector([1, 2, 3]) == Complex::Vector([1, 2, 3])
+  assert Complex::Map(map[string, int] { "one": 1, "two": 2 }) == Complex::Map(map[string, int] { "one": 1, "two": 2 })
+  assert Complex::Struct(Person { name: "John" }) == Complex::Struct(Person { name: "John" })
+  assert Complex::Enum(Race::Human) == Complex::Enum(Race::Human)
+  assert Complex::Union(Primitive::Integer(42)) == Complex::Union(Primitive::Integer(42))
+  
+  assert Complex::Vector([1, 2, 3]) != Complex::Vector([1, 2, 4])
+  assert Complex::Map(map[string, int] { "one": 1, "two": 2 }) != Complex::Map(map[string, int] { "one": 1, "two": 3 })
+  assert Complex::Struct(Person { name: "John" }) != Complex::Struct(Person { name: "Jane" })
+  assert Complex::Enum(Race::Human) != Complex::Enum(Race::Elf)
+  assert Complex::Union(Primitive::Integer(42)) != Complex::Union(Primitive::Integer(43))
+}
+
+@generic[T]
+struct Box {
+  value T
+}
+
+@generic[T]
+union Recursive {
+  Node(T, Box[Recursive[T]])
+  Leaf(T)
+}
+
+test "Union Payload: Should be able of defining generic variants with Recursive Types" {
+  val recursive = Recursive::Node(
+    10,
+    Box { value: Recursive::Node(20, Box { value: Recursive::Leaf(30) }) }
+  )
+  assert recursive == Recursive::Node(
+    10,
+    Box { value: Recursive::Node(20, Box { value: Recursive::Leaf(30) }) }
+  )
+}
+
+union Optional {
+  Primitive(Option[string])
+  Complex(Option[Box[string]])
+}
+
+test "Union Payload: Should be able of defining variants with Option[T] payload" {
+  assert Optional::Primitive(Option::Some("Hello")) == Optional::Primitive(Option::Some("Hello"))
+  assert Optional::Primitive(Option::None) == Optional::Primitive(Option::None)
+  assert Optional::Complex(Option::Some(Box { value: "Hello" })) == Optional::Complex(Option::Some(Box { value: "Hello" }))
+  assert Optional::Complex(Option::None) == Optional::Complex(Option::None)
+  
+  assert Optional::Primitive(Option::Some("Hello")) != Optional::Primitive(Option::Some("World"))
+  assert Optional::Primitive(Option::Some("Hello")) != Optional::Primitive(Option::None)
+  assert Optional::Complex(Option::Some(Box { value: "Hello" })) != Optional::Complex(Option::Some(Box { value: "World" }))
+  assert Optional::Complex(Option::Some(Box { value: "Hello" })) != Optional::Complex(Option::None)
+}
+
+@generic[T]
+union Array {
+  Primitive([]T)
+  Complex([]Box[T])
+}
+
+test "Union Payload: Should be able of defining variants with Array[T] payload" {
+  assert Array::Primitive([1, 2, 3]) == Array::Primitive([1, 2, 3])
+  assert Array::Complex([Box { value: 1 }, Box { value: 2 }, Box { value: 3 }]) == Array::Complex([Box { value: 1 }, Box { value: 2 }, Box { value: 3 }])
+  
+  assert Array::Primitive([1, 2, 3]) != Array::Primitive([1, 2, 4])
+  assert Array::Complex([Box { value: 1 }, Box { value: 2 }, Box { value: 3 }]) != Array::Complex([Box { value: 1 }, Box { value: 2 }, Box { value: 4 }])
+}
