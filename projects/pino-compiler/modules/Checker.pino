@@ -1,6 +1,6 @@
 module Checker
 
-from Entities import AST, Declaration, Parameter, Typing, Statement, Expression, BinaryOperator
+from Entities import Program, AST, Declaration, Parameter, Type, Statement, Expression, BinaryOperator
 from Parser import parse_line
 
 struct Entity {
@@ -34,6 +34,22 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
 
     return Result::Success(Statement::Return(resolved_expr))
    }  
+   when Statement::If(condition, then_branch, else_branch_opt) {
+    val resolved_condition = resolve_expr(condition, variable_map)?
+    val resolved_then_branch = resolve_stmt(then_branch, variable_map)?
+    val resolved_else_branch_opt = match else_branch_opt {
+      when Option::Some(stmt) => Option::Some(resolve_stmt(stmt, variable_map)?)
+      when Option::None => Option::None
+    }
+
+    return Result::Success(Statement::If(resolved_condition, resolved_then_branch, resolved_else_branch_opt))
+   }
+   when Statement::Compound(ast_node_list) {
+    val new_variable_map = copy_variable_map(variable_map)
+    val resolved_ast_node_list = resolve_ast_node_list(ast_node_list, new_variable_map)?
+
+    return Result::Success(Statement::Compound(resolved_ast_node_list))
+   }
   }
 }
 
@@ -152,7 +168,7 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
         )
       }
 
-      val resolved_node_list = resolve_node_ast_list(node_list, inner_map)?
+      val resolved_node_list = resolve_ast_node_list(node_list, inner_map)?
 
       return Result::Success(
         Declaration::FunctionDeclaration(name, resolved_param_list, ret_type, resolved_node_list)
@@ -204,7 +220,7 @@ fn hoist_decl_map(node_list []AST, variable_map map[string, Entity]) Result[map[
   return Result::Success(variable_map)
 }
 
-fn resolve_node_ast_list(node_list []AST, variable_map map[string, Entity]) Result[[]AST, string] {
+fn resolve_ast_node_list(node_list []AST, variable_map map[string, Entity]) Result[[]AST, string] {
   val resolved_node_list = []AST
   val hoisted_map = hoist_decl_map(node_list, variable_map)?
 
@@ -217,7 +233,7 @@ fn resolve_node_ast_list(node_list []AST, variable_map map[string, Entity]) Resu
 }
 
 pub fn resolve_program(program Program) Result[Program, string] {
-  val resolved_node_list = resolve_node_ast_list(program:children, map[string, Entity] {})?
+  val resolved_node_list = resolve_ast_node_list(program:children, map[string, Entity] {})?
   return Result::Success(
     Program { children: resolved_node_list }
   )
@@ -234,7 +250,7 @@ test "Identifier Resolution: Should return a valid Program" {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
         AST::Declaration(Declaration::ConstantDeclaration("b_1", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Statement(Statement::Return(
             Expression::Binary(
               BinaryOperator::Add,
@@ -285,7 +301,7 @@ test "Identifier Resolution: Should allow self referencing the declaration name 
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Var("a_0")))
         ]))
       ]
@@ -401,9 +417,9 @@ test "Identifier Resolution: Should allow redeclaration of function in new scope
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
-          AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST))
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST))
         ]))
       ]
     }
@@ -419,8 +435,8 @@ test "Identifier Resolution: Should allow redeclaration of function as variable 
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12)))
         ]))
       ]
@@ -437,8 +453,8 @@ test "Identifier Resolution: Should allow redeclaration of function as constant 
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Typing::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12)))
         ]))
       ]
@@ -456,7 +472,7 @@ test "Identifier Resolution: Should allow redeclaration of constant in new scope
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10))),
           AST::Statement(Statement::Return(Expression::Var("a_1")))
         ]))
@@ -475,7 +491,7 @@ test "Identifier Resolution: Should allow redeclaration of variable in new scope
     Program {
       children: [
         AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10))),
           AST::Statement(Statement::Return(Expression::Var("a_1")))
         ]))
@@ -494,7 +510,7 @@ test "Identifier Resolution: Should allow redeclaration of constant as variable 
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10)))
         ]))
       ]
@@ -512,9 +528,99 @@ test "Identifier Resolution: Should allow redeclaration of variable as constant 
     Program {
       children: [
         AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Typing::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10)))
         ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of constant as constant in if-else-if statement scopes" {
+  val program = parse_line("val n = 1 if 1 < 2 { val n = 2 } else if 1 < 3 { val n = 3 } else { val n = 4 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::If(
+          Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
+          Statement::Compound([
+            AST::Declaration(Declaration::ConstantDeclaration("n_1", Expression::Constant(2)))
+          ]),
+          Option::Some(Statement::If(
+            Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
+            Statement::Compound([
+              AST::Declaration(Declaration::ConstantDeclaration("n_2", Expression::Constant(3)))
+            ]),
+            Option::Some(Statement::Compound([
+              AST::Declaration(Declaration::ConstantDeclaration("n_3", Expression::Constant(4)))
+            ]))
+          ))
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow redeclaration of constant as variable in if-else-if statement scopes" {
+  val program = parse_line("val n = 1 if 1 < 2 { var n = 2 } else if 1 < 3 { var n = 3 } else { var n = 4 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::If(
+          Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
+          Statement::Compound([
+            AST::Declaration(Declaration::VariableDeclaration("n_1", Expression::Constant(2)))
+          ]),
+          Option::Some(Statement::If(
+            Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
+            Statement::Compound([
+              AST::Declaration(Declaration::VariableDeclaration("n_2", Expression::Constant(3)))
+            ]),
+            Option::Some(Statement::Compound([
+              AST::Declaration(Declaration::VariableDeclaration("n_3", Expression::Constant(4)))
+            ]))
+          ))
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow referencing a constant from outer scope in if-else-if statement scopes" {
+  val program = parse_line("val n = 1 if 1 < 2 { n } else if 1 < 3 { n } else { n }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      children: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::If(
+          Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
+          Statement::Compound([
+            AST::Expression(Expression::Var("n_0"))
+          ]),
+          Option::Some(Statement::If(
+            Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
+            Statement::Compound([
+              AST::Expression(Expression::Var("n_0"))
+            ]),
+            Option::Some(Statement::Compound([
+              AST::Expression(Expression::Var("n_0"))
+            ]))
+          ))
+        ))
       ]
     }
   )
@@ -533,7 +639,7 @@ test "Declaration Hoisting: Should allow calling function before declaration" {
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Typing::Implicit,
+            Type::Implicit,
             [
               AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::FunctionCall("square", [Expression::Constant(1)])))
             ]
@@ -543,7 +649,7 @@ test "Declaration Hoisting: Should allow calling function before declaration" {
           Declaration::FunctionDeclaration(
             "square",
             [Parameter { name: "n_1", type: "int" }],
-            Typing::Implicit,
+            Type::Implicit,
             [AST::Statement(
               Statement::Return(
                 Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_1"), Expression::Var("n_1"))
@@ -556,7 +662,7 @@ test "Declaration Hoisting: Should allow calling function before declaration" {
   )
 }
 
-test "Declaration Hoisting: Should allow redeclaring a hoisted function in new scope" {
+test "Declaration Hoisting: Should allow redeclaring a hoisted function in new fn scope" {
   val program = parse_line("fn main { val n = square(1) fn square(n int) { return n * n } } fn square(n int) { return n * n }") or {
     assert false
   }
@@ -569,7 +675,7 @@ test "Declaration Hoisting: Should allow redeclaring a hoisted function in new s
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Typing::Implicit,
+            Type::Implicit,
             [
               AST::Declaration(
                 Declaration::ConstantDeclaration(
@@ -584,7 +690,7 @@ test "Declaration Hoisting: Should allow redeclaring a hoisted function in new s
                 Declaration::FunctionDeclaration(
                   "square", 
                   [Parameter { name: "n_1", type: "int" }],
-                  Typing::Implicit,
+                  Type::Implicit,
                   [AST::Statement(
                     Statement::Return(
                       Expression::Binary(
@@ -603,7 +709,7 @@ test "Declaration Hoisting: Should allow redeclaring a hoisted function in new s
           Declaration::FunctionDeclaration(
             "square",
             [Parameter { name: "n_2", type: "int" }],
-            Typing::Implicit,
+            Type::Implicit,
             [AST::Statement(
               Statement::Return(
                 Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_2"), Expression::Var("n_2"))
@@ -616,7 +722,7 @@ test "Declaration Hoisting: Should allow redeclaring a hoisted function in new s
   )
 }
 
-test "Declaration Hoisting: Should allow calling function before declaration in new scope" {
+test "Declaration Hoisting: Should allow calling function before declaration in same fn scope" {
   val program = parse_line("fn main { val n = square(1) fn square(n int) { return n * n } }") or {
     assert false
   }
@@ -629,7 +735,7 @@ test "Declaration Hoisting: Should allow calling function before declaration in 
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Typing::Implicit,
+            Type::Implicit,
             [
               AST::Declaration(
                 Declaration::ConstantDeclaration(
@@ -644,7 +750,7 @@ test "Declaration Hoisting: Should allow calling function before declaration in 
                 Declaration::FunctionDeclaration(
                   "square", 
                   [Parameter { name: "n_1", type: "int" }],
-                  Typing::Implicit,
+                  Type::Implicit,
                   [AST::Statement(
                     Statement::Return(
                       Expression::Binary(

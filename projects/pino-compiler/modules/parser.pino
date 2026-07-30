@@ -1,7 +1,8 @@
 module Parser
 
 from Lexer import lex
-from Entities import AST, Expression, Token, TokenType, TokenStream, UnaryOperator, BinaryOperator, Type, Declaration, Parameter, Statement, Program
+from Entities 
+import AST, Expression, Token, TokenType, TokenStream, UnaryOperator, BinaryOperator, Type, Declaration, Parameter, Statement, Program
 
 val PRECEDENCE_MAP = map[string, int] {
 	"*": 50
@@ -190,15 +191,33 @@ fn parse_expr(stream TokenStream, min_prec int) Result[Expression, string] {
 }
 
 fn parse_stmt(stream TokenStream) Result[Statement, string] {
-  val curr = stream:consume()
+  val curr = stream:peek(0)
 
   match curr:value {
     when "return" {
+      stream:next()
       val expr = parse_expr(stream, 0)?
       return Result::Success(Statement::Return(expr))
     }
+    when "if" {
+      stream:next()
+      val condition = parse_expr(stream, 0)?
+      val then_branch = parse_stmt(stream)?
+
+      if stream:peek(0):value == "else" {
+        stream:next()
+        val else_branch = parse_stmt(stream)?
+        return Result::Success(Statement::If(condition, then_branch, Option::Some(else_branch)))
+      }
+
+      return Result::Success(Statement::If(condition, then_branch, Option::None))
+    }
+    when "{" {
+      val block_content = parse_ast(stream, true)?
+      return Result::Success(Statement::Compound(block_content))
+    }
     else {
-      return Result::Failure("Expected 'return' keyword. Got $(curr:value).")
+      return Result::Failure("Expected 'return' or 'if' keyword or '{' block. Got '$(curr:value)'.")
     }
   }
 }
@@ -325,7 +344,7 @@ fn parse_ast(stream TokenStream, as_block bool) Result[[]AST, string] {
       when "fn", "var", "val" {
         ast_list:push(AST::Declaration(parse_decl(stream)?))
       }
-      when "return" {
+      when "return", "if", "{" {
         ast_list:push(AST::Statement(parse_stmt(stream)?))
       }
       else {
@@ -556,6 +575,104 @@ test "Declaration: Should parse a fn declaration (parameter-list, implicit retur
           Expression::Binary(BinaryOperator::Add, Expression::Var("a"), Expression::Var("b"))
         ))
       ]
+    )
+  )
+}
+
+test "Statement: Should parse an if statement without else branch" {
+  val if_statement = parse_stmt(TokenStream { list: lex("if 12 > 2 { return 12 }"), cursor: 0 }) 
+  assert if_statement == Result::Success(
+    Statement::If(
+      Expression::Binary(
+        BinaryOperator::GreaterThan,
+        Expression::Constant(12),
+        Expression::Constant(2)
+      ),
+      Statement::Compound([
+        AST::Statement(Statement::Return(Expression::Constant(12)))
+      ]),
+      Option::None
+    )
+  )
+}
+
+test "Statement: Should parse an if statement with else branch" {
+  val if_statement = parse_stmt(TokenStream { list: lex("if 12 > 2 { return 12 } else { return 22 }"), cursor: 0 }) 
+  assert if_statement == Result::Success(
+    Statement::If(
+      Expression::Binary(
+        BinaryOperator::GreaterThan,
+        Expression::Constant(12),
+        Expression::Constant(2)
+      ),
+      Statement::Compound([
+        AST::Statement(Statement::Return(Expression::Constant(12)))
+      ]),
+      Option::Some(Statement::Compound([
+        AST::Statement(Statement::Return(Expression::Constant(22)))
+      ]))
+    )
+  )
+}
+
+test "Statement: Should parse an if-else statement" {
+  val if_statement = parse_stmt(TokenStream { list: lex("if 1 < 2 { 1 } else if 1 < 3 { 2 }"), cursor: 0 }) 
+  assert if_statement == Result::Success(
+    Statement::If(
+      Expression::Binary(
+        BinaryOperator::LessThan,
+        Expression::Constant(1),
+        Expression::Constant(2)
+      ),
+      Statement::Compound([
+        AST::Expression(Expression::Constant(1))
+      ]),
+      Option::Some(
+        Statement::If(
+          Expression::Binary(
+            BinaryOperator::LessThan,
+            Expression::Constant(1),
+            Expression::Constant(3)
+          ),
+          Statement::Compound([
+            AST::Expression(Expression::Constant(2))
+          ]),
+          Option::None
+        )
+      )
+    )
+  )
+}
+
+test "Statement: Should parse an if-else-else statement" {
+  val if_statement = parse_stmt(TokenStream { list: lex("if 1 < 2 { 1 } else if 1 < 3 { 2 } else { 3 }"), cursor: 0 }) 
+  assert if_statement == Result::Success(
+    Statement::If(
+      Expression::Binary(
+        BinaryOperator::LessThan,
+        Expression::Constant(1),
+        Expression::Constant(2)
+      ),
+      Statement::Compound([
+        AST::Expression(Expression::Constant(1))
+      ]),
+      Option::Some(
+        Statement::If(
+          Expression::Binary(
+            BinaryOperator::LessThan,
+            Expression::Constant(1),
+            Expression::Constant(3)
+          ),
+          Statement::Compound([
+            AST::Expression(Expression::Constant(2))
+          ]),
+          Option::Some(
+            Statement::Compound([
+              AST::Expression(Expression::Constant(3))
+            ])
+          )
+        )
+      )
     )
   )
 }

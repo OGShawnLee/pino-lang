@@ -117,6 +117,8 @@ pub union Expression {
 
 pub union Statement {
   Return(Expression)
+  If(Expression, Statement, Option[Statement])
+  Compound([]AST)
 }
 
 pub union Type {
@@ -203,6 +205,23 @@ pub struct Program {
       when Statement::Return(expr) {
         println("Return:")
         Program::print_ast_expr(expr)
+      }
+      when Statement::If(condition, then_branch, else_branch_opt) {
+        println("If:")
+        Program::print_ast_expr(condition)
+        println("Then:")
+        Program::print_ast_stmt(then_branch)
+
+        if else_branch_opt is Option::Some(else_branch) {
+          println("Else:")
+          Program::print_ast_stmt(else_branch)
+        }
+      }
+      when Statement::Compound(children) {
+        println("Block:")
+        for child in children {
+          Program::print_ast(child)
+        }
       }
     }
   }
