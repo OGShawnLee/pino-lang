@@ -162,6 +162,9 @@ public partial class Checker {
   }
 
   private string MonomorphizeStruct(string baseName, List<string> concreteArgs) {
+    if (concreteArgs.Any(a => a.Length > 200 || a.Split('[').Length > 16)) {
+      throw new Exception($"TYPE CHECK ERROR: Exceeded maximum generic monomorphization depth for struct '{baseName}'. Infinite polymorphic recursion detected.");
+    }
     var baseStruct = FindStruct(baseName);
     if (baseStruct == null) {
       throw new Exception(FormatNotDefinedError("Struct", baseName));
@@ -938,6 +941,9 @@ public partial class Checker {
   }
 
   private string MonomorphizeUnion(string baseName, List<string> concreteArgs) {
+    if (concreteArgs.Any(a => a.Length > 200 || a.Split('[').Length > 16)) {
+      throw new Exception($"TYPE CHECK ERROR: Exceeded maximum generic monomorphization depth for union '{baseName}'. Infinite polymorphic recursion detected.");
+    }
     var baseUnion = FindUnion(baseName);
     if (baseUnion == null) {
       throw new Exception(FormatNotDefinedError("Union", baseName));
