@@ -370,6 +370,13 @@ public class TranspilerC {
         var forwardFuncSb = new StringBuilder();
         _currentFilePath = program.FilePath ?? "";
         
+        _lambdaCounter = 0;
+        _lambdas.Clear();
+        _boxedVariables.Clear();
+        _boxedTypes.Clear();
+        _nestedFunctions.Clear();
+        _nestedFunctionDepth = 0;
+
         _currentModuleName = null;
         CollectAndAnalyzeLambdas(program);
         foreach (var mod in allModules) {
@@ -812,8 +819,10 @@ public class TranspilerC {
         pinoType = ResolveTypeName(pinoType);
         var cleanType = CleanTypeName(pinoType);
         
-        if (pinoType == "string") {
+        if (pinoType == "string" || cleanType == "string") {
             return ("\\\"%s\\\"", valExpr);
+        } else if (pinoType == "any" || cleanType == "any" || cleanType == "void_ptr") {
+            return ("%p", valExpr);
         } else if (pinoType == "int") {
             return ("%d", valExpr);
         } else if (pinoType == "float") {
@@ -955,6 +964,9 @@ public class TranspilerC {
         string mappedType = MapType(rawType);
         string typeName = CleanTypeName(rawType);
 
+        if (rawType == "any" || typeName == "any" || mappedType == "void*") {
+            return $"({aVal} == {bVal})";
+        }
         if (rawType == "string" || mappedType == "const char*" || mappedType == "char*") {
             return $"(({aVal} == {bVal}) || ({aVal} && {bVal} && strcmp({aVal}, {bVal}) == 0))";
         }
@@ -1384,6 +1396,17 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
 
+                _tupleSb.AppendLine($"static inline int {clean}_count({clean}* vec, PinoClosure fn) {{");
+                _tupleSb.AppendLine($"    if (!vec) return 0;");
+                _tupleSb.AppendLine($"    int cnt = 0;");
+                _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
+                _tupleSb.AppendLine($"        int cond = ((int(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
+                _tupleSb.AppendLine($"        if (cond) cnt++;");
+                _tupleSb.AppendLine($"    }}");
+                _tupleSb.AppendLine($"    return cnt;");
+                _tupleSb.AppendLine($"}}");
+                _tupleSb.AppendLine();
+
                 _tupleSb.AppendLine($"static inline {cElemType} {clean}_find({clean}* vec, PinoClosure fn) {{");
                 _tupleSb.AppendLine($"    if (!vec) return ({cElemType})0;");
                 _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
@@ -1679,9 +1702,11 @@ public class TranspilerC {
             var boundVars = new List<(string Name, string Type)>();
             ExtractBoundVariablesFromStatement(stmt, boundVars);
             foreach (var bv in boundVars) {
-                WriteIndent();
-                Write($"{MapType(bv.Type)} {bv.Name};\n");
-                _varTypes[bv.Name] = bv.Type;
+                if (!_varTypes.ContainsKey(bv.Name)) {
+                    WriteIndent();
+                    Write($"{MapType(bv.Type)} {bv.Name};\n");
+                    _varTypes[bv.Name] = bv.Type;
+                }
             }
         }
 
@@ -1914,7 +1939,7 @@ public class TranspilerC {
                             var resolvedType = ResolveTypeName(type);
                             var cleanType = CleanTypeName(resolvedType);
                             
-                            if (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType)) {
+                            if (type != "string" && (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType))) {
                                 Write("pino_println_string(");
                                 Write($"{resolvedType}_to_string(");
                                 TranspileExpression(arg);
@@ -1958,7 +1983,7 @@ public class TranspilerC {
                     var resolvedType = ResolveTypeName(type);
                     var cleanType = CleanTypeName(resolvedType);
                     
-                    if (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType)) {
+                    if (type != "string" && (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType))) {
                         Write($"{resolvedType}_to_string(");
                         TranspileExpression(arg);
                         Write(")");
@@ -2758,7 +2783,15 @@ public class TranspilerC {
                     if (isExpr.IsNot) {
                         condStr = $"!({condStr})";
                     }
-                    Write(condStr);
+                    if (bindingList.Count > 0) {
+                        Write("({ ");
+                        foreach (var b in bindingList) {
+                            Write(b + " ");
+                        }
+                        Write($"{condStr}; }})");
+                    } else {
+                        Write(condStr);
+                    }
                 }
                 break;
 
@@ -2876,7 +2909,7 @@ public class TranspilerC {
                 var oldSb = _sb;
                 _sb = new StringBuilder();
                 
-                if (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType)) {
+                if (type != "string" && (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType))) {
                     Write($"{resolvedType}_to_string(");
                     TranspileExpression(op);
                     Write(")");
@@ -2946,13 +2979,17 @@ public class TranspilerC {
         var boundVars = new List<(string Name, string Type)>();
         ExtractBoundVariables(ifs.Condition, boundVars, true);
 
+        var newlyDeclared = new List<string>();
         if (boundVars.Count > 0) {
             Write("{\n");
             _indent++;
             foreach (var bv in boundVars) {
-                WriteIndent();
-                Write($"{MapType(bv.Type)} {bv.Name} = 0;\n");
-                _varTypes[bv.Name] = bv.Type;
+                if (!_varTypes.ContainsKey(bv.Name)) {
+                    WriteIndent();
+                    Write($"{MapType(bv.Type)} {bv.Name} = 0;\n");
+                    _varTypes[bv.Name] = bv.Type;
+                    newlyDeclared.Add(bv.Name);
+                }
             }
             WriteIndent();
         }
@@ -2977,6 +3014,9 @@ public class TranspilerC {
             _indent--;
             WriteIndent();
             Write("}");
+            foreach (var name in newlyDeclared) {
+                _varTypes.Remove(name);
+            }
         }
     }
 
@@ -3213,11 +3253,21 @@ public class TranspilerC {
 
     public UnionDeclaration? FindUnion(string name) {
         if (_unions.TryGetValue(name, out var u)) return u;
+        if (_importedSymbols.TryGetValue(name, out var pref) && _unions.TryGetValue(pref, out var u2)) return u2;
+        if (_currentModuleName != null && _unions.TryGetValue($"{_currentModuleName}_{name}", out var u3)) return u3;
+        foreach (var kvp in _unions) {
+            if (kvp.Key.EndsWith($"_{name}")) return kvp.Value;
+        }
         return null;
     }
 
     public EnumDeclaration? FindEnum(string name) {
         if (_enums.TryGetValue(name, out var e)) return e;
+        if (_importedSymbols.TryGetValue(name, out var pref) && _enums.TryGetValue(pref, out var e2)) return e2;
+        if (_currentModuleName != null && _enums.TryGetValue($"{_currentModuleName}_{name}", out var e3)) return e3;
+        foreach (var kvp in _enums) {
+            if (kvp.Key.EndsWith($"_{name}")) return kvp.Value;
+        }
         return null;
     }
 
@@ -3241,6 +3291,10 @@ public class TranspilerC {
             case IdentifierPattern idPat:
                 {
                     if (idPat.Name != "_") {
+                        _varTypes[idPat.Name] = targetType;
+                        if (_isGlobalScope) {
+                            _globalVarTypes[idPat.Name] = targetType;
+                        }
                         if (isInExpression) {
                             condList.Add($"({idPat.Name} = {target}, 1)");
                         } else {
@@ -3317,14 +3371,11 @@ public class TranspilerC {
                 break;
             case VariantPattern varPat:
                 var unionName = ResolveTypeName(varPat.UnionName);
-                var unionDecl = FindUnion(unionName);
-                if (unionDecl != null) {
-                    var variant = unionDecl.Variants.Find(v => v.Identifier == varPat.VariantName);
-                    if (variant != null) {
-                        for (int i = 0; i < Math.Min(varPat.SubPatterns.Count, variant.AssociatedTypes.Count); i++) {
-                            CollectPatternVariables(varPat.SubPatterns[i], variant.AssociatedTypes[i], vars);
-                        }
-                    }
+                var unionDecl = FindUnion(unionName) ?? FindUnion(varPat.UnionName);
+                var variant = unionDecl?.Variants.Find(v => v.Identifier == varPat.VariantName);
+                for (int i = 0; i < varPat.SubPatterns.Count; i++) {
+                    string subTargetType = (variant != null && i < variant.AssociatedTypes.Count) ? variant.AssociatedTypes[i] : "any";
+                    CollectPatternVariables(varPat.SubPatterns[i], subTargetType, vars);
                 }
                 break;
         }
@@ -3341,11 +3392,6 @@ public class TranspilerC {
     private List<(TestDeclaration Test, string? ModuleName)> _tests = new List<(TestDeclaration Test, string? ModuleName)>();
 
     private void CollectAndAnalyzeLambdas(ProgramStatement program) {
-        _lambdaCounter = 0;
-        _lambdas.Clear();
-        _boxedVariables.Clear();
-        _boxedTypes.Clear();
-
         foreach (var stmt in program.Statements) {
             if (stmt is TestDeclaration testDecl) {
                 if (_currentModuleName == null) {
@@ -3353,11 +3399,6 @@ public class TranspilerC {
                 }
             }
         }
-        _lambdas.Clear();
-        _boxedVariables.Clear();
-        _boxedTypes.Clear();
-        _nestedFunctions.Clear();
-        _nestedFunctionDepth = 0;
 
         var userFunctions = new HashSet<string>();
         foreach (var stmt in program.Statements) {
@@ -3572,6 +3613,13 @@ public class TranspilerC {
             case BubbleExpression bub:
                 FindLambdas(bub.Value);
                 break;
+            case IsExpression isExpr:
+                FindLambdas(isExpr.Value);
+                break;
+            case RecoveryExpression rec:
+                FindLambdas(rec.Value);
+                FindLambdas(rec.Body);
+                break;
             case TupleLiteralExpression tupleLit:
                 foreach (var f in tupleLit.Fields) FindLambdas(f.Value);
                 break;
@@ -3706,6 +3754,18 @@ public class TranspilerC {
             case BubbleExpression bub:
                 AnalyzeFreeVars(bub.Value, localScope, free);
                 break;
+            case IsExpression isExpr:
+                AnalyzeFreeVars(isExpr.Value, localScope, free);
+                var isPatternVars = new List<(string Name, string Type)>();
+                CollectPatternVariables(isExpr.Pattern, "any", isPatternVars);
+                foreach (var pv in isPatternVars) {
+                    localScope.Add(pv.Name);
+                }
+                break;
+            case RecoveryExpression rec:
+                AnalyzeFreeVars(rec.Value, localScope, free);
+                AnalyzeFreeVars(rec.Body, localScope, free);
+                break;
 
             case TupleLiteralExpression tupleLit:
                 foreach (var f in tupleLit.Fields) AnalyzeFreeVars(f.Value, localScope, free);
@@ -3757,6 +3817,10 @@ public class TranspilerC {
                 return IsMutableVariableInNode(testDecl.Body, name);
             case AssertStatement assertStmt:
                 return IsMutableVariableInNode(assertStmt.Expression, name);
+            case IsExpression isExpr:
+                return IsMutableVariableInNode(isExpr.Value, name);
+            case RecoveryExpression rec:
+                return IsMutableVariableInNode(rec.Value, name) || IsMutableVariableInNode(rec.Body, name);
             case LoopStatement loop:
                 return IsMutableVariableInNode(loop.Body, name) || IsMutableVariableInNode(loop.Begin, name) || IsMutableVariableInNode(loop.End, name);
             case FunctionDeclaration fn:
@@ -3798,13 +3862,29 @@ public class TranspilerC {
         }
     }
 
+    private bool HasReturnArgument(Statement stmt) {
+        if (stmt is ReturnStatement ret) return ret.Argument != null;
+        if (stmt is BlockStatement block) {
+            foreach (var s in block.Statements) {
+                if (HasReturnArgument(s)) return true;
+            }
+        }
+        return false;
+    }
+
     private string GetLambdaReturnType(FunctionLambdaExpression lambda) {
         var inf = lambda.InferredType;
-        if (string.IsNullOrEmpty(inf)) return "void";
-        int idx = inf.LastIndexOf(')');
-        if (idx == -1) return "void";
-        var ret = inf.Substring(idx + 1).Trim();
-        return string.IsNullOrEmpty(ret) ? "void" : ret;
+        if (!string.IsNullOrEmpty(inf)) {
+            int idx = inf.LastIndexOf(')');
+            if (idx != -1 && idx < inf.Length - 1) {
+                var ret = inf.Substring(idx + 1).Trim();
+                if (!string.IsNullOrEmpty(ret) && ret != "void") return ret;
+            }
+        }
+        if (HasReturnArgument(lambda.Body)) {
+            return "bool";
+        }
+        return "void";
     }
 
     private void TranspileLambdas(StringBuilder forwardFuncSb) {

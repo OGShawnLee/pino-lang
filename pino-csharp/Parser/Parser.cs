@@ -112,6 +112,24 @@ public partial class Parser {
         }
         return false;
 
+      case IsExpression isExpr:
+        return ContainsUndeclaredIt(isExpr.Value, stream);
+
+      case UnaryExpression un:
+        return ContainsUndeclaredIt(un.Right, stream);
+
+      case BubbleExpression bubble:
+        return ContainsUndeclaredIt(bubble.Value, stream);
+
+      case RecoveryExpression rec:
+        return ContainsUndeclaredIt(rec.Value, stream);
+
+      case TupleLiteralExpression tup:
+        foreach (var f in tup.Fields) {
+          if (ContainsUndeclaredIt(f.Value, stream)) return true;
+        }
+        return false;
+
       default:
         return false;
     }

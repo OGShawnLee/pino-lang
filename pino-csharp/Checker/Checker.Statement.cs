@@ -544,7 +544,7 @@ public partial class Checker {
           throw new Exception($"TYPE CHECK ERROR: Union '{varPat.UnionName}' has no variant '{varPat.VariantName}'.");
         }
         if (varPat.SubPatterns.Count != variant.AssociatedTypes.Count) {
-          if (varPat.SubPatterns.Count == 0 && _suppressVariableDeclaration) {
+          if (varPat.SubPatterns.Count == 0 && _allowTagOnlyMatch) {
             // Allow tag-only check
           } else {
             throw new Exception($"TYPE CHECK ERROR: Union variant '{varPat.VariantName}' expects {variant.AssociatedTypes.Count} subpatterns, but pattern has {varPat.SubPatterns.Count}.");

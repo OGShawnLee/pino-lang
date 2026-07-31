@@ -596,6 +596,27 @@ public partial class Evaluator {
           return true;
         }
 
+        if (methodName == "count") {
+          if (methodArgs.Count < 1 || methodArgs[0] is not IPinoCallable func) {
+            throw new Exception("RUNTIME ERROR: count() expects a callable argument.");
+          }
+          var args = new List<object?> { null };
+          if (func.Arity == 2) {
+            args.Add(0L);
+          }
+          long count = 0L;
+          for (int i = 0; i < list.Count; i++) {
+            args[0] = list[i];
+            if (func.Arity == 2) {
+              args[1] = (long) i;
+            }
+            if (IsTruthy(func.Call(this, args))) {
+              count++;
+            }
+          }
+          return count;
+        }
+
         if (methodName == "push" || methodName == "add") {
           if (methodArgs.Count < 1) {
             throw new Exception("RUNTIME ERROR: push() expects an item to add.");

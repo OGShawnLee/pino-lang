@@ -1179,6 +1179,16 @@ Checks if *all* elements in the vector satisfy the predicate condition.
     val ok = [2, 4, 6]:all(fn(x int) => x % 2 == 0) # true
     ```
 
+#### `count(fn)`
+Returns the total number of elements in the vector that satisfy the predicate condition.
+*   **Callback Signature**: `fn(item) bool` or `fn(item, index) bool`.
+*   **Return**: `int`
+*   **Example**:
+    ```pino
+    val evens = [1, 2, 4, 6, 8, 10]:count(fn(n int) => n % 2 == 0) # 5
+    val matches = [1, 2, 4, 6, 8, 10]:count(it % 2 == 0) # 5
+    ```
+
 ---
 
 ### Map Methods

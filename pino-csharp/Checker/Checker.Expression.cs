@@ -161,10 +161,10 @@ public partial class Checker {
                 }
               } else if (leftType.StartsWith("[]")) {
                 string callee = methodCall.Callee;
-                if (callee == "map" || callee == "filter" || callee == "any" || callee == "all" || callee == "each" || callee == "find") {
+                if (callee == "map" || callee == "filter" || callee == "any" || callee == "all" || callee == "each" || callee == "find" || callee == "count") {
                   string elemType = leftType.Substring(2);
                   if (methodCall.Arguments.Count > 0) {
-                    string expectedSig = callee == "filter" || callee == "any" || callee == "all" || callee == "find"
+                    string expectedSig = callee == "filter" || callee == "any" || callee == "all" || callee == "find" || callee == "count"
                         ? $"fn({elemType}) bool"
                         : $"fn({elemType}) any";
                     
@@ -709,12 +709,12 @@ public partial class Checker {
           }
         }
 
-        bool oldSuppress = _suppressVariableDeclaration;
-        _suppressVariableDeclaration = true;
+        bool oldAllow = _allowTagOnlyMatch;
+        _allowTagOnlyMatch = true;
         try {
           CheckPattern(isExpr.Pattern, lhsType);
         } finally {
-          _suppressVariableDeclaration = oldSuppress;
+          _allowTagOnlyMatch = oldAllow;
         }
 
         return "bool";
@@ -814,6 +814,15 @@ public partial class Checker {
             }
             if (bin.Right is FunctionCallExpression methodCall) {
               string callee = methodCall.Callee;
+              if (methodCall.Arguments.Count > 0 && methodCall.Arguments[0] is FunctionLambdaExpression lambda) {
+                if (callee == "all" || callee == "any" || callee == "filter" || callee == "find" || callee == "count") {
+                  ResolveImplicitLambdaParameters(lambda, $"fn({elemType}) bool");
+                } else if (callee == "each") {
+                  ResolveImplicitLambdaParameters(lambda, $"fn({elemType}) void");
+                } else if (callee == "map") {
+                  ResolveImplicitLambdaParameters(lambda, $"fn({elemType}) any");
+                }
+              }
               if (callee == "map") {
                 if (methodCall.Arguments.Count > 0) {
                   string callbackType = InferType(methodCall.Arguments[0]);
@@ -833,7 +842,7 @@ public partial class Checker {
               if (callee == "pop" || callee == "find") {
                 return elemType;
               }
-              if (callee == "find_index") {
+              if (callee == "find_index" || callee == "count") {
                 return "int";
               }
               if (callee == "any" || callee == "all") {

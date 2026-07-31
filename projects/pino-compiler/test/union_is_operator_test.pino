@@ -1,0 +1,38 @@
+union Data {
+  Vector([]int)
+  String(string)
+}
+
+test "Union Is Operator: Should return true if same variant" {
+  val int_vector = Data::Vector([1, 2, 3])
+  assert int_vector is Data::Vector
+}
+
+test "Union Is Operator: Should return false if different variant" {
+  val str_data = Data::String("Shawn")
+  assert str_data is not Data::Vector
+}
+
+test "Union Is Operator: Should return true if same variant and expose string payload" {
+  val str_data = Data::String("Shawn")
+  assert str_data is Data::String(name) and name == "Shawn" 
+}
+
+test "Union Is Operator: Should return true if same variant and expose vector payload" {
+  val vec_data = Data::Vector([1, 2, 3])
+  assert vec_data is Data::Vector(list) and list == [1, 2, 3]
+}
+
+Ñtest "Union Is Operator: Should work with bool vector instance methods" {
+  val vec_data = Data::Vector([1, 2, 3])
+  assert vec_data is Data::Vector(list) and list:all(it > 0)
+  assert vec_data is Data::Vector(list) and list:any(it > 2)
+}
+
+test "Union Is Operator: Should expose the payload inside an if statement" {
+  val vec_data = Data::Vector([1, 2, 3])
+  if vec_data is Data::Vector(list) {
+    assert list == [1, 2, 3]
+  }
+}
+

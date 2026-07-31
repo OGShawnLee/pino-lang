@@ -316,10 +316,9 @@ public partial class Checker {
     }
   }
 
-  private bool _suppressVariableDeclaration = false;
+  private bool _allowTagOnlyMatch = false;
 
   private void DeclareVariable(string name, string type) {
-    if (_suppressVariableDeclaration) return;
     if (_scopes.Count > 0) {
       _scopes.Peek()[name] = type;
     }
