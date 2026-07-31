@@ -312,14 +312,14 @@ fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
   )
 }
 
-fn parse_fn_ret_type(stream TokenStream) Result[Type, string] {
+fn parse_fn_ret_type(stream TokenStream) Result[Option[string], string] {
   val curr = stream:peek(0)
 
   return match curr:type {
-    when TokenType::Identifier => Result::Success(Type::Explicit(stream:consume():value))
+    when TokenType::Identifier => Result::Success(Option::Some(stream:consume():value))
     when TokenType::Marker => 
       if curr:value == "{"
-        then Result::Success(Type::Implicit)
+        then Result::Success(Option::None)
         else Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
     else => Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
   }

@@ -1,6 +1,6 @@
 module Checker
 
-from Entities import Program, AST, Declaration, Parameter, Type, Statement, Expression, BinaryOperator
+from Entities import Program, AST, Declaration, Parameter, Statement, Expression, BinaryOperator
 
 struct Entity {
   unique_name string

@@ -1,4 +1,4 @@
-from Entities import AST, Declaration, Expression, TokenStream, Statement, Program, BinaryOperator, UnaryOperator, Type, Parameter
+from Entities import AST, Declaration, Expression, TokenStream, Statement, Program, BinaryOperator, UnaryOperator, Parameter
 from Lexer import lex
 from Parser import parse_line, parse_ast, parse_fn_decl, parse_stmt, parse_expr
 
@@ -13,7 +13,7 @@ test "AST: Should parse a Program with multiple top-level declarations and expre
           Expression::Var("b"),
           Expression::Binary(BinaryOperator::Add, Expression::Var("b"), Expression::Constant(10))
         )),
-        AST::Declaration(Declaration::FunctionDeclaration("add", []Parameter, Type::Explicit("int"), [
+        AST::Declaration(Declaration::FunctionDeclaration("add", []Parameter, Option::Some("int"), [
           AST::Declaration(Declaration::ConstantDeclaration(
             "double_n",
             Expression::Binary(
@@ -91,7 +91,7 @@ test "Declaration: Should parse a fn declaration (no parameter-list, explicit re
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Type::Explicit("int"),
+      Option::Some("int"),
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -110,7 +110,7 @@ test "Declaration: Should parse a fn declaration (no parameter-list, implicit re
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Type::Implicit,
+      Option::None,
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -129,7 +129,7 @@ test "Declaration: Should parse a fn declaration (empty parameter-list, explicit
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Type::Explicit("int"),
+      Option::Some("int"),
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -149,7 +149,7 @@ test "Declaration: Should parse a fn declaration (empty parameter-list, implicit
     Declaration::FunctionDeclaration(
       "main",
       []Parameter,
-      Type::Implicit,
+      Option::None,
       [
         AST::Statement(Statement::Return(Expression::Constant(2)))
       ]
@@ -172,7 +172,7 @@ test "Declaration: Should parse a fn declaration (parameter-list, explicit retur
         Parameter { name: "a", type: "int" },
         Parameter { name: "b", type: "int" }
       ],
-      Type::Explicit("int"),
+      Option::Some("int"),
       [
         AST::Statement(Statement::Return(
           Expression::Binary(BinaryOperator::Add, Expression::Var("a"), Expression::Var("b"))
@@ -197,7 +197,7 @@ test "Declaration: Should parse a fn declaration (parameter-list, implicit retur
         Parameter { name: "a", type: "int" },
         Parameter { name: "b", type: "int" }
       ],
-      Type::Implicit,
+      Option::None,
       [
         AST::Statement(Statement::Return(
           Expression::Binary(BinaryOperator::Add, Expression::Var("a"), Expression::Var("b"))

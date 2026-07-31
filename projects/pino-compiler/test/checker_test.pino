@@ -1,4 +1,4 @@
-from Entities import Program, AST, Statement, Declaration, Expression, Parameter, Type, BinaryOperator
+from Entities import Program, AST, Statement, Declaration, Expression, Parameter, BinaryOperator
 from Checker import resolve_program, pseudo_name_counter
 from Parser import parse_line
 
@@ -13,7 +13,7 @@ test "Identifier Resolution: Should return a valid Program" {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
         AST::Declaration(Declaration::ConstantDeclaration("b_1", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Statement(Statement::Return(
             Expression::Binary(
               BinaryOperator::Add,
@@ -64,7 +64,7 @@ test "Identifier Resolution: Should allow self referencing the declaration name 
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Var("a_0")))
         ]))
       ]
@@ -180,9 +180,9 @@ test "Identifier Resolution: Should allow redeclaration of function in new scope
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
-          AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST))
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
+          AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST))
         ]))
       ]
     }
@@ -198,8 +198,8 @@ test "Identifier Resolution: Should allow redeclaration of function as variable 
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12)))
         ]))
       ]
@@ -216,8 +216,8 @@ test "Identifier Resolution: Should allow redeclaration of function as constant 
   assert program_checked == Result::Success(
     Program {
       children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Type::Implicit, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12)))
         ]))
       ]
@@ -235,7 +235,7 @@ test "Identifier Resolution: Should allow redeclaration of constant in new scope
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10))),
           AST::Statement(Statement::Return(Expression::Var("a_1")))
         ]))
@@ -254,7 +254,7 @@ test "Identifier Resolution: Should allow redeclaration of variable in new scope
     Program {
       children: [
         AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10))),
           AST::Statement(Statement::Return(Expression::Var("a_1")))
         ]))
@@ -273,7 +273,7 @@ test "Identifier Resolution: Should allow redeclaration of constant as variable 
     Program {
       children: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10)))
         ]))
       ]
@@ -291,7 +291,7 @@ test "Identifier Resolution: Should allow redeclaration of variable as constant 
     Program {
       children: [
         AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10)))
         ]))
       ]
@@ -402,7 +402,7 @@ test "Declaration Hoisting: Should allow calling function before declaration" {
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Type::Implicit,
+            Option::None,
             [
               AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::FunctionCall("square", [Expression::Constant(1)])))
             ]
@@ -412,7 +412,7 @@ test "Declaration Hoisting: Should allow calling function before declaration" {
           Declaration::FunctionDeclaration(
             "square",
             [Parameter { name: "n_1", type: "int" }],
-            Type::Implicit,
+            Option::None,
             [AST::Statement(
               Statement::Return(
                 Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_1"), Expression::Var("n_1"))
@@ -438,7 +438,7 @@ test "Declaration Hoisting: Should allow redeclaring a hoisted function in new f
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Type::Implicit,
+            Option::None,
             [
               AST::Declaration(
                 Declaration::ConstantDeclaration(
@@ -453,7 +453,7 @@ test "Declaration Hoisting: Should allow redeclaring a hoisted function in new f
                 Declaration::FunctionDeclaration(
                   "square", 
                   [Parameter { name: "n_1", type: "int" }],
-                  Type::Implicit,
+                  Option::None,
                   [AST::Statement(
                     Statement::Return(
                       Expression::Binary(
@@ -472,7 +472,7 @@ test "Declaration Hoisting: Should allow redeclaring a hoisted function in new f
           Declaration::FunctionDeclaration(
             "square",
             [Parameter { name: "n_2", type: "int" }],
-            Type::Implicit,
+            Option::None,
             [AST::Statement(
               Statement::Return(
                 Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_2"), Expression::Var("n_2"))
@@ -498,7 +498,7 @@ test "Declaration Hoisting: Should allow calling function before declaration in 
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Type::Implicit,
+            Option::None,
             [
               AST::Declaration(
                 Declaration::ConstantDeclaration(
@@ -513,7 +513,7 @@ test "Declaration Hoisting: Should allow calling function before declaration in 
                 Declaration::FunctionDeclaration(
                   "square", 
                   [Parameter { name: "n_1", type: "int" }],
-                  Type::Implicit,
+                  Option::None,
                   [AST::Statement(
                     Statement::Return(
                       Expression::Binary(

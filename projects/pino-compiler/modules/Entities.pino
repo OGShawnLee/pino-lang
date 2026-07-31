@@ -124,18 +124,13 @@ pub union Statement {
   Else(Statement)
 }
 
-pub union Type {
-  Explicit(string)
-  Implicit
-}
-
 pub struct Parameter {
   name string
   type string
 }
 
 pub union Declaration {
-  FunctionDeclaration(string, []Parameter, Type, []AST)
+  FunctionDeclaration(string, []Parameter, Option[string], []AST)
   ConstantDeclaration(string, Expression)
   VariableDeclaration(string, Expression)
 }
@@ -183,8 +178,8 @@ pub struct Program {
         }
 
         val ret_type_str = match ret_type {
-          when Type::Explicit(type_name) => type_name
-          when Type::Implicit => "Implicit"
+          when Option::Some(type_name) => type_name
+          when Option::None => "Implicit"
         }
 
         println("Return Type: $ret_type_str")
