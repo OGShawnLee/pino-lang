@@ -26,6 +26,11 @@ pub union UnaryOperator {
 	Not
 }
 
+pub enum StorageClass {
+	Static
+	Extern
+}
+
 pub union Expression {
 	Constant(int)
 	Var(string)
@@ -62,6 +67,12 @@ pub struct Parameter {
 pub struct VariableDeclaration {
 	name string
 	init Option[Expression]
+	storage_class Option[StorageClass]
+}
+
+struct TypeAndStorage {
+	type string
+	storage_class Option[StorageClass]
 }
 
 pub struct FunctionDeclaration {
@@ -69,6 +80,7 @@ pub struct FunctionDeclaration {
 	ret_type string
 	parameter_list []Parameter
 	body Option[Block]
+	storage_class Option[StorageClass]
 }
 
 pub union Declaration {
@@ -141,6 +153,14 @@ fn get_precedence(token Token) int {
 	}
 
 	panic("PARSER: Invalid operator: \"$(token:value)\"")
+}
+
+fn parse_storage_class(storage string) Result[StorageClass, string] {
+	return match storage {
+		"static" => StorageClass::Static
+		"extern" => StorageClass::Extern
+		else => Result::Failure("PARSER: Invalid storage class: '$(storage)'")
+	}
 }
 
 fn parse_unary_operator(token Token) Result[UnaryOperator, string] {
@@ -566,10 +586,64 @@ fn parse_parameter_list(stream TokenStream) Result[[]Parameter, string] {
 	return Result::Success(parameter_list)
 }
 
-fn parse_function_definition(stream TokenStream, is_definition_allowed bool) Result[FunctionDeclaration, string] {
-	val return_type_token = stream:expect(TokenType::Keyword) or {
-		return Result::Failure("PARSER: Unable to parse function. Expected return type.");
+fn parse_type_and_storage_class(specifier_list []string) Result[TypeAndStorage, string] {
+	val types_list = []string
+	val storage_list = []string
+
+	for specifier in specifier_list {
+		if specifier == "int" {
+			types_list:push(specifier)
+		} else {
+			storage_list:push(specifier)
+		}
 	}
+
+	if types_list:len != 1 {
+		return Result::Failure("PARSER: Unable to parse declaration. Expected one type in type and specifier list.")
+	}
+
+	if storage_list:len > 1 {
+		return Result::Failure("PARSER: Unable to parse declaration. Expected at most one storage class in type and specifier list.")
+	}	
+
+	if storage_list:len == 1 {
+		val storage_class = parse_storage_class(storage_list[0])?
+		return Result::Success(
+			TypeAndStorage {
+				type: types_list[0],
+				storage_class: Option::Some(storage_class)
+			}
+		)
+	}
+
+	return Result::Success(
+		TypeAndStorage {
+			type: types_list[0],
+			storage_class: Option::None
+		}
+	)
+}
+
+fn accumulate_declaration_specifier_list(stream TokenStream) Result[[]string, string] {
+	val specifier_list = []string
+	for {
+		val curr = stream:current() or { break }
+		
+		if curr:type == TokenType::Keyword {
+			specifier_list:push(curr:value)
+			stream:next()? 
+			continue
+		}
+
+		break
+	}
+
+	return Result::Success(specifier_list)
+}
+
+fn parse_function_definition(stream TokenStream, is_definition_allowed bool) Result[FunctionDeclaration, string] {
+	val specifier_list = accumulate_declaration_specifier_list(stream)?
+	val type_and_storage = parse_type_and_storage_class(specifier_list)?
 	val name_token = stream:expect(TokenType::Identifier) or {
 		return Result::Failure("PARSER: Unable to parse function. Expected function name.");
 	}
@@ -579,10 +653,11 @@ fn parse_function_definition(stream TokenStream, is_definition_allowed bool) Res
 		stream:next()? 
 		return Result::Success(
 			FunctionDeclaration {
-				ret_type: return_type_token:value,
+				ret_type: type_and_storage:type,
 				name: name_token:value,
 				parameter_list: parameter_list,
-				body: Option::None
+				body: Option::None,
+				storage_class: type_and_storage:storage_class
 			}
 		)
 	}
@@ -593,10 +668,11 @@ fn parse_function_definition(stream TokenStream, is_definition_allowed bool) Res
 
 	return Result::Success(
 		FunctionDeclaration {
-			ret_type: return_type_token:value,
+			ret_type: type_and_storage:type,
 			name: name_token:value,
 			parameter_list: parameter_list,
-			body: Option::Some(parse_block(stream)?)
+			body: Option::Some(parse_block(stream)?),
+			storage_class: type_and_storage:storage_class
 		}
 	)
 }

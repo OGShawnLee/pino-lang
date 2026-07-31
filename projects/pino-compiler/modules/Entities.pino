@@ -119,6 +119,9 @@ pub union Statement {
   Return(Expression)
   If(Expression, Statement, Option[Statement])
   Compound([]AST)
+  Match(Expression, Statement)
+  When([]Expression, Statement)
+  Else(Statement)
 }
 
 pub union Type {
@@ -217,6 +220,19 @@ pub struct Program {
           Program::print_ast_stmt(else_branch)
         }
       }
+      when Statement::Match(expr, block) {
+        println("Match:")
+        Program::print_ast_expr(expr)
+        Program::print_ast_stmt(block)
+      }
+      when Statement::When(condition_list, block) {
+        println("When:")
+        Program::print_ast_stmt(block)
+      }
+      when Statement::Else(block) {
+        println("Else:")
+        Program::print_ast_stmt(block)
+      }
       when Statement::Compound(children) {
         println("Block:")
         for child in children {
@@ -243,12 +259,12 @@ pub struct Program {
         println("Else:")
         Program::print_ast_expr(else_branch)
       }
-      when Expression::Unary(op, expr) {
-        println("Unary: $op")
+      when Expression::Unary(un_op, expr) {
+        println("Unary: $un_op")
         Program::print_ast_expr(expr)
       }
-      when Expression::Binary(op, left, right) {
-        println("Binary: $op")
+      when Expression::Binary(bin_op, left, right) {
+        println("Binary: $bin_op")
         Program::print_ast_expr(left)
         Program::print_ast_expr(right)
       }

@@ -44,6 +44,25 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
 
     return Result::Success(Statement::If(resolved_condition, resolved_then_branch, resolved_else_branch_opt))
    }
+   when Statement::Match(condition, block) {
+    val resolved_condition = resolve_expr(condition, variable_map)?
+    val resolved_block = resolve_stmt(block, variable_map)?
+
+    return Result::Success(Statement::Match(resolved_condition, resolved_block))
+   }
+   when Statement::When(condition_list, block) {
+    val resolved_condition_list = []Expression
+    for condition in condition_list {
+      resolved_condition_list:push(resolve_expr(condition, variable_map)?)
+    }
+    val resolved_block = resolve_stmt(block, variable_map)?
+
+    return Result::Success(Statement::When(resolved_condition_list, resolved_block))
+   }
+   when Statement::Else(block) {
+    val resolved_block = resolve_stmt(block, variable_map)?
+    return Result::Success(Statement::Else(resolved_block))
+   }
    when Statement::Compound(ast_node_list) {
     val new_variable_map = copy_variable_map(variable_map)
     val resolved_ast_node_list = resolve_ast_node_list(ast_node_list, new_variable_map)?

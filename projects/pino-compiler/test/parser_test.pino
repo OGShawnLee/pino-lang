@@ -305,6 +305,156 @@ test "Statement: Should parse an if-else-else statement" {
   )
 }
 
+test "Statement: Should parse a match statement (empty)" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 {}"), cursor: 0 })
+  assert match_statement == Result::Success(
+    Statement::Match(
+      Expression::Constant(1),
+      Statement::Compound([]AST)
+    )
+  )
+}
+
+test "Statement: Should parse a match statement (one when case)" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { when 1 { 1 } }"), cursor: 0 })
+  assert match_statement == Result::Success(
+    Statement::Match(
+      Expression::Constant(1),
+      Statement::Compound([
+        AST::Statement(Statement::When(
+          [Expression::Constant(1)],
+          Statement::Compound([
+            AST::Expression(Expression::Constant(1))
+          ])
+        ))
+      ])
+    )
+  )
+}
+
+test "Statement: Should catch match statement (no when or else statement inside block)" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { 2 3 val n = 12 }"), cursor: 0 })
+  assert match_statement == Result::Failure("Expected only multiple when statements or one else statement inside a match block.")
+}
+
+test "Statement: Should catch match statement (invalid statement)" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { return 2 }"), cursor: 0 })
+  assert match_statement == Result::Failure("Expected only when or else statements inside a match block.")
+}
+
+test "Statement: Should parse a match statement (multiple when case)" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { when 1 { 1 } when 2 { 2 } when 3 { 3 } }"), cursor: 0 })
+  assert match_statement == Result::Success(
+    Statement::Match(
+      Expression::Constant(1),
+      Statement::Compound([
+        AST::Statement(Statement::When(
+          [Expression::Constant(1)],
+          Statement::Compound([
+            AST::Expression(Expression::Constant(1))
+          ])
+        )),
+        AST::Statement(Statement::When(
+          [Expression::Constant(2)],
+          Statement::Compound([
+            AST::Expression(Expression::Constant(2))
+          ])
+        )),
+        AST::Statement(Statement::When(
+          [Expression::Constant(3)],
+          Statement::Compound([
+            AST::Expression(Expression::Constant(3))
+          ])
+        ))
+      ])
+    )
+  )
+}
+
+test "Statement: Should parse a match statement (one when case with multiple conditions (commas))" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { when 1, 2, 3 { 1 } }"), cursor: 0 })
+  assert match_statement == Result::Success(
+    Statement::Match(
+      Expression::Constant(1),
+      Statement::Compound([
+        AST::Statement(Statement::When(
+          [
+            Expression::Constant(1),
+            Expression::Constant(2),
+            Expression::Constant(3)
+          ],
+          Statement::Compound([
+            AST::Expression(Expression::Constant(1))
+          ])
+        ))
+      ])
+    )
+  )
+}
+
+test "Statement: Should parse a match statement (one when case with multiple conditions (no-commas))" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { when 1 2 3 { 1 } }"), cursor: 0 })
+  assert match_statement == Result::Success(
+    Statement::Match(
+      Expression::Constant(1),
+      Statement::Compound([
+        AST::Statement(Statement::When(
+          [
+            Expression::Constant(1),
+            Expression::Constant(2),
+            Expression::Constant(3)
+          ],
+          Statement::Compound([
+            AST::Expression(Expression::Constant(1))
+          ])
+        ))
+      ])
+    )
+  )
+}
+
+test "Statement: Should parse a match statement (one when case with multiple conditions (no-commas))" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { when 1 2 3 { 1 } }"), cursor: 0 })
+  assert match_statement == Result::Success(
+    Statement::Match(
+      Expression::Constant(1),
+      Statement::Compound([
+        AST::Statement(Statement::When(
+          [
+            Expression::Constant(1),
+            Expression::Constant(2),
+            Expression::Constant(3)
+          ],
+          Statement::Compound([
+            AST::Expression(Expression::Constant(1))
+          ])
+        ))
+      ])
+    )
+  )
+}
+
+test "Statement: Should parse a match statement (one else case)" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { else { 1 } }"), cursor: 0 })
+  assert match_statement == Result::Success(
+    Statement::Match(
+      Expression::Constant(1),
+      Statement::Compound([
+        AST::Statement(Statement::Else(
+          Statement::Compound([
+            AST::Expression(Expression::Constant(1))
+          ])
+        ))
+      ])
+    )
+  )
+}
+
+test "Statement: Should catch match statement (more than one else case)" {
+  val match_statement = parse_stmt(TokenStream { list: lex("match 1 { else { 1 } else { 2 }}"), cursor: 0 })
+  assert match_statement == Result::Failure("Expected only one else statement in match block.")
+}
+
 test "Expression: Should parse a parse a binary expression" {
   val content = "12 + 2"
   val list = lex(content)

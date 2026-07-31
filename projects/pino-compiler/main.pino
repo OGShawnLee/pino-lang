@@ -4,7 +4,9 @@ import Checker
 # import Transformer
 
 fn main {
-  val content = "val n = 12 if 1 > 2 { val n = n + 14 } else { val n = 20 }"
+  val content = read_file("main.pino") or {
+    panic("Unable to read main.pino")
+  }
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)
