@@ -1,0 +1,61 @@
+struct Entity {
+  name string
+
+  fn greet {
+    return "Hello, my name is $name"
+  }
+}
+
+enum Element {
+  Water
+  Earth
+  Fire
+  Air
+}
+
+enum Gender {
+  Male
+  Female
+}
+
+struct Human {
+  Entity
+  gender Gender
+
+  fn is_male {
+    return gender == Gender::Male
+  }
+}
+
+struct Bender {
+  Human
+  element Element
+
+  fn bend {
+    return "I bend $element!"
+  }
+}
+
+test "Struct Composition: Should inherit fields" {
+  val bummy = Bender {
+    name: "Bummy"
+    gender: Gender::Male
+    element: Element::Earth
+  }
+
+  assert bummy:name == "Bummy"
+  assert bummy:element == Element::Earth
+  assert bummy:gender == Gender::Male
+}
+
+test "Struct Composition: Should inherit methods" {
+  val bummy = Bender {
+    name: "Bummy"
+    gender: Gender::Male
+    element: Element::Earth
+  }
+
+  assert bummy:greet() == "Hello, my name is Bummy"
+  assert bummy:is_male()
+  assert bummy:bend() == "I bend Element::Earth!"
+}

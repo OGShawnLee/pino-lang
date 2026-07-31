@@ -10,6 +10,7 @@ public class TranspilerC {
     private int _indent = 0;
     private Dictionary<string, string> _varTypes = new Dictionary<string, string>();
     private Dictionary<string, List<string>> _structFields = new Dictionary<string, List<string>>();
+    private Dictionary<string, StructDeclaration> _structDeclarations = new Dictionary<string, StructDeclaration>();
     private HashSet<string> _currentStructFields = new HashSet<string>();
     private StringBuilder _tupleSb = new StringBuilder();
     private HashSet<string> _declaredTuples = new HashSet<string>();
@@ -79,6 +80,46 @@ public class TranspilerC {
         }
     }
 
+    private List<VariableDeclaration> GetConsolidatedFields(StructDeclaration structDecl) {
+        var result = new List<VariableDeclaration>();
+        foreach (var parentName in structDecl.InheritedStructs) {
+            var prefixedParent = GetPrefixedName(parentName);
+            StructDeclaration? parentDecl = null;
+            if (!_structDeclarations.TryGetValue(prefixedParent, out parentDecl)) {
+                _structDeclarations.TryGetValue(parentName, out parentDecl);
+            }
+            if (parentDecl != null) {
+                var parentFields = GetConsolidatedFields(parentDecl);
+                result.AddRange(parentFields);
+            }
+        }
+        foreach (var field in structDecl.Fields) {
+            result.RemoveAll(f => f.Identifier == field.Identifier);
+            result.Add(field);
+        }
+        return result;
+    }
+
+    private List<FunctionDeclaration> GetConsolidatedMethods(StructDeclaration structDecl) {
+        var result = new List<FunctionDeclaration>();
+        foreach (var parentName in structDecl.InheritedStructs) {
+            var prefixedParent = GetPrefixedName(parentName);
+            StructDeclaration? parentDecl = null;
+            if (!_structDeclarations.TryGetValue(prefixedParent, out parentDecl)) {
+                _structDeclarations.TryGetValue(parentName, out parentDecl);
+            }
+            if (parentDecl != null) {
+                var parentMethods = GetConsolidatedMethods(parentDecl);
+                result.AddRange(parentMethods);
+            }
+        }
+        foreach (var method in structDecl.Methods) {
+            result.RemoveAll(m => m.Identifier == method.Identifier);
+            result.Add(method);
+        }
+        return result;
+    }
+
     private void TranspilePass0And1(ProgramStatement program) {
         var declarations = new List<Declaration>();
         var topLevelStatements = new List<Statement>();
@@ -113,8 +154,18 @@ public class TranspilerC {
 
         foreach (var decl in declarations) {
             if (decl is StructDeclaration structDecl) {
-                var fields = structDecl.Fields.Select(f => f.Identifier).ToList();
+                var sName = GetPrefixedName(structDecl.Identifier);
+                _structDeclarations[sName] = structDecl;
+                _structDeclarations[structDecl.Identifier] = structDecl;
+            }
+        }
+
+        foreach (var decl in declarations) {
+            if (decl is StructDeclaration structDecl) {
+                var consolidated = GetConsolidatedFields(structDecl);
+                var fields = consolidated.Select(f => f.Identifier).ToList();
                 _structFields[GetPrefixedName(structDecl.Identifier)] = fields;
+                _structFields[structDecl.Identifier] = fields;
             } else if (decl is UnionDeclaration unionDecl) {
                 _unions[GetPrefixedName(unionDecl.Identifier)] = unionDecl;
             } else if (decl is EnumDeclaration enumDecl) {
@@ -157,14 +208,18 @@ public class TranspilerC {
                 var structName = GetPrefixedName(structDecl.Identifier);
                 if (!_emittedStructsAndUnions.Add(structName)) continue;
                 _forwardDeclSb.AppendLine($"typedef struct {structName} {structName};");
+                
+                var consolidatedFields = GetConsolidatedFields(structDecl);
+                var consolidatedMethods = GetConsolidatedMethods(structDecl);
+
                 _structSb.AppendLine($"struct {structName} {{");
-                foreach (var field in structDecl.Fields) {
+                foreach (var field in consolidatedFields) {
                     _structSb.AppendLine($"    {MapType(field.Typing)} {field.Identifier};");
                 }
                 _structSb.AppendLine("};");
                 _structSb.AppendLine();
 
-                foreach (var method in structDecl.Methods) {
+                foreach (var method in consolidatedMethods) {
                     var retType = MapType(method.ResolvedReturnType);
                     string methodParams;
                     if (method.IsStatic) {
@@ -265,7 +320,8 @@ public class TranspilerC {
             if (decl is StructDeclaration structDecl) {
                 if (structDecl.GenericParams != null && structDecl.GenericParams.Count > 0) continue;
                 var structName = GetPrefixedName(structDecl.Identifier);
-                foreach (var method in structDecl.Methods) {
+                var consolidatedMethods = GetConsolidatedMethods(structDecl);
+                foreach (var method in consolidatedMethods) {
                     TranspileStructMethod(structName, method);
                 }
             } else if (decl is UnionDeclaration unionDecl) {
@@ -813,8 +869,9 @@ public class TranspilerC {
         var formatStr = $"{cleanStructName} {{ ";
         var argsList = new List<string>();
         
-        for (int i = 0; i < structDecl.Fields.Count; i++) {
-            var field = structDecl.Fields[i];
+        var consolidatedFields = GetConsolidatedFields(structDecl);
+        for (int i = 0; i < consolidatedFields.Count; i++) {
+            var field = consolidatedFields[i];
             if (i > 0) formatStr += ", ";
             var (fmt, arg) = GetFormatSpecifierAndArgForType(field.Typing, $"val->{field.Identifier}");
             formatStr += $"{field.Identifier}: {fmt}";
