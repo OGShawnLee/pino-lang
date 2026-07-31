@@ -526,22 +526,25 @@ public class TranspilerC {
         _indent = 0;
         _sb.AppendLine("}");
 
+        var ioErrorType = ResolveTypeName("IOError");
+        var resultIoErrorType = ResolveTypeName("Result_string_IOError");
+
         if (_usesReadFile) {
             _sb.AppendLine();
-            _sb.AppendLine("Result_string_IOError* pino_read_file(const char* path) {");
+            _sb.AppendLine($"{resultIoErrorType}* pino_read_file(const char* path) {{");
             _sb.AppendLine("    FILE* f = fopen(path, \"rb\");");
             _sb.AppendLine("    if (!f) {");
-            _sb.AppendLine("        IOError* err;");
+            _sb.AppendLine($"        {ioErrorType}* err;");
             _sb.AppendLine("        if (errno == ENOENT) {");
-            _sb.AppendLine("            err = IOError_NotFound_construct(path);");
+            _sb.AppendLine($"            err = {ioErrorType}_NotFound_construct(path);");
             _sb.AppendLine("        } else if (errno == EACCES || errno == EPERM) {");
-            _sb.AppendLine("            err = IOError_PermissionDenied_construct(path);");
+            _sb.AppendLine($"            err = {ioErrorType}_PermissionDenied_construct(path);");
             _sb.AppendLine("        } else if (errno == EEXIST) {");
-            _sb.AppendLine("            err = IOError_AlreadyExists_construct(path);");
+            _sb.AppendLine($"            err = {ioErrorType}_AlreadyExists_construct(path);");
             _sb.AppendLine("        } else {");
-            _sb.AppendLine("            err = IOError_Gremlin_construct(strerror(errno));");
+            _sb.AppendLine($"            err = {ioErrorType}_Gremlin_construct(strerror(errno));");
             _sb.AppendLine("        }");
-            _sb.AppendLine("        return Result_string_IOError_Failure_construct(err);");
+            _sb.AppendLine($"        return {resultIoErrorType}_Failure_construct(err);");
             _sb.AppendLine("    }");
             _sb.AppendLine("    fseek(f, 0, SEEK_END);");
             _sb.AppendLine("    long len = ftell(f);");
@@ -550,26 +553,26 @@ public class TranspilerC {
             _sb.AppendLine("    size_t read_bytes = fread(buf, 1, len, f);");
             _sb.AppendLine("    buf[read_bytes] = '\\0';");
             _sb.AppendLine("    fclose(f);");
-            _sb.AppendLine("    return Result_string_IOError_Success_construct(buf);");
+            _sb.AppendLine($"    return {resultIoErrorType}_Success_construct(buf);");
             _sb.AppendLine("}");
         }
 
         if (_usesWriteFile) {
             _sb.AppendLine();
-            _sb.AppendLine("Result_string_IOError* pino_write_file(const char* path, const char* content) {");
+            _sb.AppendLine($"{resultIoErrorType}* pino_write_file(const char* path, const char* content) {{");
             _sb.AppendLine("    FILE* f = fopen(path, \"wb\");");
             _sb.AppendLine("    if (!f) {");
-            _sb.AppendLine("        IOError* err;");
+            _sb.AppendLine($"        {ioErrorType}* err;");
             _sb.AppendLine("        if (errno == EACCES || errno == EPERM) {");
-            _sb.AppendLine("            err = IOError_PermissionDenied_construct(path);");
+            _sb.AppendLine($"            err = {ioErrorType}_PermissionDenied_construct(path);");
             _sb.AppendLine("        } else {");
-            _sb.AppendLine("            err = IOError_Gremlin_construct(strerror(errno));");
+            _sb.AppendLine($"            err = {ioErrorType}_Gremlin_construct(strerror(errno));");
             _sb.AppendLine("        }");
-            _sb.AppendLine("        return Result_string_IOError_Failure_construct(err);");
+            _sb.AppendLine($"        return {resultIoErrorType}_Failure_construct(err);");
             _sb.AppendLine("    }");
             _sb.AppendLine("    fputs(content, f);");
             _sb.AppendLine("    fclose(f);");
-            _sb.AppendLine("    return Result_string_IOError_Success_construct(path);");
+            _sb.AppendLine($"    return {resultIoErrorType}_Success_construct(path);");
             _sb.AppendLine("}");
         }
 
@@ -586,10 +589,10 @@ public class TranspilerC {
         }
 
         if (_usesReadFile) {
-            forwardFuncSb.AppendLine("Result_string_IOError* pino_read_file(const char* path);");
+            forwardFuncSb.AppendLine($"{resultIoErrorType}* pino_read_file(const char* path);");
         }
         if (_usesWriteFile) {
-            forwardFuncSb.AppendLine("Result_string_IOError* pino_write_file(const char* path, const char* content);");
+            forwardFuncSb.AppendLine($"{resultIoErrorType}* pino_write_file(const char* path, const char* content);");
         }
         if (_usesFileExists) {
             forwardFuncSb.AppendLine("bool pino_file_exists(const char* path);");
@@ -858,7 +861,7 @@ public class TranspilerC {
 
     private void GenerateStructToString(StructDeclaration structDecl) {
         var structName = GetPrefixedName(structDecl.Identifier);
-        _structSb.AppendLine($"const char* {structName}_to_string({structName}* val);");
+        _forwardDeclSb.AppendLine($"const char* {structName}_to_string({structName}* val);");
         
         var body = new StringBuilder();
         body.AppendLine($"const char* {structName}_to_string({structName}* val) {{");
@@ -995,7 +998,7 @@ public class TranspilerC {
 
     private void GenerateStructEquals(StructDeclaration structDecl) {
         var structName = GetPrefixedName(structDecl.Identifier);
-        _structSb.AppendLine($"bool {structName}_equals(const {structName}* a, const {structName}* b);");
+        _forwardDeclSb.AppendLine($"bool {structName}_equals(const {structName}* a, const {structName}* b);");
 
         var body = new StringBuilder();
         body.AppendLine($"bool {structName}_equals(const {structName}* a, const {structName}* b) {{");
@@ -1019,7 +1022,7 @@ public class TranspilerC {
 
     private void GenerateUnionEquals(UnionDeclaration unionDecl) {
         var unionName = GetPrefixedName(unionDecl.Identifier);
-        _structSb.AppendLine($"bool {unionName}_equals(const {unionName}* a, const {unionName}* b);");
+        _forwardDeclSb.AppendLine($"bool {unionName}_equals(const {unionName}* a, const {unionName}* b);");
 
         var body = new StringBuilder();
         body.AppendLine($"bool {unionName}_equals(const {unionName}* a, const {unionName}* b) {{");
@@ -2688,7 +2691,7 @@ public class TranspilerC {
                                 Write(sStr + " ");
                             }
                         } else if (branch.Body is Expression branchExpr) {
-                            if (!string.IsNullOrEmpty(resVar)) {
+                            if (!string.IsNullOrEmpty(resVar) && !IsVoidExpression(branchExpr)) {
                                 Write($"{resVar} = ");
                                 TranspileExpression(branchExpr);
                                 Write("; ");
@@ -2715,7 +2718,7 @@ public class TranspilerC {
                                 Write(sStr + " ");
                             }
                         } else if (match.Alternate.Body is Expression branchExpr) {
-                            if (!string.IsNullOrEmpty(resVar)) {
+                            if (!string.IsNullOrEmpty(resVar) && !IsVoidExpression(branchExpr)) {
                                 Write($"{resVar} = ");
                                 TranspileExpression(branchExpr);
                                 Write("; ");
@@ -2799,7 +2802,9 @@ public class TranspilerC {
                         for (int i = 0; i < block.Statements.Count; i++) {
                             var s = block.Statements[i];
                             if (i == block.Statements.Count - 1 && s is Expression exprStmt && !(exprStmt is YieldStatement)) {
-                                Write($"{resVar} = ");
+                                if (!IsVoidExpression(exprStmt)) {
+                                    Write($"{resVar} = ");
+                                }
                                 TranspileExpression(exprStmt);
                                 Write("; ");
                             } else {
@@ -2807,7 +2812,9 @@ public class TranspilerC {
                             }
                         }
                     } else if (rec.Body is Expression bodyExpr && !(bodyExpr is YieldStatement)) {
-                        Write($"{resVar} = ");
+                        if (!IsVoidExpression(bodyExpr)) {
+                            Write($"{resVar} = ");
+                        }
                         TranspileExpression(bodyExpr);
                         Write("; ");
                     } else {
@@ -3989,5 +3996,14 @@ public class TranspilerC {
                 ScanNode(mod.Checker.Program);
             }
         }
+    }
+
+    private bool IsVoidExpression(Expression expr) {
+        if (expr == null) return true;
+        if (expr.InferredType == "void") return true;
+        if (expr is FunctionCallExpression call) {
+            if (call.Callee == "panic" || call.Callee == "pino_panic") return true;
+        }
+        return false;
     }
 }
