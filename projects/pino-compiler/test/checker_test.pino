@@ -1,34 +1,61 @@
-from Entities import Program, AST, Statement, Declaration, Expression, Parameter, BinaryOperator
+from Entities import Program, AST, Statement, Declaration, Expression, Parameter, BinaryOperator, When
 from Checker import resolve_program, pseudo_name_counter
-from Parser import parse_line
+from Parser import parse_line, parse_decl
 
-test "Identifier Resolution: Should return a valid Program" {
-  val program = parse_line("val a = 12 val b = 12 fn main { return a + b }") or {
+test "Identifier Resolution: Should return a valid Program with multiple top-level declarations and expressions" {
+  val program = parse_line("val a = 12 var b = 20 b = b + 10 fn add int { val double_n = a * 2 return double_n + b }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
+      content: [
         AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
-        AST::Declaration(Declaration::ConstantDeclaration("b_1", Expression::Constant(12))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Statement(Statement::Return(
+        AST::Declaration(Declaration::VariableDeclaration("b_1", Expression::Constant(20))),
+        AST::Statement(Statement::Expression(
+          Expression::Assignment(
+            Expression::Var("b_1"),
             Expression::Binary(
               BinaryOperator::Add,
-              Expression::Var("a_0"),
-              Expression::Var("b_1")
+              Expression::Var("b_1"),
+              Expression::Constant(10)
             )
-          ))
-        ]))
+          )
+        )),
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "add", 
+            []Parameter, 
+            Option::Some("int"), 
+            [
+              AST::Declaration(
+                Declaration::ConstantDeclaration(
+                  "double_n_2",
+                  Expression::Binary(
+                    BinaryOperator::Multiply,
+                    Expression::Var("a_0"),
+                    Expression::Constant(2)
+                  )
+                )
+              ),
+              AST::Statement(Statement::Return(
+                Expression::Binary(
+                  BinaryOperator::Add,
+                  Expression::Var("double_n_2"),
+                  Expression::Var("b_1")
+                )
+              ))
+            ]
+          )
+        )
       ]
     }
   )
 }
 
-test "Identifier Resolution: Should catch undeclared constant/variable" {
-  val program = parse_line("val a = 12 fn main { return a + b }") or {
+test "Identifier Resolution: Should catch undeclared entity" {
+  val program = parse_line("val a = 1 fn main { return a + b }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
@@ -37,15 +64,15 @@ test "Identifier Resolution: Should catch undeclared constant/variable" {
 }
 
 test "Identifier Resolution: Should catch undeclared function call" {
-  val program = parse_line("val a = 12 add(a, 12)") or {
+  val program = parse_line("print()") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Function 'add' has not been declared in the current scope.")
+  assert program_checked == Result::Failure("Type Checker Error: Function 'print' has not been declared in the current scope.")
 }
 
-test "Identifier Resolution: Should catch declaring a variable with an expression referencing it with no shadowing" {
+test "Identifier Resolution: Should catch declaration self-reference (no shadowing)" {
   val program = parse_line("val a = a") or {
     assert false
   }
@@ -54,16 +81,16 @@ test "Identifier Resolution: Should catch declaring a variable with an expressio
   assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
 }
 
-test "Identifier Resolution: Should allow self referencing the declaration name if there is shadowing" {
-  val program = parse_line("val a = 12 fn main { val a = a }") or {
+test "Identifier Resolution: Should allow declaration self-reference (with shadowing)" {
+  val program = parse_line("val a = 1 fn main { val a = a }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
-        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(1))),
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Var("a_0")))
         ]))
@@ -72,79 +99,7 @@ test "Identifier Resolution: Should allow self referencing the declaration name 
   )
 }
 
-test "Identifier Resolution: Should catch redeclaring constant as constant in the same scope" {
-  val program = parse_line("val a = 12 val a = 10") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring variable as variable in the same scope" {
-  val program = parse_line("var a = 12 var a = 10") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring variable as constant in the same scope" {
-  val program = parse_line("var a = 12 val a = 10") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring constant as variable in the same scope" {
-  val program = parse_line("val a = 12 var a = 10") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring a parameter in the same function scope as a parameter" {
-  val program = parse_line("fn a(b int, b int) {}") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Parameter 'b' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring a parameter in the same scope as a constant" {
-  val program = parse_line("fn a(b int) { val b = 10 }") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Constant 'b' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring a parameter in the same scope as a variable" {
-  val program = parse_line("fn a(b int) { var b = 10 }") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Variable 'b' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring a parameter in the same function scope as a function" {
-  val program = parse_line("fn a(b int) { fn b() {} }") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Function 'b' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring a function in the same scope" {
+test "Identifier Resolution: Should catch redeclaring (fn -> fn)" {
   val program = parse_line("fn a {} fn a {}") or {
     assert false
   }
@@ -153,17 +108,8 @@ test "Identifier Resolution: Should catch redeclaring a function in the same sco
   assert program_checked == Result::Failure("Type Checker Error: Function 'a' has been already declared in the current scope.")
 }
 
-test "Identifier Resolution: Should catch redeclaring a function as a variable in the same scope" {
-  val program = parse_line("fn a {} var a = 12") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
-}
-
-test "Identifier Resolution: Should catch redeclaring a constant as a function in the same scope" {
-  val program = parse_line("val a = 12 fn a {}") or {
+test "Identifier Resolution: Should catch redeclaring (fn -> constant)" {
+  val program = parse_line("fn a {} val a = 2") or {
     assert false
   }
   pseudo_name_counter[0] = 0
@@ -171,7 +117,88 @@ test "Identifier Resolution: Should catch redeclaring a constant as a function i
   assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
 }
 
-test "Identifier Resolution: Should allow redeclaration of function in new scope" {
+test "Identifier Resolution: Should catch redeclaring (constant -> constant)" {
+  val program = parse_line("val a = 1 val a = 2") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (constant -> variable)" {
+  val program = parse_line("val a = 1 var a = 2") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (constant -> fn)" {
+  val program = parse_line("val a = 1 fn a {}") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (fn -> variable)" {
+  val program = parse_line("fn a {} var a = 2") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (variable -> variable)" {
+  val program = parse_line("var a = 1 var a = 2") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (variable -> constant)" {
+  val program = parse_line("var a = 1 val a = 2") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (variable -> fn)" {
+  val program = parse_line("var a = 1 fn a {}") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (fn -> fn)" {
+  val program = parse_line("fn a {} fn a {}") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should catch redeclaring (parameter -> fn)" {
+  val program = parse_line("fn a(b int) { fn b {} }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'b' has been already declared in the current scope.")
+}
+
+test "Identifier Resolution: Should allow declaration (fn -> fn) (fn scope)" {
   val program = parse_line("fn a {} fn main { fn a {} }") or {
     assert false
   }
@@ -179,7 +206,7 @@ test "Identifier Resolution: Should allow redeclaration of function in new scope
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
+      content: [
         AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)),
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST))
@@ -189,25 +216,7 @@ test "Identifier Resolution: Should allow redeclaration of function in new scope
   )
 }
 
-test "Identifier Resolution: Should allow redeclaration of function as variable in new scope" {
-  val program = parse_line("fn a {} fn main { var a = 12 }") or {
-    assert false
-  }
-  pseudo_name_counter[0] = 0
-  val program_checked = resolve_program(program)
-  assert program_checked == Result::Success(
-    Program {
-      children: [
-        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12)))
-        ]))
-      ]
-    }
-  )
-}
-
-test "Identifier Resolution: Should allow redeclaration of function as constant in new scope" {
+test "Identifier Resolution: Should allow declaration (fn -> val) (fn scope)" {
   val program = parse_line("fn a {} fn main { val a = 12 }") or {
     assert false
   }
@@ -215,7 +224,7 @@ test "Identifier Resolution: Should allow redeclaration of function as constant 
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
+      content: [
         AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)),
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
           AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12)))
@@ -225,81 +234,133 @@ test "Identifier Resolution: Should allow redeclaration of function as constant 
   )
 }
 
-test "Identifier Resolution: Should allow redeclaration of constant in new scope" {
-  val program = parse_line("val a = 12 fn main { val a = 10 return a }") or {
+test "Identifier Resolution: Should allow declaration (fn -> var) (fn scope)" {
+  val program = parse_line("fn a {} fn main { var a = 12 }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
-        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
+      content: [
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)),
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10))),
-          AST::Statement(Statement::Return(Expression::Var("a_1")))
+          AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12)))
         ]))
       ]
     }
   )
 }
 
-test "Identifier Resolution: Should allow redeclaration of variable in new scope" {
-  val program = parse_line("var a = 12 fn main { var a = 10 return a }") or {
+test "Identifier Resolution: Should allow declaration (val -> fn) (fn scope)" {
+  val program = parse_line("val a = 10 fn main { fn a {} }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
-        AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(10))),
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10))),
-          AST::Statement(Statement::Return(Expression::Var("a_1")))
+          AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST))
         ]))
       ]
     }
   )
 }
 
-test "Identifier Resolution: Should allow redeclaration of constant as variable in new scope" {
-  val program = parse_line("val a = 12 fn main { var a = 10 }") or {
+test "Identifier Resolution: Should allow declaration (val -> val) (fn scope)" {
+  val program = parse_line("val a = 10 fn main { val a = 12 }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
-        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(12))),
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(10))),
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(10)))
+          AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(12)))
         ]))
       ]
     }
   )
 }
 
-test "Identifier Resolution: Should allow redeclaration of variable as constant in new scope" {
-  val program = parse_line("var a = 12 fn main { val a = 10 }") or {
+test "Identifier Resolution: Should allow declaration (val -> var) (fn scope)" {
+  val program = parse_line("val a = 10 fn main { var a = 12 }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
-        AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(12))),
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("a_0", Expression::Constant(10))),
         AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(10)))
+          AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(12)))
         ]))
       ]
     }
   )
 }
 
-test "Identifier Resolution: Should allow redeclaration of constant as constant in if-else-if statement scopes" {
+test "Identifier Resolution: Should allow declaration (var -> fn) (fn scope)" {
+  val program = parse_line("var a = 10 fn main { fn a {} }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(10))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
+          AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow declaration (var -> val) (fn scope)" {
+  val program = parse_line("var a = 10 fn main { val a = 12 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(10))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
+          AST::Declaration(Declaration::ConstantDeclaration("a_1", Expression::Constant(12)))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow declaration (var -> var) (fn scope)" {
+  val program = parse_line("var a = 10 fn main { var a = 12 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::VariableDeclaration("a_0", Expression::Constant(10))),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
+          AST::Declaration(Declaration::VariableDeclaration("a_1", Expression::Constant(12)))
+        ]))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow shadowing (val -> val) in if-else-if statement scopes" {
   val program = parse_line("val n = 1 if 1 < 2 { val n = 2 } else if 1 < 3 { val n = 3 } else { val n = 4 }") or {
     assert false
   }
@@ -307,7 +368,7 @@ test "Identifier Resolution: Should allow redeclaration of constant as constant 
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
+      content: [
         AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
@@ -329,7 +390,7 @@ test "Identifier Resolution: Should allow redeclaration of constant as constant 
   )
 }
 
-test "Identifier Resolution: Should allow redeclaration of constant as variable in if-else-if statement scopes" {
+test "Identifier Resolution: Should allow shadowing (val -> var) in if-else-if statement scopes" {
   val program = parse_line("val n = 1 if 1 < 2 { var n = 2 } else if 1 < 3 { var n = 3 } else { var n = 4 }") or {
     assert false
   }
@@ -337,7 +398,7 @@ test "Identifier Resolution: Should allow redeclaration of constant as variable 
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
+      content: [
         AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
@@ -359,28 +420,28 @@ test "Identifier Resolution: Should allow redeclaration of constant as variable 
   )
 }
 
-test "Identifier Resolution: Should allow referencing a constant from outer scope in if-else-if statement scopes" {
-  val program = parse_line("val n = 1 if 1 < 2 { n } else if 1 < 3 { n } else { n }") or {
+test "Identifier Resolution: Should allow shadowing (val -> fn) in if-else-if statement scopes" {
+  val program = parse_line("val n = 1 if 1 < 2 { fn n {} } else if 1 < 3 { fn n {} } else { fn n {} }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
+      content: [
         AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
-            AST::Expression(Expression::Var("n_0"))
+            AST::Declaration(Declaration::FunctionDeclaration("n", []Parameter, Option::None, []AST))
           ]),
           Option::Some(Statement::If(
             Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
             Statement::Compound([
-              AST::Expression(Expression::Var("n_0"))
+              AST::Declaration(Declaration::FunctionDeclaration("n", []Parameter, Option::None, []AST))
             ]),
             Option::Some(Statement::Compound([
-              AST::Expression(Expression::Var("n_0"))
+              AST::Declaration(Declaration::FunctionDeclaration("n", []Parameter, Option::None, []AST))
             ]))
           ))
         ))
@@ -389,35 +450,277 @@ test "Identifier Resolution: Should allow referencing a constant from outer scop
   )
 }
 
-test "Declaration Hoisting: Should allow calling function before declaration" {
-  val program = parse_line("fn main { val n = square(1) } fn square(n int) { return n * n }") or {
+test "Identifier Resolution: Should allow shadowing (var -> var) in if-else-if statement scopes" {
+  val program = parse_line("var n = 1 if 1 < 2 { var n = 2 } else if 1 < 3 { var n = 3 } else { var n = 4 }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
+      content: [
+        AST::Declaration(Declaration::VariableDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::If(
+          Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
+          Statement::Compound([
+            AST::Declaration(Declaration::VariableDeclaration("n_1", Expression::Constant(2)))
+          ]),
+          Option::Some(Statement::If(
+            Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
+            Statement::Compound([
+              AST::Declaration(Declaration::VariableDeclaration("n_2", Expression::Constant(3)))
+            ]),
+            Option::Some(Statement::Compound([
+              AST::Declaration(Declaration::VariableDeclaration("n_3", Expression::Constant(4)))
+            ]))
+          ))
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow shadowing (fn -> val) in if-else-if statement scopes" {
+  val program = parse_line("fn n {} if 1 < 2 { val n = 2 } else if 1 < 3 { val n = 3 } else { val n = 4 }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::FunctionDeclaration("n", []Parameter, Option::None, []AST)),
+        AST::Statement(Statement::If(
+          Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
+          Statement::Compound([
+            AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(2)))
+          ]),
+          Option::Some(Statement::If(
+            Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
+            Statement::Compound([
+              AST::Declaration(Declaration::ConstantDeclaration("n_1", Expression::Constant(3)))
+            ]),
+            Option::Some(Statement::Compound([
+              AST::Declaration(Declaration::ConstantDeclaration("n_2", Expression::Constant(4)))
+            ]))
+          ))
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow referencing a constant from outer scope in if-else-if statement scopes" {
+  val program = parse_line("val n = 1 if 1 < 2 { n } else if 1 < 3 { n } else { n }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::If(
+          Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
+          Statement::Compound([
+            AST::Statement(Statement::Expression(Expression::Var("n_0")))
+          ]),
+          Option::Some(Statement::If(
+            Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
+            Statement::Compound([
+              AST::Statement(Statement::Expression(Expression::Var("n_0")))
+            ]),
+            Option::Some(Statement::Compound([
+              AST::Statement(Statement::Expression(Expression::Var("n_0")))
+            ]))
+          ))
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow shadowing (val -> val) in match when and else scopes" {
+  val program = parse_line("val n = 1 match 1 { when 1 { val n = 2 } when 2 { val n = 3 } else { val n = 4 } }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::Match(
+          Expression::Constant(1),
+          [
+            When {
+              cond_list: [Expression::Constant(1)],
+              block: [
+                AST::Declaration(Declaration::ConstantDeclaration("n_1", Expression::Constant(2)))
+              ]
+            },
+            When {
+              cond_list: [Expression::Constant(2)],
+              block: [
+                AST::Declaration(Declaration::ConstantDeclaration("n_2", Expression::Constant(3)))
+              ]
+            }
+          ],
+          Option::Some([
+            AST::Declaration(Declaration::ConstantDeclaration("n_3", Expression::Constant(4)))
+          ])
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow shadowing (val -> var) in match when and else scopes" {
+  val program = parse_line("val n = 1 match 1 { when 1 { var n = 2 } when 2 { var n = 3 } else { var n = 4 } }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::Match(
+          Expression::Constant(1),
+          [
+            When {
+              cond_list: [Expression::Constant(1)],
+              block: [
+                AST::Declaration(Declaration::VariableDeclaration("n_1", Expression::Constant(2)))
+              ]
+            },
+            When {
+              cond_list: [Expression::Constant(2)],
+              block: [
+                AST::Declaration(Declaration::VariableDeclaration("n_2", Expression::Constant(3)))
+              ]
+            }
+          ],
+          Option::Some([
+            AST::Declaration(Declaration::VariableDeclaration("n_3", Expression::Constant(4)))
+          ])
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow shadowing (val -> fn) in match when and else scopes" {
+  val program = parse_line("val n = 1 match 1 { when 1 { fn n {} } when 2 { fn n {} } else { fn n {} } }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::Match(
+          Expression::Constant(1),
+          [
+            When {
+              cond_list: [Expression::Constant(1)],
+              block: [
+                AST::Declaration(Declaration::FunctionDeclaration("n", []Parameter, Option::None, []AST))
+              ]
+            },
+            When {
+              cond_list: [Expression::Constant(2)],
+              block: [
+                AST::Declaration(Declaration::FunctionDeclaration("n", []Parameter, Option::None, []AST))
+              ]
+            }
+          ],
+          Option::Some([
+            AST::Declaration(Declaration::FunctionDeclaration("n", []Parameter, Option::None, []AST))
+          ])
+        ))
+      ]
+    }
+  )
+}
+
+test "Identifier Resolution: Should allow referencing outer constant in match when and else scopes" {
+  val program = parse_line("val n = 1 match 1 { when 1 { n } else { n } }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::Constant(1))),
+        AST::Statement(Statement::Match(
+          Expression::Constant(1),
+          [
+            When {
+              cond_list: [Expression::Constant(1)],
+              block: [
+                AST::Statement(Statement::Expression(Expression::Var("n_0")))
+              ]
+            }
+          ],
+          Option::Some([
+            AST::Statement(Statement::Expression(Expression::Var("n_0")))
+          ])
+        ))
+      ]
+    }
+  )
+}
+
+test "Declaration Hoisting: Should allow fn call hoisting (global scope)" {
+  val program = parse_line("fn main { a() } fn a {}") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
+        AST::Declaration(
+          Declaration::FunctionDeclaration(
+            "main",
+            []Parameter,
+            Option::None,
+            [AST::Statement(Statement::Expression(Expression::FunctionCall("a", []Expression)))]
+        )
+        ),
+        AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST))
+      ]
+    }
+  )
+}
+
+test "Declaration Hoisting: Should allow fn call hoisting (fn scope)" {
+  val program = parse_line("fn main { a() fn a {} }") or {
+    assert false
+  }
+  pseudo_name_counter[0] = 0
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Success(
+    Program {
+      content: [
         AST::Declaration(
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
             Option::None,
             [
-              AST::Declaration(Declaration::ConstantDeclaration("n_0", Expression::FunctionCall("square", [Expression::Constant(1)])))
-            ]
-          )
-        ),
-        AST::Declaration(
-          Declaration::FunctionDeclaration(
-            "square",
-            [Parameter { name: "n_1", type: "int" }],
-            Option::None,
-            [AST::Statement(
-              Statement::Return(
-                Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_1"), Expression::Var("n_1"))
+              AST::Statement(
+                Statement::Expression(
+                  Expression::FunctionCall("a", []Expression)
+                )
+              ),
+              AST::Declaration(
+                Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST)
               )
-            )]
+            ]
           )
         )
       ]
@@ -425,109 +728,63 @@ test "Declaration Hoisting: Should allow calling function before declaration" {
   )
 }
 
-test "Declaration Hoisting: Should allow redeclaring a hoisted function in new fn scope" {
-  val program = parse_line("fn main { val n = square(1) fn square(n int) { return n * n } } fn square(n int) { return n * n }") or {
+test "Declaration Hoisting: Should allow fn call hoisting (if-else-if statement scopes)" {
+  val program = parse_line("if 1 < 2 { a() fn a {} } else if 1 < 3 { b() fn b {} } else { c() fn c {} }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
-        AST::Declaration(
-          Declaration::FunctionDeclaration(
-            "main",
-            []Parameter,
-            Option::None,
-            [
-              AST::Declaration(
-                Declaration::ConstantDeclaration(
-                  "n_0",
-                  Expression::FunctionCall(
-                    "square",
-                    [Expression::Constant(1)]
-                  )
-                )
-              ),
-              AST::Declaration(
-                Declaration::FunctionDeclaration(
-                  "square", 
-                  [Parameter { name: "n_1", type: "int" }],
-                  Option::None,
-                  [AST::Statement(
-                    Statement::Return(
-                      Expression::Binary(
-                        BinaryOperator::Multiply,
-                        Expression::Var("n_1"),
-                        Expression::Var("n_1")
-                      )
-                    )
-                  )]
-                )
-              )
-            ]
-          )
-        ),
-        AST::Declaration(
-          Declaration::FunctionDeclaration(
-            "square",
-            [Parameter { name: "n_2", type: "int" }],
-            Option::None,
-            [AST::Statement(
-              Statement::Return(
-                Expression::Binary(BinaryOperator::Multiply, Expression::Var("n_2"), Expression::Var("n_2"))
-              )
-            )]
-          )
-        )
+      content: [
+        AST::Statement(Statement::If(
+          Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
+          Statement::Compound([
+            AST::Statement(Statement::Expression(Expression::FunctionCall("a", []Expression))),
+            AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST))
+          ]),
+          Option::Some(Statement::If(
+            Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
+            Statement::Compound([
+              AST::Statement(Statement::Expression(Expression::FunctionCall("b", []Expression))),
+              AST::Declaration(Declaration::FunctionDeclaration("b", []Parameter, Option::None, []AST))
+            ]),
+            Option::Some(Statement::Compound([
+              AST::Statement(Statement::Expression(Expression::FunctionCall("c", []Expression))),
+              AST::Declaration(Declaration::FunctionDeclaration("c", []Parameter, Option::None, []AST))
+            ]))
+          ))
+        ))
       ]
     }
   )
 }
 
-test "Declaration Hoisting: Should allow calling function before declaration in same fn scope" {
-  val program = parse_line("fn main { val n = square(1) fn square(n int) { return n * n } }") or {
+test "Declaration Hoisting: Should allow fn call hoisting (match when and else scopes)" {
+  val program = parse_line("match 1 { when 1 { a() fn a {} } else { b() fn b {} } }") or {
     assert false
   }
   pseudo_name_counter[0] = 0
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
-      children: [
-        AST::Declaration(
-          Declaration::FunctionDeclaration(
-            "main",
-            []Parameter,
-            Option::None,
-            [
-              AST::Declaration(
-                Declaration::ConstantDeclaration(
-                  "n_0",
-                  Expression::FunctionCall(
-                    "square",
-                    [Expression::Constant(1)]
-                  )
-                )
-              ),
-              AST::Declaration(
-                Declaration::FunctionDeclaration(
-                  "square", 
-                  [Parameter { name: "n_1", type: "int" }],
-                  Option::None,
-                  [AST::Statement(
-                    Statement::Return(
-                      Expression::Binary(
-                        BinaryOperator::Multiply,
-                        Expression::Var("n_1"),
-                        Expression::Var("n_1")
-                      )
-                    )
-                  )]
-                )
-              )
-            ]
-          )
-        )
+      content: [
+        AST::Statement(Statement::Match(
+          Expression::Constant(1),
+          [
+            When {
+              cond_list: [Expression::Constant(1)],
+              block: [
+                AST::Statement(Statement::Expression(Expression::FunctionCall("a", []Expression))),
+                AST::Declaration(Declaration::FunctionDeclaration("a", []Parameter, Option::None, []AST))
+              ]
+            }
+          ],
+          Option::Some([
+            AST::Statement(Statement::Expression(Expression::FunctionCall("b", []Expression))),
+            AST::Declaration(Declaration::FunctionDeclaration("b", []Parameter, Option::None, []AST))
+          ])
+        ))
       ]
     }
   )

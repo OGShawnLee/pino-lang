@@ -1,6 +1,14 @@
 module Checker
 
-from Entities import Program, AST, Declaration, Parameter, Statement, Expression, BinaryOperator
+from Entities import 
+  Program,
+  AST,
+  Declaration,
+  Parameter,
+  Statement,
+  Expression,
+  BinaryOperator,
+  UnaryOperator
 
 struct Entity {
   unique_name string
@@ -25,51 +33,6 @@ fn copy_variable_map(variable_map map[string, Entity]) map[string, Entity] {
 		}
 	}
 	return new_variable_map
-}
-
-fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Statement, string] {
-  match stmt {
-   when Statement::Return(expr) {
-    val resolved_expr = resolve_expr(expr, variable_map)?
-
-    return Result::Success(Statement::Return(resolved_expr))
-   }  
-   when Statement::If(condition, then_branch, else_branch_opt) {
-    val resolved_condition = resolve_expr(condition, variable_map)?
-    val resolved_then_branch = resolve_stmt(then_branch, variable_map)?
-    val resolved_else_branch_opt = match else_branch_opt {
-      when Option::Some(stmt) => Option::Some(resolve_stmt(stmt, variable_map)?)
-      when Option::None => Option::None
-    }
-
-    return Result::Success(Statement::If(resolved_condition, resolved_then_branch, resolved_else_branch_opt))
-   }
-   when Statement::Match(condition, block) {
-    val resolved_condition = resolve_expr(condition, variable_map)?
-    val resolved_block = resolve_stmt(block, variable_map)?
-
-    return Result::Success(Statement::Match(resolved_condition, resolved_block))
-   }
-   when Statement::When(condition_list, block) {
-    val resolved_condition_list = []Expression
-    for condition in condition_list {
-      resolved_condition_list:push(resolve_expr(condition, variable_map)?)
-    }
-    val resolved_block = resolve_stmt(block, variable_map)?
-
-    return Result::Success(Statement::When(resolved_condition_list, resolved_block))
-   }
-   when Statement::Else(block) {
-    val resolved_block = resolve_stmt(block, variable_map)?
-    return Result::Success(Statement::Else(resolved_block))
-   }
-   when Statement::Compound(ast_node_list) {
-    val new_variable_map = copy_variable_map(variable_map)
-    val resolved_ast_node_list = resolve_ast_node_list(ast_node_list, new_variable_map)?
-
-    return Result::Success(Statement::Compound(resolved_ast_node_list))
-   }
-  }
 }
 
 fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
@@ -125,6 +88,78 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
   }
 }
 
+fn resolve_block_scope(block []AST, variable_map map[string, Entity]) Result[[]AST, string] {
+  val new_variable_map = copy_variable_map(variable_map)
+  return resolve_block(block, new_variable_map)
+}
+
+fn resolve_when(when_case When, variable_map map[string, Entity]) Result[When, string] {
+  val resolved_condition_list = []Expression
+  for condition in when_case:cond_list {
+    resolved_condition_list:push(resolve_expr(condition, variable_map)?)
+  }
+
+  val resolved_block = resolve_block_scope(when_case:block, variable_map)?
+
+  return Result::Success(
+    When {
+      cond_list: resolved_condition_list,
+      block: resolved_block
+    }
+  )
+}
+
+fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Statement, string] {
+  match stmt {
+   when Statement::Return(expr) {
+    val resolved_expr = resolve_expr(expr, variable_map)?
+
+    return Result::Success(Statement::Return(resolved_expr))
+   }  
+   when Statement::If(condition, then_branch, else_branch_opt) {
+    val resolved_condition = resolve_expr(condition, variable_map)?
+    val resolved_then_branch = resolve_stmt(then_branch, variable_map)?
+    val resolved_else_branch_opt = match else_branch_opt {
+      when Option::Some(stmt) => Option::Some(resolve_stmt(stmt, variable_map)?)
+      when Option::None => Option::None
+    }
+
+    return Result::Success(Statement::If(resolved_condition, resolved_then_branch, resolved_else_branch_opt))
+   }
+   when Statement::Match(condition, when_case_list, else_block_opt) {
+    val resolved_condition = resolve_expr(condition, variable_map)?
+    val resolved_when_case_list = []When
+
+    for when_case in when_case_list {
+      resolved_when_case_list:push(resolve_when(when_case, variable_map)?)
+    }
+
+    val resolved_else_block_opt = match else_block_opt {
+      when Option::Some(else_block) => Option::Some(resolve_block_scope(else_block, variable_map)?)
+      when Option::None => Option::None
+    } 
+
+    return Result::Success(
+      Statement::Match(
+        resolved_condition,
+        resolved_when_case_list,
+        resolved_else_block_opt
+      )
+    )
+   }
+   when Statement::Compound(block) {
+    val new_variable_map = copy_variable_map(variable_map)
+    val resolved_block = resolve_block(block, new_variable_map)?
+
+    return Result::Success(Statement::Compound(resolved_block))
+   }
+   when Statement::Expression(expr) {
+    val resolved_expr = resolve_expr(expr, variable_map)?
+    return Result::Success(Statement::Expression(resolved_expr))
+   }
+  }
+}
+
 fn resolve_var_or_val_decl(
   name string
   expr Expression 
@@ -173,7 +208,7 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
 
 fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
   match decl {
-    when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+    when Declaration::FunctionDeclaration(name, param_list, ret_type, block) {
       if name not in variable_map {
         panic("Undeclared function '$name' should have been caught by Declaration Hoisting Pass.")
       }
@@ -187,10 +222,10 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
         )
       }
 
-      val resolved_node_list = resolve_ast_node_list(node_list, inner_map)?
+      val resolved_block = resolve_block(block, inner_map)?
 
       return Result::Success(
-        Declaration::FunctionDeclaration(name, resolved_param_list, ret_type, resolved_node_list)
+        Declaration::FunctionDeclaration(name, resolved_param_list, ret_type, resolved_block)
       )
     }
     when Declaration::ConstantDeclaration(name, expr) {
@@ -202,29 +237,9 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
   }
 }
 
-fn resolve_ast_node(node AST, variable_map map[string, Entity]) Result[AST, string] {
-  match node {
-    when AST::Declaration(decl)  {
-      return Result::Success(
-        AST::Declaration(resolve_decl(decl, variable_map)?)
-      )
-    }
-    when AST::Statement(stmt) {
-      return Result::Success(
-        AST::Statement(resolve_stmt(stmt, variable_map)?)
-      )
-    }
-    when AST::Expression(expr) {
-      return Result::Success(
-        AST::Expression(resolve_expr(expr, variable_map)?)
-      )
-    }
-  }
-}
-
-fn hoist_decl_map(node_list []AST, variable_map map[string, Entity]) Result[map[string, Entity], string] {
-  for node in node_list {
-    if node is AST::Declaration(decl) and decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity]) Result[map[string, Entity], string] {
+  for block_item in block_item_list {
+    if block_item is AST::Declaration(decl) and decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
       if name in variable_map and variable_map[name]:is_from_current_block {
         return Result::Failure("Type Checker Error: Function '$(name)' has been already declared in the current scope.")
       }
@@ -239,21 +254,34 @@ fn hoist_decl_map(node_list []AST, variable_map map[string, Entity]) Result[map[
   return Result::Success(variable_map)
 }
 
-fn resolve_ast_node_list(node_list []AST, variable_map map[string, Entity]) Result[[]AST, string] {
-  val resolved_node_list = []AST
-  val hoisted_map = hoist_decl_map(node_list, variable_map)?
+fn resolve_block_item(block_item AST, variable_map map[string, Entity]) Result[AST, string] {
+  match block_item {
+    when AST::Declaration(decl) {
+      val resolved_decl = resolve_decl(decl, variable_map)?
+      return Result::Success(AST::Declaration(resolved_decl))
+    }
+    when AST::Statement(stmt) {
+      val resolved_stmt = resolve_stmt(stmt, variable_map)?
+      return Result::Success(AST::Statement(resolved_stmt))
+    }
+  }
+}
 
-  for node in node_list {
-    val resolved_node = resolve_ast_node(node, hoisted_map)?
-    resolved_node_list:push(resolved_node)  
+fn resolve_block(block []AST, variable_map map[string, Entity]) Result[[]AST, string] {
+  val resolved_block = []AST
+  val hoisted_map = hoist_decl_map(block, variable_map)?
+
+  for block_item in block {
+    val resolved_block_item = resolve_block_item(block_item, hoisted_map)?
+    resolved_block:push(resolved_block_item)
   }
 
-  return Result::Success(resolved_node_list)
+  return Result::Success(resolved_block)
 }
 
 pub fn resolve_program(program Program) Result[Program, string] {
-  val resolved_node_list = resolve_ast_node_list(program:children, map[string, Entity] {})?
+  val resolved_content = resolve_block(program:content, map[string, Entity] {})?
   return Result::Success(
-    Program { children: resolved_node_list }
+    Program { content: resolved_content }
   )
 }

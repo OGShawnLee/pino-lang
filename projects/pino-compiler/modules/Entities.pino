@@ -115,13 +115,17 @@ pub union Expression {
   FunctionCall(string, []Expression)
 }
 
+pub struct When {
+  cond_list []Expression
+  block []AST
+}
+
 pub union Statement {
   Return(Expression)
   If(Expression, Statement, Option[Statement])
   Compound([]AST)
-  Match(Expression, Statement)
-  When([]Expression, Statement)
-  Else(Statement)
+  Match(Expression, []When, Option[[]AST])
+  Expression(Expression)
 }
 
 pub struct Parameter {
@@ -136,38 +140,38 @@ pub union Declaration {
 }
 
 pub union AST {
-  Declaration(Declaration)
   Statement(Statement)
-  Expression(Expression)
+  Declaration(Declaration)
 }
 
 pub struct Program {
-  children []AST
+  content []AST
 
   fn print {
     println("Program")
-    for child in children {
-      Program::print_ast(child)
+    Program::print_block(content)
+  }
+
+  static fn print_block(block []AST) {
+    for node in block {
+      Program::print_block_item(node)
     }
   }
 
-  static fn print_ast(node AST) {
+  static fn print_block_item(node AST) {
     match node {
       when AST::Declaration(decl) {
-        Program::print_ast_decl(decl)
+        Program::print_decl(decl)
       }
       when AST::Statement(stmt) {
-        Program::print_ast_stmt(stmt)
-      }
-      when AST::Expression(expr) {
-        Program::print_ast_expr(expr)
+        Program::print_stmt(stmt)
       }
     }
   }
 
-  static fn print_ast_decl(decl Declaration) {
+  static fn print_decl(decl Declaration) {
     match decl {
-      when Declaration::FunctionDeclaration(name, param_list, ret_type, children) {
+      when Declaration::FunctionDeclaration(name, param_list, ret_type, block) {
         println("Function: $name")
 
         if param_list:len > 0 {
@@ -183,61 +187,60 @@ pub struct Program {
         }
 
         println("Return Type: $ret_type_str")
-        for child in children {
-          Program::print_ast(child)
-        }
+        Program::print_block(block)
       }
       when Declaration::VariableDeclaration(name, expr) {
         println("Variable: $name")
-        Program::print_ast_expr(expr)
+        Program::print_expr(expr)
       }
       when Declaration::ConstantDeclaration(name, expr) {
         println("Constant Variable: $name")
-        Program::print_ast_expr(expr)
+        Program::print_expr(expr)
       }
     }
   }
 
-  static fn print_ast_stmt(stmt Statement) {
+  static fn print_stmt(stmt Statement) {
     match stmt {
       when Statement::Return(expr) {
         println("Return:")
-        Program::print_ast_expr(expr)
+        Program::print_expr(expr)
       }
       when Statement::If(condition, then_branch, else_branch_opt) {
         println("If:")
-        Program::print_ast_expr(condition)
+        Program::print_expr(condition)
         println("Then:")
-        Program::print_ast_stmt(then_branch)
+        Program::print_stmt(then_branch)
 
         if else_branch_opt is Option::Some(else_branch) {
           println("Else:")
-          Program::print_ast_stmt(else_branch)
+          Program::print_stmt(else_branch)
         }
       }
-      when Statement::Match(expr, block) {
+      when Statement::Match(expr, when_case_list, else_branch_opt) {
         println("Match:")
-        Program::print_ast_expr(expr)
-        Program::print_ast_stmt(block)
-      }
-      when Statement::When(condition_list, block) {
-        println("When:")
-        Program::print_ast_stmt(block)
-      }
-      when Statement::Else(block) {
-        println("Else:")
-        Program::print_ast_stmt(block)
-      }
-      when Statement::Compound(children) {
-        println("Block:")
-        for child in children {
-          Program::print_ast(child)
+        for when_case in when_case_list {
+          println("When")
+          for condition in when_case:cond_list {
+            Program::print_expr(condition)
+          }
+          Program::print_block(when_case:block)
         }
+        if else_branch_opt is Option::Some(else_block) {
+          println("Else:")
+          Program::print_block(else_block)
+        }
+      }
+      when Statement::Compound(block) {
+        Program::print_block(block)
+      }
+      when Statement::Expression(expr) {
+        Program::print_expr(expr)
       }
     }
   }
 
-  static fn print_ast_expr(expr Expression) {
+  static fn print_expr(expr Expression) {
     match expr {
       when Expression::Constant(integer) {
         println("Constant: $integer")
@@ -248,30 +251,30 @@ pub struct Program {
       when Expression::Conditional(condition, then_branch, else_branch) {
         println("Conditional:")
         println("If:")
-        Program::print_ast_expr(condition)
+        Program::print_expr(condition)
         println("Then:")
-        Program::print_ast_expr(then_branch)
+        Program::print_expr(then_branch)
         println("Else:")
-        Program::print_ast_expr(else_branch)
+        Program::print_expr(else_branch)
       }
       when Expression::Unary(un_op, expr) {
         println("Unary: $un_op")
-        Program::print_ast_expr(expr)
+        Program::print_expr(expr)
       }
       when Expression::Binary(bin_op, left, right) {
         println("Binary: $bin_op")
-        Program::print_ast_expr(left)
-        Program::print_ast_expr(right)
+        Program::print_expr(left)
+        Program::print_expr(right)
       }
       when Expression::Assignment(left, right) {
         println("Assignment")
-        Program::print_ast_expr(left)
-        Program::print_ast_expr(right)
+        Program::print_expr(left)
+        Program::print_expr(right)
       }
       when Expression::FunctionCall(name, args) {
         println("Function Call: $name")
         for arg in args {
-          Program::print_ast_expr(arg)
+          Program::print_expr(arg)
         }
       }
     }

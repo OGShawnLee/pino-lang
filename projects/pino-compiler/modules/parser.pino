@@ -1,8 +1,19 @@
 module Parser
 
 from Lexer import lex
-from Entities 
-import AST, Expression, Token, TokenType, TokenStream, UnaryOperator, BinaryOperator, Type, Declaration, Parameter, Statement, Program
+from Entities import 
+  Program,
+  AST,
+  Declaration,
+  Parameter,
+  When,
+  Statement,
+  Expression,
+  BinaryOperator,
+  UnaryOperator,
+  Token,
+  TokenType,
+  TokenStream
 
 val PRECEDENCE_MAP = map[string, int] {
 	"*": 50
@@ -192,6 +203,94 @@ fn parse_expr(stream TokenStream, min_prec int) Result[Expression, string] {
 }
 
 @pub_testing
+fn parse_when_case(stream TokenStream) Result[When, string] {
+  stream:expect_content("when")?
+
+  val cond_list = []Expression
+  for {
+    val curr = stream:peek(0)
+
+    if curr:type == TokenType::EOF or curr:value == "{" {
+      break
+    }
+    
+    if curr:value == "," {
+      stream:next()
+
+      if stream:peek(0):value == "," {
+        return Result::Failure("Expected expression before ',' in when branch.")
+      }
+
+      continue
+    }
+
+    val condition_expr = parse_expr(stream, 0)?
+    cond_list:push(condition_expr)
+  }
+
+  if cond_list:len == 0 {
+    return Result::Failure("Expected at least one condition in when branch.")
+  }
+
+  val block = parse_block(stream, true)?
+  
+  return Result::Success(When { cond_list: cond_list, block: block })
+}
+
+@pub_testing
+fn parse_match_stmt(stream TokenStream) Result[Statement, string] {
+    stream:expect_content("match")?
+    val condition = parse_expr(stream, 0)?
+    stream:expect_content("{")?
+
+    val when_case_list = []When
+    var else_branch_list = [][]AST
+
+    for {
+      val curr = stream:peek(0)
+      
+      if curr:type == TokenType::EOF or curr:value == "}" {
+        break
+      }
+
+      if curr:value == "when" {
+        val when_case = parse_when_case(stream)?
+        when_case_list:push(when_case)
+        continue
+      }
+
+      if curr:value == "else" {
+        stream:next()
+        val else_block = parse_block(stream, true)?
+        else_branch_list:push(else_block)
+    
+        if else_branch_list:len > 1 {
+          return Result::Failure("Expected at most one else branch in match statement.")
+        }
+
+        continue
+      }
+
+      return Result::Failure(
+        "Expected only multiple when branches or one else branch inside a match statement. Instead got '$(curr:value)'."
+      )
+    }
+
+    stream:expect_content("}")?
+
+    return Result::Success(
+      Statement::Match(
+        condition,
+        when_case_list,
+        if else_branch_list:len > 0 then
+          Option::Some(else_branch_list[0])
+        else
+          Option::None
+      )
+    )
+}
+
+@pub_testing
 fn parse_stmt(stream TokenStream) Result[Statement, string] {
   val curr = stream:peek(0)
 
@@ -214,81 +313,16 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
 
       return Result::Success(Statement::If(condition, then_branch, Option::None))
     }
-    when "{" {
-      val block_content = parse_ast(stream, true)?
-      return Result::Success(Statement::Compound(block_content))
-    }
     when "match" {
-      stream:next()
-      val condition = parse_expr(stream, 0)?
-      val block = parse_stmt(stream)?
-
-      if block is Statement::Compound(children) {
-        if not children:all(it is AST::Statement) {
-          return Result::Failure("Expected only multiple when statements or one else statement inside a match block.")
-        }
-
-        if not children:all(it is AST::Statement(node) and (node is Statement::When or node is Statement::Else)) {
-          return Result::Failure("Expected only when or else statements inside a match block.")
-        }
-
-        if children:count(it is AST::Statement(node) and node is Statement::Else) > 1 {
-          return Result::Failure("Expected only one else statement in match block.")
-        }
-
-        return Result::Success(Statement::Match(condition, block))
-      } 
-
-      return Result::Failure("Expected block after match statement.")
+      return parse_match_stmt(stream)
     }
-    when "when" {
-      stream:next()
-      val condition_list = []Expression
-      for {
-        val curr = stream:peek(0)
-
-        if curr:value == "{" {
-          break
-        }
-        
-        if curr:value == "," {
-          stream:next()
-
-          if stream:peek(0):value == "," {
-            return Result::Failure("Expected expression before ',' in when statement.")
-          }
-
-          continue
-        }
-
-        val condition_expr = parse_expr(stream, 0)?
-        condition_list:push(condition_expr)
-      }
-
-      if condition_list:len == 0 {
-        return Result::Failure("Expected at least one condition in when statement.")
-      }
-
-      val block = parse_stmt(stream)?
-
-      if block is not Statement::Compound {
-        return Result::Failure("Expected block after when statement.")
-      }
-
-      return Result::Success(Statement::When(condition_list, block))
-    }
-    when "else" {
-      stream:next()
-      val block = parse_stmt(stream)?
-
-      if block is not Statement::Compound {
-        return Result::Failure("Expected block after else statement.")
-      }
-
-      return Result::Success(Statement::Else(block))
+    when "{" {
+      val block = parse_block(stream, true)?
+      return Result::Success(Statement::Compound(block))
     }
     else {
-      return Result::Failure("Expected 'return', 'if', 'match', 'when', 'else' keyword or '{' block. Got '$(curr:value)'.")
+      val expr = parse_expr(stream, 0)?
+      return Result::Success(Statement::Expression(expr))
     }
   }
 }
@@ -369,18 +403,19 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
     then parse_fn_param_list(stream)? 
     else []Parameter
   val ret_type = parse_fn_ret_type(stream)?
-  val fn_ast = parse_ast(stream, true)?
+  val block = parse_block(stream, true)?
 
   return Result::Success(
     Declaration::FunctionDeclaration(
       name_token:value, 
       param_list,
       ret_type,
-      fn_ast
+      block
     )
   )
 }
 
+@pub_testing
 fn parse_decl(stream TokenStream) Result[Declaration, string] {
   val curr = stream:peek(0)
   match curr:value {
@@ -398,46 +433,54 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
   }
 }
 
-@pub_testing
-fn parse_ast(stream TokenStream, as_block bool) Result[[]AST, string] {
+fn parse_block_item(stream TokenStream) Result[AST, string] {
+  val curr = stream:peek(0)
+  match curr:value {
+    when "fn", "var", "val" {
+      val decl = parse_decl(stream)?
+      return Result::Success(AST::Declaration(decl))
+    }
+    else {
+      val stmt = parse_stmt(stream)?
+      return Result::Success(AST::Statement(stmt))
+    }
+  }
+}
+
+@pub_testing 
+fn parse_block(stream TokenStream, as_block bool) Result[[]AST, string] {
   if as_block {
     stream:expect_content("{")?
   }
 
-  val ast_list = []AST
+  val block_list = []AST
 
   for {
-    val curr = stream:peek(0)
+    val curr = stream:peek(0) 
 
-    if curr:type == TokenType::EOF or (as_block and curr:value == "}") {
+    if curr:type == TokenType::EOF {
       break
     }
 
-    match curr:value {
-      when "fn", "var", "val" {
-        ast_list:push(AST::Declaration(parse_decl(stream)?))
-      }
-      when "return", "if", "{", "match", "when", "else" {
-        ast_list:push(AST::Statement(parse_stmt(stream)?))
-      }
-      else {
-        val expr = parse_expr(stream, 0)?
-        ast_list:push(AST::Expression(expr))
-      }
+    if as_block and curr:value == "}" {
+      break
     }
+
+    val block_item = parse_block_item(stream)?
+    block_list:push(block_item)
   }
 
   if as_block {
     stream:expect_content("}")?
   }
 
-  return Result::Success(ast_list)
+  return Result::Success(block_list)
 }
 
 pub fn parse(list []Token) Result[Program, string] {
   val stream = TokenStream { list: list, cursor: 0 }
   val program = Program { 
-    children: parse_ast(stream, false)?
+    content: parse_block(stream, false)?
   }
   return Result::Success(program)
 }
