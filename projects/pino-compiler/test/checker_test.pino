@@ -789,3 +789,165 @@ test "Declaration Hoisting: Should allow fn call hoisting (match when and else s
     }
   )
 }
+
+test "Identifier Resolution: Should not leak (fn - fn scope)" {
+  val program = parse_line("fn main { fn a {} } a()") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (val - fn scope)" {
+  val program = parse_line("fn main { val a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (var - fn scope)" {
+  val program = parse_line("fn main { var a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (fn - if scope)" {
+  val program = parse_line("if 1 < 2 { fn a {} } a()") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (val - if scope)" {
+  val program = parse_line("if 1 < 2 { val a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (var - if scope)" {
+  val program = parse_line("if 1 < 2 { var a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (fn - else-if scope)" {
+  val program = parse_line("if 1 < 2 {} else if 1 < 3 { fn a {} } a()") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (val - else-if scope)" {
+  val program = parse_line("if 1 < 2 {} else if 1 < 3 { val a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (var - else-if scope)" {
+  val program = parse_line("if 1 < 2 {} else if 1 < 3 { var a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (fn - if-else scope)" {
+  val program = parse_line("if 1 < 2 {} else { fn a {} } a()") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (val - if-else scope)" {
+  val program = parse_line("if 1 < 2 {} else { val a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (var - if-else scope)" {
+  val program = parse_line("if 1 < 2 {} else { var a = 1 } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (fn - match when scope)" {
+  val program = parse_line("match 1 { when 1 { fn a {} } } a()") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (val - match when scope)" {
+  val program = parse_line("match 1 { when 1 { val a = 1 } } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (var - match when scope)" {
+  val program = parse_line("match 1 { when 1 { var a = 1 } } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (fn - match else scope)" {
+  val program = parse_line("match 1 { when 1 {} else { fn a {} } } a()") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Function 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (val - match else scope)" {
+  val program = parse_line("match 1 { when 1 {} else { val a = 1 } } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
+
+test "Identifier Resolution: Should not leak (var - match else scope)" {
+  val program = parse_line("match 1 { when 1 {} else { var a = 1 } } a") or {
+    assert false
+  }
+  pseudo_name_counter:reset()
+  val program_checked = resolve_program(program)
+  assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
+}
