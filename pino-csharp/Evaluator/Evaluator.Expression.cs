@@ -332,7 +332,7 @@ public partial class Evaluator {
           if (readIdx < 0 || readIdx >= readStr.Length) {
             throw new Exception($"RUNTIME ERROR: Index {readIdx} out of range for string of length {readStr.Length}.");
           }
-          return readStr[(int) readIdx].ToString();
+          return new PinoRune(readStr[(int) readIdx]);
         }
         throw new Exception("RUNTIME ERROR: Cannot apply index access to non-vector, non-string, and non-map object.");
 

@@ -1152,7 +1152,7 @@ public partial class Checker {
           }
         }
         if (targetType == "string") {
-          return "string";
+          return "rune";
         }
         return "any";
 

@@ -2661,6 +2661,12 @@ public class TranspilerC {
                         Write(", ");
                         TranspileExpression(idx.Index);
                         Write(")");
+                    } else if (targetType == "string") {
+                        Write("((uint32_t)(");
+                        TranspileExpression(idx.Target);
+                        Write(")[");
+                        TranspileExpression(idx.Index);
+                        Write("])");
                     } else {
                         throw new NotImplementedException("Map or custom index access is not implemented in transpilation.");
                     }

@@ -1,0 +1,62 @@
+test "Rune: Should be declared" {
+  val r = 's'
+
+  assert r == 's'
+}
+
+test "Rune: Should be concatenated to a string" {
+  var name = "John "
+
+  name += 'C'
+  name += 'e'
+  name += 'n'
+  name += 'a'
+
+  assert name == "John Cena"
+}
+
+test "Rune: Should support arithmetic operations and comparison operators" {
+  val r = 'a' + 1
+
+  assert r == 'b'
+  assert r == 'a' + 1
+
+  assert r < 'c'
+  assert r > 'a'
+
+  assert r != 'c'
+  assert r != 'a'
+
+  assert r >= 'a'
+  assert r <= 'c'
+
+  assert 'c' - 'a' == 2
+  assert 'a' - 'c' == -2
+
+  assert 'a' + 2 == 'c'
+  assert 'c' + -2 == 'a'
+}
+
+test "Rune: Can be extracted from string" {
+  val name = "Shawn"
+
+  assert name[0] == 'S'
+  assert name[1] == 'h'
+  assert name[2] == 'a'
+  assert name[3] == 'w'
+  assert name[4] == 'n'
+}
+
+fn is_capital(r rune) {
+  return r >= 'A' and r <= 'Z'
+}
+
+test "Rune: Can be used as a type" {
+  val name = "Shawn"
+
+  assert is_capital(name[0])
+  assert not is_capital(name[1])
+  assert not is_capital(name[2])
+  assert not is_capital(name[3])
+  assert not is_capital(name[4])
+}
