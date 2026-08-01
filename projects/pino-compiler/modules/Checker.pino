@@ -15,12 +15,24 @@ struct Entity {
   is_from_current_block bool
 }
 
+struct Counter {
+  count int
+
+  fn increment {
+    count += 1
+  }
+
+  fn reset {
+    count = 0
+  }
+}
+
 @pub_testing
-val pseudo_name_counter = [0]
+val pseudo_name_counter = Counter { count: 0 }
 
 fn generate_pseudonym(name string) string {
-	val new_name = "$(name)_$(pseudo_name_counter[0])"
-	pseudo_name_counter[0] += 1
+	val new_name = "$(name)_$(pseudo_name_counter:count)"
+	pseudo_name_counter:increment()
 	return new_name
 }
 

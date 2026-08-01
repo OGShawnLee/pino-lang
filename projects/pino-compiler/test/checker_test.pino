@@ -6,7 +6,7 @@ test "Identifier Resolution: Should return a valid Program with multiple top-lev
   val program = parse_line("val a = 12 var b = 20 b = b + 10 fn add int { val double_n = a * 2 return double_n + b }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -58,7 +58,7 @@ test "Identifier Resolution: Should catch undeclared entity" {
   val program = parse_line("val a = 1 fn main { return a + b }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Variable 'b' has not been declared in the current scope.")
 }
@@ -67,7 +67,7 @@ test "Identifier Resolution: Should catch undeclared function call" {
   val program = parse_line("print()") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Function 'print' has not been declared in the current scope.")
 }
@@ -76,7 +76,7 @@ test "Identifier Resolution: Should catch declaration self-reference (no shadowi
   val program = parse_line("val a = a") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has not been declared in the current scope.")
 }
@@ -85,7 +85,7 @@ test "Identifier Resolution: Should allow declaration self-reference (with shado
   val program = parse_line("val a = 1 fn main { val a = a }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -103,7 +103,7 @@ test "Identifier Resolution: Should catch redeclaring (fn -> fn)" {
   val program = parse_line("fn a {} fn a {}") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Function 'a' has been already declared in the current scope.")
 }
@@ -112,7 +112,7 @@ test "Identifier Resolution: Should catch redeclaring (fn -> constant)" {
   val program = parse_line("fn a {} val a = 2") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
 }
@@ -121,7 +121,7 @@ test "Identifier Resolution: Should catch redeclaring (constant -> constant)" {
   val program = parse_line("val a = 1 val a = 2") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
 }
@@ -130,7 +130,7 @@ test "Identifier Resolution: Should catch redeclaring (constant -> variable)" {
   val program = parse_line("val a = 1 var a = 2") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
 }
@@ -139,7 +139,7 @@ test "Identifier Resolution: Should catch redeclaring (constant -> fn)" {
   val program = parse_line("val a = 1 fn a {}") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
 }
@@ -148,7 +148,7 @@ test "Identifier Resolution: Should catch redeclaring (fn -> variable)" {
   val program = parse_line("fn a {} var a = 2") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
 }
@@ -157,7 +157,7 @@ test "Identifier Resolution: Should catch redeclaring (variable -> variable)" {
   val program = parse_line("var a = 1 var a = 2") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
 }
@@ -166,7 +166,7 @@ test "Identifier Resolution: Should catch redeclaring (variable -> constant)" {
   val program = parse_line("var a = 1 val a = 2") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Constant 'a' has been already declared in the current scope.")
 }
@@ -175,7 +175,7 @@ test "Identifier Resolution: Should catch redeclaring (variable -> fn)" {
   val program = parse_line("var a = 1 fn a {}") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Variable 'a' has been already declared in the current scope.")
 }
@@ -184,7 +184,7 @@ test "Identifier Resolution: Should catch redeclaring (fn -> fn)" {
   val program = parse_line("fn a {} fn a {}") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Function 'a' has been already declared in the current scope.")
 }
@@ -193,7 +193,7 @@ test "Identifier Resolution: Should catch redeclaring (parameter -> fn)" {
   val program = parse_line("fn a(b int) { fn b {} }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Failure("Type Checker Error: Function 'b' has been already declared in the current scope.")
 }
@@ -202,7 +202,7 @@ test "Identifier Resolution: Should allow declaration (fn -> fn) (fn scope)" {
   val program = parse_line("fn a {} fn main { fn a {} }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -220,7 +220,7 @@ test "Identifier Resolution: Should allow declaration (fn -> val) (fn scope)" {
   val program = parse_line("fn a {} fn main { val a = 12 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -238,7 +238,7 @@ test "Identifier Resolution: Should allow declaration (fn -> var) (fn scope)" {
   val program = parse_line("fn a {} fn main { var a = 12 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -256,7 +256,7 @@ test "Identifier Resolution: Should allow declaration (val -> fn) (fn scope)" {
   val program = parse_line("val a = 10 fn main { fn a {} }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -274,7 +274,7 @@ test "Identifier Resolution: Should allow declaration (val -> val) (fn scope)" {
   val program = parse_line("val a = 10 fn main { val a = 12 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -292,7 +292,7 @@ test "Identifier Resolution: Should allow declaration (val -> var) (fn scope)" {
   val program = parse_line("val a = 10 fn main { var a = 12 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -310,7 +310,7 @@ test "Identifier Resolution: Should allow declaration (var -> fn) (fn scope)" {
   val program = parse_line("var a = 10 fn main { fn a {} }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -328,7 +328,7 @@ test "Identifier Resolution: Should allow declaration (var -> val) (fn scope)" {
   val program = parse_line("var a = 10 fn main { val a = 12 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -346,7 +346,7 @@ test "Identifier Resolution: Should allow declaration (var -> var) (fn scope)" {
   val program = parse_line("var a = 10 fn main { var a = 12 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -364,7 +364,7 @@ test "Identifier Resolution: Should allow shadowing (val -> val) in if-else-if s
   val program = parse_line("val n = 1 if 1 < 2 { val n = 2 } else if 1 < 3 { val n = 3 } else { val n = 4 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -394,7 +394,7 @@ test "Identifier Resolution: Should allow shadowing (val -> var) in if-else-if s
   val program = parse_line("val n = 1 if 1 < 2 { var n = 2 } else if 1 < 3 { var n = 3 } else { var n = 4 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -424,7 +424,7 @@ test "Identifier Resolution: Should allow shadowing (val -> fn) in if-else-if st
   val program = parse_line("val n = 1 if 1 < 2 { fn n {} } else if 1 < 3 { fn n {} } else { fn n {} }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -454,7 +454,7 @@ test "Identifier Resolution: Should allow shadowing (var -> var) in if-else-if s
   val program = parse_line("var n = 1 if 1 < 2 { var n = 2 } else if 1 < 3 { var n = 3 } else { var n = 4 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -484,7 +484,7 @@ test "Identifier Resolution: Should allow shadowing (fn -> val) in if-else-if st
   val program = parse_line("fn n {} if 1 < 2 { val n = 2 } else if 1 < 3 { val n = 3 } else { val n = 4 }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -514,7 +514,7 @@ test "Identifier Resolution: Should allow referencing a constant from outer scop
   val program = parse_line("val n = 1 if 1 < 2 { n } else if 1 < 3 { n } else { n }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -544,7 +544,7 @@ test "Identifier Resolution: Should allow shadowing (val -> val) in match when a
   val program = parse_line("val n = 1 match 1 { when 1 { val n = 2 } when 2 { val n = 3 } else { val n = 4 } }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -579,7 +579,7 @@ test "Identifier Resolution: Should allow shadowing (val -> var) in match when a
   val program = parse_line("val n = 1 match 1 { when 1 { var n = 2 } when 2 { var n = 3 } else { var n = 4 } }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -614,7 +614,7 @@ test "Identifier Resolution: Should allow shadowing (val -> fn) in match when an
   val program = parse_line("val n = 1 match 1 { when 1 { fn n {} } when 2 { fn n {} } else { fn n {} } }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -649,7 +649,7 @@ test "Identifier Resolution: Should allow referencing outer constant in match wh
   val program = parse_line("val n = 1 match 1 { when 1 { n } else { n } }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -678,7 +678,7 @@ test "Declaration Hoisting: Should allow fn call hoisting (global scope)" {
   val program = parse_line("fn main { a() } fn a {}") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -701,7 +701,7 @@ test "Declaration Hoisting: Should allow fn call hoisting (fn scope)" {
   val program = parse_line("fn main { a() fn a {} }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -732,7 +732,7 @@ test "Declaration Hoisting: Should allow fn call hoisting (if-else-if statement 
   val program = parse_line("if 1 < 2 { a() fn a {} } else if 1 < 3 { b() fn b {} } else { c() fn c {} }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
@@ -764,7 +764,7 @@ test "Declaration Hoisting: Should allow fn call hoisting (match when and else s
   val program = parse_line("match 1 { when 1 { a() fn a {} } else { b() fn b {} } }") or {
     assert false
   }
-  pseudo_name_counter[0] = 0
+  pseudo_name_counter:reset()
   val program_checked = resolve_program(program)
   assert program_checked == Result::Success(
     Program {
