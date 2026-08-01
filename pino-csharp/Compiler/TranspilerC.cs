@@ -2169,9 +2169,10 @@ public class TranspilerC {
                     } else if (IsStringConcat(bin.Right)) {
                         var (format, args) = ProcessStringAddition(bin.Right);
                         var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
-                        Write("snprintf(");
+                        Write("({ char* _pino_concat_tmp = (char*)pino_malloc(1024); ");
+                        Write($"snprintf(_pino_concat_tmp, 1024, \"{EscapeString(format)}\"{argsStr}); ");
                         TranspileExpression(bin.Left);
-                        Write($", 1024, \"{EscapeString(format)}\"{argsStr})");
+                        Write(" = _pino_concat_tmp; })");
                     } else {
                         Write("(");
                         TranspileExpression(bin.Left);
