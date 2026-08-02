@@ -337,13 +337,21 @@ fn is_capital(line string) bool {
 fn parse_enum_decl(stream TokenStream) Result[Declaration, string] {
   stream:expect_content("enum")?
 
-  val name_token = stream:expect_type(TokenType::Identifier)?
-
-  if not is_capital(name_token:value) {
-    return Result::Failure("Expected capital identifier for enum name. Got '$(name_token:value)'. Tip: Capitalize enum names.")
+  val name_token = stream:expect_type(TokenType::Identifier) or {
+    val curr = stream:peek(0)
+    return Result::Failure("Expected enum name, instead got '$(curr:value)'. Tip: Add an enum name before '{'.")
   }
 
-  stream:expect_content("{")?
+  val name = name_token:value
+
+  if not is_capital(name) {
+    return Result::Failure("Expected capitalized name for enum '$name'. Tip: Capitalize enum names.")
+  }
+
+  stream:expect_content("{") or {
+    val curr = stream:peek(0)
+    return Result::Failure("Expected '{' after enum name '$name', instead got '$(curr:value)'. Tip: Add '{' after enum name '$name'.")
+  }
 
   val constant_list = []string
   for {
@@ -357,32 +365,38 @@ fn parse_enum_decl(stream TokenStream) Result[Declaration, string] {
       stream:next()
       
       if stream:peek(0):value == "," {
-        return Result::Failure("Expected identifier before ',' in enum declaration. Tip: Avoid consecutive commas in enum declaration.")
+        return Result::Failure("Expected identifier before ',' in enum '$name'. Tip: Avoid consecutive commas in enum declaration.")
       }
       
       continue
     }
 
-    val enum_constant = stream:expect_type(TokenType::Identifier)?
+    val enum_constant = stream:expect_type(TokenType::Identifier) or {
+      val curr = stream:peek(0)
+      return Result::Failure("Expected enum constant name in enum '$name'. Got '$(curr:value)'. Tip: An enum constant is a capitalized identifier.")
+    }
 
     if enum_constant:value in constant_list {
-      return Result::Failure("Duplicate enum constant '$(enum_constant:value)' in enum '$(name_token:value)'. Tip: Enum constants must be unique.")
+      return Result::Failure("Duplicate enum constant '$(enum_constant:value)' in enum '$name'. Tip: Enum constants must be unique.")
     }
 
     if not is_capital(enum_constant:value) {
-      return Result::Failure("Expected capital identifier for enum constant. Got '$(enum_constant:value)'. Tip: Capitalize enum constants.")
+      return Result::Failure("Expected capitalized constant in enum '$name'. Got '$(enum_constant:value)'. Tip: Capitalize enum constants.")
     }
 
     constant_list:push(enum_constant:value)
   }
 
   if constant_list:len == 0 {
-    return Result::Failure("Expected at least one constant in enum declaration. Tip: Add at least one constant to the enum declaration.")
+    return Result::Failure("Expected at least one constant inside enum '$name' declaration. Tip: Add at least one constant to the '$name' enum.")
   }
 
-  stream:expect_content("}")?
+  stream:expect_content("}") or {
+    val curr = stream:peek(0)
+    return Result::Failure("Expected '}' after enum '$name' constants. Got '$(curr:value)'. Tip: Add '}' after the last enum constant in '$name'.")
+  }
 
-  return Result::Success(Declaration::EnumDeclaration(name_token:value, constant_list))
+  return Result::Success(Declaration::EnumDeclaration(name, constant_list))
 }
 
 fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {

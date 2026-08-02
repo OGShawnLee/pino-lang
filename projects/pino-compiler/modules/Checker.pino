@@ -92,7 +92,7 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
 
       if left_expr is Expression::Var(left_name) {
         if left_name not in variable_map {
-          return Result::Failure("Type Checker Error: '$left_name' has not been declared in the current scope.")
+          panic("Undeclared '$left_name' should have been caught by Declaration Hoisting Pass.")
         }
 
         if right_expr is Expression::Var(right_name) {

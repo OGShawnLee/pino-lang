@@ -282,6 +282,53 @@ test "Declaration: Should parse a fn declaration (multiple parameter (no commas)
   )
 }
 
+test "Declaration: Should parse an enum declaration (one constant)" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum Color { Red }"), cursor: 0 })
+  assert enum_declaration == Result::Success(
+    Declaration::EnumDeclaration("Color", ["Red"])
+  )
+}
+
+test "Declaration: Should parse an enum declaration (multiple constants (commas))" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum Color { Red, Green, Blue }"), cursor: 0 })
+  assert enum_declaration == Result::Success(
+    Declaration::EnumDeclaration("Color", ["Red", "Green", "Blue"])
+  )
+}
+
+test "Declaration: Should parse an enum declaration (multiple constants (no commas))" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum Color { Red Green Blue }"), cursor: 0 })
+  assert enum_declaration == Result::Success(
+    Declaration::EnumDeclaration("Color", ["Red", "Green", "Blue"])
+  )
+}
+
+test "Declaration: Should catch an enum declaration (no name)" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum { Red Green Blue }"), cursor: 0 })
+  assert enum_declaration == Result::Failure("Expected enum name, instead got '{'. Tip: Add an enum name before '{'.")
+}
+
+
+test "Declaration: Should catch an enum declaration (no capitalized name)" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum color { Red Green Blue }"), cursor: 0 })
+  assert enum_declaration == Result::Failure("Expected capitalized name for enum 'color'. Tip: Capitalize enum names.")
+}
+
+test "Declaration: Should catch an enum declaration (no capitalized constant name)" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum Color { red Green Blue }"), cursor: 0 })
+  assert enum_declaration == Result::Failure("Expected capitalized constant in enum 'Color'. Got 'red'. Tip: Capitalize enum constants.")
+}
+
+test "Declaration: Should catch an enum declaration (no opening brace)" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum Color Red Green Blue }"), cursor: 0 })
+  assert enum_declaration == Result::Failure("Expected '{' after enum name 'Color', instead got 'Red'. Tip: Add '{' after enum name 'Color'.")
+}
+
+test "Declaration: Should catch an enum declaration (no closing brace)" {
+  val enum_declaration = parse_decl(TokenStream { list: lex("enum Color { Red Green Blue"), cursor: 0 })
+  assert enum_declaration == Result::Failure("Expected '}' after enum 'Color' constants. Got 'EOF'. Tip: Add '}' after the last enum constant in 'Color'.")
+}
+
 test "Statement: Should parse an if statement (no else)" {
   val if_stmt = parse_stmt(TokenStream { list: lex("if 1 > 2 { return 2 }"), cursor: 0 }) 
   assert if_stmt == Result::Success(
