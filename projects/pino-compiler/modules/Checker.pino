@@ -48,7 +48,7 @@ fn get_kind_name(kind Kind) string {
 }
 
 fn generate_pseudonym(name string) string {
-	val new_name = "$(name)_$(pseudo_name_counter:count)"
+	val new_name = "_pino_$(name)_$(pseudo_name_counter:count)"
 	pseudo_name_counter:increment()
 	return new_name
 }
@@ -155,7 +155,7 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
 
 fn resolve_block_scope(block []AST, variable_map map[string, Entity]) Result[[]AST, string] {
   val new_variable_map = copy_variable_map(variable_map)
-  return resolve_block(block, new_variable_map)
+  return resolve_block(block, new_variable_map, false)
 }
 
 fn resolve_when(when_case When, variable_map map[string, Entity]) Result[When, string] {
@@ -214,7 +214,7 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
    }
    when Statement::Compound(block) {
     val new_variable_map = copy_variable_map(variable_map)
-    val resolved_block = resolve_block(block, new_variable_map)?
+    val resolved_block = resolve_block(block, new_variable_map, false)?
 
     return Result::Success(Statement::Compound(resolved_block))
    }
@@ -280,6 +280,7 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
         panic("Undeclared function '$name' should have been caught by Declaration Hoisting Pass.")
       }
 
+      val unique_name = variable_map[name]:unique_name
       val inner_map = copy_variable_map(variable_map)
       val resolved_param_list = []Parameter
 
@@ -289,10 +290,10 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
         )
       }
 
-      val resolved_block = resolve_block(block, inner_map)?
+      val resolved_block = resolve_block(block, inner_map, false)?
 
       return Result::Success(
-        Declaration::FunctionDeclaration(name, resolved_param_list, ret_type, resolved_block)
+        Declaration::FunctionDeclaration(unique_name, resolved_param_list, ret_type, resolved_block)
       )
     }
     when Declaration::ConstantDeclaration(name, expr) {
@@ -306,12 +307,14 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
         panic("Undeclared enum '$name' should have been caught by Declaration Hoisting Pass.")
       }
 
-      return Result::Success(decl)
+      val unique_name = variable_map[name]:unique_name
+
+      return Result::Success(Declaration::EnumDeclaration(unique_name, constant_list))
     }
   }
 }
 
-fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity]) Result[map[string, Entity], string] {
+fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_global_scope bool) Result[map[string, Entity], string] {
   for block_item in block_item_list {
     if block_item is AST::Declaration(decl) {
       if decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
@@ -320,7 +323,7 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity]) Resul
         }
         
         variable_map[name] = Entity {
-          unique_name: name
+          unique_name: if is_global_scope and name == "main" then name else generate_pseudonym(name)
           is_from_current_block: true
           kind: Kind::Function
         }
@@ -332,7 +335,7 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity]) Resul
         }
         
         variable_map[name] = Entity {
-          unique_name: name
+          unique_name: generate_pseudonym(name)
           is_from_current_block: true
           kind: Kind::Enum(constant_list)
         }
@@ -356,9 +359,9 @@ fn resolve_block_item(block_item AST, variable_map map[string, Entity]) Result[A
   }
 }
 
-fn resolve_block(block []AST, variable_map map[string, Entity]) Result[[]AST, string] {
+fn resolve_block(block []AST, variable_map map[string, Entity], is_global_scope bool) Result[[]AST, string] {
   val resolved_block = []AST
-  val hoisted_map = hoist_decl_map(block, variable_map)?
+  val hoisted_map = hoist_decl_map(block, variable_map, is_global_scope)?
 
   for block_item in block {
     val resolved_block_item = resolve_block_item(block_item, hoisted_map)?
@@ -369,7 +372,7 @@ fn resolve_block(block []AST, variable_map map[string, Entity]) Result[[]AST, st
 }
 
 pub fn resolve_program(program Program) Result[Program, string] {
-  val resolved_content = resolve_block(program:content, map[string, Entity] {})?
+  val resolved_content = resolve_block(program:content, map[string, Entity] {}, true)?
   return Result::Success(
     Program { content: resolved_content }
   )
