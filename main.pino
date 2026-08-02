@@ -1,18 +1,28 @@
-val n = 12
-
-match n {
-  when 1 {
-    val a = 1
-  }
-  when 4 {
-    
-  }
-  else {
-    val a = n + 12
-    println(a)
-  }
+enum Primitive {
+  String
+  Int
+  Float
+  Bool
+  Rune
+  Void
+  Regex
 }
 
-fn println() {
+enum Day {
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
+  Friday
+  Saturday
+  Sunday
+}
 
+fn is_float_primitive(entity Primitive) bool {
+  return entity == Primitive::Float
+}
+
+fn main {
+  val res = is_float_primitive(Primitive::Float)
+  val is_monday = Day::Monday == Day::Thursday
 }

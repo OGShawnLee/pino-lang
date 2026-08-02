@@ -103,6 +103,7 @@ pub enum BinaryOperator {
   GreaterOrEqual
   Assign
   Conditional
+  StaticMemberAccess
 }
 
 pub union Expression {
@@ -137,6 +138,7 @@ pub union Declaration {
   FunctionDeclaration(string, []Parameter, Option[string], []AST)
   ConstantDeclaration(string, Expression)
   VariableDeclaration(string, Expression)
+  EnumDeclaration(string, []string)
 }
 
 pub union AST {
@@ -196,6 +198,13 @@ pub struct Program {
       when Declaration::ConstantDeclaration(name, expr) {
         println("Constant Variable: $name")
         Program::print_expr(expr)
+      }
+      when Declaration::EnumDeclaration(name, enum_constants) {
+        println("Enum: $name")
+        println("Constants: ")
+        for enum_constant in enum_constants {
+          println("- $enum_constant")
+        }
       }
     }
   }

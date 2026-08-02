@@ -16,6 +16,7 @@ from Entities import
   TokenStream
 
 val PRECEDENCE_MAP = map[string, int] {
+  "::": 100
 	"*": 50
 	"/": 50
 	"%": 50
@@ -47,6 +48,7 @@ val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
   "<": BinaryOperator::LessThan
   ">": BinaryOperator::GreaterThan
   "=": BinaryOperator::Assign
+  "::": BinaryOperator::StaticMemberAccess
 }
 
 val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
@@ -327,6 +329,62 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
   }
 }
 
+fn is_capital(line string) bool {
+  val first_char = line[0]
+  return first_char >= 'A' and first_char <= 'Z'
+}
+
+fn parse_enum_decl(stream TokenStream) Result[Declaration, string] {
+  stream:expect_content("enum")?
+
+  val name_token = stream:expect_type(TokenType::Identifier)?
+
+  if not is_capital(name_token:value) {
+    return Result::Failure("Expected capital identifier for enum name. Got '$(name_token:value)'. Tip: Capitalize enum names.")
+  }
+
+  stream:expect_content("{")?
+
+  val constant_list = []string
+  for {
+    val curr = stream:peek(0)
+   
+    if curr:type == TokenType::EOF or curr:value == "}" {
+      break
+    }
+
+    if curr:value == "," {
+      stream:next()
+      
+      if stream:peek(0):value == "," {
+        return Result::Failure("Expected identifier before ',' in enum declaration. Tip: Avoid consecutive commas in enum declaration.")
+      }
+      
+      continue
+    }
+
+    val enum_constant = stream:expect_type(TokenType::Identifier)?
+
+    if enum_constant:value in constant_list {
+      return Result::Failure("Duplicate enum constant '$(enum_constant:value)' in enum '$(name_token:value)'. Tip: Enum constants must be unique.")
+    }
+
+    if not is_capital(enum_constant:value) {
+      return Result::Failure("Expected capital identifier for enum constant. Got '$(enum_constant:value)'. Tip: Capitalize enum constants.")
+    }
+
+    constant_list:push(enum_constant:value)
+  }
+
+  if constant_list:len == 0 {
+    return Result::Failure("Expected at least one constant in enum declaration. Tip: Add at least one constant to the enum declaration.")
+  }
+
+  stream:expect_content("}")?
+
+  return Result::Success(Declaration::EnumDeclaration(name_token:value, constant_list))
+}
+
 fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
   val curr = stream:consume()
 
@@ -427,8 +485,12 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
       val res = parse_var_or_val_decl(stream)?
       return Result::Success(res)
     }
+    when "enum" {
+      val res = parse_enum_decl(stream)?
+      return Result::Success(res)
+    }
     else {
-      return Result::Failure("Expected 'fn', 'var' or 'val' keyword. Got $(curr:value).")
+      return Result::Failure("Expected 'fn', 'var', 'val' or 'enum' keyword. Got $(curr:value).")
     }
   }
 }
@@ -436,7 +498,7 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
 fn parse_block_item(stream TokenStream) Result[AST, string] {
   val curr = stream:peek(0)
   match curr:value {
-    when "fn", "var", "val" {
+    when "fn", "var", "val", "enum" {
       val decl = parse_decl(stream)?
       return Result::Success(AST::Declaration(decl))
     }

@@ -10,9 +10,17 @@ from Entities import
   BinaryOperator,
   UnaryOperator
 
+union Kind {
+  Var
+  Val
+  Function
+  Enum([]string)
+}
+
 struct Entity {
   unique_name string
   is_from_current_block bool
+  kind Kind
 }
 
 struct Counter {
@@ -30,6 +38,15 @@ struct Counter {
 @pub_testing
 val pseudo_name_counter = Counter { count: 0 }
 
+fn get_kind_name(kind Kind) string {
+  return match kind {
+    when Kind::Var => "Variable"
+    when Kind::Val => "Constant"
+    when Kind::Function => "Function"
+    when Kind::Enum(constant_list) => "Enum"
+  }
+}
+
 fn generate_pseudonym(name string) string {
 	val new_name = "$(name)_$(pseudo_name_counter:count)"
 	pseudo_name_counter:increment()
@@ -40,8 +57,9 @@ fn copy_variable_map(variable_map map[string, Entity]) map[string, Entity] {
 	val new_variable_map = map[string, Entity] {}
 	for name, entity in variable_map {
 		new_variable_map[name] = Entity {
-			unique_name: entity:unique_name,
+			unique_name: entity:unique_name
 			is_from_current_block: false
+			kind: entity:kind
 		}
 	}
 	return new_variable_map
@@ -65,10 +83,45 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
       return Result::Success(Expression::Unary(un_operator, resolved_expr))
     }
     when Expression::Binary(bin_operator, left_expr, right_expr) {
-      val resolved_left_expr = resolve_expr(left_expr, variable_map)?
-      val resolved_right_expr = resolve_expr(right_expr, variable_map)?
+      if bin_operator != BinaryOperator::StaticMemberAccess {
+        val resolved_left_expr = resolve_expr(left_expr, variable_map)?
+        val resolved_right_expr = resolve_expr(right_expr, variable_map)?
 
-      return Result::Success(Expression::Binary(bin_operator, resolved_left_expr, resolved_right_expr))
+        return Result::Success(Expression::Binary(bin_operator, resolved_left_expr, resolved_right_expr))
+      }
+
+      if left_expr is Expression::Var(left_name) {
+        if left_name not in variable_map {
+          return Result::Failure("Type Checker Error: '$left_name' has not been declared in the current scope.")
+        }
+
+        if right_expr is Expression::Var(right_name) {
+          val entity = variable_map[left_name]
+          match entity:kind  {
+            when Kind::Enum(constant_list) {
+              if right_name not in constant_list {
+                return Result::Failure("Type Checker Error: '$right_name' is not a constant of enum '$left_name'.")
+              }
+
+              return Result::Success(
+                Expression::Binary(
+                  bin_operator,
+                  Expression::Var(entity:unique_name),
+                  Expression::Var(right_name)
+                )
+              )
+            }
+            else {
+              val kind_name = get_kind_name(entity:kind)
+              return Result::Failure("Type Checker Error: '$left_name' is not an enum, it is a $kind_name.")
+            }
+          }
+        }
+
+        return Result::Failure("Type Checker Error: Invalid access to enum '$left_name'. Must be performed as '$left_name::<constant_name>'.")
+      }
+
+      return Result::Failure("Type Checker Error: Static Member Access (::) must be performed on an enum type, e.g. '<enum_name>::<constant_name>.'")
     }
     when Expression::Assignment(left_expr, right_expr) {
       val resolved_left_expr = resolve_expr(left_expr, variable_map)?
@@ -194,6 +247,7 @@ fn resolve_var_or_val_decl(
   variable_map[name] = Entity {
     unique_name: unique_name
     is_from_current_block: true
+    kind: if is_constant then Kind::Val else Kind::Var
   }
 
   return Result::Success(
@@ -213,6 +267,7 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
   variable_map[param:name] = Entity {
     unique_name: unique_name
     is_from_current_block: true
+    kind: Kind::Var
   }
 
   return Result::Success(Parameter { name: unique_name, type: param:type }) 
@@ -246,19 +301,41 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
     when Declaration::VariableDeclaration(name, expr) {
       return resolve_var_or_val_decl(name, expr, false, variable_map)
     }
+    when Declaration::EnumDeclaration(name, constant_list) {
+      if name not in variable_map {
+        panic("Undeclared enum '$name' should have been caught by Declaration Hoisting Pass.")
+      }
+
+      return Result::Success(decl)
+    }
   }
 }
 
 fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity]) Result[map[string, Entity], string] {
   for block_item in block_item_list {
-    if block_item is AST::Declaration(decl) and decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
-      if name in variable_map and variable_map[name]:is_from_current_block {
-        return Result::Failure("Type Checker Error: Function '$(name)' has been already declared in the current scope.")
+    if block_item is AST::Declaration(decl) {
+      if decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+        if name in variable_map and variable_map[name]:is_from_current_block {
+          return Result::Failure("Type Checker Error: Function '$(name)' has been already declared in the current scope.")
+        }
+        
+        variable_map[name] = Entity {
+          unique_name: name
+          is_from_current_block: true
+          kind: Kind::Function
+        }
       }
-      
-      variable_map[name] = Entity {
-        unique_name: name
-        is_from_current_block: true
+
+      if decl is Declaration::EnumDeclaration(name, constant_list) {
+        if name in variable_map and variable_map[name]:is_from_current_block {
+          return Result::Failure("Type Checker Error: Enum '$(name)' has been already declared in the current scope.")
+        }
+        
+        variable_map[name] = Entity {
+          unique_name: name
+          is_from_current_block: true
+          kind: Kind::Enum(constant_list)
+        }
       }
     }
   }
