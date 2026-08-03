@@ -714,6 +714,12 @@ public partial class Evaluator {
           }
           return (long)str.IndexOf(sub);
         }
+        if (methodName == "last_index_of") {
+          if (methodArgs.Count != 1 || methodArgs[0] is not string sub) {
+            throw new Exception("RUNTIME ERROR: last_index_of() expects 1 string argument.");
+          }
+          return (long)str.LastIndexOf(sub);
+        }
         if (methodName == "trim_start") {
           if (methodArgs.Count != 0) throw new Exception("RUNTIME ERROR: trim_start() expects 0 arguments.");
           return str.TrimStart();

@@ -890,7 +890,7 @@ public partial class Checker {
               if (callee == "contains" || callee == "starts_with" || callee == "ends_with") {
                 return "bool";
               }
-              if (callee == "index_of") {
+              if (callee == "index_of" || callee == "last_index_of") {
                 return "int";
               }
               if (callee == "split") {

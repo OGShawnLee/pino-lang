@@ -166,6 +166,13 @@ public class StdlibTests {
   }
 
   [Fact]
+  public void TestStringLastIndexOf() {
+    var code = @"println(""_pino_foo_123"":last_index_of(""_""))";
+    var output = RunCode(code);
+    Assert.Equal("9\n", output);
+  }
+
+  [Fact]
   public void TestStringTrimStart() {
     var code = @"println(""  hello"":trim_start())";
     var output = RunCode(code);

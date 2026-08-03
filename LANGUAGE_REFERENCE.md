@@ -1047,6 +1047,11 @@ Returns the zero-based index of the first occurrence of the `sub` substring, or 
 *   **Return**: `int`
 *   **Example**: `"pino":index_of("in")` returns `1`.
 
+#### `last_index_of(sub string)`
+Returns the zero-based index of the last occurrence of the `sub` substring, or `-1` if not found.
+*   **Return**: `int`
+*   **Example**: `"_pino_foo_123":last_index_of("_")` returns `9`.
+
 #### `trim_start()`
 Returns a new string with all leading whitespace characters removed.
 *   **Return**: `string`

@@ -322,6 +322,25 @@ int string_index_of(const char* str, const char* sub) {
     return char_idx;
 }
 
+int string_last_index_of(const char* str, const char* sub) {
+    if (!str || !sub) return -1;
+    if (*sub == '\0') return string_len(str);
+    const char* last_pos = NULL;
+    const char* cur = str;
+    size_t sub_len = strlen(sub);
+    while ((cur = strstr(cur, sub)) != NULL) {
+        last_pos = cur;
+        cur += (sub_len > 0 ? sub_len : 1);
+    }
+    if (!last_pos) return -1;
+    int char_idx = 0;
+    while (str < last_pos) {
+        if ((*str & 0xC0) != 0x80) char_idx++;
+        str++;
+    }
+    return char_idx;
+}
+
 const char* string_substring(const char* str, int start, int len) {
     if (!str || start < 0 || len <= 0) return "";
     while (start > 0 && *str) {
