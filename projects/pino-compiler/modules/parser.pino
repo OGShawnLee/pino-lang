@@ -6,6 +6,8 @@ from Entities import
   AST,
   Declaration,
   Parameter,
+  Type,
+  Primitive,
   When,
   Statement,
   Expression,
@@ -412,22 +414,36 @@ fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
 
   return Result::Success(
     if curr:value == "val" then
-      Declaration::ConstantDeclaration(name_token:value, expr)
+      Declaration::ConstantDeclaration(name_token:value, expr, Type::Implicit)
     else
-      Declaration::VariableDeclaration(name_token:value, expr)
+      Declaration::VariableDeclaration(name_token:value, expr, Type::Implicit)
   )
 }
 
-fn parse_fn_ret_type(stream TokenStream) Result[Option[string], string] {
+fn parse_type(stream TokenStream) Result[Type, string] {
+  val type_token = stream:expect_type(TokenType::Identifier) or {
+    val curr = stream:peek(0)
+    return Result::Failure("Expected type identifier. Got '$(curr:value)'.")
+  }
+
+  return match type_token:value {
+    when "int" => Result::Success(Type::Primitive(Primitive::Int))
+    when "float" => Result::Success(Type::Primitive(Primitive::Float))
+    when "bool" => Result::Success(Type::Primitive(Primitive::Bool))
+    else => Result::Success(Type::Pending(type_token:value))
+  }
+}
+
+fn parse_fn_ret_type(stream TokenStream) Result[Type, string] {
   val curr = stream:peek(0)
 
   return match curr:type {
-    when TokenType::Identifier => Result::Success(Option::Some(stream:consume():value))
+    when TokenType::Identifier => parse_type(stream)
     when TokenType::Marker => 
       if curr:value == "{"
-        then Result::Success(Option::None)
-        else Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
-    else => Result::Failure("Expected Identifier for return type. Got '$(curr:value)'.")
+        then Result::Success(Type::Implicit)
+        else Result::Failure("Expected return type. Got '$(curr:value)'.")
+    else => Result::Failure("Expected return type. Got '$(curr:value)'.")
   }
 }
 
@@ -457,9 +473,9 @@ fn parse_fn_param_list(stream TokenStream) Result[[]Parameter, string] {
     }
 
     val name = stream:expect_type(TokenType::Identifier)?
-    val type = stream:expect_type(TokenType::Identifier)?
+    val type = parse_type(stream)?
 
-    param_list:push(Parameter { name: name:value, type: type:value })
+    param_list:push(Parameter { name: name:value, type: type })
   }
 
   stream:expect_content(")")?

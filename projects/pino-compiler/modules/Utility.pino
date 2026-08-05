@@ -1,0 +1,33 @@
+module Utility
+
+struct Counter {
+  count int
+
+  fn increment {
+    count += 1
+  }
+
+  fn reset {
+    count = 0
+  }
+}
+
+@pub_testing
+val pseudo_name_counter = Counter { count: 0 }
+
+pub fn mangle_name(name string) string {
+	val new_name = "_pino_$(name)_$(pseudo_name_counter:count)"
+	pseudo_name_counter:increment()
+	return new_name
+}
+
+pub fn demangle_name(name string) {
+  val clean_prefix = if name:starts_with("_pino_") then name:substring(6) else name
+  val last_underscore_pos = clean_prefix:last_index_of("_")
+
+  if last_underscore_pos != -1 {
+    return clean_prefix:substring(0, last_underscore_pos)
+  }
+
+  return clean_prefix
+}

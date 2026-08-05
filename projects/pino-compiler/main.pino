@@ -14,14 +14,29 @@ fn main {
 
   match program {
     when Result::Success(program) {
-      program:print()
+      # program:print()
 
       val checker_result = Checker::resolve_program(program)
 
       match checker_result {
         when Result::Success(resolved_program) {
-          println("Resolved AST")
-          resolved_program:print()
+          # println("Resolved AST")
+          # resolved_program:print()
+
+          val error_list = Checker::type_check_program(resolved_program)
+
+          for error in error_list {
+            println("Type Checker Error: $error")
+          }
+
+          # if not is_valid_program {
+          #   println("Type Checker Errors")
+          #   # for error in error_list {
+          #   #   println("  - $error")
+          #   # }
+          # } else {
+          #   println("Type Checker Passed")
+          # }
         }
         when Result::Failure(error) {
           println("Unable to Resolve: $error")

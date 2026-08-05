@@ -1,5 +1,7 @@
 module Entities
 
+from Utility import demangle_name
+
 pub enum TokenType {
   Keyword
   Identifier
@@ -129,15 +131,31 @@ pub union Statement {
   Expression(Expression)
 }
 
+pub enum Primitive {
+  Float
+  Int
+  Bool
+}
+
+pub union Type {
+  Primitive(Primitive)
+  Function([]Parameter, Type)
+  Enum(string, []string)
+  Pending(string)
+  Void
+  Implicit
+  Invalid
+}
+
 pub struct Parameter {
   name string
-  type string
+  type Type
 }
 
 pub union Declaration {
-  FunctionDeclaration(string, []Parameter, Option[string], []AST)
-  ConstantDeclaration(string, Expression)
-  VariableDeclaration(string, Expression)
+  FunctionDeclaration(string, []Parameter, Type, []AST)
+  ConstantDeclaration(string, Expression, Type)
+  VariableDeclaration(string, Expression, Type)
   EnumDeclaration(string, []string)
 }
 
@@ -179,24 +197,22 @@ pub struct Program {
         if param_list:len > 0 {
           println("Parameters: ")
           for param in param_list {
-            println(param)
+            println("Name: $(param:name)")
+            println("Type: $(Program::get_type_name(param:type))")
           }
         }
 
-        val ret_type_str = match ret_type {
-          when Option::Some(type_name) => type_name
-          when Option::None => "Implicit"
-        }
-
-        println("Return Type: $ret_type_str")
+        println("Return Type: $(Program::get_type_name(ret_type))")
         Program::print_block(block)
       }
-      when Declaration::VariableDeclaration(name, expr) {
+      when Declaration::VariableDeclaration(name, expr, type) {
         println("Variable: $name")
+        println("Type: $(Program::get_type_name(type))")
         Program::print_expr(expr)
       }
-      when Declaration::ConstantDeclaration(name, expr) {
+      when Declaration::ConstantDeclaration(name, expr, type) {
         println("Constant Variable: $name")
+        println("Type: $(Program::get_type_name(type))")
         Program::print_expr(expr)
       }
       when Declaration::EnumDeclaration(name, enum_constants) {
@@ -206,6 +222,23 @@ pub struct Program {
           println("- $enum_constant")
         }
       }
+    }
+  }
+
+  static fn get_type_name(type Type) string {
+    return match type {
+      when Type::Primitive(primitive) => match primitive {
+        when Primitive::Int => "int"
+        when Primitive::Float => "float"
+        when Primitive::Bool => "bool"
+        else => "Invalid Primitive"
+      }
+      when Type::Function(param_list, ret_type) => "Function ($(Program::get_type_name(ret_type)))"
+      when Type::Enum(name, constant_list) => demangle_name(name)
+      when Type::Pending(name) => demangle_name(name)
+      when Type::Implicit => "implicit"
+      when Type::Void => "void"
+      when Type::Invalid => "invalid"
     }
   }
 

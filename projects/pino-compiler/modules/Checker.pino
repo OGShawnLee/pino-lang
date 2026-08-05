@@ -1,10 +1,13 @@
 module Checker
 
+from Utility import mangle_name, demangle_name
 from Entities import 
   Program,
   AST,
   Declaration,
   Parameter,
+  Type,
+  Primitive,
   Statement,
   Expression,
   BinaryOperator,
@@ -23,21 +26,6 @@ struct Entity {
   kind Kind
 }
 
-struct Counter {
-  count int
-
-  fn increment {
-    count += 1
-  }
-
-  fn reset {
-    count = 0
-  }
-}
-
-@pub_testing
-val pseudo_name_counter = Counter { count: 0 }
-
 fn get_kind_name(kind Kind) string {
   return match kind {
     when Kind::Var => "Variable"
@@ -45,12 +33,6 @@ fn get_kind_name(kind Kind) string {
     when Kind::Function => "Function"
     when Kind::Enum(constant_list) => "Enum"
   }
-}
-
-fn generate_pseudonym(name string) string {
-	val new_name = "_pino_$(name)_$(pseudo_name_counter:count)"
-	pseudo_name_counter:increment()
-	return new_name
 }
 
 fn copy_variable_map(variable_map map[string, Entity]) map[string, Entity] {
@@ -229,6 +211,7 @@ fn resolve_var_or_val_decl(
   name string
   expr Expression 
   is_constant bool 
+  type Type
   variable_map map[string, Entity]
 ) Result[Declaration, string] {
   val resolved_expr = resolve_expr(expr, variable_map)?
@@ -242,7 +225,7 @@ fn resolve_var_or_val_decl(
     }
   }
 
-  val unique_name = generate_pseudonym(name)
+  val unique_name = mangle_name(name)
 
   variable_map[name] = Entity {
     unique_name: unique_name
@@ -252,9 +235,27 @@ fn resolve_var_or_val_decl(
 
   return Result::Success(
     if is_constant 
-      then Declaration::ConstantDeclaration(unique_name, resolved_expr) 
-      else Declaration::VariableDeclaration(unique_name, resolved_expr)
+      then Declaration::ConstantDeclaration(unique_name, resolved_expr, type) 
+      else Declaration::VariableDeclaration(unique_name, resolved_expr, type)
   )
+}
+
+fn resolve_type(target_type Type, variable_map map[string, Entity]) Result[Type , string] {
+  if target_type is Type::Pending(unresolved_type_name) {
+    if unresolved_type_name not in variable_map {
+      return Result::Failure("Type Checker Error: Type '$unresolved_type_name' has not been declared in the current scope.")
+    }
+
+    val entity = variable_map[unresolved_type_name]
+
+    if entity:kind is Kind::Enum(constant_list) {
+      return Result::Success(Type::Enum(entity:unique_name, constant_list))
+    }
+
+    return Result::Failure("Type Checker Error: '$unresolved_type_name' is not a type.")
+  }
+
+  return Result::Success(target_type)
 }
 
 fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Parameter, string] {
@@ -262,7 +263,8 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
     return Result::Failure("Type Checker Error: Parameter '$(param:name)' has been already declared in the current scope.")
   }
 
-  val unique_name = generate_pseudonym(param:name)
+  val resolved_type = resolve_type(param:type, variable_map)?
+  val unique_name = mangle_name(param:name)
 
   variable_map[param:name] = Entity {
     unique_name: unique_name
@@ -270,7 +272,7 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
     kind: Kind::Var
   }
 
-  return Result::Success(Parameter { name: unique_name, type: param:type }) 
+  return Result::Success(Parameter { name: unique_name, type: resolved_type }) 
 }
 
 fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
@@ -290,17 +292,18 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
         )
       }
 
+      val resolved_ret_type = resolve_type(ret_type, inner_map)?
       val resolved_block = resolve_block(block, inner_map, false)?
 
       return Result::Success(
-        Declaration::FunctionDeclaration(unique_name, resolved_param_list, ret_type, resolved_block)
+        Declaration::FunctionDeclaration(unique_name, resolved_param_list, resolved_ret_type, resolved_block)
       )
     }
-    when Declaration::ConstantDeclaration(name, expr) {
-      return resolve_var_or_val_decl(name, expr, true, variable_map)
+    when Declaration::ConstantDeclaration(name, expr, type) {
+      return resolve_var_or_val_decl(name, expr, true, type, variable_map)
     }
-    when Declaration::VariableDeclaration(name, expr) {
-      return resolve_var_or_val_decl(name, expr, false, variable_map)
+    when Declaration::VariableDeclaration(name, expr, type) {
+      return resolve_var_or_val_decl(name, expr, false, type, variable_map)
     }
     when Declaration::EnumDeclaration(name, constant_list) {
       if name not in variable_map {
@@ -323,7 +326,7 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
         }
         
         variable_map[name] = Entity {
-          unique_name: if is_global_scope and name == "main" then name else generate_pseudonym(name)
+          unique_name: if is_global_scope and name == "main" then name else mangle_name(name)
           is_from_current_block: true
           kind: Kind::Function
         }
@@ -335,7 +338,7 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
         }
         
         variable_map[name] = Entity {
-          unique_name: generate_pseudonym(name)
+          unique_name: mangle_name(name)
           is_from_current_block: true
           kind: Kind::Enum(constant_list)
         }
@@ -376,4 +379,646 @@ pub fn resolve_program(program Program) Result[Program, string] {
   return Result::Success(
     Program { content: resolved_content }
   )
+}
+
+val global_decl_map = map[string, Declaration] {}
+val global_fn_infer_stack = []string
+
+fn is_int_primitive(target_type Type) bool {
+  return target_type == Type::Primitive(Primitive::Int)
+}
+
+fn is_float_primitive(target_type Type) bool {
+  return target_type == Type::Primitive(Primitive::Float)
+}
+
+fn is_numeric_primitive(target_type Type) bool {
+  return is_int_primitive(target_type) or is_float_primitive(target_type)
+}
+
+fn resolve_numeric_numeric_bin_operation_type(left_type Type, right_type Type) Type {
+  if is_float_primitive(left_type) or is_float_primitive(right_type) {
+    return Type::Primitive(Primitive::Float)
+  }
+  
+  return Type::Primitive(Primitive::Int)
+}
+
+fn infer_implicit_return_type(
+  name string
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  val clean_name = demangle_name(name)
+
+  if name not in global_decl_map {
+    panic("Undeclared function declaration '$clean_name' should have been caught by Identifier Resolution Pass.")
+  }
+
+  if name in global_fn_infer_stack {
+    error_list:push("Can't infer the return type of function '$clean_name' because it has a circular dependency or is recursive. Tip: Declare an explicit return type for the function.")
+
+    val fn_type = symbol_table[name]
+
+    if fn_type is Type::Function(param_list, ret_type) {
+      symbol_table[name] = Type::Function(param_list, Type::Invalid)
+    } else {
+      panic("Expected a function type for '$clean_name' in symbol table.")
+    }
+
+    return Type::Invalid
+  }
+
+  val fn_decl = global_decl_map[name]
+
+  if fn_decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+    global_fn_infer_stack:push(name)
+    type_check_block(node_list, symbol_table, error_list, Option::Some(name))
+    global_fn_infer_stack:pop()
+
+    if name not in symbol_table {
+      panic("Unable to infer return type for function '$clean_name'. The function should be stored in the Symbol Table after Type Checking Hoisting Declaration Pass.")
+    }
+
+    val resolved_type = symbol_table[name]
+
+    if resolved_type is Type::Function(param_list, ret_type) {
+      if ret_type is Type::Implicit {
+        symbol_table[name] = Type::Function(param_list, Type::Void)
+        return Type::Void
+      }
+
+      return ret_type
+    } else {
+      panic("Expected a function type for '$clean_name'.")
+    }
+  }
+
+  panic("Expected a function declaration for '$clean_name'. Type Checking Hoisted Declarations Pass should not have produced an invalid state")
+}
+
+fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[string, Type], error_list []string) Type {
+  if name not in symbol_table {
+    panic("Undeclared name '$name' should have been caught by Identifier Resolution Pass.")
+  }
+  
+  val clean_name = demangle_name(name)
+
+  if symbol_table[name] is Type::Function(param_list, ret_type) {
+    var resolved_ret_type = ret_type
+
+    if ret_type == Type::Implicit {
+      resolved_ret_type = infer_implicit_return_type(name, symbol_table, error_list)
+    }
+
+    var is_invalid = false
+    if param_list:len != arg_list:len {
+      error_list:push("Incorrect number of arguments passed to function '$clean_name'. Expected '$(param_list:len)' but got '$(arg_list:len)'.")
+      is_invalid = true
+    }
+
+    val arg_list_type = []Type
+
+    for arg in arg_list {
+      arg_list_type:push(
+        type_check_expr(arg, symbol_table, error_list)
+      )
+    }
+
+    for index, param in param_list {
+      val clean_param_name = demangle_name(param:name)
+
+      if index >= arg_list:len {
+        is_invalid = true
+        error_list:push("Missing argument for parameter '$(clean_param_name)' of function '$clean_name'.")
+        continue
+      }
+
+      val arg_type = arg_list_type[index]
+
+      if arg_type != param:type {
+        val arg_type_name = Program::get_type_name(arg_type)
+        val param_type_name = Program::get_type_name(param:type)
+        
+        is_invalid = true
+        error_list:push("Type mismatch for parameter '$(clean_param_name)' of function '$clean_name'. Expected '$param_type_name' but got '$arg_type_name'.")
+      }
+    }
+
+    return if is_invalid then Type::Invalid else resolved_ret_type
+  }
+
+  error_list:push("Entity '$clean_name' is not a function.")
+  return Type::Invalid
+}
+
+fn type_check_conditional_expr(
+  condition_expr Expression
+  then_expr Expression
+  else_expr Expression
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
+  val then_type = type_check_expr(then_expr, symbol_table, error_list)
+  val else_type = type_check_expr(else_expr, symbol_table, error_list)
+
+  if cond_type == Type::Invalid or then_type == Type::Invalid or else_type == Type::Invalid {
+    return Type::Invalid
+  }
+
+  if cond_type != Type::Primitive(Primitive::Bool) {
+    error_list:push("Invalid use of conditional expression. 'if <expr> then <expr> else <expr>' requires a boolean condition.")
+    return Type::Invalid
+  }
+
+  if then_type != else_type {
+    error_list:push("Conditional Expression 'if <expr> then <expr> else <expr>' requires both branches to return the same type.")
+    return Type::Invalid
+  }
+
+  return then_type
+}
+
+fn type_check_assignment_expr(
+  assignee Expression
+  assigned Expression
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  val assignee_type = type_check_expr(assignee, symbol_table, error_list)
+  val assigned_type = type_check_expr(assigned, symbol_table, error_list)
+
+  if assigned_type == Type::Invalid or assignee_type == Type::Invalid {
+    return Type::Invalid
+  }
+
+  if assignee_type != assigned_type {
+    val left_type_name = Program::get_type_name(assignee_type)
+    val right_type_name = Program::get_type_name(assigned_type)
+    error_list:push("Assignment Type Mismatch: The assigned value's type '$right_type_name' must match the assignee's type '$left_type_name'.")
+    return Type::Invalid
+  }
+
+  return assignee_type
+}
+
+fn type_check_static_member_access_expr(
+  left_expr Expression 
+  right_expr Expression 
+  symbol_table map[string, Type] 
+  error_list []string
+) Type {
+  if left_expr is Expression::Var(left_name) {
+    if left_name not in symbol_table {
+      error_list:push("Invalid use of static member access. The left operand must be an enum.")
+      return Type::Invalid
+    }
+
+    val target_type = symbol_table[left_name]
+
+    if right_expr is Expression::Var(right_name) {
+      if target_type is Type::Enum(enum_name, constant_list) {
+        if right_name in constant_list {
+          return target_type
+        } 
+        
+        error_list:push("'$right_name' is not a constant of enum '$enum_name'.")
+        return Type::Invalid
+      }
+
+      if target_type is not Type::Enum {
+        error_list:push("Invalid use of static member access (::). The left operand must be an enum.")
+        return Type::Invalid
+      }
+
+      return target_type
+    } 
+    
+    error_list:push("Invalid use of static member access (::). The right operand must be an identifier.")
+    return Type::Invalid
+  }
+    
+  error_list:push("Invalid use of static member access (::). The left operand must be an enum.")
+  return Type::Invalid
+}
+
+fn type_check_binary_expr(
+  bin_op BinaryOperator
+  left_expr Expression
+  right_expr Expression
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  if bin_op == BinaryOperator::StaticMemberAccess {
+    return type_check_static_member_access_expr(left_expr, right_expr, symbol_table, error_list)
+  }
+
+  val left_type = type_check_expr(left_expr, symbol_table, error_list)
+  val right_type = type_check_expr(right_expr, symbol_table, error_list)
+
+  if left_type == Type::Invalid or right_type == Type::Invalid {
+    return Type::Invalid
+  }
+
+  val left_type_name = Program::get_type_name(left_type)
+  val right_type_name = Program::get_type_name(right_type)
+
+  match bin_op {
+    when 
+      BinaryOperator::And
+      BinaryOperator::Or
+    {
+      if left_type == Type::Primitive(Primitive::Bool) and right_type == Type::Primitive(Primitive::Bool) {
+        return Type::Primitive(Primitive::Bool)
+      }
+
+      error_list:push("Type mismatch for logical operator. It can only be used on boolean types. Received '$left_type_name' and '$right_type_name'.")
+    }
+    when
+      BinaryOperator::Equal 
+      BinaryOperator::NotEqual 
+    {
+      if left_type == right_type {
+        return Type::Primitive(Primitive::Bool)
+      }
+
+      error_list:push("Type mismatch for equality operator. Cannot perform equality check between '$left_type_name' and '$right_type_name'.")
+    } 
+    when
+      BinaryOperator::LessThan 
+      BinaryOperator::LessOrEqual
+      BinaryOperator::GreaterThan 
+      BinaryOperator::GreaterOrEqual 
+    {
+      if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
+        return Type::Primitive(Primitive::Bool)
+      }
+
+      val operator_name = match bin_op {
+        when BinaryOperator::LessThan => "<'"
+        when BinaryOperator::LessOrEqual => "<="
+        when BinaryOperator::GreaterThan => ">"
+        when BinaryOperator::GreaterOrEqual => ">="
+        else => panic("Invalid comparison operator")
+      }
+
+      error_list:push("Type mismatch for comparison operator '$operator_name'. Cannot perform comparison between '$left_type_name' and '$right_type_name'.")
+    }
+    when BinaryOperator::Add {
+      if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
+        return resolve_numeric_numeric_bin_operation_type(left_type, right_type)
+      }
+
+      error_list:push("Type mismatch for addition operator. Cannot perform addition between '$left_type_name' and '$right_type_name'.")
+    }
+    when BinaryOperator::Subtract {
+      if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
+        return resolve_numeric_numeric_bin_operation_type(left_type, right_type)
+      }
+
+      error_list:push("Type mismatch for subtraction operator. Cannot perform subtraction between '$left_type_name' and '$right_type_name'.")
+    }
+    when BinaryOperator::Multiply {
+      if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
+        return resolve_numeric_numeric_bin_operation_type(left_type, right_type)
+      }
+
+      error_list:push("Type mismatch for multiplication operator. Cannot perform multiplication between '$left_type_name' and '$right_type_name'.")
+    }
+    when BinaryOperator::Divide {
+      if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
+        return Type::Primitive(Primitive::Float)
+      }
+
+      error_list:push("Type mismatch for division operator. Cannot perform division between '$left_type_name' and '$right_type_name'.")
+    }
+    when BinaryOperator::Remainder {
+      if is_float_primitive(left_type) or is_float_primitive(right_type) {
+        error_list:push("Type mismatch for remainder operator. Cannot perform remainder with float types, only int types are allowed.")
+        return Type::Invalid
+      }
+
+      if is_int_primitive(left_type) and is_int_primitive(right_type) {
+        return Type::Primitive(Primitive::Int)
+      }
+
+      error_list:push("Type mismatch for remainder operator. Cannot perform remainder between '$left_type_name' and '$right_type_name'.")
+    }
+    when BinaryOperator::Assign, BinaryOperator::Conditional {
+      panic("Binary Operator Assign, Conditional should never be passed to type_check_expr.")
+    }
+    when BinaryOperator::StaticMemberAccess {
+      panic("Binary Operator StaticMemberAccess should have been handled by type_check_static_member_access_expr.")
+    }
+  }
+
+  return Type::Invalid
+}
+
+fn type_check_unary_expr(un_op UnaryOperator, expr Expression, symbol_table map[string, Type], error_list []string) Type {
+  val expr_type = type_check_expr(expr, symbol_table, error_list)
+
+  if expr_type == Type::Invalid {
+    return Type::Invalid
+  }
+
+  match un_op {
+    when UnaryOperator::Not {
+      if expr_type == Type::Primitive(Primitive::Bool) {
+        return expr_type
+      }
+
+      val expr_type_name = Program::get_type_name(expr_type)
+      error_list:push("Type mismatch for logical 'not' operator. It can only be used on boolean types. Received '$(expr_type_name)'.")
+    }
+    when UnaryOperator::Negate {
+      if is_numeric_primitive(expr_type) {
+        return expr_type
+      }
+
+      val expr_type_name = Program::get_type_name(expr_type)
+      error_list:push("Type mismatch for '-' negation operator. It can only be used on numeric types (int or float). Received '$(expr_type_name)'.")
+    }
+  }
+
+  return Type::Invalid
+}
+
+fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list []string) Type {
+  match expr {
+    when Expression::Constant(n) {
+      return Type::Primitive(Primitive::Int)
+    }
+    when Expression::Var(name) {
+      if name not in symbol_table {
+        panic("Undeclared name '$name' should have been caught by Identifier Resolution Pass.")
+      }
+
+      return symbol_table[name]
+    }
+    when Expression::Unary(un_op, expr) {
+      return type_check_unary_expr(un_op, expr, symbol_table, error_list)
+    }
+    when Expression::Binary(bin_op, left_expr, right_expr) {
+      return type_check_binary_expr(bin_op, left_expr, right_expr, symbol_table, error_list)
+    }
+    when Expression::Assignment(assignee, assigned) {
+      return type_check_assignment_expr(assignee, assigned, symbol_table, error_list)
+    }
+    when Expression::Conditional(condition_expr, then_expr, else_expr) {
+      return type_check_conditional_expr(condition_expr, then_expr, else_expr, symbol_table, error_list)
+    }
+    when Expression::FunctionCall(name, arg_list) {
+      return type_check_fn_call_expr(name, arg_list, symbol_table, error_list)
+    }
+  }
+
+  return Type::Invalid
+}
+
+fn type_check_match_enum_stmt(
+  enum_name string
+  constant_list []string
+  when_case_list []When
+  else_block_opt Option[[]AST]
+  symbol_table map[string, Type]
+  error_list []string
+  fn_name_context_opt Option[string]
+) {
+  val clean_enum_name = demangle_name(enum_name)
+  val covered_list = []string
+
+  for when_case in when_case_list {
+    for cond_expr in when_case:cond_list {
+      val expr_type = type_check_expr(cond_expr, symbol_table, error_list)
+
+      if cond_expr is Expression::Binary(bin_op, enum_expr, constant_expr) and constant_expr is Expression::Var(constant_name) {
+        if constant_name in covered_list {
+          error_list:push("Match statement has duplicate constant condition '$constant_name' for enum '$clean_enum_name'.")
+        } else {
+          covered_list:push(constant_name)
+        }
+      }
+
+      if expr_type is not Type::Enum {
+        val type_name = Program::get_type_name(expr_type)
+        error_list:push("Match statement type mismatch. The when case condition must be an enum constant of '$clean_enum_name', got '$type_name'.")
+      }
+    }
+
+    type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt)
+  }
+
+  val uncovered_list = []string
+
+  for constant in constant_list {
+    if constant not in covered_list {
+      uncovered_list:push(constant)
+    }
+  }
+
+  if uncovered_list:len != 0 and else_block_opt is Option::None {
+    error_list:push(
+      "Match statement lacks exhaustivity for enum '$clean_enum_name'. Tip: Add when cases for all enum constants, one when case with all constants, or one else block."
+    )
+    for constant in uncovered_list {
+      error_list:push("- Missing coverage for enum constant '$constant' of '$clean_enum_name'.")
+    }
+  }
+
+  if else_block_opt is Option::Some(else_block) {
+    type_check_block(else_block, symbol_table, error_list, fn_name_context_opt)
+  }
+}
+
+fn type_check_match_stmt(
+  condition_expr Expression
+  when_case_list []When
+  else_block_opt Option[[]AST]
+  symbol_table map[string, Type]
+  error_list []string
+  fn_name_context_opt Option[string]
+) {
+  val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
+
+  if cond_type is Type::Enum(enum_name, constant_list) {
+    type_check_match_enum_stmt(enum_name, constant_list, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
+    return
+  }
+
+  for when_case in when_case_list {
+    for cond_expr in when_case:cond_list {
+      val expr_type = type_check_expr(cond_expr, symbol_table, error_list)
+
+      if expr_type != cond_type {
+        val type_name = Program::get_type_name(expr_type)
+        val cond_type_name = Program::get_type_name(cond_type)
+        error_list:push("Match statement type mismatch. The when case condition's type '$type_name' must match the match statement's condition's type '$cond_type_name'.")
+      }
+    }
+
+    type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt)
+  }
+
+  if else_block_opt is Option::Some(else_block) {
+    type_check_block(else_block, symbol_table, error_list, fn_name_context_opt)
+  }
+}
+
+fn type_check_ret_stmt(
+  expr Expression
+  symbol_table map[string, Type]
+  error_list []string
+  fn_name_context_opt Option[string]
+) {
+  val expr_type = type_check_expr(expr, symbol_table, error_list)
+
+  if fn_name_context_opt is Option::Some(fn_name) {
+    if fn_name not in symbol_table {
+      panic("Undeclared function '$fn_name' should have been caught by Symbol Table Hoisting Pass.")
+    }
+
+    val fn_type = symbol_table[fn_name]
+
+    if fn_type is Type::Function(param_list, ret_type) {
+      if ret_type == Type::Implicit {
+        symbol_table[fn_name] = Type::Function(param_list, expr_type)
+      } else if expr_type != ret_type {
+        val type_name = Program::get_type_name(expr_type)
+        val expected_ret_type_name = Program::get_type_name(ret_type)
+        val clean_fn_name = demangle_name(fn_name)
+        error_list:push("Type mismatch for return statement in function '$clean_fn_name'. The return type expected is '$expected_ret_type_name' but got '$type_name'.")
+      }
+    } else {
+      panic("Expected function type for '$fn_name' but got '$fn_type'.")
+    }
+  } else {
+    error_list:push("Invalid use of return statement. Return statements are only allowed inside functions.")
+  }
+}
+
+fn type_check_stmt(
+  stmt Statement, 
+  symbol_table map[string, Type], 
+  error_list []string, 
+  fn_name_context_opt Option[string]
+) {
+  match stmt {
+    when Statement::Return(expr) {
+      type_check_ret_stmt(expr, symbol_table, error_list, fn_name_context_opt)
+    }
+    when Statement::If(condition_expr, then_stmt, else_stmt_opt) {
+      val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
+      type_check_stmt(then_stmt, symbol_table, error_list, fn_name_context_opt)
+      
+      if cond_type != Type::Invalid and cond_type != Type::Primitive(Primitive::Bool) {
+        val type_name = Program::get_type_name(cond_type)
+        error_list:push("Invalid use of if statement. 'if <condition-expr> { ... }'. The condition expression must be of type boolean instead of '$type_name'.")
+      }
+
+      if else_stmt_opt is Option::Some(else_stmt) {
+        type_check_stmt(else_stmt, symbol_table, error_list, fn_name_context_opt)
+      }
+    }
+    when Statement::Compound(block) {
+      type_check_block(block, symbol_table, error_list, fn_name_context_opt)
+    }
+    when Statement::Match(condition_expr, when_case_list, else_block_opt) {
+      type_check_match_stmt(condition_expr, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
+    }
+    when Statement::Expression(expr) {
+      type_check_expr(expr, symbol_table, error_list)
+    }
+  }
+}
+
+fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list []string, fn_name_context_opt Option[string]) {
+  match decl {
+    when Declaration::ConstantDeclaration(name, expr, initial_type) {
+      val infered_type = type_check_expr(expr, symbol_table, error_list)
+      
+      symbol_table[name] = infered_type 
+
+      if infered_type is Type::Void {
+        val clean_name = demangle_name(name)
+        error_list:push("Invalid assignment of type 'void' to constant '$clean_name'. Tip: Can't assign 'void' to a constant.")
+      }
+    }
+    when Declaration::VariableDeclaration(name, expr, initial_type) {
+      val resolved_type = type_check_expr(expr, symbol_table, error_list)
+      symbol_table[name] = resolved_type
+
+      if resolved_type is Type::Void {
+        val clean_name = demangle_name(name)
+        error_list:push("Invalid assignment of type 'void' to variable '$clean_name'. Tip: Can't assign 'void' to a variable.")
+      }
+    }
+    when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+      type_check_block(node_list, symbol_table, error_list, Option::Some(name))
+    }
+    else {}
+  }
+}
+
+fn type_check_block_item(block_item AST, symbol_table map[string, Type], error_list []string, fn_name_context_opt Option[string]) {
+  match block_item {
+    when AST::Declaration(decl) {
+      type_check_decl(decl, symbol_table, error_list, fn_name_context_opt)
+      return false
+    }
+    when AST::Statement(stmt) {
+      return type_check_stmt(stmt, symbol_table, error_list, fn_name_context_opt)
+    }
+  }
+}
+
+fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, Type] {
+  for block_item in block {
+    if block_item is  AST::Declaration(decl) {
+      if decl is Declaration::EnumDeclaration(name, constant_list) {
+        if name in symbol_table {
+          panic("Duplicate enum '$name' should have been caught by Identifier Resolution Pass.")
+        }
+
+        symbol_table[name] = Type::Enum(name, constant_list)
+      }
+
+      if decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+        if name in symbol_table {
+          panic("Duplicate function '$name' should have been caught by Identifier Resolution Pass.")
+        }
+
+        for param in param_list {
+          if param:type is Type::Pending(unresolved_type_name) {
+            panic("Undeclared type '$unresolved_type_name' should have been caught by Identifier Resolution Pass.")
+          }
+
+          symbol_table[param:name] = param:type
+        }
+
+        symbol_table[name] = Type::Function(param_list, ret_type)
+        global_decl_map[name] = decl
+      }
+    }
+  }
+
+  return symbol_table
+}
+
+fn type_check_block(block []AST, symbol_table map[string, Type], error_list []string, fn_name_context_opt Option[string]) {
+  val hoisted_symbol_table = hoist_type_decl_map(block, symbol_table)
+
+  for block_item in block {
+    type_check_block_item(block_item, hoisted_symbol_table, error_list, fn_name_context_opt)
+  }
+}
+
+pub fn type_check_program(program Program) {
+  val error_list = []string
+  val symbol_table = map[string, Type] {}
+
+  type_check_block(program:content, symbol_table, error_list, Option::None)
+
+  return error_list
 }
