@@ -9,7 +9,9 @@ from Entities import
   BinaryOperator,
   UnaryOperator,
   Token,
-  TokenStream
+  TokenStream,
+  Type,
+  Primitive
 from Lexer import lex
 from Parser import parse_line, parse_block, parse_decl, parse_fn_decl, parse_stmt, parse_expr
 
@@ -18,8 +20,8 @@ test "AST: Should parse a Program with multiple top-level declarations and expre
   assert program == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(12))),
-        AST::Declaration(Declaration::VariableDeclaration("b", Expression::Constant(20))),
+        AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(12), Type::Implicit)),
+        AST::Declaration(Declaration::VariableDeclaration("b", Expression::Constant(20), Type::Implicit)),
         AST::Statement(Statement::Expression(Expression::Assignment(
           Expression::Var("b"),
           Expression::Binary(BinaryOperator::Add, Expression::Var("b"), Expression::Constant(10))
@@ -27,7 +29,7 @@ test "AST: Should parse a Program with multiple top-level declarations and expre
         AST::Declaration(Declaration::FunctionDeclaration(
           "add",
           []Parameter,
-          Option::Some("int"),
+          Type::Primitive(Primitive::Int),
           [
             AST::Declaration(
               Declaration::ConstantDeclaration(
@@ -36,7 +38,8 @@ test "AST: Should parse a Program with multiple top-level declarations and expre
                   BinaryOperator::Multiply,
                   Expression::Var("a"),
                   Expression::Constant(2)
-                )
+                ),
+                Type::Implicit
               )
             ),
             AST::Statement(
@@ -61,8 +64,8 @@ test "AST: Should parse a block of multiple declarations and expressions" {
   val stream = TokenStream { list: list, cursor: 0 }
   val block = parse_block(stream, true)
   assert block == Result::Success([
-    AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(10))),
-    AST::Declaration(Declaration::VariableDeclaration("b", Expression::Constant(20))),
+    AST::Declaration(Declaration::ConstantDeclaration("a", Expression::Constant(10), Type::Implicit)),
+    AST::Declaration(Declaration::VariableDeclaration("b", Expression::Constant(20), Type::Implicit)),
     AST::Statement(
       Statement::Expression(
         Expression::Assignment(
@@ -77,7 +80,8 @@ test "AST: Should parse a block of multiple declarations and expressions" {
         BinaryOperator::Subtract,
         Expression::Var("a"),
         Expression::Var("b")
-      )
+      ), 
+      Type::Implicit
     ))
   ])
 }
@@ -85,14 +89,14 @@ test "AST: Should parse a block of multiple declarations and expressions" {
 test "Declaration: Should parse a var declaration" {
   val program = parse_decl(TokenStream { list: lex("var n = 2"), cursor: 0 })
   assert program == Result::Success(
-    Declaration::VariableDeclaration("n", Expression::Constant(2))
+    Declaration::VariableDeclaration("n", Expression::Constant(2), Type::Implicit)
   )
 }
 
 test "Declaration: Should parse a val declaration" {
   val program = parse_decl(TokenStream { list: lex("val n = 2"), cursor: 0 })
   assert program == Result::Success(
-    Declaration::ConstantDeclaration("n", Expression::Constant(2))
+    Declaration::ConstantDeclaration("n", Expression::Constant(2), Type::Implicit)
   )
 }
 
@@ -107,7 +111,7 @@ test "Declaration: Should parse a fn declaration (no parameter, implicit return 
     Declaration::FunctionDeclaration(
       "main", 
       []Parameter, 
-      Option::None, 
+      Type::Implicit, 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -124,7 +128,7 @@ test "Declaration: Should parse a fn declaration (no parameter (with parenthesis
     Declaration::FunctionDeclaration(
       "main", 
       []Parameter, 
-      Option::None, 
+      Type::Implicit, 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -141,7 +145,7 @@ test "Declaration: Should parse a fn declaration (no parameter, explicit return 
     Declaration::FunctionDeclaration(
       "main", 
       []Parameter, 
-      Option::Some("int"), 
+      Type::Primitive(Primitive::Int), 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -158,7 +162,7 @@ test "Declaration: Should parse a fn declaration (no parameter (with parenthesis
     Declaration::FunctionDeclaration(
       "main", 
       []Parameter, 
-      Option::Some("int"), 
+      Type::Primitive(Primitive::Int), 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -174,8 +178,8 @@ test "Declaration: Should parse a fn declaration (one parameter, implicit return
   assert function == Result::Success(
     Declaration::FunctionDeclaration(
       "main", 
-      [Parameter { name: "a", type: "int" }], 
-      Option::None, 
+      [Parameter { name: "a", type: Type::Primitive(Primitive::Int) }], 
+      Type::Implicit, 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -191,8 +195,8 @@ test "Declaration: Should parse a fn declaration (one parameter, explicit return
   assert function == Result::Success(
     Declaration::FunctionDeclaration(
       "main", 
-      [Parameter { name: "a", type: "int" }], 
-      Option::Some("int"), 
+      [Parameter { name: "a", type: Type::Primitive(Primitive::Int) }], 
+      Type::Primitive(Primitive::Int), 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -209,11 +213,11 @@ test "Declaration: Should parse a fn declaration (multiple parameter (commas), i
     Declaration::FunctionDeclaration(
       "main", 
       [
-        Parameter { name: "a", type: "int" } 
-        Parameter { name: "b", type: "int" }
-        Parameter { name: "c", type: "int" }
+        Parameter { name: "a", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "b", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "c", type: Type::Primitive(Primitive::Int) }
       ], 
-      Option::None, 
+      Type::Implicit, 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -230,11 +234,11 @@ test "Declaration: Should parse a fn declaration (multiple parameter (no commas)
     Declaration::FunctionDeclaration(
       "main", 
       [
-        Parameter { name: "a", type: "int" } 
-        Parameter { name: "b", type: "int" }
-        Parameter { name: "c", type: "int" }
+        Parameter { name: "a", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "b", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "c", type: Type::Primitive(Primitive::Int) }
       ], 
-      Option::None, 
+      Type::Implicit, 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -251,11 +255,11 @@ test "Declaration: Should parse a fn declaration (multiple parameter (commas), e
     Declaration::FunctionDeclaration(
       "main", 
       [
-        Parameter { name: "a", type: "int" } 
-        Parameter { name: "b", type: "int" }
-        Parameter { name: "c", type: "int" }
+        Parameter { name: "a", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "b", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "c", type: Type::Primitive(Primitive::Int) }
       ], 
-      Option::Some("int"), 
+      Type::Primitive(Primitive::Int), 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -272,11 +276,11 @@ test "Declaration: Should parse a fn declaration (multiple parameter (no commas)
     Declaration::FunctionDeclaration(
       "main", 
       [
-        Parameter { name: "a", type: "int" } 
-        Parameter { name: "b", type: "int" }
-        Parameter { name: "c", type: "int" }
+        Parameter { name: "a", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "b", type: Type::Primitive(Primitive::Int) },
+        Parameter { name: "c", type: Type::Primitive(Primitive::Int) }
       ], 
-      Option::Some("int"), 
+      Type::Primitive(Primitive::Int), 
       [AST::Statement(Statement::Return(Expression::Constant(2)))]
     )
   )
@@ -706,4 +710,4 @@ test "Expression: Should parse a conditional expression" {
       Expression::Constant(0)
     )
   )
-}
+}ñ

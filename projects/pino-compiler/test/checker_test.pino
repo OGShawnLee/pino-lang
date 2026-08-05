@@ -1,5 +1,6 @@
-from Entities import Program, AST, Statement, Declaration, Expression, Parameter, BinaryOperator, When
-from Checker import resolve_program, pseudo_name_counter
+from Utility import pseudo_name_counter
+from Entities import Program, AST, Statement, Declaration, Expression, Parameter, BinaryOperator, When, Type, Primitive
+from Checker import resolve_program
 from Parser import parse_line, parse_decl
 
 test "Identifier Resolution: Should return a valid Program with multiple top-level declarations and expressions" {
@@ -11,8 +12,8 @@ test "Identifier Resolution: Should return a valid Program with multiple top-lev
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12))),
-        AST::Declaration(Declaration::VariableDeclaration("_pino_b_2", Expression::Constant(20))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12), Type::Implicit)),
+        AST::Declaration(Declaration::VariableDeclaration("_pino_b_2", Expression::Constant(20), Type::Implicit)),
         AST::Statement(Statement::Expression(
           Expression::Assignment(
             Expression::Var("_pino_b_2"),
@@ -27,7 +28,7 @@ test "Identifier Resolution: Should return a valid Program with multiple top-lev
           Declaration::FunctionDeclaration(
             "_pino_add_0", 
             []Parameter, 
-            Option::Some("int"), 
+            Type::Primitive(Primitive::Int), 
             [
               AST::Declaration(
                 Declaration::ConstantDeclaration(
@@ -36,7 +37,8 @@ test "Identifier Resolution: Should return a valid Program with multiple top-lev
                     BinaryOperator::Multiply,
                     Expression::Var("_pino_a_1"),
                     Expression::Constant(2)
-                  )
+                  ),
+                  Type::Implicit
                 )
               ),
               AST::Statement(Statement::Return(
@@ -90,9 +92,9 @@ test "Identifier Resolution: Should allow declaration self-reference (with shado
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(1))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Var("_pino_a_0")))
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(1), Type::Implicit)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Var("_pino_a_0"), Type::Implicit))
         ]))
       ]
     }
@@ -207,9 +209,9 @@ test "Identifier Resolution: Should allow declaration (fn -> fn) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Option::None, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::FunctionDeclaration("_pino_a_1", []Parameter, Option::None, []AST))
+        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Type::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::FunctionDeclaration("_pino_a_1", []Parameter, Type::Implicit, []AST))
         ]))
       ]
     }
@@ -225,9 +227,9 @@ test "Identifier Resolution: Should allow declaration (fn -> val) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Option::None, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12)))
+        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Type::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12), Type::Implicit))
         ]))
       ]
     }
@@ -243,9 +245,9 @@ test "Identifier Resolution: Should allow declaration (fn -> var) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Option::None, []AST)),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::VariableDeclaration("_pino_a_1", Expression::Constant(12)))
+        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Type::Implicit, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::VariableDeclaration("_pino_a_1", Expression::Constant(12), Type::Implicit))
         ]))
       ]
     }
@@ -261,9 +263,9 @@ test "Identifier Resolution: Should allow declaration (val -> fn) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(10))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::FunctionDeclaration("_pino_a_1", []Parameter, Option::None, []AST))
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(10), Type::Implicit)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::FunctionDeclaration("_pino_a_1", []Parameter, Type::Implicit, []AST))
         ]))
       ]
     }
@@ -279,9 +281,9 @@ test "Identifier Resolution: Should allow declaration (val -> val) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(10))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12)))
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(10), Type::Implicit)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12), Type::Implicit))
         ]))
       ]
     }
@@ -297,9 +299,9 @@ test "Identifier Resolution: Should allow declaration (val -> var) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(10))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::VariableDeclaration("_pino_a_1", Expression::Constant(12)))
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_a_0", Expression::Constant(10), Type::Implicit)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::VariableDeclaration("_pino_a_1", Expression::Constant(12), Type::Implicit))
         ]))
       ]
     }
@@ -315,9 +317,9 @@ test "Identifier Resolution: Should allow declaration (var -> fn) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::VariableDeclaration("_pino_a_0", Expression::Constant(10))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::FunctionDeclaration("_pino_a_1", []Parameter, Option::None, []AST))
+        AST::Declaration(Declaration::VariableDeclaration("_pino_a_0", Expression::Constant(10), Type::Implicit)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::FunctionDeclaration("_pino_a_1", []Parameter, Type::Implicit, []AST))
         ]))
       ]
     }
@@ -333,9 +335,9 @@ test "Identifier Resolution: Should allow declaration (var -> val) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::VariableDeclaration("_pino_a_0", Expression::Constant(10))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12)))
+        AST::Declaration(Declaration::VariableDeclaration("_pino_a_0", Expression::Constant(10), Type::Implicit)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::ConstantDeclaration("_pino_a_1", Expression::Constant(12), Type::Implicit))
         ]))
       ]
     }
@@ -351,9 +353,9 @@ test "Identifier Resolution: Should allow declaration (var -> var) (fn scope)" {
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::VariableDeclaration("_pino_a_0", Expression::Constant(10))),
-        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Option::None, [
-          AST::Declaration(Declaration::VariableDeclaration("_pino_a_1", Expression::Constant(12)))
+        AST::Declaration(Declaration::VariableDeclaration("_pino_a_0", Expression::Constant(10), Type::Implicit)),
+        AST::Declaration(Declaration::FunctionDeclaration("main", []Parameter, Type::Implicit, [
+          AST::Declaration(Declaration::VariableDeclaration("_pino_a_1", Expression::Constant(12), Type::Implicit))
         ]))
       ]
     }
@@ -369,19 +371,19 @@ test "Identifier Resolution: Should allow shadowing (val -> val) in if-else-if s
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
-            AST::Declaration(Declaration::ConstantDeclaration("_pino_n_1", Expression::Constant(2)))
+            AST::Declaration(Declaration::ConstantDeclaration("_pino_n_1", Expression::Constant(2), Type::Implicit))
           ]),
           Option::Some(Statement::If(
             Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
             Statement::Compound([
-              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_2", Expression::Constant(3)))
+              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_2", Expression::Constant(3), Type::Implicit))
             ]),
             Option::Some(Statement::Compound([
-              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_3", Expression::Constant(4)))
+              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_3", Expression::Constant(4), Type::Implicit))
             ]))
           ))
         ))
@@ -399,19 +401,19 @@ test "Identifier Resolution: Should allow shadowing (val -> var) in if-else-if s
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
-            AST::Declaration(Declaration::VariableDeclaration("_pino_n_1", Expression::Constant(2)))
+            AST::Declaration(Declaration::VariableDeclaration("_pino_n_1", Expression::Constant(2), Type::Implicit))
           ]),
           Option::Some(Statement::If(
             Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
             Statement::Compound([
-              AST::Declaration(Declaration::VariableDeclaration("_pino_n_2", Expression::Constant(3)))
+              AST::Declaration(Declaration::VariableDeclaration("_pino_n_2", Expression::Constant(3), Type::Implicit))
             ]),
             Option::Some(Statement::Compound([
-              AST::Declaration(Declaration::VariableDeclaration("_pino_n_3", Expression::Constant(4)))
+              AST::Declaration(Declaration::VariableDeclaration("_pino_n_3", Expression::Constant(4), Type::Implicit))
             ]))
           ))
         ))
@@ -429,19 +431,19 @@ test "Identifier Resolution: Should allow shadowing (val -> fn) in if-else-if st
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
-            AST::Declaration(Declaration::FunctionDeclaration("_pino_n_1", []Parameter, Option::None, []AST))
+            AST::Declaration(Declaration::FunctionDeclaration("_pino_n_1", []Parameter, Type::Implicit, []AST))
           ]),
           Option::Some(Statement::If(
             Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
             Statement::Compound([
-              AST::Declaration(Declaration::FunctionDeclaration("_pino_n_2", []Parameter, Option::None, []AST))
+              AST::Declaration(Declaration::FunctionDeclaration("_pino_n_2", []Parameter, Type::Implicit, []AST))
             ]),
             Option::Some(Statement::Compound([
-              AST::Declaration(Declaration::FunctionDeclaration("_pino_n_3", []Parameter, Option::None, []AST))
+              AST::Declaration(Declaration::FunctionDeclaration("_pino_n_3", []Parameter, Type::Implicit, []AST))
             ]))
           ))
         ))
@@ -459,19 +461,19 @@ test "Identifier Resolution: Should allow shadowing (var -> var) in if-else-if s
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::VariableDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::VariableDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
-            AST::Declaration(Declaration::VariableDeclaration("_pino_n_1", Expression::Constant(2)))
+            AST::Declaration(Declaration::VariableDeclaration("_pino_n_1", Expression::Constant(2), Type::Implicit))
           ]),
           Option::Some(Statement::If(
             Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
             Statement::Compound([
-              AST::Declaration(Declaration::VariableDeclaration("_pino_n_2", Expression::Constant(3)))
+              AST::Declaration(Declaration::VariableDeclaration("_pino_n_2", Expression::Constant(3), Type::Implicit))
             ]),
             Option::Some(Statement::Compound([
-              AST::Declaration(Declaration::VariableDeclaration("_pino_n_3", Expression::Constant(4)))
+              AST::Declaration(Declaration::VariableDeclaration("_pino_n_3", Expression::Constant(4), Type::Implicit))
             ]))
           ))
         ))
@@ -489,19 +491,19 @@ test "Identifier Resolution: Should allow shadowing (fn -> val) in if-else-if st
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::FunctionDeclaration("_pino_n_0", []Parameter, Option::None, []AST)),
+        AST::Declaration(Declaration::FunctionDeclaration("_pino_n_0", []Parameter, Type::Implicit, []AST)),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
-            AST::Declaration(Declaration::ConstantDeclaration("_pino_n_1", Expression::Constant(2)))
+            AST::Declaration(Declaration::ConstantDeclaration("_pino_n_1", Expression::Constant(2), Type::Implicit))
           ]),
           Option::Some(Statement::If(
             Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
             Statement::Compound([
-              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_2", Expression::Constant(3)))
+              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_2", Expression::Constant(3), Type::Implicit))
             ]),
             Option::Some(Statement::Compound([
-              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_3", Expression::Constant(4)))
+              AST::Declaration(Declaration::ConstantDeclaration("_pino_n_3", Expression::Constant(4), Type::Implicit))
             ]))
           ))
         ))
@@ -519,7 +521,7 @@ test "Identifier Resolution: Should allow referencing a constant from outer scop
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::If(
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
@@ -549,25 +551,25 @@ test "Identifier Resolution: Should allow shadowing (val -> val) in match when a
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::Match(
           Expression::Constant(1),
           [
             When {
               cond_list: [Expression::Constant(1)],
               block: [
-                AST::Declaration(Declaration::ConstantDeclaration("_pino_n_1", Expression::Constant(2)))
+                AST::Declaration(Declaration::ConstantDeclaration("_pino_n_1", Expression::Constant(2), Type::Implicit))
               ]
             },
             When {
               cond_list: [Expression::Constant(2)],
               block: [
-                AST::Declaration(Declaration::ConstantDeclaration("_pino_n_2", Expression::Constant(3)))
+                AST::Declaration(Declaration::ConstantDeclaration("_pino_n_2", Expression::Constant(3), Type::Implicit))
               ]
             }
           ],
           Option::Some([
-            AST::Declaration(Declaration::ConstantDeclaration("_pino_n_3", Expression::Constant(4)))
+            AST::Declaration(Declaration::ConstantDeclaration("_pino_n_3", Expression::Constant(4), Type::Implicit))
           ])
         ))
       ]
@@ -584,25 +586,25 @@ test "Identifier Resolution: Should allow shadowing (val -> var) in match when a
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::Match(
           Expression::Constant(1),
           [
             When {
               cond_list: [Expression::Constant(1)],
               block: [
-                AST::Declaration(Declaration::VariableDeclaration("_pino_n_1", Expression::Constant(2)))
+                AST::Declaration(Declaration::VariableDeclaration("_pino_n_1", Expression::Constant(2), Type::Implicit))
               ]
             },
             When {
               cond_list: [Expression::Constant(2)],
               block: [
-                AST::Declaration(Declaration::VariableDeclaration("_pino_n_2", Expression::Constant(3)))
+                AST::Declaration(Declaration::VariableDeclaration("_pino_n_2", Expression::Constant(3), Type::Implicit))
               ]
             }
           ],
           Option::Some([
-            AST::Declaration(Declaration::VariableDeclaration("_pino_n_3", Expression::Constant(4)))
+            AST::Declaration(Declaration::VariableDeclaration("_pino_n_3", Expression::Constant(4), Type::Implicit))
           ])
         ))
       ]
@@ -619,25 +621,25 @@ test "Identifier Resolution: Should allow shadowing (val -> fn) in match when an
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::Match(
           Expression::Constant(1),
           [
             When {
               cond_list: [Expression::Constant(1)],
               block: [
-                AST::Declaration(Declaration::FunctionDeclaration("_pino_n_1", []Parameter, Option::None, []AST))
+                AST::Declaration(Declaration::FunctionDeclaration("_pino_n_1", []Parameter, Type::Implicit, []AST))
               ]
             },
             When {
               cond_list: [Expression::Constant(2)],
               block: [
-                AST::Declaration(Declaration::FunctionDeclaration("_pino_n_2", []Parameter, Option::None, []AST))
+                AST::Declaration(Declaration::FunctionDeclaration("_pino_n_2", []Parameter, Type::Implicit, []AST))
               ]
             }
           ],
           Option::Some([
-            AST::Declaration(Declaration::FunctionDeclaration("_pino_n_3", []Parameter, Option::None, []AST))
+            AST::Declaration(Declaration::FunctionDeclaration("_pino_n_3", []Parameter, Type::Implicit, []AST))
           ])
         ))
       ]
@@ -654,7 +656,7 @@ test "Identifier Resolution: Should allow referencing outer constant in match wh
   assert program_checked == Result::Success(
     Program {
       content: [
-        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1))),
+        AST::Declaration(Declaration::ConstantDeclaration("_pino_n_0", Expression::Constant(1), Type::Implicit)),
         AST::Statement(Statement::Match(
           Expression::Constant(1),
           [
@@ -687,11 +689,11 @@ test "Declaration Hoisting: Should allow fn call hoisting (global scope)" {
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Option::None,
+            Type::Implicit,
             [AST::Statement(Statement::Expression(Expression::FunctionCall("_pino_a_0", []Expression)))]
         )
         ),
-        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Option::None, []AST))
+        AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Type::Implicit, []AST))
       ]
     }
   )
@@ -710,7 +712,7 @@ test "Declaration Hoisting: Should allow fn call hoisting (fn scope)" {
           Declaration::FunctionDeclaration(
             "main",
             []Parameter,
-            Option::None,
+            Type::Implicit,
             [
               AST::Statement(
                 Statement::Expression(
@@ -718,7 +720,7 @@ test "Declaration Hoisting: Should allow fn call hoisting (fn scope)" {
                 )
               ),
               AST::Declaration(
-                Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Option::None, []AST)
+                Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Type::Implicit, []AST)
               )
             ]
           )
@@ -741,17 +743,17 @@ test "Declaration Hoisting: Should allow fn call hoisting (if-else-if statement 
           Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(2)),
           Statement::Compound([
             AST::Statement(Statement::Expression(Expression::FunctionCall("_pino_a_0", []Expression))),
-            AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Option::None, []AST))
+            AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Type::Implicit, []AST))
           ]),
           Option::Some(Statement::If(
             Expression::Binary(BinaryOperator::LessThan, Expression::Constant(1), Expression::Constant(3)),
             Statement::Compound([
               AST::Statement(Statement::Expression(Expression::FunctionCall("_pino_b_1", []Expression))),
-              AST::Declaration(Declaration::FunctionDeclaration("_pino_b_1", []Parameter, Option::None, []AST))
+              AST::Declaration(Declaration::FunctionDeclaration("_pino_b_1", []Parameter, Type::Implicit, []AST))
             ]),
             Option::Some(Statement::Compound([
               AST::Statement(Statement::Expression(Expression::FunctionCall("_pino_c_2", []Expression))),
-              AST::Declaration(Declaration::FunctionDeclaration("_pino_c_2", []Parameter, Option::None, []AST))
+              AST::Declaration(Declaration::FunctionDeclaration("_pino_c_2", []Parameter, Type::Implicit, []AST))
             ]))
           ))
         ))
@@ -776,13 +778,13 @@ test "Declaration Hoisting: Should allow fn call hoisting (match when and else s
               cond_list: [Expression::Constant(1)],
               block: [
                 AST::Statement(Statement::Expression(Expression::FunctionCall("_pino_a_0", []Expression))),
-                AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Option::None, []AST))
+                AST::Declaration(Declaration::FunctionDeclaration("_pino_a_0", []Parameter, Type::Implicit, []AST))
               ]
             }
           ],
           Option::Some([
             AST::Statement(Statement::Expression(Expression::FunctionCall("_pino_b_1", []Expression))),
-            AST::Declaration(Declaration::FunctionDeclaration("_pino_b_1", []Parameter, Option::None, []AST))
+            AST::Declaration(Declaration::FunctionDeclaration("_pino_b_1", []Parameter, Type::Implicit, []AST))
           ])
         ))
       ]
