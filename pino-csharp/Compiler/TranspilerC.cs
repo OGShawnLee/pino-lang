@@ -19,6 +19,7 @@ public class TranspilerC {
     private Dictionary<string, UnionDeclaration> _unions = new Dictionary<string, UnionDeclaration>();
     private Dictionary<string, EnumDeclaration> _enums = new Dictionary<string, EnumDeclaration>();
     private Stack<string> _matchResultVars = new Stack<string>();
+    private Stack<string> _matchExitLabels = new Stack<string>();
     private Dictionary<string, string> _globalVarTypes = new Dictionary<string, string>();
     private StringBuilder _globalDeclSb = new StringBuilder();
     private bool _isGlobalScope = false;
@@ -423,6 +424,7 @@ public class TranspilerC {
         _unions.Clear();
         _enums.Clear();
         _matchResultVars.Clear();
+        _matchExitLabels.Clear();
         _globalVarTypes.Clear();
         _globalDeclSb.Clear();
         _isGlobalScope = true;
@@ -1722,10 +1724,19 @@ public class TranspilerC {
                 if (_matchResultVars.Count > 0) {
                     Write($"{_matchResultVars.Peek()} = ");
                     TranspileExpression(yield.Value);
+                    _sb.AppendLine(";");
+                    if (_matchExitLabels.Count > 0) {
+                        WriteIndent();
+                        Write($"goto {_matchExitLabels.Peek()};\n");
+                    }
                 } else {
                     TranspileExpression(yield.Value);
+                    _sb.AppendLine(";");
+                    if (_matchExitLabels.Count > 0) {
+                        WriteIndent();
+                        Write($"goto {_matchExitLabels.Peek()};\n");
+                    }
                 }
-                _sb.AppendLine(";");
                 break;
 
             case ReturnStatement ret:
@@ -2677,6 +2688,9 @@ public class TranspilerC {
             case MatchStatement match:
                 {
                     Write("({ ");
+                    var exitLabel = $"_pino_match_exit_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                    _matchExitLabels.Push(exitLabel);
+
                     var condVar = $"_pino_match_cond_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
                     var condType = match.Condition.InferredType!;
                     Write($"{MapType(condType)} {condVar} = ");
@@ -2764,11 +2778,13 @@ public class TranspilerC {
                         Write("}");
                     }
 
+                    Write($" {exitLabel}:; ");
                     if (!string.IsNullOrEmpty(resVar)) {
-                        Write($" {resVar}; ");
+                        Write($"{resVar}; ");
                         _matchResultVars.Pop();
                     }
 
+                    _matchExitLabels.Pop();
                     Write("})");
                 }
                 break;
@@ -2831,7 +2847,9 @@ public class TranspilerC {
                     Write($"{resVar} = {varName}->value.{successVariant}._0; ");
                     Write("} else { ");
 
+                    string exitLabel = $"_pino_match_exit_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
                     _matchResultVars.Push(resVar);
+                    _matchExitLabels.Push(exitLabel);
                     if (failureVariant == "Failure") {
                         Write($"const char* err = {varName}->value.Failure._0; ");
                     } else {
@@ -2862,8 +2880,10 @@ public class TranspilerC {
                     }
 
                     _matchResultVars.Pop();
+                    _matchExitLabels.Pop();
                     Write("} ");
 
+                    Write($"{exitLabel}:; ");
                     Write($"{resVar}; }})");
                 }
                 break;

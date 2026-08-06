@@ -74,7 +74,26 @@ test "Match Statement (Side-Effects): Executing statement branches without retur
     when false {
       result_val = 200
     }
+    else {
+      result_val = 300
+    }
   }
 
   assert result_val == 100
+}
+
+test "Match Statement (Yield): Executing yield ends the current branch" {
+  var side_effect = 0
+  val result = match 0 {
+    when 0 {
+      if true {
+        yield 100
+      }
+      side_effect = 100
+      yield 300
+    }
+    else => 200
+  }
+  assert result == 100
+  assert side_effect == 0
 }
