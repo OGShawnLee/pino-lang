@@ -22,6 +22,14 @@ fn is_float_primitive(entity Primitive) bool {
   return entity == Primitive::Float
 }
 
+fn get_int int {
+  if 1 > 2 {
+    match 1 {}
+  } else {
+    return 3
+  }
+}
+
 fn main {
   val res = is_float_primitive(Primitive::Float)
   val is_monday = Day::Monday == Day::Thursday

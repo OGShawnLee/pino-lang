@@ -106,6 +106,23 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
       return Result::Failure("Type Checker Error: Static Member Access (::) must be performed on an enum type, e.g. '<enum_name>::<constant_name>.'")
     }
     when Expression::Assignment(left_expr, right_expr) {
+      if left_expr is Expression::Var(left_name) and left_name in variable_map {
+        val entity = variable_map[left_name]
+
+        match entity:kind {
+          when Kind::Function {
+            return Result::Failure("Type Checker Error: Cannot assign to function '$left_name'.")
+          }
+          when Kind::Enum(constant_list) {
+            return Result::Failure("Type Checker Error: Cannot assign to enum '$left_name'.")
+          }
+          when Kind::Val {
+            return Result::Failure("Type Checker Error: Cannot assign to constant '$left_name'.")
+          }
+          else {}
+        }
+      }
+
       val resolved_left_expr = resolve_expr(left_expr, variable_map)?
       val resolved_right_expr = resolve_expr(right_expr, variable_map)?
 
@@ -496,7 +513,7 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
 
       val arg_type = arg_list_type[index]
 
-      if arg_type != param:type {
+      if arg_type != param:type and arg_type != Type::Invalid {
         val arg_type_name = Program::get_type_name(arg_type)
         val param_type_name = Program::get_type_name(param:type)
         
@@ -785,9 +802,10 @@ fn type_check_match_enum_stmt(
   symbol_table map[string, Type]
   error_list []string
   fn_name_context_opt Option[string]
-) {
+) bool {
   val clean_enum_name = demangle_name(enum_name)
   val covered_list = []string
+  var has_ret_stmt_list = []bool
 
   for when_case in when_case_list {
     for cond_expr in when_case:cond_list {
@@ -807,7 +825,7 @@ fn type_check_match_enum_stmt(
       }
     }
 
-    type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt)
+    has_ret_stmt_list:push(type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt))
   }
 
   val uncovered_list = []string
@@ -828,8 +846,11 @@ fn type_check_match_enum_stmt(
   }
 
   if else_block_opt is Option::Some(else_block) {
-    type_check_block(else_block, symbol_table, error_list, fn_name_context_opt)
+    has_ret_stmt_list:push(type_check_block(else_block, symbol_table, error_list, fn_name_context_opt))
+    return has_ret_stmt_list:all(it)
   }
+
+  return uncovered_list:len == 0 and has_ret_stmt_list:all(it)
 }
 
 fn type_check_match_stmt(
@@ -839,12 +860,12 @@ fn type_check_match_stmt(
   symbol_table map[string, Type]
   error_list []string
   fn_name_context_opt Option[string]
-) {
+) bool {
   val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
+  var has_ret_stmt_list = []bool
 
   if cond_type is Type::Enum(enum_name, constant_list) {
-    type_check_match_enum_stmt(enum_name, constant_list, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
-    return
+    return type_check_match_enum_stmt(enum_name, constant_list, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
   }
 
   for when_case in when_case_list {
@@ -858,12 +879,15 @@ fn type_check_match_stmt(
       }
     }
 
-    type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt)
+    has_ret_stmt_list:push(type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt))
   }
 
   if else_block_opt is Option::Some(else_block) {
-    type_check_block(else_block, symbol_table, error_list, fn_name_context_opt)
+    has_ret_stmt_list:push(type_check_block(else_block, symbol_table, error_list, fn_name_context_opt))
+    return has_ret_stmt_list:all(it)
   }
+
+  return false
 }
 
 fn type_check_ret_stmt(
@@ -907,10 +931,11 @@ fn type_check_stmt(
   match stmt {
     when Statement::Return(expr) {
       type_check_ret_stmt(expr, symbol_table, error_list, fn_name_context_opt)
+      return true
     }
     when Statement::If(condition_expr, then_stmt, else_stmt_opt) {
       val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
-      type_check_stmt(then_stmt, symbol_table, error_list, fn_name_context_opt)
+      val has_ret_in_then_stmt = type_check_stmt(then_stmt, symbol_table, error_list, fn_name_context_opt)
       
       if cond_type != Type::Invalid and cond_type != Type::Primitive(Primitive::Bool) {
         val type_name = Program::get_type_name(cond_type)
@@ -918,19 +943,24 @@ fn type_check_stmt(
       }
 
       if else_stmt_opt is Option::Some(else_stmt) {
-        type_check_stmt(else_stmt, symbol_table, error_list, fn_name_context_opt)
+        val has_ret_in_else_stmt = type_check_stmt(else_stmt, symbol_table, error_list, fn_name_context_opt)
+        return has_ret_in_then_stmt and has_ret_in_else_stmt
       }
+
+      return false
     }
     when Statement::Compound(block) {
-      type_check_block(block, symbol_table, error_list, fn_name_context_opt)
+      return type_check_block(block, symbol_table, error_list, fn_name_context_opt)
     }
     when Statement::Match(condition_expr, when_case_list, else_block_opt) {
-      type_check_match_stmt(condition_expr, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
+      return type_check_match_stmt(condition_expr, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
     }
     when Statement::Expression(expr) {
       type_check_expr(expr, symbol_table, error_list)
     }
   }
+
+  return false
 }
 
 fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list []string, fn_name_context_opt Option[string]) {
@@ -955,7 +985,14 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
       }
     }
     when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
-      type_check_block(node_list, symbol_table, error_list, Option::Some(name))
+      val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))
+
+      if not has_ret_guaranteed and ret_type != Type::Implicit and ret_type != Type::Void {
+        val clean_name = demangle_name(name)
+        val ret_type_name = Program::get_type_name(ret_type)
+        
+        error_list:push("Expected function '$clean_name' to always return '$ret_type_name' but it doesn't guarantee it. Tip: Make sure all execution paths return a value of type '$ret_type_name'.")
+      }
     }
     else {}
   }
@@ -1006,12 +1043,15 @@ fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, 
   return symbol_table
 }
 
-fn type_check_block(block []AST, symbol_table map[string, Type], error_list []string, fn_name_context_opt Option[string]) {
+fn type_check_block(block []AST, symbol_table map[string, Type], error_list []string, fn_name_context_opt Option[string]) bool {
   val hoisted_symbol_table = hoist_type_decl_map(block, symbol_table)
+  var has_ret_stmt = false
 
   for block_item in block {
-    type_check_block_item(block_item, hoisted_symbol_table, error_list, fn_name_context_opt)
+    has_ret_stmt = type_check_block_item(block_item, hoisted_symbol_table, error_list, fn_name_context_opt) or has_ret_stmt
   }
+
+  return has_ret_stmt
 }
 
 pub fn type_check_program(program Program) {

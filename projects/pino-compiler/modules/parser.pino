@@ -430,6 +430,7 @@ fn parse_type(stream TokenStream) Result[Type, string] {
     when "int" => Result::Success(Type::Primitive(Primitive::Int))
     when "float" => Result::Success(Type::Primitive(Primitive::Float))
     when "bool" => Result::Success(Type::Primitive(Primitive::Bool))
+    when "void" => Result::Success(Type::Void)
     else => Result::Success(Type::Pending(type_token:value))
   }
 }
