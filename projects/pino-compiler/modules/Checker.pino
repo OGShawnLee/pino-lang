@@ -398,8 +398,16 @@ pub fn resolve_program(program Program) Result[Program, string] {
   )
 }
 
+union Invariant {
+  Int(int)
+  Float(float)
+  Bool(bool)
+  Variant
+}
+
 val global_decl_map = map[string, Declaration] {}
 val global_fn_infer_stack = []string
+val global_const_invariant = map[string, Invariant] {}
 
 fn is_int_primitive(target_type Type) bool {
   return target_type == Type::Primitive(Primitive::Int)
@@ -411,6 +419,36 @@ fn is_float_primitive(target_type Type) bool {
 
 fn is_numeric_primitive(target_type Type) bool {
   return is_int_primitive(target_type) or is_float_primitive(target_type)
+}
+
+fn is_numeric_invariant(value Invariant) {
+  return value is Invariant::Int or value is Invariant::Float
+}
+
+fn coerce_to_float(value Invariant) float {
+  if value is Invariant::Int(integer_value) {
+    return float(integer_value) or { panic("Failed to convert integer to float") }
+  }
+
+  if value is Invariant::Float(float_value) {
+    return float_value
+  }
+}
+
+fn get_invariant_str_value(value Invariant) {
+  if value is Invariant::Int(integer_value) {
+    return str(integer_value)
+  }
+
+  if value is Invariant::Float(float_value) {
+    return str(float_value)
+  }
+
+  if value is Invariant::Bool(bool_value) {
+    return str(bool_value)
+  }
+
+  return "variant"
 }
 
 fn resolve_numeric_numeric_bin_operation_type(left_type Type, right_type Type) Type {
@@ -705,6 +743,15 @@ fn type_check_binary_expr(
     }
     when BinaryOperator::Divide {
       if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
+        val evaluated_right = eval_const_expr(right_expr, error_list)
+        val left_value = coerce_to_float(eval_const_expr(left_expr, error_list))
+        val right_value = coerce_to_float(evaluated_right)
+
+        if right_value == 0.0 {
+          error_list:push("An error of division by zero was found ahead of time. '$left_value / $right_value' will always produce an error.")
+          return Type::Invalid
+        }
+
         return Type::Primitive(Primitive::Float)
       }
 
@@ -717,6 +764,15 @@ fn type_check_binary_expr(
       }
 
       if is_int_primitive(left_type) and is_int_primitive(right_type) {
+        val evaluated_right = eval_const_expr(right_expr, error_list)
+        val left_value = coerce_to_float(eval_const_expr(left_expr, error_list))
+        val right_value = coerce_to_float(evaluated_right)
+
+        if right_value == 0.0 {
+          error_list:push("An error of remainder by zero was found ahead of time. '$left_value % $right_value' will always produce an error.")
+          return Type::Invalid
+        }
+
         return Type::Primitive(Primitive::Int)
       }
 
@@ -862,7 +918,10 @@ fn type_check_match_stmt(
   fn_name_context_opt Option[string]
 ) bool {
   val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
-  var has_ret_stmt_list = []bool
+  val evaluated_cond = eval_const_expr(condition_expr, error_list)
+  val invariant_str = get_invariant_str_value(evaluated_cond)
+  val has_ret_stmt_list = []bool
+  var has_static_match = false 
 
   if cond_type is Type::Enum(enum_name, constant_list) {
     return type_check_match_enum_stmt(enum_name, constant_list, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
@@ -871,23 +930,39 @@ fn type_check_match_stmt(
   for when_case in when_case_list {
     for cond_expr in when_case:cond_list {
       val expr_type = type_check_expr(cond_expr, symbol_table, error_list)
+      val evaluated_when_cond = eval_const_expr(cond_expr, error_list)
 
       if expr_type != cond_type {
         val type_name = Program::get_type_name(expr_type)
         val cond_type_name = Program::get_type_name(cond_type)
         error_list:push("Match statement type mismatch. The when case condition's type '$type_name' must match the match statement's condition's type '$cond_type_name'.")
       }
+
+      if has_static_match {
+        if evaluated_when_cond != evaluated_cond {
+          val when_invariant_str = get_invariant_str_value(evaluated_when_cond)
+          error_list:push("Match statement has redundant when case condition '$when_invariant_str' for '$invariant_str' constant value.")
+        } 
+        continue
+      }
+
+      has_static_match = evaluated_cond != Invariant::Variant and evaluated_cond == evaluated_when_cond
     }
 
     has_ret_stmt_list:push(type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt))
   }
 
   if else_block_opt is Option::Some(else_block) {
-    has_ret_stmt_list:push(type_check_block(else_block, symbol_table, error_list, fn_name_context_opt))
-    return has_ret_stmt_list:all(it)
+    if has_static_match and evaluated_cond != Invariant::Variant {
+      val else_invariant_str = get_invariant_str_value(evaluated_cond)
+      error_list:push("Match statement has redundant else block for '$else_invariant_str' constant value.")
+    }
+
+    has_ret_stmt_list:push(type_check_block(else_block, symbol_table, error_list, fn_name_context_opt))    
+    return (has_static_match and evaluated_cond != Invariant::Variant) and has_ret_stmt_list:all(it)
   }
 
-  return false
+  return has_static_match and evaluated_cond != Invariant::Variant
 }
 
 fn type_check_ret_stmt(
@@ -922,6 +997,113 @@ fn type_check_ret_stmt(
   }
 }
 
+fn eval_const_expr(expr Expression, error_list []string) Invariant {
+  match expr {
+    when Expression::Constant(n) {
+      return Invariant::Int(n)
+    }
+    when Expression::Var(name) {
+      return if name in global_const_invariant then global_const_invariant[name] else Invariant::Variant
+    }
+    when Expression::Unary(unary_op, expr) {
+      val evaluated_expr = eval_const_expr(expr, error_list)
+
+      match unary_op {
+        when UnaryOperator::Not {
+          if evaluated_expr is Invariant::Bool(boolean) {
+            return Invariant::Bool(not boolean)
+          }
+        }
+        when UnaryOperator::Negate {
+          if evaluated_expr is Invariant::Int(num) {
+            return Invariant::Int(-num)
+          }
+        }
+      }
+    }
+    when Expression::Binary(bin_op, left_expr, right_expr) {
+      val evaluated_left = eval_const_expr(left_expr, error_list)
+      val evaluated_right = eval_const_expr(right_expr, error_list)
+
+      if is_numeric_invariant(evaluated_left) and is_numeric_invariant(evaluated_right) {
+        val float_left = coerce_to_float(evaluated_left)
+        val float_right = coerce_to_float(evaluated_right)
+
+        return match bin_op {
+          when BinaryOperator::Equal => Invariant::Bool(float_left == float_right)
+          when BinaryOperator::NotEqual => Invariant::Bool(float_left != float_right)
+          when BinaryOperator::LessThan => Invariant::Bool(float_left < float_right)
+          when BinaryOperator::LessOrEqual => Invariant::Bool(float_left <= float_right)
+          when BinaryOperator::GreaterThan => Invariant::Bool(float_left > float_right)
+          when BinaryOperator::GreaterOrEqual => Invariant::Bool(float_left >= float_right)
+          when BinaryOperator::Add {
+            if evaluated_left is Invariant::Int(left_int) and evaluated_right is Invariant::Int(right_int) {
+              yield Invariant::Int(left_int + right_int)
+            }
+
+            yield Invariant::Float(float_left + float_right)
+          }
+          when BinaryOperator::Subtract {
+            if evaluated_left is Invariant::Int(left_int) and evaluated_right is Invariant::Int(right_int) {
+              yield Invariant::Int(left_int - right_int)
+            }
+
+            yield Invariant::Float(float_left - float_right)
+          }
+          when BinaryOperator::Multiply {
+            if evaluated_left is Invariant::Int(left_int) and evaluated_right is Invariant::Int(right_int) {
+              yield Invariant::Int(left_int * right_int)
+            }
+
+            yield Invariant::Float(float_left * float_right)
+          }
+          when BinaryOperator::Divide {
+            if evaluated_left is Invariant::Int(left_int) and evaluated_right is Invariant::Int(right_int) {
+              if right_int == 0 {
+                return Invariant::Variant
+              }
+
+              yield Invariant::Float(left_int / right_int)
+            }
+
+            yield Invariant::Float(float_left / float_right)
+          }
+          when BinaryOperator::Remainder {
+            if evaluated_left is Invariant::Int(left_int) and evaluated_right is Invariant::Int(right_int) {
+              if right_int == 0 {
+                return Invariant::Variant
+              }
+
+              yield Invariant::Int(left_int % right_int)
+            }
+          }
+          else => Invariant::Variant
+        }
+      }
+
+      if evaluated_left is Invariant::Bool(actual_left) and evaluated_right is Invariant::Bool(actual_right) {
+        return match bin_op {
+          when BinaryOperator::And => Invariant::Bool(actual_left and actual_right)
+          when BinaryOperator::Or => Invariant::Bool(actual_left or actual_right)
+          else => Invariant::Variant
+        }
+      }
+
+      return Invariant::Variant
+    }
+    when Expression::Conditional(cond_expr, then_expr, else_expr) {
+      val evaluated_cond = eval_const_expr(cond_expr, error_list)
+
+      if evaluated_cond is Invariant::Bool(is_true) {
+        return if is_true then eval_const_expr(then_expr, error_list) else eval_const_expr(else_expr, error_list)
+      }
+    }
+    else {}
+  }
+
+  return Invariant::Variant
+}
+
 fn type_check_stmt(
   stmt Statement, 
   symbol_table map[string, Type], 
@@ -942,12 +1124,15 @@ fn type_check_stmt(
         error_list:push("Invalid use of if statement. 'if <condition-expr> { ... }'. The condition expression must be of type boolean instead of '$type_name'.")
       }
 
+      val is_true_invariant = eval_const_expr(condition_expr, error_list) == Invariant::Bool(true)
+
       if else_stmt_opt is Option::Some(else_stmt) {
         val has_ret_in_else_stmt = type_check_stmt(else_stmt, symbol_table, error_list, fn_name_context_opt)
-        return has_ret_in_then_stmt and has_ret_in_else_stmt
+
+        return is_true_invariant and has_ret_in_then_stmt or has_ret_in_then_stmt and has_ret_in_else_stmt
       }
 
-      return false
+      return is_true_invariant and has_ret_in_then_stmt
     }
     when Statement::Compound(block) {
       return type_check_block(block, symbol_table, error_list, fn_name_context_opt)
@@ -968,6 +1153,7 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
     when Declaration::ConstantDeclaration(name, expr, initial_type) {
       val infered_type = type_check_expr(expr, symbol_table, error_list)
       
+      global_const_invariant[name] = eval_const_expr(expr, error_list)
       symbol_table[name] = infered_type 
 
       if infered_type is Type::Void {

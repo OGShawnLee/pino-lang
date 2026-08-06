@@ -1,36 +1,74 @@
-enum Primitive {
-  String
-  Int
-  Float
-  Bool
-  Rune
-  Void
-  Regex
+enum Status {
+  Pending
+  Active
+  Completed
+  Failed
 }
 
-enum Day {
-  Monday
-  Tuesday
-  Wednesday
-  Thursday
-  Friday
-  Saturday
-  Sunday
+val is_true = 10 >= 5
+val is_false = 1 == 0
+val static_cond = if is_true then 100 else 0
+
+val half = 1 / 2
+val ratio = 10 / 4
+
+fn fib(n int) {
+  if n <= 1 {
+    return n
+  }
+  return fib(n - 1) + fib(n - 2)
 }
 
-fn is_float_primitive(entity Primitive) bool {
-  return entity == Primitive::Float
+fn calculate_status_code(status Status) int {
+  match status {
+    when Status::Pending {
+      return 100
+    }
+    when Status::Active {
+      return 200
+    }
+    when Status::Completed {
+      return 300
+    }
+    when Status::Failed {
+      return 500
+    }
+  }
 }
 
-fn get_int int {
-  if 1 > 2 {
-    match 1 {}
+fn get_discount_rate(tier int) int {
+  val base_tier = 10 - 5
+
+  match base_tier {
+    when 5 {
+      return 20
+    }
+    when 1, 2 {
+      return 5
+    }
+    else {
+      return 0
+    }
+  }
+}
+
+fn evaluate_score(score int) int {
+  val passing_limit = 60
+  val is_passed = score >= passing_limit
+
+  if is_passed {
+    val bonus = if score > 90 then 10 else 5
+    return score + bonus
+  } else if score >= 50 {
+    return 55
   } else {
-    return 3
+    return 0
   }
 }
 
 fn main {
-  val res = is_float_primitive(Primitive::Float)
-  val is_monday = Day::Monday == Day::Thursday
+  val f_10 = fib(10)
+  val code = calculate_status_code(Status::Active)
+  val discount = get_discount_rate(1)
+  val final_score = evaluate_score(85)
 }
