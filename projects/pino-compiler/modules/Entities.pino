@@ -2,11 +2,17 @@ module Entities
 
 from Utility import demangle_name
 
-pub enum TokenType {
+pub enum Literal {
+  Bool
+  Float
+  Int
+} 
+
+pub union TokenType {
   Keyword
   Identifier
   Marker
-  Literal
+  Literal(Literal)
   Illegal
   UnaryOperator
   BinaryOperator
@@ -22,7 +28,7 @@ pub struct Token {
       when TokenType::Keyword => "Keyword"
       when TokenType::Identifier => "Identifier"
       when TokenType::Marker => "Marker"
-      when TokenType::Literal => "Literal"
+      when TokenType::Literal(literal) => str(literal)
       when TokenType::Illegal => "Illegal"
       when TokenType::UnaryOperator => "Unary Operator"
       when TokenType::BinaryOperator => "Binary Operator"
@@ -108,8 +114,14 @@ pub enum BinaryOperator {
   StaticMemberAccess
 }
 
+pub union Constant {
+  Bool(bool)
+  Float(float)
+  Int(int)
+}
+
 pub union Expression {
-  Constant(int)
+  Constant(Constant)
   Var(string)
   Unary(UnaryOperator, Expression)
   Binary(BinaryOperator, Expression, Expression)
@@ -284,8 +296,8 @@ pub struct Program {
 
   static fn print_expr(expr Expression) {
     match expr {
-      when Expression::Constant(integer) {
-        println("Constant: $integer")
+      when Expression::Constant(lit) {
+        println("Constant: $lit")
       }
       when Expression::Var(name) {
         println("Var: $name")

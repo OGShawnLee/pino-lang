@@ -1,55 +1,51 @@
+from Entities import Program
 import Lexer
 import Parser
 import Checker
-# import Transformer
 
-fn main {
+struct CompilerOutput {
+  program Program
+  is_valid bool
+  error_list []string
+  processing_time float
+}
+
+fn parse_file() Result[CompilerOutput, string] {
   val content = read_file("main.pino") or {
-    panic("Unable to read main.pino")
+    return Result::Failure("Unable to read main.pino")
   }
   val begin = time()
   val list = Lexer::lex(content)
-  val program = Parser::parse(list)
+  val program = Parser::parse(list)?
+  val resolved_program = Checker::resolve_program(program)?
+  val error_list = Checker::type_check_program(resolved_program)
   val end = time()
 
-  match program {
-    when Result::Success(program) {
-      # program:print()
+  return Result::Success(
+    CompilerOutput {
+      program: resolved_program,
+      is_valid: error_list:len == 0,
+      error_list: error_list
+      processing_time: end - begin
+    }
+  )
+}
 
-      val checker_result = Checker::resolve_program(program)
-
-      match checker_result {
-        when Result::Success(resolved_program) {
-          # println("Resolved AST")
-          # resolved_program:print()
-
-          val error_list = Checker::type_check_program(resolved_program)
-
-          for error in error_list {
-            println("Type Checker Error: $error")
-          }
-
-          # if not is_valid_program {
-          #   println("Type Checker Errors")
-          #   # for error in error_list {
-          #   #   println("  - $error")
-          #   # }
-          # } else {
-          #   println("Type Checker Passed")
-          # }
-        }
-        when Result::Failure(error) {
-          println("Unable to Resolve: $error")
+fn main {
+  match parse_file(){
+    when Result::Success(res) {
+      if res:is_valid {
+        println("Program main.pino Processed Successfully in $(res:processing_time) ms")
+      } else {
+        println("Program main.pino Processed with Errors in $(res:processing_time) ms")
+        for error in res:error_list {
+          println(error)
         }
       }
-
-      # val intermediate_representation = Transformer::transform_program(program)
-      # Transformer::print_tacky(intermediate_representation)
     }
     when Result::Failure(error) {
-      println("Unable to Parse: $error")
+      println("Program main.pino Processed with Critical Errors.")
+      println("Error: $error")
     }
   }
-
-  println("Processed in $(end - begin) ms")
 }

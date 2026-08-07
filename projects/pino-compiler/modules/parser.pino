@@ -13,8 +13,10 @@ from Entities import
   Expression,
   BinaryOperator,
   UnaryOperator,
+  Constant,
   Token,
   TokenType,
+  Literal,
   TokenStream
 
 val PRECEDENCE_MAP = map[string, int] {
@@ -127,11 +129,29 @@ fn parse_arg_list(stream TokenStream) Result[[]Expression, string] {
   return Result::Success(arg_list)
 }
 
+fn parse_literal(value string, literal Literal) Result[Constant, string] {
+  match literal {
+    when Literal::Int {
+      return Result::Success(Constant::Int(int(value)?))
+    }
+    when Literal::Float {
+      return Result::Success(Constant::Float(float(value)?))
+    }
+    when Literal::Bool {
+      return Result::Success(Constant::Bool(value == "true"))
+    }
+    else {
+      return Result::Failure("Expected Constant Literal. Got $(value).")
+    }
+  }
+}
+
 fn parse_factor(stream TokenStream) Result[Expression, string] {
   val curr = stream:consume()
   match curr:type {
-    when TokenType::Literal {
-      return Result::Success(Expression::Constant(int(curr:value)?))
+    when TokenType::Literal(literal) {
+      val const_literal = parse_literal(curr:value, literal)?
+      return Result::Success(Expression::Constant(const_literal))
     }
     when TokenType::UnaryOperator {
       val operator = parse_unary_operator(curr)?

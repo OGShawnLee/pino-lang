@@ -11,7 +11,8 @@ from Entities import
   Statement,
   Expression,
   BinaryOperator,
-  UnaryOperator
+  UnaryOperator,
+  Constant
 
 union Kind {
   Var
@@ -49,8 +50,8 @@ fn copy_variable_map(variable_map map[string, Entity]) map[string, Entity] {
 
 fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
   match expr {
-    when Expression::Constant(integer) {
-      return Result::Success(Expression::Constant(integer))
+    when Expression::Constant(constant) {
+      return Result::Success(Expression::Constant(constant))
     }
     when Expression::Var(name) {
       if name in variable_map {
@@ -748,7 +749,7 @@ fn type_check_binary_expr(
         val right_value = coerce_to_float(evaluated_right)
 
         if right_value == 0.0 {
-          error_list:push("An error of division by zero was found ahead of time. '$left_value / $right_value' will always produce an error.")
+          error_list:push("Division by Zero Error: '$left_value / $right_value' will always produce an error at runtime.")
           return Type::Invalid
         }
 
@@ -769,7 +770,7 @@ fn type_check_binary_expr(
         val right_value = coerce_to_float(evaluated_right)
 
         if right_value == 0.0 {
-          error_list:push("An error of remainder by zero was found ahead of time. '$left_value % $right_value' will always produce an error.")
+          error_list:push("Remainder by Zero Error: '$left_value % $right_value' will always produce an error at runtime.")
           return Type::Invalid
         }
 
@@ -818,10 +819,19 @@ fn type_check_unary_expr(un_op UnaryOperator, expr Expression, symbol_table map[
   return Type::Invalid
 }
 
+fn type_check_const(constant Constant) Type {
+  return match constant {
+    when Constant::Int(integer) => Type::Primitive(Primitive::Int)
+    when Constant::Float(f) => Type::Primitive(Primitive::Float)
+    when Constant::Bool(boolean) => Type::Primitive(Primitive::Bool)
+    else => panic("Invalid Constant")
+  }
+}
+
 fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list []string) Type {
   match expr {
-    when Expression::Constant(n) {
-      return Type::Primitive(Primitive::Int)
+    when Expression::Constant(constant) {
+      return type_check_const(constant)
     }
     when Expression::Var(name) {
       if name not in symbol_table {
@@ -997,10 +1007,19 @@ fn type_check_ret_stmt(
   }
 }
 
+fn eval_const(constant Constant) Invariant {
+  return match constant {
+    when Constant::Bool(b) => Invariant::Bool(b)
+    when Constant::Float(f) => Invariant::Float(f)
+    when Constant::Int(n) => Invariant::Int(n)
+    else => panic("Invalid Constant")
+  }
+}
+
 fn eval_const_expr(expr Expression, error_list []string) Invariant {
   match expr {
-    when Expression::Constant(n) {
-      return Invariant::Int(n)
+    when Expression::Constant(constant) {
+      return eval_const(constant)
     }
     when Expression::Var(name) {
       return if name in global_const_invariant then global_const_invariant[name] else Invariant::Variant

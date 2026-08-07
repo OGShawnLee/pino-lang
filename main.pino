@@ -5,6 +5,7 @@ enum Status {
   Failed
 }
 
+val pi = 3.1415
 val is_true = 10 >= 5
 val is_false = 1 == 0
 val static_cond = if is_true then 100 else 0
@@ -66,9 +67,17 @@ fn evaluate_score(score int) int {
   }
 }
 
+fn is_pi_static bool {
+  if pi > 3.14 {
+    return true
+  }
+}
+
 fn main {
   val f_10 = fib(10)
   val code = calculate_status_code(Status::Active)
   val discount = get_discount_rate(1)
   val final_score = evaluate_score(85)
+
+  is_pi_static()
 }
