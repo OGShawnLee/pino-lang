@@ -128,6 +128,7 @@ pub union Expression {
   Assignment(Expression, Expression)
   Conditional(Expression, Expression, Expression)
   FunctionCall(string, []Expression)
+  List([]Expression, Type)
 }
 
 pub struct When {
@@ -153,6 +154,7 @@ pub union Type {
   Primitive(Primitive)
   Function([]Parameter, Type)
   Enum(string, []string)
+  List(Type)
   Pending(string)
   Void
   Implicit
@@ -247,6 +249,7 @@ pub struct Program {
       }
       when Type::Function(param_list, ret_type) => "Function ($(Program::get_type_name(ret_type)))"
       when Type::Enum(name, constant_list) => demangle_name(name)
+      when Type::List(inner_type) => "[]$(Program::get_type_name(inner_type))"
       when Type::Pending(name) => demangle_name(name)
       when Type::Implicit => "implicit"
       when Type::Void => "void"
@@ -329,6 +332,19 @@ pub struct Program {
         println("Function Call: $name")
         for arg in args {
           Program::print_expr(arg)
+        }
+      }
+      when Expression::List(expr_list, list_type) {
+        val type_str = Program::get_type_name(list_type)
+
+        if expr_list:len == 0 {
+          println("List ($(type_str)): []")
+        } else {
+          println("List ($(type_str)): [")
+          for expr in expr_list {
+            Program::print_expr(expr)
+          }
+          println("]")
         }
       }
     }

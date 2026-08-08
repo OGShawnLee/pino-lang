@@ -73,6 +73,17 @@ fn is_pi_static bool {
   }
 }
 
+fn matrix_multiplication(a [][]int, b [][]int) {
+  return [[1, 2], [3, 4]]
+}
+
+fn is_list_equal {
+  val n = 1 + 4
+  if [1, 2, 3, n] == [1, 2, 3, n] {
+    return true
+  }
+}
+
 fn main {
   val f_10 = fib(10)
   val code = calculate_status_code(Status::Active)
@@ -80,4 +91,10 @@ fn main {
   val final_score = evaluate_score(85)
 
   is_pi_static()
+
+  var matrix = matrix_multiplication(1, 2)
+
+  matrix = Status::Pending
+
+  val list_mixed = [1, 2, 3, false, 3.5]
 }

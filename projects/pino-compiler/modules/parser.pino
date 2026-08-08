@@ -146,6 +146,40 @@ fn parse_literal(value string, literal Literal) Result[Constant, string] {
   }
 }
 
+fn parse_list(stream TokenStream) Result[Expression, string] {
+  val expr_list = []Expression
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:type == TokenType::EOF or curr:value == "]" {
+      break
+    }
+
+    if curr:value == "," {
+      if stream:peek(1):value == "]" {
+        return Result::Failure("Expected expression before ']' in list. Tip: Remove trailing ',' from list.")
+      }
+
+      stream:next()
+      continue
+    }
+
+    val expr = parse_expr(stream, 0)?
+    expr_list:push(expr)
+  } 
+
+  stream:expect_content("]")?
+
+  var list_type = Type::Implicit
+
+  if expr_list:len == 0 {
+    list_type = parse_type(stream)?
+  }
+
+  return Result::Success(Expression::List(expr_list, list_type))
+}
+
 fn parse_factor(stream TokenStream) Result[Expression, string] {
   val curr = stream:consume()
   match curr:type {
@@ -159,6 +193,10 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
       return Result::Success(Expression::Unary(operator, expr))
     }
     when TokenType::Marker {
+      if curr:value == "[" {
+        return parse_list(stream)
+      }
+
       if curr:value != "(" {
         return Result::Failure("Unable to Parse factor. Expected '(' Marker. Got '$(curr:value)'.")
       }
@@ -441,6 +479,13 @@ fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
 }
 
 fn parse_type(stream TokenStream) Result[Type, string] {
+  if stream:peek(0):value == "[" {
+    stream:next()
+    stream:expect_content("]")?
+    val list_type = parse_type(stream)?
+    return Result::Success(Type::List(list_type))
+  }
+
   val type_token = stream:expect_type(TokenType::Identifier) or {
     val curr = stream:peek(0)
     return Result::Failure("Expected type identifier. Got '$(curr:value)'.")
@@ -452,19 +497,6 @@ fn parse_type(stream TokenStream) Result[Type, string] {
     when "bool" => Result::Success(Type::Primitive(Primitive::Bool))
     when "void" => Result::Success(Type::Void)
     else => Result::Success(Type::Pending(type_token:value))
-  }
-}
-
-fn parse_fn_ret_type(stream TokenStream) Result[Type, string] {
-  val curr = stream:peek(0)
-
-  return match curr:type {
-    when TokenType::Identifier => parse_type(stream)
-    when TokenType::Marker => 
-      if curr:value == "{"
-        then Result::Success(Type::Implicit)
-        else Result::Failure("Expected return type. Got '$(curr:value)'.")
-    else => Result::Failure("Expected return type. Got '$(curr:value)'.")
   }
 }
 
@@ -511,7 +543,9 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   val param_list = if stream:peek(0):value == "(" 
     then parse_fn_param_list(stream)? 
     else []Parameter
-  val ret_type = parse_fn_ret_type(stream)?
+  val ret_type = if stream:peek(0):value == "{" 
+    then Type::Implicit
+    else parse_type(stream)?
   val block = parse_block(stream, true)?
 
   return Result::Success(

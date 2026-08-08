@@ -150,6 +150,15 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
 
       return Result::Success(Expression::FunctionCall(resolved_fn_name, resolved_arg_list))
     }
+    when Expression::List(expr_list, list_type) {
+      val resolved_expr_list = []Expression
+
+      for expr in expr_list {
+        resolved_expr_list:push(resolve_expr(expr, variable_map)?)
+      }
+
+      return Result::Success(Expression::List(resolved_expr_list, list_type))
+    }
   }
 }
 
@@ -403,6 +412,7 @@ union Invariant {
   Int(int)
   Float(float)
   Bool(bool)
+  List([]Invariant)
   Variant
 }
 
@@ -458,6 +468,54 @@ fn resolve_numeric_numeric_bin_operation_type(left_type Type, right_type Type) T
   }
   
   return Type::Primitive(Primitive::Int)
+}
+
+fn get_fn_ret_type(name string, symbol_table map[string, Type]) Type {
+  if name not in symbol_table {
+    val clean_name = demangle_name(name)
+    panic("Function '$clean_name' not found in symbol table. Should have been caught by Identifier Resolution Pass.")
+  }
+
+  if symbol_table[name] is Type::Function(fn_name, ret_type) {
+    return ret_type
+  }
+
+  val clean_name = demangle_name(name)
+  panic("Entity '$name' is not a function. Should have been caught by Identifier Resolution Pass.")
+}
+
+fn type_check_list_expr(
+  expr_list []Expression
+  list_type Type
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  if expr_list:len == 0 {
+    return Type::List(list_type)
+  }
+
+  val type_list = []Type
+  var is_invalid = false
+
+  for expr in expr_list {
+    val expr_type = type_check_expr(expr, symbol_table, error_list)
+
+    if expr_type == Type::Invalid {
+      return Type::Invalid
+    }
+
+    type_list:push(expr_type)
+
+    if expr_type != type_list[0] {
+      val list_type_name = Program::get_type_name(type_list[0])
+      val expr_type_name = Program::get_type_name(expr_type)
+      
+      is_invalid = true
+      error_list:push("Type Checker Error: Expected all elements in a list to have the same type '$(list_type_name)'. Got '$(expr_type_name)'.")
+    }
+  }
+
+  return if is_invalid then Type::Invalid else Type::List(type_list[0])
 }
 
 fn infer_implicit_return_type(
@@ -527,10 +585,8 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
       resolved_ret_type = infer_implicit_return_type(name, symbol_table, error_list)
     }
 
-    var is_invalid = false
     if param_list:len != arg_list:len {
       error_list:push("Incorrect number of arguments passed to function '$clean_name'. Expected '$(param_list:len)' but got '$(arg_list:len)'.")
-      is_invalid = true
     }
 
     val arg_list_type = []Type
@@ -545,7 +601,6 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
       val clean_param_name = demangle_name(param:name)
 
       if index >= arg_list:len {
-        is_invalid = true
         error_list:push("Missing argument for parameter '$(clean_param_name)' of function '$clean_name'.")
         continue
       }
@@ -556,12 +611,11 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
         val arg_type_name = Program::get_type_name(arg_type)
         val param_type_name = Program::get_type_name(param:type)
         
-        is_invalid = true
         error_list:push("Type mismatch for parameter '$(clean_param_name)' of function '$clean_name'. Expected '$param_type_name' but got '$arg_type_name'.")
       }
     }
 
-    return if is_invalid then Type::Invalid else resolved_ret_type
+    return resolved_ret_type
   }
 
   error_list:push("Entity '$clean_name' is not a function.")
@@ -855,6 +909,9 @@ fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list [
     when Expression::FunctionCall(name, arg_list) {
       return type_check_fn_call_expr(name, arg_list, symbol_table, error_list)
     }
+    when Expression::List(expr_list, list_type) {
+      return type_check_list_expr(expr_list, list_type, symbol_table, error_list)
+    }
   }
 
   return Type::Invalid
@@ -1108,6 +1165,14 @@ fn eval_const_expr(expr Expression, error_list []string) Invariant {
         }
       }
 
+      if evaluated_left is Invariant::List(left_list) and evaluated_right is Invariant::List(right_list) {
+        return match bin_op {
+          when BinaryOperator::Equal => Invariant::Bool(left_list == right_list)
+          when BinaryOperator::NotEqual => Invariant::Bool(left_list != right_list)
+          else => Invariant::Variant
+        }
+      }
+
       return Invariant::Variant
     }
     when Expression::Conditional(cond_expr, then_expr, else_expr) {
@@ -1116,6 +1181,21 @@ fn eval_const_expr(expr Expression, error_list []string) Invariant {
       if evaluated_cond is Invariant::Bool(is_true) {
         return if is_true then eval_const_expr(then_expr, error_list) else eval_const_expr(else_expr, error_list)
       }
+    }
+    when Expression::List(expr_list, list_type) {
+      val evaluated_list = []Invariant
+
+      for expr in expr_list {
+        val evaluated_expr = eval_const_expr(expr, error_list)
+
+        if evaluated_expr is Invariant::Variant {
+          return Invariant::Variant
+        }
+        
+        evaluated_list:push(evaluated_expr)
+      }
+
+      return Invariant::List(evaluated_list)
     }
     else {}
   }
@@ -1190,11 +1270,12 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
       }
     }
     when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
-      val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))
+      val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))      
+      val resolved_ret_type = get_fn_ret_type(name, symbol_table)
 
-      if not has_ret_guaranteed and ret_type != Type::Implicit and ret_type != Type::Void {
+      if not has_ret_guaranteed and resolved_ret_type != Type::Implicit and resolved_ret_type != Type::Void {
         val clean_name = demangle_name(name)
-        val ret_type_name = Program::get_type_name(ret_type)
+        val ret_type_name = Program::get_type_name(resolved_ret_type)
         
         error_list:push("Expected function '$clean_name' to always return '$ret_type_name' but it doesn't guarantee it. Tip: Make sure all execution paths return a value of type '$ret_type_name'.")
       }
