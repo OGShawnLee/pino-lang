@@ -136,12 +136,21 @@ pub struct When {
   block []AST
 }
 
+pub union Loop {
+  Infinite([]AST)
+  While(Expression, []AST)
+  ForIn(Expression, Expression, []AST)
+}
+
 pub union Statement {
   Return(Expression)
   If(Expression, Statement, Option[Statement])
   Compound([]AST)
   Match(Expression, []When, Option[[]AST])
   Expression(Expression)
+  Loop(Loop)
+  Break
+  Continue
 }
 
 pub enum Primitive {
@@ -293,6 +302,31 @@ pub struct Program {
       }
       when Statement::Expression(expr) {
         Program::print_expr(expr)
+      }
+      when Statement::Loop(loop_variant) {
+        match loop_variant {
+          when Loop::Infinite(block) {
+            println("Infinite Loop:")
+            Program::print_block(block)
+          }
+          when Loop::While(condition, block) {
+            println("While Loop:")
+            Program::print_expr(condition)
+            Program::print_block(block)
+          }
+          when Loop::ForIn(iterator_expr, iterable_expr, block) {
+            println("For In Loop:")
+            println("Var: $iterator_expr")
+            Program::print_expr(iterable_expr)
+            Program::print_block(block)
+          }
+        }
+      }
+      when Statement::Break {
+        println("Break")
+      }
+      when Statement::Continue {
+        println("Continue")
       }
     }
   }

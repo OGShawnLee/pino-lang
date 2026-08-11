@@ -10,6 +10,7 @@ from Entities import
   Primitive,
   When,
   Statement,
+  Loop,
   Expression,
   BinaryOperator,
   UnaryOperator,
@@ -299,6 +300,41 @@ fn parse_when_case(stream TokenStream) Result[When, string] {
   return Result::Success(When { cond_list: cond_list, block: block })
 }
 
+fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
+  stream:expect_content("for")?
+
+  if stream:peek(0):value == "{" {
+    val block = parse_block(stream, true)?
+    return Result::Success(
+      Statement::Loop(
+        Loop::Infinite(block)
+      )
+    )
+  }
+
+  val iterator_expr = parse_expr(stream, 0)?
+
+  if stream:peek(0):value == "{" {
+    val block = parse_block(stream, true)?
+    return Result::Success(
+      Statement::Loop(
+        Loop::While(iterator_expr, block)
+      )
+    )
+  }
+
+  stream:expect_content("in")?
+
+  val iterable_expr = parse_expr(stream, 0)?
+  val block = parse_block(stream, true)?
+
+  return Result::Success(
+    Statement::Loop(
+      Loop::ForIn(iterator_expr, iterable_expr, block)
+    )
+  )
+}
+
 @pub_testing
 fn parse_match_stmt(stream TokenStream) Result[Statement, string] {
     stream:expect_content("match")?
@@ -374,6 +410,17 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
       }
 
       return Result::Success(Statement::If(condition, then_branch, Option::None))
+    }
+    when "for" {
+      return parse_loop_stmt(stream)
+    }
+    when "continue" {
+      stream:next()
+      return Result::Success(Statement::Continue)
+    }
+    when "break" {
+      stream:next()
+      return Result::Success(Statement::Break)
     }
     when "match" {
       return parse_match_stmt(stream)

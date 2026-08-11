@@ -9,6 +9,7 @@ from Entities import
   Type,
   Primitive,
   Statement,
+  Loop,
   Expression,
   BinaryOperator,
   UnaryOperator,
@@ -183,6 +184,48 @@ fn resolve_when(when_case When, variable_map map[string, Entity]) Result[When, s
   )
 }
 
+fn resolve_loop_stmt(
+  loop_variant Loop
+  variable_map map[string, Entity]
+) Result[Statement, string] {
+  match loop_variant {
+    when Loop::Infinite(block) {
+      val new_variable_map = copy_variable_map(variable_map)
+      val resolved_block = resolve_block(block, new_variable_map, true)?
+      
+      return Result::Success(Statement::Loop(Loop::Infinite(resolved_block)))
+    }
+    when Loop::While(cond_expr, block) {
+      val new_variable_map = copy_variable_map(variable_map)
+      val resolved_cond_expr = resolve_expr(cond_expr, new_variable_map)?
+      val resolved_block = resolve_block(block, new_variable_map, true)?
+      
+      return Result::Success(Statement::Loop(Loop::While(resolved_cond_expr, resolved_block)))
+    }
+    when Loop::ForIn(iterator_expr, iterable_expr, block) {
+      if iterator_expr is Expression::Var(name) {
+        val resolved_iterable_expr = resolve_expr(iterable_expr, variable_map)?
+        val new_variable_map = copy_variable_map(variable_map)
+
+        new_variable_map[name] = Entity {
+          unique_name: mangle_name(name)
+          is_from_current_block: true
+          kind: Kind::Val
+        }
+
+        val resolved_iterator_expr = resolve_expr(iterator_expr, new_variable_map)?
+        val resolved_block = resolve_block(block, new_variable_map, true)?
+
+        return Result::Success(
+          Statement::Loop(Loop::ForIn(resolved_iterator_expr, resolved_iterable_expr, resolved_block))
+        )
+      }
+
+      return Result::Failure("Type Checker Error: Invalid loop iterator. Expected variable name.")
+    }
+  }
+}
+
 fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Statement, string] {
   match stmt {
    when Statement::Return(expr) {
@@ -230,6 +273,15 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
    when Statement::Expression(expr) {
     val resolved_expr = resolve_expr(expr, variable_map)?
     return Result::Success(Statement::Expression(resolved_expr))
+   }
+   when Statement::Loop(loop_variant) {
+    return resolve_loop_stmt(loop_variant, variable_map)
+   }
+   when Statement::Continue {
+    return Result::Success(Statement::Continue)
+   }
+   when Statement::Break {
+    return Result::Success(Statement::Break)
    }
   }
 }
@@ -1203,6 +1255,83 @@ fn eval_const_expr(expr Expression, error_list []string) Invariant {
   return Invariant::Variant
 }
 
+fn type_check_loop_stmt(
+  loop_variant Loop
+  symbol_table map[string, Type]
+  error_list []string
+  fn_name_context_opt Option[string]
+) {
+  match loop_variant {
+    when Loop::Infinite(block) {
+      return type_check_block(block, symbol_table, error_list, fn_name_context_opt)
+    }
+    when Loop::While(condition_expr, block) {
+      val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
+      val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
+      val evaluated_cond = eval_const_expr(condition_expr, error_list)
+
+      match cond_type {
+        when Type::Primitive(primitive) {
+          if primitive == Primitive::Float {
+            error_list:push("Invalid use of 'for <limit>' statement. The limit expression must be of type 'integer' instead of 'float'.")
+          }
+        }
+        else {}
+      }
+
+      match evaluated_cond {
+        when Invariant::Int(num) {
+          if num <= 0 {
+            error_list:push("Invalid limit in 'for <limit>' statement. The numeric limit must be greater than 0.")
+          }
+        }
+        when Invariant::Bool(is_true) {
+          if not is_true {
+            error_list:push("Unreachable code detected inside 'for <condition>' statement. The condition expression is always 'false'.")
+          }
+        }
+        else {}
+      }
+
+      val is_true_invariant = match evaluated_cond {
+        when Invariant::Bool(is_true) => is_true
+        when Invariant::Int(num) => num > 0
+        else => false
+      }
+
+      return is_true_invariant and has_ret_in_block
+    }
+    when Loop::ForIn(iterator_expr, iterable_expr, block) {
+      if iterator_expr is Expression::Var(name) {
+        val iterable_type = type_check_expr(iterable_expr, symbol_table, error_list)
+        
+        if iterable_type is not Type::List and iterable_type != Type::Primitive(Primitive::Int) {
+          val type_name = Program::get_type_name(iterable_type)
+          error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be of type list or integer, not '$type_name'.")
+
+          return false
+        }
+
+        symbol_table[name] = match iterable_type {
+          when Type::List(list_type) => list_type
+          else => iterable_type
+        }
+
+        val evaluated_iterable = eval_const_expr(iterable_expr, error_list)
+        val is_true_invariant = 
+          evaluated_iterable is Invariant::List(list) and list:len > 0 or 
+          evaluated_iterable is Invariant::Int(n) and n > 0
+        val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
+        
+        return is_true_invariant and has_ret_in_block
+      }
+
+
+      panic("Invalid Iterator Expression should have been caught by Identifier Resolution Pass.")
+    }
+  }
+}
+
 fn type_check_stmt(
   stmt Statement, 
   symbol_table map[string, Type], 
@@ -1242,6 +1371,16 @@ fn type_check_stmt(
     when Statement::Expression(expr) {
       type_check_expr(expr, symbol_table, error_list)
     }
+    when Statement::Loop(loop_variant) {
+      return type_check_loop_stmt(loop_variant, symbol_table, error_list, fn_name_context_opt)
+    }
+    when Statement::Break {
+      return false
+    }
+    when Statement::Continue {
+      return false
+    }
+    else {}
   }
 
   return false
