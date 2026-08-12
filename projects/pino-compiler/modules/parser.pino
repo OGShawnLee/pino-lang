@@ -573,9 +573,22 @@ fn parse_fn_param_list(stream TokenStream) Result[[]Parameter, string] {
     }
 
     val name = stream:expect_type(TokenType::Identifier)?
-    val type = parse_type(stream)?
+    val default_expr = match stream:peek(0):value {
+      when "=" {
+        stream:next()
+        yield Option::Some(parse_expr(stream, 0)?)
+      }
+      else => Option::None
+    }
+    val type = if default_expr is Option::None then parse_type(stream)? else Type::Implicit
 
-    param_list:push(Parameter { name: name:value, type: type })
+    param_list:push(
+      Parameter { 
+        name: name:value, 
+        type: type, 
+        default_expr: default_expr 
+      }
+    )
   }
 
   stream:expect_content(")")?

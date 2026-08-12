@@ -173,6 +173,7 @@ pub union Type {
 pub struct Parameter {
   name string
   type Type
+  default_expr Option[Expression]
 }
 
 pub union Declaration {
@@ -222,6 +223,10 @@ pub struct Program {
           for param in param_list {
             println("Name: $(param:name)")
             println("Type: $(Program::get_type_name(param:type))")
+            if param:default_expr is Option::Some(default_expr) {
+              println("Default: ")
+              Program::print_expr(default_expr)
+            }
           }
         }
 

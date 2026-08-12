@@ -343,6 +343,10 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
   }
 
   val resolved_type = resolve_type(param:type, variable_map)?
+  val resolved_default_expr = match param:default_expr {
+    when Option::Some(expr) => Option::Some(resolve_expr(expr, variable_map)?)
+    when Option::None => Option::None
+  }
   val unique_name = mangle_name(param:name)
 
   variable_map[param:name] = Entity {
@@ -351,7 +355,7 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
     kind: Kind::Var
   }
 
-  return Result::Success(Parameter { name: unique_name, type: resolved_type }) 
+  return Result::Success(Parameter { name: unique_name, type: resolved_type, default_expr: resolved_default_expr }) 
 }
 
 fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
@@ -598,6 +602,12 @@ fn infer_implicit_return_type(
   val fn_decl = global_decl_map[name]
 
   if fn_decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+    if param_list:any(it:type is Type::Implicit) {
+      val resolved_param_list = type_check_fn_param_list(name, param_list, symbol_table, error_list)
+
+      symbol_table[name] = Type::Function(resolved_param_list, Type::Implicit)
+    }
+
     global_fn_infer_stack:push(name)
     type_check_block(node_list, symbol_table, error_list, Option::Some(name))
     global_fn_infer_stack:pop()
@@ -623,6 +633,31 @@ fn infer_implicit_return_type(
   panic("Expected a function declaration for '$clean_name'. Type Checking Hoisted Declarations Pass should not have produced an invalid state")
 }
 
+fn jir_desugar_fn_call_arg_list(
+  arg_list []Expression
+  param_list []Parameter
+) {
+  if arg_list:len == param_list:len {
+    return arg_list
+  }
+
+  if arg_list:len > param_list:len {
+    return arg_list
+  }
+
+  val new_arg_list = []Expression
+  
+  for index, param in param_list {
+    if index < arg_list:len {
+      new_arg_list:push(arg_list[index])
+    } else if param:default_expr is Option::Some(expr) {
+      new_arg_list:push(expr)
+    }
+  }
+
+  return new_arg_list
+}
+
 fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[string, Type], error_list []string) Type {
   if name not in symbol_table {
     panic("Undeclared name '$name' should have been caught by Identifier Resolution Pass.")
@@ -637,13 +672,15 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
       resolved_ret_type = infer_implicit_return_type(name, symbol_table, error_list)
     }
 
-    if param_list:len != arg_list:len {
-      error_list:push("Incorrect number of arguments passed to function '$clean_name'. Expected '$(param_list:len)' but got '$(arg_list:len)'.")
+    val desugared_arg_list = jir_desugar_fn_call_arg_list(arg_list, param_list)
+
+    if param_list:len != desugared_arg_list:len {
+      error_list:push("Incorrect number of arguments passed to function '$clean_name'. Expected '$(param_list:len)' but got '$(desugared_arg_list:len)'.")
     }
 
     val arg_list_type = []Type
 
-    for arg in arg_list {
+    for arg in desugared_arg_list {
       arg_list_type:push(
         type_check_expr(arg, symbol_table, error_list)
       )
@@ -652,8 +689,8 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
     for index, param in param_list {
       val clean_param_name = demangle_name(param:name)
 
-      if index >= arg_list:len {
-        error_list:push("Missing argument for parameter '$(clean_param_name)' of function '$clean_name'.")
+      if index >= desugared_arg_list:len {
+        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_name'.")
         continue
       }
 
@@ -663,7 +700,7 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
         val arg_type_name = Program::get_type_name(arg_type)
         val param_type_name = Program::get_type_name(param:type)
         
-        error_list:push("Type mismatch for parameter '$(clean_param_name)' of function '$clean_name'. Expected '$param_type_name' but got '$arg_type_name'.")
+        error_list:push("Type mismatch for parameter '$clean_param_name' of function '$clean_name'. Expected '$param_type_name' but got '$arg_type_name'.")
       }
     }
 
@@ -1386,6 +1423,59 @@ fn type_check_stmt(
   return false
 }
 
+fn type_check_fn_param_list(
+  fn_name string
+  param_list []Parameter
+  symbol_table map[string, Type]
+  error_list []string
+) {
+  val resolved_param_list = []Parameter
+
+  for parameter in param_list {
+    match parameter:default_expr {
+      when Option::Some(default_expr) {
+        val infered_type = type_check_expr(default_expr, symbol_table, error_list)
+        val resolved_param = match infered_type {
+          when Type::Void {
+            val clean_name = demangle_name(parameter:name)
+            val clean_fn_name = demangle_name(fn_name)
+            error_list:push("Invalid default value type 'void' for parameter '$clean_name' of function '$clean_fn_name'. Tip: 'void' can only be used as the return type of a function.")
+            yield Parameter {
+              name: parameter:name,
+              type: Type::Invalid,
+              default_expr: Option::None
+            }
+          }
+          when Type::Implicit {
+            val clean_name = demangle_name(parameter:name)
+            val clean_fn_name = demangle_name(fn_name)
+            error_list:push("Unable to infer type of parameter '$clean_name' of function '$clean_fn_name'. Tip: A parameter must have a defined type.")
+            yield Parameter {
+              name: parameter:name,
+              type: Type::Invalid,
+              default_expr: Option::None
+            }
+          }
+          else {
+            yield Parameter {
+              name: parameter:name,
+              type: infered_type,
+              default_expr: Option::Some(default_expr)
+            }
+          }
+        }
+
+        resolved_param_list:push(resolved_param)
+      }
+      else {
+        resolved_param_list:push(parameter)
+      }
+    }
+  }
+
+  return resolved_param_list
+}
+
 fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list []string, fn_name_context_opt Option[string]) {
   match decl {
     when Declaration::ConstantDeclaration(name, expr, initial_type) {
@@ -1409,8 +1499,22 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
       }
     }
     when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+      var resolved_param_list = param_list
+
+      if param_list:any(it:type is Type::Implicit) {
+        resolved_param_list = type_check_fn_param_list(name, param_list, symbol_table, error_list)
+
+        for resolved_param in resolved_param_list {
+          symbol_table[resolved_param:name] = resolved_param:type
+        }
+
+        symbol_table[name] = Type::Function(resolved_param_list, ret_type)
+      }
+
       val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))      
       val resolved_ret_type = get_fn_ret_type(name, symbol_table)
+
+      symbol_table[name] = Type::Function(resolved_param_list, resolved_ret_type)
 
       if not has_ret_guaranteed and resolved_ret_type != Type::Implicit and resolved_ret_type != Type::Void {
         val clean_name = demangle_name(name)
