@@ -6,6 +6,8 @@ from Entities import
   AST,
   Declaration,
   Parameter,
+  Pattern,
+  Field,
   Type,
   Primitive,
   Statement,
@@ -20,6 +22,7 @@ union Kind {
   Val
   Function
   Enum([]string)
+  Union([]Pattern, map[string, int])
 }
 
 struct Entity {
@@ -34,6 +37,7 @@ fn get_kind_name(kind Kind) string {
     when Kind::Val => "Constant"
     when Kind::Function => "Function"
     when Kind::Enum(constant_list) => "Enum"
+    when Kind::Union(pattern_list, index_map) => "Union"
   }
 }
 
@@ -47,6 +51,94 @@ fn copy_variable_map(variable_map map[string, Entity]) map[string, Entity] {
 		}
 	}
 	return new_variable_map
+}
+
+fn resolve_enum_access_expr(entity Entity, right_expr Expression, left_name string, constant_list []string) Result[Expression, string] {
+  if right_expr is Expression::Var(right_name) {
+    if right_name not in constant_list {
+      return Result::Failure("Type Checker Error: '$right_name' is not a constant of enum '$left_name'.")
+    }
+
+    return Result::Success(
+      Expression::Binary(
+        BinaryOperator::StaticMemberAccess,
+        Expression::Var(entity:unique_name),
+        Expression::Var(right_name)
+      )
+    )
+  }
+
+  return Result::Failure("Type Checker Error: Invalid Static Member Access (::) on enum '$left_name'. Should be in the form '<enum_name>::<constant_name>'.")
+}
+
+fn resolve_union_access_expr(
+  entity Entity, 
+  right_expr Expression, 
+  left_name string, 
+  pattern_list []Pattern, 
+  index_map map[string, int], 
+  variable_map map[string, Entity]
+) Result[Expression, string] {
+  if right_expr is Expression::Var(right_name) {
+    if right_name not in index_map {
+      return Result::Failure("Type Checker Error: '$right_name' is not a pattern of union '$left_name'.")
+    }
+
+    return Result::Success(
+      Expression::Binary(
+        BinaryOperator::StaticMemberAccess,
+        Expression::Var(entity:unique_name),
+        Expression::Var(right_name)
+      )
+    )
+  }
+
+  if right_expr is Expression::FunctionCall(name, arg_list) {
+    if name not in index_map {
+      return Result::Failure("Type Checker Error: '$name' is not a pattern of union '$left_name'.")
+    }
+
+    val resolved_arg_list = []Expression
+
+    for arg in arg_list {
+      val resolved_arg = resolve_expr(arg, variable_map)?
+      resolved_arg_list:push(resolved_arg)
+    }
+
+    return Result::Success(
+      Expression::Binary(
+        BinaryOperator::StaticMemberAccess,
+        Expression::Var(entity:unique_name),
+        Expression::FunctionCall(name, resolved_arg_list)
+      )
+    )
+  }
+
+  return Result::Failure("Type Checker Error: Invalid Static Member Access (::) on union '$left_name'. Should be in the form '<union_name>::<pattern_name>(...)' or '<union_name>::<pattern_name>'.")
+}
+
+fn resolve_static_access_expr(left_expr Expression, right_expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
+  if left_expr is Expression::Var(left_name) {
+    if left_name not in variable_map {
+      panic("Undeclared '$left_name' should have been caught by Declaration Hoisting Pass.")
+    }
+
+    val entity = variable_map[left_name]
+
+    match entity:kind {
+      when Kind::Enum(constant_list) {
+        return resolve_enum_access_expr(entity, right_expr, left_name, constant_list)
+      }
+      when Kind::Union(pattern_list, index_map) {
+        return resolve_union_access_expr(entity, right_expr, left_name, pattern_list, index_map, variable_map)
+      }
+      else {
+        return Result::Failure("Type Checker Error: Invalid Static Member Access (::) on non-enum or non-union '$left_name'.")
+      }
+    }
+  }
+
+  return Result::Failure("Type Checker Error: Static Member Access (::) can only be used on enums or unions.")
 }
 
 fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
@@ -67,45 +159,14 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
       return Result::Success(Expression::Unary(un_operator, resolved_expr))
     }
     when Expression::Binary(bin_operator, left_expr, right_expr) {
-      if bin_operator != BinaryOperator::StaticMemberAccess {
-        val resolved_left_expr = resolve_expr(left_expr, variable_map)?
-        val resolved_right_expr = resolve_expr(right_expr, variable_map)?
-
-        return Result::Success(Expression::Binary(bin_operator, resolved_left_expr, resolved_right_expr))
+      if bin_operator == BinaryOperator::StaticMemberAccess {
+        return resolve_static_access_expr(left_expr, right_expr, variable_map)
       }
 
-      if left_expr is Expression::Var(left_name) {
-        if left_name not in variable_map {
-          panic("Undeclared '$left_name' should have been caught by Declaration Hoisting Pass.")
-        }
+      val resolved_left_expr = resolve_expr(left_expr, variable_map)?
+      val resolved_right_expr = resolve_expr(right_expr, variable_map)?
 
-        if right_expr is Expression::Var(right_name) {
-          val entity = variable_map[left_name]
-          match entity:kind  {
-            when Kind::Enum(constant_list) {
-              if right_name not in constant_list {
-                return Result::Failure("Type Checker Error: '$right_name' is not a constant of enum '$left_name'.")
-              }
-
-              return Result::Success(
-                Expression::Binary(
-                  bin_operator,
-                  Expression::Var(entity:unique_name),
-                  Expression::Var(right_name)
-                )
-              )
-            }
-            else {
-              val kind_name = get_kind_name(entity:kind)
-              return Result::Failure("Type Checker Error: '$left_name' is not an enum, it is a $kind_name.")
-            }
-          }
-        }
-
-        return Result::Failure("Type Checker Error: Invalid access to enum '$left_name'. Must be performed as '$left_name::<constant_name>'.")
-      }
-
-      return Result::Failure("Type Checker Error: Static Member Access (::) must be performed on an enum type, e.g. '<enum_name>::<constant_name>.'")
+      return Result::Success(Expression::Binary(bin_operator, resolved_left_expr, resolved_right_expr))
     }
     when Expression::Assignment(left_expr, right_expr) {
       if left_expr is Expression::Var(left_name) and left_name in variable_map {
@@ -117,6 +178,9 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
           }
           when Kind::Enum(constant_list) {
             return Result::Failure("Type Checker Error: Cannot assign to enum '$left_name'.")
+          }
+          when Kind::Union(pattern_list, index_map) {
+            return Result::Failure("Type Checker Error: Cannot assign to union '$left_name'.")
           }
           when Kind::Val {
             return Result::Failure("Type Checker Error: Cannot assign to constant '$left_name'.")
@@ -331,6 +395,10 @@ fn resolve_type(target_type Type, variable_map map[string, Entity]) Result[Type 
       return Result::Success(Type::Enum(entity:unique_name, constant_list))
     }
 
+    if entity:kind is Kind::Union(pattern_list, index_map) {
+      return Result::Success(Type::Union(entity:unique_name, pattern_list, index_map))
+    }
+
     return Result::Failure("Type Checker Error: '$unresolved_type_name' is not a type.")
   }
 
@@ -397,34 +465,56 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
 
       return Result::Success(Declaration::EnumDeclaration(unique_name, constant_list))
     }
+    when Declaration::UnionDeclaration(name, pattern_list, index_map) {
+      if name not in variable_map {
+        panic("Undeclared union '$name' should have been caught by Declaration Hoisting Pass.")
+      }
+
+      val unique_name = variable_map[name]:unique_name
+
+      return Result::Success(Declaration::UnionDeclaration(unique_name, pattern_list, index_map))
+    }
   }
 }
 
 fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_global_scope bool) Result[map[string, Entity], string] {
   for block_item in block_item_list {
     if block_item is AST::Declaration(decl) {
-      if decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
-        if name in variable_map and variable_map[name]:is_from_current_block {
-          return Result::Failure("Type Checker Error: Function '$(name)' has been already declared in the current scope.")
-        }
-        
-        variable_map[name] = Entity {
-          unique_name: if is_global_scope and name == "main" then name else mangle_name(name)
-          is_from_current_block: true
-          kind: Kind::Function
-        }
-      }
+      match decl {
+        when Declaration::FunctionDeclaration(fn_name, param_list, ret_type, node_list) {
+          if fn_name in variable_map and variable_map[fn_name]:is_from_current_block {
+            return Result::Failure("Type Checker Error: Function '$fn_name' has been already declared in the current scope.")
+          }
 
-      if decl is Declaration::EnumDeclaration(name, constant_list) {
-        if name in variable_map and variable_map[name]:is_from_current_block {
-          return Result::Failure("Type Checker Error: Enum '$(name)' has been already declared in the current scope.")
+          variable_map[fn_name] = Entity {
+            unique_name: if is_global_scope and fn_name == "main" then fn_name else mangle_name(fn_name)
+            is_from_current_block: true
+            kind: Kind::Function
+          }
         }
-        
-        variable_map[name] = Entity {
-          unique_name: mangle_name(name)
-          is_from_current_block: true
-          kind: Kind::Enum(constant_list)
+        when Declaration::EnumDeclaration(enum_name, constant_list) {
+          if enum_name in variable_map and variable_map[enum_name]:is_from_current_block {
+            return Result::Failure("Type Checker Error: Enum '$enum_name' has been already declared in the current scope.")
+          }
+
+          variable_map[enum_name] = Entity {
+            unique_name: mangle_name(enum_name)
+            is_from_current_block: true
+            kind: Kind::Enum(constant_list)
+          }
         }
+        when Declaration::UnionDeclaration(union_name, pattern_list, index_map) {
+          if union_name in variable_map and variable_map[union_name]:is_from_current_block {
+            return Result::Failure("Type Checker Error: Union '$union_name' has been already declared in the current scope.")
+          }
+
+          variable_map[union_name] = Entity {
+            unique_name: mangle_name(union_name)
+            is_from_current_block: true
+            kind: Kind::Union(pattern_list, index_map)
+          }
+        }
+        else {}
       }
     }
   }
@@ -762,6 +852,129 @@ fn type_check_assignment_expr(
   return assignee_type
 }
 
+fn type_check_enum_access_expr(
+  right_expr Expression
+  enum_name string
+  constant_list []string
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  match right_expr {
+    when Expression::Var(constant_name) {
+      if constant_name in constant_list {
+        return symbol_table[enum_name]
+      } 
+      
+      error_list:push("'$constant_name' is not a constant of enum '$enum_name'.")
+      return Type::Invalid
+    }
+    else {
+      val right_expr_type = type_check_expr(right_expr, symbol_table, error_list)
+
+      if right_expr_type == Type::Invalid {
+        return Type::Invalid
+      }
+
+      val right_expr_type_name = Program::get_type_name(right_expr_type)
+      error_list:push(
+        "Invalid use of Static Member Access Operator (::). The right operand of '$enum_name::<right_expr>' must be an enum constant of '$enum_name', but got '$right_expr_type_name'."
+      )
+      return Type::Invalid
+    }
+  }
+}
+
+fn type_check_union_access_expr( 
+  right_expr Expression
+  union_name string
+  pattern_list []Pattern
+  index_map map[string, int]
+  symbol_table map[string, Type]
+  error_list []string
+) {
+  val clean_union_name = demangle_name(union_name)
+  match right_expr {
+    when Expression::Var(pattern_name) {
+      if pattern_name not in pattern_list {
+        error_list:push("'$pattern_name' is not a pattern of union '$clean_union_name'.")
+        return Type::Invalid
+      }
+      
+      val pattern_index = index_map[pattern_name]
+      val pattern = pattern_list[pattern_index]
+
+      if pattern:field_list:len > 0 {
+        error_list:push("Pattern '$pattern_name' of union '$clean_union_name' has fields. None were provided.")
+        return Type::Invalid
+      }
+
+      return symbol_table[union_name]
+    }
+    when Expression::FunctionCall(pattern_name, arg_list) {
+      if pattern_name not in index_map {
+        error_list:push("'$pattern_name' is not a pattern of union '$clean_union_name'.")
+        return Type::Invalid
+      }
+
+      val pattern_index = index_map[pattern_name]
+      val pattern = pattern_list[pattern_index]
+
+      if pattern:field_list:len == 0 {
+        error_list:push("Pattern '$pattern_name' of union '$clean_union_name' has no fields. Tip: Access to this pattern as '$clean_union_name::$pattern_name' instead.")
+        return Type::Invalid
+      }
+
+      if pattern:field_list:len != arg_list:len {
+        error_list:push("Pattern '$pattern_name' of union '$clean_union_name' has '$(pattern:field_list:len)' fields. Got '$(arg_list:len)'.")
+        return Type::Invalid
+      }
+
+      val arg_list_type = []Type
+      
+      for arg in arg_list {
+        arg_list_type:push(type_check_expr(arg, symbol_table, error_list))
+      }
+
+      val field_list = pattern:field_list
+      var is_invalid = false
+
+      for index, arg_type in arg_list_type {
+        val field = field_list[index]
+
+        if arg_type == Type::Invalid {
+          is_invalid = true
+          continue
+        }
+
+        if arg_type == field:type {
+          continue
+        }
+
+        val arg_type_name = Program::get_type_name(arg_type)
+        val field_type_name = Program::get_type_name(field:type)
+
+        error_list:push("Type mismatch for field '$(field:name)' of pattern '$pattern_name' of union '$clean_union_name'. Expected '$field_type_name' but got '$arg_type_name'.")
+        is_invalid = true
+      }
+
+      return if is_invalid then Type::Invalid else symbol_table[union_name]
+    }
+    else {
+      val right_expr_type = type_check_expr(right_expr, symbol_table, error_list)
+
+      if right_expr_type == Type::Invalid {
+        return Type::Invalid
+      }
+
+      val right_expr_type_name = Program::get_type_name(right_expr_type)
+      error_list:push(
+        "Invalid use of Static Member Access Operator (::). The right operand of '$clean_union_name::<right_expr>' must be a pattern of '$clean_union_name', but got '$right_expr_type_name'."
+      )
+      return Type::Invalid
+    }
+  }
+}
+
 fn type_check_static_member_access_expr(
   left_expr Expression 
   right_expr Expression 
@@ -770,35 +983,26 @@ fn type_check_static_member_access_expr(
 ) Type {
   if left_expr is Expression::Var(left_name) {
     if left_name not in symbol_table {
-      error_list:push("Invalid use of static member access. The left operand must be an enum.")
-      return Type::Invalid
+      panic("Undeclared identifier left operand of '::' in Static Member Access: '$left_name'. Should have been caught by Identifier Resolution Pass.")
     }
 
     val target_type = symbol_table[left_name]
 
-    if right_expr is Expression::Var(right_name) {
-      if target_type is Type::Enum(enum_name, constant_list) {
-        if right_name in constant_list {
-          return target_type
-        } 
-        
-        error_list:push("'$right_name' is not a constant of enum '$enum_name'.")
+    match target_type {
+      when Type::Enum(enum_name, constant_list) {
+        return type_check_enum_access_expr(right_expr, enum_name, constant_list, symbol_table, error_list)
+      }
+      when Type::Union(union_name, pattern_list, index_map) {
+        return type_check_union_access_expr(right_expr, union_name, pattern_list, index_map, symbol_table, error_list)
+      }
+      else {
+        error_list:push("Invalid use of Static Member Access Operator (::). The left operand must be an enum or union.")
         return Type::Invalid
       }
-
-      if target_type is not Type::Enum {
-        error_list:push("Invalid use of static member access (::). The left operand must be an enum.")
-        return Type::Invalid
-      }
-
-      return target_type
-    } 
-    
-    error_list:push("Invalid use of static member access (::). The right operand must be an identifier.")
-    return Type::Invalid
+    }
   }
     
-  error_list:push("Invalid use of static member access (::). The left operand must be an enum.")
+  error_list:push("Invalid use of Static Member Access Operator (::). The left operand must be an enum or union.")
   return Type::Invalid
 }
 
@@ -1542,29 +1746,38 @@ fn type_check_block_item(block_item AST, symbol_table map[string, Type], error_l
 fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, Type] {
   for block_item in block {
     if block_item is  AST::Declaration(decl) {
-      if decl is Declaration::EnumDeclaration(name, constant_list) {
-        if name in symbol_table {
-          panic("Duplicate enum '$name' should have been caught by Identifier Resolution Pass.")
-        }
-
-        symbol_table[name] = Type::Enum(name, constant_list)
-      }
-
-      if decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
-        if name in symbol_table {
-          panic("Duplicate function '$name' should have been caught by Identifier Resolution Pass.")
-        }
-
-        for param in param_list {
-          if param:type is Type::Pending(unresolved_type_name) {
-            panic("Undeclared type '$unresolved_type_name' should have been caught by Identifier Resolution Pass.")
+      match decl {
+        when Declaration::EnumDeclaration(enum_name, constant_list) {
+          if enum_name in symbol_table {
+            panic("Duplicate enum '$enum_name' should have been caught by Identifier Resolution Pass.")
           }
 
-          symbol_table[param:name] = param:type
+          symbol_table[enum_name] = Type::Enum(enum_name, constant_list)
         }
+        when Declaration::FunctionDeclaration(fn_name, param_list, ret_type, node_list) {
+          if fn_name in symbol_table {
+            panic("Duplicate function '$fn_name' should have been caught by Identifier Resolution Pass.")
+          }
 
-        symbol_table[name] = Type::Function(param_list, ret_type)
-        global_decl_map[name] = decl
+          for param in param_list {
+            if param:type is Type::Pending(unresolved_type_name) {
+              panic("Undeclared type '$unresolved_type_name' should have been caught by Identifier Resolution Pass.")
+            }
+
+            symbol_table[param:name] = param:type
+          }
+
+          symbol_table[fn_name] = Type::Function(param_list, ret_type)
+          global_decl_map[fn_name] = decl
+        }
+        when Declaration::UnionDeclaration(union_name, pattern_list, index_map) {
+          if union_name in symbol_table {
+            panic("Duplicate union '$union_name' should have been caught by Identifier Resolution Pass.")
+          }
+
+          symbol_table[union_name] = Type::Union(union_name, pattern_list, index_map)
+        }
+        else {}
       }
     }
   }

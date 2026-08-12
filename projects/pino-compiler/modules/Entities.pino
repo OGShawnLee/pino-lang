@@ -163,6 +163,7 @@ pub union Type {
   Primitive(Primitive)
   Function([]Parameter, Type)
   Enum(string, []string)
+  Union(string, []Pattern, map[string, int])
   List(Type)
   Pending(string)
   Void
@@ -176,11 +177,22 @@ pub struct Parameter {
   default_expr Option[Expression]
 }
 
+pub struct Field {
+  name string
+  type Type
+}
+
+pub struct Pattern {
+  name string
+  field_list []Field
+}
+
 pub union Declaration {
   FunctionDeclaration(string, []Parameter, Type, []AST)
   ConstantDeclaration(string, Expression, Type)
   VariableDeclaration(string, Expression, Type)
   EnumDeclaration(string, []string)
+  UnionDeclaration(string, []Pattern, map[string, int])
 }
 
 pub union AST {
@@ -250,6 +262,21 @@ pub struct Program {
           println("- $enum_constant")
         }
       }
+      when Declaration::UnionDeclaration(name, pattern_list, index_map) {
+        println("Union: $name")
+        for pattern in pattern_list {
+          println("Pattern: $(pattern:name)")
+          for field in pattern:field_list {
+            println("Field: $(field:name)")
+            println("Type: $(Program::get_type_name(field:type))")
+          }
+        }
+
+        println("Index Map: ")
+        for name, index in index_map {
+          println("$name => $index")
+        }
+      }
     }
   }
 
@@ -263,6 +290,7 @@ pub struct Program {
       }
       when Type::Function(param_list, ret_type) => "Function ($(Program::get_type_name(ret_type)))"
       when Type::Enum(name, constant_list) => demangle_name(name)
+      when Type::Union(name, pattern_list, index_map) => demangle_name(name)
       when Type::List(inner_type) => "[]$(Program::get_type_name(inner_type))"
       when Type::Pending(name) => demangle_name(name)
       when Type::Implicit => "implicit"

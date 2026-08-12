@@ -11,6 +11,8 @@ from Entities import
   When,
   Statement,
   Loop,
+  Pattern,
+  Field,
   Expression,
   BinaryOperator,
   UnaryOperator,
@@ -618,6 +620,106 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   )
 }
 
+fn parse_pattern_field_list(stream TokenStream) Result[[]Field, string] {
+  stream:expect_content("(")?
+
+  var field_list = []Field
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:value == ")" or curr:type == TokenType::EOF {
+      break
+    }
+
+    if curr:value == "," {
+      if stream:peek(1):value == "," or stream:peek(2):value == ")" {
+        return Result::Failure("Expected field name after ',' in pattern field list.")
+      }
+
+      stream:next()
+      continue
+    }
+
+    val name = stream:expect_type(TokenType::Identifier)?
+    val type = parse_type(stream)?
+
+    field_list:push(
+      Field { 
+        name: name:value, 
+        type: type 
+      }
+    )
+  }
+
+  stream:expect_content(")")?
+
+  return Result::Success(field_list)
+}
+
+fn parse_pattern(stream TokenStream, union_name string, index_map map[string, int]) Result[Pattern, string] {
+  val pattern_name = stream:expect_type(TokenType::Identifier)?:value
+  
+  if not is_capital(pattern_name) {
+    return Result::Failure("Expected capitalized identifier for pattern name of union '$union_name', got '$pattern_name'. Tip: Capitalize pattern names.")
+  }
+
+  if pattern_name in index_map {
+    return Result::Failure("Duplicate pattern '$pattern_name' in union '$union_name'. Tip: Patterns must be unique within the same union.")
+  }
+
+  val curr = stream:peek(0)
+
+  if curr:value == "(" {
+    val field_list = parse_pattern_field_list(stream)?
+    return Result::Success(Pattern {
+      name: pattern_name
+      field_list: field_list
+    })
+  } else {
+    return Result::Success(Pattern {
+      name: pattern_name
+      field_list: []Field
+    })
+  }
+}
+
+fn parse_union_decl(stream TokenStream) Result[Declaration, string] {
+  stream:expect_content("union")?
+
+  val union_name = stream:expect_type(TokenType::Identifier)?:value
+
+  if not is_capital(union_name) {
+    return Result::Failure("Expected capitalized identifier for union name, got '$union_name'. Tip: Capitalize union names.")
+  }
+
+  val pattern_list = []Pattern
+  val index_map = map[string, int] {}
+
+  stream:expect_content("{")?
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:type == TokenType::EOF or curr:value == "}" {
+      break
+    }
+
+    val pattern = parse_pattern(stream, union_name, index_map)?
+    
+    index_map[pattern:name] = pattern_list:len
+    pattern_list:push(pattern)    
+  }
+
+  if pattern_list:len == 0 {
+    return Result::Failure("Expected at least one pattern inside union '$union_name' declaration. Tip: Add at least one pattern to the '$union_name' union.")
+  }
+
+  stream:expect_content("}")?
+
+  return Result::Success(Declaration::UnionDeclaration(union_name, pattern_list, index_map))
+}
+
 @pub_testing
 fn parse_decl(stream TokenStream) Result[Declaration, string] {
   val curr = stream:peek(0)
@@ -634,8 +736,12 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
       val res = parse_enum_decl(stream)?
       return Result::Success(res)
     }
+    when "union" {
+      val res = parse_union_decl(stream)?
+      return Result::Success(res)
+    }
     else {
-      return Result::Failure("Expected 'fn', 'var', 'val' or 'enum' keyword. Got $(curr:value).")
+      return Result::Failure("Expected 'fn', 'var', 'val', 'enum' or 'union' keyword. Got $(curr:value).")
     }
   }
 }
@@ -643,7 +749,7 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
 fn parse_block_item(stream TokenStream) Result[AST, string] {
   val curr = stream:peek(0)
   match curr:value {
-    when "fn", "var", "val", "enum" {
+    when "fn", "var", "val", "enum", "union" {
       val decl = parse_decl(stream)?
       return Result::Success(AST::Declaration(decl))
     }
