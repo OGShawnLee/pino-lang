@@ -120,6 +120,11 @@ pub union Constant {
   Int(int)
 }
 
+pub struct Binding {
+  name string
+  unique_name string
+}
+
 pub union Expression {
   Constant(Constant)
   Var(string)
@@ -129,6 +134,10 @@ pub union Expression {
   Conditional(Expression, Expression, Expression)
   FunctionCall(string, []Expression)
   List([]Expression, Type)
+  EnumConstant(string, string)
+  UnionPattern(string, string)
+  UnionPatternCall(string, string, []Expression)
+  UnionPatternMatching(string, string, []Binding)
 }
 
 pub struct When {
@@ -412,6 +421,24 @@ pub struct Program {
             Program::print_expr(expr)
           }
           println("]")
+        }
+      }
+      when Expression::EnumConstant(union_name, enum_constant_name) {
+        println("Enum Constant: $union_name::$enum_constant_name")
+      }
+      when Expression::UnionPattern(union_name, pattern_name) {
+        println("Union Pattern: $union_name::$pattern_name")
+      }
+      when Expression::UnionPatternCall(union_name, pattern_name, arg_list) {
+        println("Union Pattern Call: $union_name::$pattern_name")
+        for arg in arg_list {
+          Program::print_expr(arg)
+        }
+      }
+      when Expression::UnionPatternMatching(union_name, pattern_name, binding_list) {
+        println("Union Pattern Matching: $union_name::$pattern_name")
+        for binding in binding_list {
+          println("- Binding: $binding")
         }
       }
     }

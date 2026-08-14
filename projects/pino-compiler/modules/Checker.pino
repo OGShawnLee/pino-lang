@@ -8,6 +8,7 @@ from Entities import
   Parameter,
   Pattern,
   Field,
+  Binding,
   Type,
   Primitive,
   Statement,
@@ -53,100 +54,165 @@ fn copy_variable_map(variable_map map[string, Entity]) map[string, Entity] {
 	return new_variable_map
 }
 
-fn resolve_enum_access_expr(entity Entity, right_expr Expression, left_name string, constant_list []string) Result[Expression, string] {
+fn resolve_enum_access_expr(entity Entity, right_expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
   if right_expr is Expression::Var(right_name) {
-    if right_name not in constant_list {
-      return Result::Failure("Type Checker Error: '$right_name' is not a constant of enum '$left_name'.")
-    }
-
-    return Result::Success(
-      Expression::Binary(
-        BinaryOperator::StaticMemberAccess,
-        Expression::Var(entity:unique_name),
-        Expression::Var(right_name)
-      )
-    )
+    return Result::Success(Expression::EnumConstant(entity:unique_name, right_name))
   }
 
-  return Result::Failure("Type Checker Error: Invalid Static Member Access (::) on enum '$left_name'. Should be in the form '<enum_name>::<constant_name>'.")
+  val resolved_right_expr = resolve_expr(right_expr, variable_map, false)?
+
+  return Result::Success(
+    Expression::Binary(
+      BinaryOperator::StaticMemberAccess,
+      Expression::Var(entity:unique_name),
+      resolved_right_expr
+    )
+  )
+}
+
+fn resolve_union_pattern_matching_expr(
+  entity Entity,
+  pattern_name string,
+  arg_list []Expression,
+  variable_map map[string, Entity]
+) Result[Expression, string] {
+  val new_variable_map = copy_variable_map(variable_map)
+  val binding_list = []Binding
+
+  for arg in arg_list {
+    val resolved_arg = resolve_expr(arg, new_variable_map, true)?
+    
+    if resolved_arg is Expression::Var(name) {
+      val unique_name = mangle_name(name)
+      
+      new_variable_map[name] = Entity {
+        unique_name: unique_name
+        is_from_current_block: true
+        kind: Kind::Var
+      }
+      binding_list:push(Binding { name: name, unique_name: unique_name })
+
+      continue
+    }
+
+    val clean_union_name = demangle_name(entity:unique_name) 
+    return Result::Failure("Invalid pattern matching destructuring. Arguments inside '$clean_union_name::$pattern_name(...)' must be variable bindings/identifiers, not complex expressions or literal values.")
+  }
+
+  return Result::Success(
+    Expression::UnionPatternMatching(
+      entity:unique_name,
+      pattern_name,
+      binding_list
+    )
+  )
+}
+
+fn resolve_union_pattern_call_expr(
+  entity Entity,
+  pattern_name string,
+  arg_list []Expression,
+  variable_map map[string, Entity]
+) Result[Expression, string] {
+  val resolved_arg_list = []Expression
+
+  for arg in arg_list {
+    val resolved_arg = resolve_expr(arg, variable_map, false)?
+    resolved_arg_list:push(resolved_arg)
+  }
+
+  return Result::Success(
+    Expression::UnionPatternCall(
+      entity:unique_name,
+      pattern_name,
+      resolved_arg_list
+    )
+  )
 }
 
 fn resolve_union_access_expr(
-  entity Entity, 
-  right_expr Expression, 
-  left_name string, 
-  pattern_list []Pattern, 
-  index_map map[string, int], 
+  entity Entity
+  right_expr Expression
   variable_map map[string, Entity]
+  is_pattern_matching bool
 ) Result[Expression, string] {
-  if right_expr is Expression::Var(right_name) {
-    if right_name not in index_map {
-      return Result::Failure("Type Checker Error: '$right_name' is not a pattern of union '$left_name'.")
-    }
-
-    return Result::Success(
-      Expression::Binary(
-        BinaryOperator::StaticMemberAccess,
-        Expression::Var(entity:unique_name),
-        Expression::Var(right_name)
-      )
-    )
+  if right_expr is Expression::Var(pattern_name) {
+    return Result::Success(Expression::UnionPattern(entity:unique_name, pattern_name))
   }
 
-  if right_expr is Expression::FunctionCall(name, arg_list) {
-    if name not in index_map {
-      return Result::Failure("Type Checker Error: '$name' is not a pattern of union '$left_name'.")
+  if right_expr is Expression::FunctionCall(pattern_name, arg_list) {
+    if is_pattern_matching {
+      return resolve_union_pattern_matching_expr(entity, pattern_name, arg_list, variable_map)
     }
 
-    val resolved_arg_list = []Expression
-
-    for arg in arg_list {
-      val resolved_arg = resolve_expr(arg, variable_map)?
-      resolved_arg_list:push(resolved_arg)
-    }
-
-    return Result::Success(
-      Expression::Binary(
-        BinaryOperator::StaticMemberAccess,
-        Expression::Var(entity:unique_name),
-        Expression::FunctionCall(name, resolved_arg_list)
-      )
-    )
+    return resolve_union_pattern_call_expr(entity, pattern_name, arg_list, variable_map)
   }
 
-  return Result::Failure("Type Checker Error: Invalid Static Member Access (::) on union '$left_name'. Should be in the form '<union_name>::<pattern_name>(...)' or '<union_name>::<pattern_name>'.")
+  val resolved_right_expr = resolve_expr(right_expr, variable_map, false)?
+
+  return Result::Success(
+    Expression::Binary(
+      BinaryOperator::StaticMemberAccess,
+      Expression::Var(entity:unique_name),
+      resolved_right_expr
+    )
+  )
 }
 
-fn resolve_static_access_expr(left_expr Expression, right_expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
+fn resolve_static_access_expr(
+  left_expr Expression
+  right_expr Expression 
+  variable_map map[string, Entity]
+  is_pattern_matching bool
+) Result[Expression, string] {
   if left_expr is Expression::Var(left_name) {
     if left_name not in variable_map {
-      panic("Undeclared '$left_name' should have been caught by Declaration Hoisting Pass.")
+      return Result::Failure("Type Checker Error: Undeclared '$left_name' cannot be used in Static Access Expression.")
     }
 
     val entity = variable_map[left_name]
 
     match entity:kind {
       when Kind::Enum(constant_list) {
-        return resolve_enum_access_expr(entity, right_expr, left_name, constant_list)
+        return resolve_enum_access_expr(entity, right_expr, variable_map)
       }
       when Kind::Union(pattern_list, index_map) {
-        return resolve_union_access_expr(entity, right_expr, left_name, pattern_list, index_map, variable_map)
+        return resolve_union_access_expr(entity, right_expr, variable_map, is_pattern_matching)
       }
-      else {
-        return Result::Failure("Type Checker Error: Invalid Static Member Access (::) on non-enum or non-union '$left_name'.")
-      }
+      else {}
     }
   }
 
-  return Result::Failure("Type Checker Error: Static Member Access (::) can only be used on enums or unions.")
+  val resolved_left_expr = resolve_expr(left_expr, variable_map, is_pattern_matching)?
+  val resolved_right_expr = resolve_expr(right_expr, variable_map, is_pattern_matching)?
+
+  return Result::Success(
+    Expression::Binary(
+      BinaryOperator::StaticMemberAccess,
+      resolved_left_expr,
+      resolved_right_expr
+    )
+  )
 }
 
-fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expression, string] {
+fn resolve_expr(
+  expr Expression, 
+  variable_map map[string, Entity]
+  is_pattern_matching bool
+) Result[Expression, string] {
   match expr {
     when Expression::Constant(constant) {
       return Result::Success(Expression::Constant(constant))
     }
     when Expression::Var(name) {
+      if is_pattern_matching {
+        if name in variable_map and variable_map[name]:is_from_current_block {
+          return Result::Failure("Type Checker Error: Binding '$name' has already been declared in the current pattern matching scope.")
+        }
+
+        return Result::Success(Expression::Var(name))
+      }
+
       if name in variable_map {
         return Result::Success(Expression::Var(variable_map[name]:unique_name))
       }
@@ -154,17 +220,17 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
       return Result::Failure("Type Checker Error: Variable '$name' has not been declared in the current scope.")
     }
     when Expression::Unary(un_operator, expr) {
-      val resolved_expr = resolve_expr(expr, variable_map)?
+      val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?
 
       return Result::Success(Expression::Unary(un_operator, resolved_expr))
     }
     when Expression::Binary(bin_operator, left_expr, right_expr) {
       if bin_operator == BinaryOperator::StaticMemberAccess {
-        return resolve_static_access_expr(left_expr, right_expr, variable_map)
+        return resolve_static_access_expr(left_expr, right_expr, variable_map, is_pattern_matching)
       }
 
-      val resolved_left_expr = resolve_expr(left_expr, variable_map)?
-      val resolved_right_expr = resolve_expr(right_expr, variable_map)?
+      val resolved_left_expr = resolve_expr(left_expr, variable_map, is_pattern_matching)?
+      val resolved_right_expr = resolve_expr(right_expr, variable_map, is_pattern_matching)?
 
       return Result::Success(Expression::Binary(bin_operator, resolved_left_expr, resolved_right_expr))
     }
@@ -189,15 +255,15 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
         }
       }
 
-      val resolved_left_expr = resolve_expr(left_expr, variable_map)?
-      val resolved_right_expr = resolve_expr(right_expr, variable_map)?
+      val resolved_left_expr = resolve_expr(left_expr, variable_map, is_pattern_matching)?
+      val resolved_right_expr = resolve_expr(right_expr, variable_map, is_pattern_matching)?
 
       return Result::Success(Expression::Assignment(resolved_left_expr, resolved_right_expr))
     }
     when Expression::Conditional(condition_expr, then_expr, else_expr) {
-      val resolved_condition_expr = resolve_expr(condition_expr, variable_map)?
-      val resolved_then_expr = resolve_expr(then_expr, variable_map)?
-      val resolved_else_expr = resolve_expr(else_expr, variable_map)?
+      val resolved_condition_expr = resolve_expr(condition_expr, variable_map, is_pattern_matching)?
+      val resolved_then_expr = resolve_expr(then_expr, variable_map, is_pattern_matching)?
+      val resolved_else_expr = resolve_expr(else_expr, variable_map, is_pattern_matching)?
 
       return Result::Success(Expression::Conditional(resolved_condition_expr, resolved_then_expr, resolved_else_expr))
     }
@@ -210,7 +276,7 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
       
       val resolved_arg_list = []Expression
       for arg in arg_list {
-        resolved_arg_list:push(resolve_expr(arg, variable_map)?)
+        resolved_arg_list:push(resolve_expr(arg, variable_map, is_pattern_matching)?)
       }
 
       return Result::Success(Expression::FunctionCall(resolved_fn_name, resolved_arg_list))
@@ -219,10 +285,16 @@ fn resolve_expr(expr Expression, variable_map map[string, Entity]) Result[Expres
       val resolved_expr_list = []Expression
 
       for expr in expr_list {
-        resolved_expr_list:push(resolve_expr(expr, variable_map)?)
+        resolved_expr_list:push(resolve_expr(expr, variable_map, is_pattern_matching)?)
       }
 
       return Result::Success(Expression::List(resolved_expr_list, list_type))
+    }
+    else {
+      # UnionPattern, UnionPatternCall, UnionPatternMatching and EnumConstant are not generated by the Parser.
+      # They are generated by resolve_union_access_expr and resolve_enum_access_expr.
+      # So if we encounter them here, it means they are already resolved.
+      return Result::Success(expr)
     }
   }
 }
@@ -234,11 +306,25 @@ fn resolve_block_scope(block []AST, variable_map map[string, Entity]) Result[[]A
 
 fn resolve_when(when_case When, variable_map map[string, Entity]) Result[When, string] {
   val resolved_condition_list = []Expression
+  var new_variable_map = copy_variable_map(variable_map)
+
   for condition in when_case:cond_list {
-    resolved_condition_list:push(resolve_expr(condition, variable_map)?)
+    val resolved_expr = resolve_expr(condition, new_variable_map, true)?
+    
+    if resolved_expr is Expression::UnionPatternMatching(union_name, pattern_name, binding_list) {
+      for binding in binding_list {
+        new_variable_map[binding:name] = Entity {
+          unique_name: binding:unique_name
+          is_from_current_block: true
+          kind: Kind::Val
+        }
+      }
+    }
+
+    resolved_condition_list:push(resolved_expr)
   }
 
-  val resolved_block = resolve_block_scope(when_case:block, variable_map)?
+  val resolved_block = resolve_block(when_case:block, new_variable_map, false)?
 
   return Result::Success(
     When {
@@ -261,14 +347,14 @@ fn resolve_loop_stmt(
     }
     when Loop::While(cond_expr, block) {
       val new_variable_map = copy_variable_map(variable_map)
-      val resolved_cond_expr = resolve_expr(cond_expr, new_variable_map)?
+      val resolved_cond_expr = resolve_expr(cond_expr, new_variable_map, false)?
       val resolved_block = resolve_block(block, new_variable_map, true)?
       
       return Result::Success(Statement::Loop(Loop::While(resolved_cond_expr, resolved_block)))
     }
     when Loop::ForIn(iterator_expr, iterable_expr, block) {
       if iterator_expr is Expression::Var(name) {
-        val resolved_iterable_expr = resolve_expr(iterable_expr, variable_map)?
+        val resolved_iterable_expr = resolve_expr(iterable_expr, variable_map, false)?
         val new_variable_map = copy_variable_map(variable_map)
 
         new_variable_map[name] = Entity {
@@ -277,7 +363,7 @@ fn resolve_loop_stmt(
           kind: Kind::Val
         }
 
-        val resolved_iterator_expr = resolve_expr(iterator_expr, new_variable_map)?
+        val resolved_iterator_expr = resolve_expr(iterator_expr, new_variable_map, false)?
         val resolved_block = resolve_block(block, new_variable_map, true)?
 
         return Result::Success(
@@ -293,12 +379,12 @@ fn resolve_loop_stmt(
 fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Statement, string] {
   match stmt {
    when Statement::Return(expr) {
-    val resolved_expr = resolve_expr(expr, variable_map)?
+    val resolved_expr = resolve_expr(expr, variable_map, false)?
 
     return Result::Success(Statement::Return(resolved_expr))
    }  
    when Statement::If(condition, then_branch, else_branch_opt) {
-    val resolved_condition = resolve_expr(condition, variable_map)?
+    val resolved_condition = resolve_expr(condition, variable_map, false)?
     val resolved_then_branch = resolve_stmt(then_branch, variable_map)?
     val resolved_else_branch_opt = match else_branch_opt {
       when Option::Some(stmt) => Option::Some(resolve_stmt(stmt, variable_map)?)
@@ -308,7 +394,7 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
     return Result::Success(Statement::If(resolved_condition, resolved_then_branch, resolved_else_branch_opt))
    }
    when Statement::Match(condition, when_case_list, else_block_opt) {
-    val resolved_condition = resolve_expr(condition, variable_map)?
+    val resolved_condition = resolve_expr(condition, variable_map, false)?
     val resolved_when_case_list = []When
 
     for when_case in when_case_list {
@@ -335,7 +421,7 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
     return Result::Success(Statement::Compound(resolved_block))
    }
    when Statement::Expression(expr) {
-    val resolved_expr = resolve_expr(expr, variable_map)?
+    val resolved_expr = resolve_expr(expr, variable_map, false)?
     return Result::Success(Statement::Expression(resolved_expr))
    }
    when Statement::Loop(loop_variant) {
@@ -357,7 +443,7 @@ fn resolve_var_or_val_decl(
   type Type
   variable_map map[string, Entity]
 ) Result[Declaration, string] {
-  val resolved_expr = resolve_expr(expr, variable_map)?
+  val resolved_expr = resolve_expr(expr, variable_map, false)?
 
   if name in variable_map {
     val prev_entry = variable_map[name]
@@ -412,7 +498,7 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
 
   val resolved_type = resolve_type(param:type, variable_map)?
   val resolved_default_expr = match param:default_expr {
-    when Option::Some(expr) => Option::Some(resolve_expr(expr, variable_map)?)
+    when Option::Some(expr) => Option::Some(resolve_expr(expr, variable_map, false)?)
     when Option::None => Option::None
   }
   val unique_name = mangle_name(param:name)
@@ -852,158 +938,156 @@ fn type_check_assignment_expr(
   return assignee_type
 }
 
-fn type_check_enum_access_expr(
-  right_expr Expression
+fn type_check_enum_const(
   enum_name string
-  constant_list []string
+  enum_constant string
   symbol_table map[string, Type]
   error_list []string
 ) Type {
-  match right_expr {
-    when Expression::Var(constant_name) {
-      if constant_name in constant_list {
-        return symbol_table[enum_name]
-      } 
-      
-      error_list:push("'$constant_name' is not a constant of enum '$enum_name'.")
-      return Type::Invalid
-    }
-    else {
-      val right_expr_type = type_check_expr(right_expr, symbol_table, error_list)
+  val clean_enum_name = demangle_name(enum_name)
 
-      if right_expr_type == Type::Invalid {
-        return Type::Invalid
-      }
-
-      val right_expr_type_name = Program::get_type_name(right_expr_type)
-      error_list:push(
-        "Invalid use of Static Member Access Operator (::). The right operand of '$enum_name::<right_expr>' must be an enum constant of '$enum_name', but got '$right_expr_type_name'."
-      )
-      return Type::Invalid
-    }
+  if enum_name not in symbol_table {
+    panic("Undeclared enum '$clean_enum_name' used in Enum Constant Expression. Should have been caught by Identifier Resolution Pass.")
   }
+
+  val enum_type = symbol_table[enum_name]
+
+  if enum_type is Type::Enum(enum_name, constant_list) {
+    if enum_constant not in constant_list {
+      error_list:push("'$enum_constant' is not a constant of enum '$clean_enum_name'.")
+      return Type::Invalid
+    }
+
+    return enum_type
+  }
+
+  panic("This is not an Enum in Enum Constant Expression. Should have been caught by Identifier Resolution Pass.")
 }
 
-fn type_check_union_access_expr( 
-  right_expr Expression
+fn type_check_union_pattern_expr(
   union_name string
-  pattern_list []Pattern
-  index_map map[string, int]
+  pattern_name string
   symbol_table map[string, Type]
   error_list []string
-) {
+) Type {
   val clean_union_name = demangle_name(union_name)
-  match right_expr {
-    when Expression::Var(pattern_name) {
-      if pattern_name not in pattern_list {
-        error_list:push("'$pattern_name' is not a pattern of union '$clean_union_name'.")
-        return Type::Invalid
-      }
-      
-      val pattern_index = index_map[pattern_name]
-      val pattern = pattern_list[pattern_index]
 
-      if pattern:field_list:len > 0 {
-        error_list:push("Pattern '$pattern_name' of union '$clean_union_name' has fields. None were provided.")
-        return Type::Invalid
-      }
+  if union_name not in symbol_table {
+    panic("Undeclared union '$clean_union_name' should have been caught by Identifier Resolution Pass.")
+  }
 
-      return symbol_table[union_name]
+  val union_type = symbol_table[union_name]
+
+  if union_type is Type::Union(union_name, pattern_list, index_map) {
+    if pattern_name not in index_map {
+      error_list:push("'$pattern_name' is not a pattern of union '$clean_union_name'")
+      return Type::Invalid
     }
-    when Expression::FunctionCall(pattern_name, arg_list) {
-      if pattern_name not in index_map {
-        error_list:push("'$pattern_name' is not a pattern of union '$clean_union_name'.")
-        return Type::Invalid
+
+    return union_type
+  }
+
+  panic("This is not an Union in Union Pattern Expression. Should have been caught by Identifier Resolution Pass.")
+}
+
+fn type_check_union_pattern_call_expr(
+  union_name string
+  pattern_name string
+  arg_list []Expression
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  val union_type = type_check_union_pattern_expr(union_name, pattern_name, symbol_table, error_list)
+
+  if union_type is Type::Union(union_name, pattern_list, index_map) {
+    val clean_union_name = demangle_name(union_name)
+    val pattern_index = index_map[pattern_name]
+    val pattern = pattern_list[pattern_index]
+
+    if pattern:field_list:len == 0 {
+      error_list:push("Pattern '$clean_union_name::$pattern_name' has no fields. Tip: Access to this pattern as '$clean_union_name::$pattern_name' instead.")
+    }
+
+    if pattern:field_list:len != arg_list:len {
+      error_list:push("Pattern '$clean_union_name::$pattern_name' has '$(pattern:field_list:len)' fields. Got '$(arg_list:len)'.")
+    }
+
+    val arg_list_type = []Type
+
+    for arg in arg_list {
+      arg_list_type:push(
+        type_check_expr(arg, symbol_table, error_list)
+      )
+    }
+
+    val field_list = pattern:field_list
+
+    for index, field in field_list {
+      if index >= arg_list_type:len {
+        error_list:push("Missing argument for field '$(field:name)' of pattern '$clean_union_name::$pattern_name'.")
+        continue
       }
 
-      val pattern_index = index_map[pattern_name]
-      val pattern = pattern_list[pattern_index]
+      val arg_type = arg_list_type[index]
 
-      if pattern:field_list:len == 0 {
-        error_list:push("Pattern '$pattern_name' of union '$clean_union_name' has no fields. Tip: Access to this pattern as '$clean_union_name::$pattern_name' instead.")
-        return Type::Invalid
-      }
-
-      if pattern:field_list:len != arg_list:len {
-        error_list:push("Pattern '$pattern_name' of union '$clean_union_name' has '$(pattern:field_list:len)' fields. Got '$(arg_list:len)'.")
-        return Type::Invalid
-      }
-
-      val arg_list_type = []Type
-      
-      for arg in arg_list {
-        arg_list_type:push(type_check_expr(arg, symbol_table, error_list))
-      }
-
-      val field_list = pattern:field_list
-      var is_invalid = false
-
-      for index, arg_type in arg_list_type {
-        val field = field_list[index]
-
-        if arg_type == Type::Invalid {
-          is_invalid = true
-          continue
-        }
-
-        if arg_type == field:type {
-          continue
-        }
-
+      if arg_type != field:type and arg_type != Type::Invalid {
         val arg_type_name = Program::get_type_name(arg_type)
         val field_type_name = Program::get_type_name(field:type)
 
-        error_list:push("Type mismatch for field '$(field:name)' of pattern '$pattern_name' of union '$clean_union_name'. Expected '$field_type_name' but got '$arg_type_name'.")
-        is_invalid = true
+        error_list:push("Type mismatch for field '$(field:name)' of pattern '$clean_union_name::$pattern_name'. Expected '$field_type_name' but got '$arg_type_name'.")
       }
-
-      return if is_invalid then Type::Invalid else symbol_table[union_name]
-    }
-    else {
-      val right_expr_type = type_check_expr(right_expr, symbol_table, error_list)
-
-      if right_expr_type == Type::Invalid {
-        return Type::Invalid
-      }
-
-      val right_expr_type_name = Program::get_type_name(right_expr_type)
-      error_list:push(
-        "Invalid use of Static Member Access Operator (::). The right operand of '$clean_union_name::<right_expr>' must be a pattern of '$clean_union_name', but got '$right_expr_type_name'."
-      )
-      return Type::Invalid
     }
   }
+
+  return union_type
 }
 
-fn type_check_static_member_access_expr(
-  left_expr Expression 
-  right_expr Expression 
-  symbol_table map[string, Type] 
+fn type_check_union_pattern_matching_expr(
+  union_name string
+  pattern_name string
+  binding_list []Binding
+  symbol_table map[string, Type]
   error_list []string
 ) Type {
-  if left_expr is Expression::Var(left_name) {
-    if left_name not in symbol_table {
-      panic("Undeclared identifier left operand of '::' in Static Member Access: '$left_name'. Should have been caught by Identifier Resolution Pass.")
+  val union_type = type_check_union_pattern_expr(union_name, pattern_name, symbol_table, error_list)
+
+  if union_type is Type::Union(union_name, pattern_list, index_map) {
+    val pattern_index = index_map[pattern_name]
+    val pattern = pattern_list[pattern_index]
+    val field_list = pattern:field_list
+
+    if field_list:len == 0 {
+      val clean_union_name = demangle_name(union_name)
+      val clean_pattern_name = demangle_name(pattern_name)
+
+      error_list:push(
+        "Union pattern '$clean_union_name::$clean_pattern_name' does not contain any fields, but it is being matched with binding variables. Tip: Match as '$clean_union_name::$clean_pattern_name' instead."
+      )
     }
 
-    val target_type = symbol_table[left_name]
+    if field_list:len < binding_list:len {
+      val clean_union_name = demangle_name(union_name)
+      val clean_pattern_name = demangle_name(pattern_name)
 
-    match target_type {
-      when Type::Enum(enum_name, constant_list) {
-        return type_check_enum_access_expr(right_expr, enum_name, constant_list, symbol_table, error_list)
-      }
-      when Type::Union(union_name, pattern_list, index_map) {
-        return type_check_union_access_expr(right_expr, union_name, pattern_list, index_map, symbol_table, error_list)
-      }
-      else {
-        error_list:push("Invalid use of Static Member Access Operator (::). The left operand must be an enum or union.")
-        return Type::Invalid
-      }
+      error_list:push(
+        "Union pattern '$clean_union_name::$clean_pattern_name' has $(field_list:len) fields, but $(binding_list:len) binding variables were provided. Tip: Provide $(field_list:len) binding variables or match as '$clean_union_name::$clean_pattern_name' instead."
+      )
     }
+
+    for index, binding in binding_list {
+      if index >= field_list:len {
+        symbol_table[binding:unique_name] = Type::Invalid
+        continue
+      }
+
+      val field_type = field_list[index]:type
+      symbol_table[binding:unique_name] = field_type
+    }
+
+    return union_type
   }
-    
-  error_list:push("Invalid use of Static Member Access Operator (::). The left operand must be an enum or union.")
-  return Type::Invalid
+
+  panic("This is not an Union in Union Pattern Matching. Should have been caught in Identifier Resolution Pass.")
 }
 
 fn type_check_binary_expr(
@@ -1013,10 +1097,6 @@ fn type_check_binary_expr(
   symbol_table map[string, Type]
   error_list []string
 ) Type {
-  if bin_op == BinaryOperator::StaticMemberAccess {
-    return type_check_static_member_access_expr(left_expr, right_expr, symbol_table, error_list)
-  }
-
   val left_type = type_check_expr(left_expr, symbol_table, error_list)
   val right_type = type_check_expr(right_expr, symbol_table, error_list)
 
@@ -1130,7 +1210,24 @@ fn type_check_binary_expr(
       panic("Binary Operator Assign, Conditional should never be passed to type_check_expr.")
     }
     when BinaryOperator::StaticMemberAccess {
-      panic("Binary Operator StaticMemberAccess should have been handled by type_check_static_member_access_expr.")
+      match left_type {
+        when Type::Enum(enum_name, enum_constant) {
+          val clean_name = demangle_name(enum_name)
+
+          error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a constant of enum '$clean_name' .")
+          return Type::Invalid
+        }
+        when Type::Union(union_name, pattern_list, index_map) {
+          val clean_name = demangle_name(union_name)
+
+          error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a pattern of union '$clean_name' .")
+          return Type::Invalid
+        }
+        else {}
+      }
+
+      error_list:push("Invalid use of Binary Operator Static Member Access (::). The left-hand operand of '$left_type_name::$right_type_name' must be an enum/union name and the right-hand operand must be a constant/pattern of that enum/union type.")
+      return Type::Invalid
     }
   }
 
@@ -1205,6 +1302,18 @@ fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list [
     when Expression::List(expr_list, list_type) {
       return type_check_list_expr(expr_list, list_type, symbol_table, error_list)
     }
+    when Expression::EnumConstant(enum_name, enum_constant) {
+      return type_check_enum_const(enum_name, enum_constant, symbol_table, error_list)
+    }
+    when Expression::UnionPattern(union_name, pattern_name) {
+      return type_check_union_pattern_expr(union_name, pattern_name, symbol_table, error_list)
+    }
+    when Expression::UnionPatternCall(union_name, pattern_name, arg_list) {
+      return type_check_union_pattern_call_expr(union_name, pattern_name, arg_list, symbol_table, error_list)
+    }
+    when Expression::UnionPatternMatching(union_name, pattern_name, binding_list) {
+      return type_check_union_pattern_matching_expr(union_name, pattern_name, binding_list, symbol_table, error_list)
+    }
   }
 
   return Type::Invalid
@@ -1227,18 +1336,22 @@ fn type_check_match_enum_stmt(
     for cond_expr in when_case:cond_list {
       val expr_type = type_check_expr(cond_expr, symbol_table, error_list)
 
-      if cond_expr is Expression::Binary(bin_op, enum_expr, constant_expr) and constant_expr is Expression::Var(constant_name) {
+      if expr_type == Type::Invalid {
+        continue
+      }
+
+      if cond_expr is Expression::EnumConstant(enum_name, constant_name) {
         if constant_name in covered_list {
-          error_list:push("Match statement has duplicate constant condition '$constant_name' for enum '$clean_enum_name'.")
+          error_list:push("Match statement has duplicate constant condition '$clean_enum_name::$constant_name'.")
         } else {
           covered_list:push(constant_name)
         }
+
+        continue
       }
 
-      if expr_type is not Type::Enum {
-        val type_name = Program::get_type_name(expr_type)
-        error_list:push("Match statement type mismatch. The when case condition must be an enum constant of '$clean_enum_name', got '$type_name'.")
-      }
+      val type_name = Program::get_type_name(expr_type)
+      error_list:push("Match statement type mismatch. The when case condition must be an enum constant of '$clean_enum_name', got '$type_name'.")
     }
 
     has_ret_stmt_list:push(type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt))
@@ -1257,7 +1370,104 @@ fn type_check_match_enum_stmt(
       "Match statement lacks exhaustivity for enum '$clean_enum_name'. Tip: Add when cases for all enum constants, one when case with all constants, or one else block."
     )
     for constant in uncovered_list {
-      error_list:push("- Missing coverage for enum constant '$constant' of '$clean_enum_name'.")
+      error_list:push("- Missing coverage for enum constant '$clean_enum_name::$constant'.")
+    }
+  }
+
+  if else_block_opt is Option::Some(else_block) {
+    has_ret_stmt_list:push(type_check_block(else_block, symbol_table, error_list, fn_name_context_opt))
+    return has_ret_stmt_list:all(it)
+  }
+
+  return uncovered_list:len == 0 and has_ret_stmt_list:all(it)
+}
+
+fn type_check_match_union_stmt(
+  union_name string
+  pattern_list []Pattern
+  index_map map[string, int]
+  when_case_list []When
+  else_block_opt Option[[]AST]
+  symbol_table map[string, Type]
+  error_list []string
+  fn_name_context_opt Option[string]
+) bool {
+  val clean_union_name = demangle_name(union_name)
+  val covered_list = []string
+  val has_ret_stmt_list = []bool
+
+  for when_case in when_case_list {
+    var using_union_pattern = false
+    var using_union_pattern_matching = false
+
+    for cond_expr in when_case:cond_list {
+      val expr_type = type_check_expr(cond_expr, symbol_table, error_list)
+
+      if expr_type == Type::Invalid {
+        continue
+      }
+
+      match cond_expr {
+        when Expression::UnionPattern(union_name, pattern_name) {
+          using_union_pattern = true
+
+          if using_union_pattern_matching {
+            error_list:push("Match Statement cannot use both Union Pattern (as $clean_union_name::$pattern_name) and Union Pattern Matching (as $clean_union_name::$pattern_name(<bindings>...)) in the same when case.")
+            continue
+          }
+
+          if pattern_name in covered_list {
+            error_list:push("Match Statement has duplicate pattern condition '$clean_union_name::$pattern_name'.")
+          } else {
+            covered_list:push(pattern_name)
+          }
+        }
+        when Expression::UnionPatternCall(union_name, pattern_name, arg_list) {
+          error_list:push("Match Statement Pattern Condition cannot be a pattern call '$clean_union_name::$pattern_name(<non-binding-arguments>...)'.")
+        }
+        when Expression::UnionPatternMatching(union_name, pattern_name, binding_list) {
+          if using_union_pattern {
+            error_list:push("Match Statement cannot use both Union Pattern Matching (as $clean_union_name::$pattern_name(<bindings>...)) and Union Pattern (as $clean_union_name::$pattern_name) in the same when case.")
+            continue
+          }
+
+          if using_union_pattern_matching {
+            error_list:push("Match Statement cannot use multiple Union Pattern Matching in the same when case. Remove '$clean_union_name::$pattern_name(<bindings>...)'.")
+            continue
+          }
+
+          using_union_pattern_matching = true
+
+          if pattern_name in covered_list {
+            error_list:push("Match Statement has duplicate pattern condition '$clean_union_name::$pattern_name'.")
+          } else {
+            covered_list:push(pattern_name)
+          }
+        } 
+        else {
+          val type_name = Program::get_type_name(expr_type)
+          error_list:push("Match Statement type mismatch. The when case condition must be a pattern of '$clean_union_name', got '$type_name'.")
+        }
+      }
+    }
+
+    using_union_pattern = false
+    using_union_pattern_matching = false
+    has_ret_stmt_list:push(type_check_block(when_case:block, symbol_table, error_list, fn_name_context_opt))
+  }
+
+  val uncovered_list = []string
+
+  for pattern in pattern_list {
+    if pattern:name not in covered_list {
+      uncovered_list:push(pattern:name)
+    }
+  }
+
+  if uncovered_list:len != 0 {
+    error_list:push("Match statement lacks exhaustivity for union '$clean_union_name'.")
+    for name in uncovered_list {
+      error_list:push("- Missing coverage for pattern '$clean_union_name::$name'.")
     }
   }
 
@@ -1285,6 +1495,10 @@ fn type_check_match_stmt(
 
   if cond_type is Type::Enum(enum_name, constant_list) {
     return type_check_match_enum_stmt(enum_name, constant_list, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
+  }
+
+  if cond_type is Type::Union(union_name, pattern_list, index_map) {
+    return type_check_match_union_stmt(union_name, pattern_list, index_map, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
   }
 
   for when_case in when_case_list {

@@ -623,7 +623,7 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
 fn parse_pattern_field_list(stream TokenStream) Result[[]Field, string] {
   stream:expect_content("(")?
 
-  var field_list = []Field
+  val field_list = []Field
 
   for {
     val curr = stream:peek(0)
