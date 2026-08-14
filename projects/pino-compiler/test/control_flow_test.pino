@@ -1,0 +1,68 @@
+union Planet {
+  Earth
+}
+
+test "Match (Union): Should break from loop" {
+  var count = 0
+
+  for 12 {
+    match Planet::Earth {
+      when Planet::Earth {
+        count = 1
+        break
+      }
+    }
+  }
+
+  assert count == 1
+}
+
+test "Match (Union): Should continue inside loop" {
+  var count = 0
+
+  for 12 {
+    match Planet::Earth {
+      when Planet::Earth {
+        continue
+        count = 1
+      }
+    }
+  }
+
+  assert count == 0
+}
+
+enum Star {
+  Sol
+}
+
+test "Match (Enum): Should break from loop" {
+  var count = 0
+
+  for 12 {
+    match Star::Sol {
+      when Star::Sol {
+        count = 1
+        break
+      }
+    }
+  }
+
+  assert count == 1
+}
+
+test "Match (Enum): Should continue inside loop" {
+  var count = 0
+
+  for 12 {
+    match Star::Sol {
+      when Star::Sol {
+        continue
+        count = 1
+      }
+    }
+  }
+
+  assert count == 0
+}
+

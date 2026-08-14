@@ -1820,6 +1820,10 @@ public class TranspilerC {
                 TranspileLoop(loop);
                 break;
 
+            case MatchStatement matchStmt:
+                TranspileMatchStatement(matchStmt);
+                break;
+
             case TestDeclaration testDecl:
                 // Ignored in main flow, lifted to static functions
                 break;
@@ -3045,6 +3049,80 @@ public class TranspilerC {
                 _varTypes.Remove(name);
             }
         }
+    }
+
+    private void TranspileMatchStatement(MatchStatement match) {
+        WriteIndent();
+        WriteLine("{");
+        _indent++;
+
+        var condVar = $"_pino_match_cond_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+        var condType = match.Condition.InferredType!;
+        WriteIndent();
+        Write($"{MapType(condType)} {condVar} = ");
+        TranspileExpression(match.Condition);
+        _sb.AppendLine(";");
+
+        for (int i = 0; i < match.Branches.Count; i++) {
+            var branch = match.Branches[i];
+            WriteIndent();
+            if (i > 0) Write("else ");
+            Write("if (");
+
+            var branchConds = new List<string>();
+            var bindingList = new List<string>();
+            foreach (var condPat in branch.Conditions) {
+                var pConds = new List<string>();
+                var pBindings = new List<string>();
+                BuildPatternMatch(condPat, condVar, condType, pConds, pBindings);
+                string cStr = pConds.Count > 0 ? string.Join(" && ", pConds) : "1";
+                branchConds.Add(cStr);
+                bindingList.AddRange(pBindings);
+            }
+
+            Write(string.Join(" || ", branchConds));
+            WriteLine(") {");
+            _indent++;
+
+            foreach (var bind in bindingList) {
+                WriteIndent();
+                WriteLine(bind);
+            }
+
+            if (branch.Body is BlockStatement block) {
+                foreach (var s in block.Statements) {
+                    TranspileStatement(s);
+                }
+            } else {
+                TranspileStatement(branch.Body);
+            }
+
+            _indent--;
+            WriteIndent();
+            WriteLine("}");
+        }
+
+        if (match.Alternate != null) {
+            WriteIndent();
+            WriteLine("else {");
+            _indent++;
+
+            if (match.Alternate.Body is BlockStatement block) {
+                foreach (var s in block.Statements) {
+                    TranspileStatement(s);
+                }
+            } else {
+                TranspileStatement(match.Alternate.Body);
+            }
+
+            _indent--;
+            WriteIndent();
+            WriteLine("}");
+        }
+
+        _indent--;
+        WriteIndent();
+        WriteLine("}");
     }
 
     private void TranspileBlockOrStatement(Statement stmt) {
