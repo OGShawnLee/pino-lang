@@ -13,6 +13,7 @@ from Entities import
   Loop,
   Pattern,
   Field,
+  Argument,
   Expression,
   BinaryOperator,
   UnaryOperator,
@@ -96,8 +97,8 @@ fn parse_binary_operator(token Token) Result[BinaryOperator, string] {
   return Result::Success(BINARY_OPERATOR_MAP[token:value])
 }
 
-fn parse_arg_list(stream TokenStream) Result[[]Expression, string] {
-  val arg_list = []Expression
+fn parse_arg_list(stream TokenStream) Result[[]Argument, string] {
+  val arg_list = []Argument
 
   if stream:peek(0):value == "," {
     return Result::Failure("Expected argument before ',' in argument list.")
@@ -123,8 +124,26 @@ fn parse_arg_list(stream TokenStream) Result[[]Expression, string] {
       continue
     }
 
+    if stream:peek(0):value == "@" {
+      stream:next()
+      
+      val name = stream:expect_type(TokenType::Identifier)?:value
+    
+      if stream:peek(0):value == ":" {
+        stream:next()
+
+        val expr = parse_expr(stream, 0)?
+    
+        arg_list:push(Argument::Label(name, expr))
+      } else {
+        arg_list:push(Argument::Label(name, Expression::Var(name)))
+      }
+
+      continue
+    }
+
     val arg_expr = parse_expr(stream, 0)?
-    arg_list:push(arg_expr)
+    arg_list:push(Argument::Expression(arg_expr))
   }
 
   stream:expect_content(")")?

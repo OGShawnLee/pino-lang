@@ -125,6 +125,11 @@ pub struct Binding {
   unique_name string
 }
 
+pub union Argument {
+  Label(string, Expression)
+  Expression(Expression)
+}
+
 pub union Expression {
   Constant(Constant)
   Var(string)
@@ -132,7 +137,7 @@ pub union Expression {
   Binary(BinaryOperator, Expression, Expression)
   Assignment(Expression, Expression)
   Conditional(Expression, Expression, Expression)
-  FunctionCall(string, []Expression)
+  FunctionCall(string, []Argument)
   List([]Expression, Type)
   EnumConstant(string, string)
   UnionPattern(string, string)
@@ -327,6 +332,9 @@ pub struct Program {
       }
       when Statement::Match(expr, when_case_list, else_branch_opt) {
         println("Match:")
+        println("Condition:")
+        Program::print_expr(expr)
+        
         for when_case in when_case_list {
           println("When")
           for condition in when_case:cond_list {
@@ -407,7 +415,15 @@ pub struct Program {
       when Expression::FunctionCall(name, args) {
         println("Function Call: $name")
         for arg in args {
-          Program::print_expr(arg)
+          match arg {
+            when Argument::Label(name, expr) {
+              println("Label: $name")
+              Program::print_expr(expr)
+            }
+            when Argument::Expression(expr) {
+              Program::print_expr(expr)
+            }
+          }
         }
       }
       when Expression::List(expr_list, list_type) {
