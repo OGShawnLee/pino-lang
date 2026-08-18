@@ -180,6 +180,7 @@ pub union Type {
   Enum(string, []string)
   Union(string, []Pattern, map[string, int])
   List(Type)
+  Struct(string, map[string, Property])
   Pending(string)
   Void
   Implicit
@@ -324,6 +325,7 @@ pub struct Program {
       when Type::Enum(name, constant_list) => demangle_name(name)
       when Type::Union(name, pattern_list, index_map) => demangle_name(name)
       when Type::List(inner_type) => "[]$(Program::get_type_name(inner_type))"
+      when Type::Struct(name, property_map) => demangle_name(name)
       when Type::Pending(name) => demangle_name(name)
       when Type::Implicit => "implicit"
       when Type::Void => "void"

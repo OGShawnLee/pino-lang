@@ -1,7 +1,7 @@
 from Entities import Program
 import Lexer
 import Parser
-# import Checker
+import Checker
 
 struct CompilerOutput {
   program Program
@@ -17,15 +17,15 @@ fn parse_file() Result[CompilerOutput, string] {
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)?
-  # val resolved_program = Checker::resolve_program(program)?
-  # val error_list = Checker::type_check_program(resolved_program)
+  val resolved_program = Checker::resolve_program(program)?
+  val error_list = Checker::type_check_program(resolved_program)
   val end = time()
 
   return Result::Success(
     CompilerOutput {
-      program: program,
-      is_valid: true,
-      error_list: []string,
+      program: resolved_program,
+      is_valid: error_list:len == 0,
+      error_list: error_list,
       processing_time: end - begin
     }
   )
@@ -36,7 +36,6 @@ fn main {
     when Result::Success(res) {
       if res:is_valid {
         println("Program main.pino Processed Successfully in $(res:processing_time) ms")
-        res:program:print()
       } else {
         println("Program main.pino Processed with Errors in $(res:processing_time) ms")
         for error in res:error_list {
