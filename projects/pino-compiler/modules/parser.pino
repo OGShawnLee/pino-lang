@@ -202,6 +202,52 @@ fn parse_list(stream TokenStream) Result[Expression, string] {
   return Result::Success(Expression::List(expr_list, list_type))
 }
 
+fn parse_struct_instance(stream TokenStream, struct_name string) Result[Expression, string] {
+  if not is_capital(struct_name) {
+    return Result::Failure("Expected struct instance name to be capitalized. Got '$struct_name'.")
+  }
+
+  stream:expect_content("{")?
+
+  val property_map = map[string, Expression] {}
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:type == TokenType::EOF or curr:value == "}" {
+      break
+    }
+
+    if curr:value == "," {
+      if stream:peek(1):value == "}" {
+        return Result::Failure("Syntax Error: Expected property before '}' in struct instance '$struct_name'. Tip: Remove trailing ',' from struct instance '$struct_name'.")
+      }
+
+      stream:next()
+      continue
+    }
+
+    val property_name = stream:expect_type(TokenType::Identifier)?:value
+    
+    if property_name in property_map {
+      return Result::Failure("Expected unique property name. Got '$property_name' repeated in struct instance '$struct_name'.")
+    }
+
+    stream:expect_content(":") or {
+      return Result::Failure("Syntax Error: Expected ':' after property name '$property_name' in struct instance '$struct_name'.")
+    }
+
+    val property_expr = parse_expr(stream, 0)?
+    property_map[property_name] = property_expr
+  } 
+
+  stream:expect_content("}") or {
+    return Result::Failure("Syntax Error: Expected '}' to close struct instance '$struct_name'.")
+  }
+
+  return Result::Success(Expression::StructInstance(struct_name, property_map))
+}
+
 fn parse_factor(stream TokenStream) Result[Expression, string] {
   val curr = stream:consume()
   match curr:type {
@@ -246,7 +292,12 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
         stream:next()
         val arg_list = parse_arg_list(stream)?
         return Result::Success(Expression::FunctionCall(curr:value, arg_list))
-      }      
+      }
+
+      if stream:peek(0):value == "{" {
+        val struct_instance = parse_struct_instance(stream, curr:value)?
+        return Result::Success(struct_instance)
+      }
 
       return Result::Success(Expression::Var(curr:value))
     }
@@ -739,6 +790,54 @@ fn parse_union_decl(stream TokenStream) Result[Declaration, string] {
   return Result::Success(Declaration::UnionDeclaration(union_name, pattern_list, index_map))
 }
 
+fn parse_property(stream TokenStream) Result[Property, string] {
+  var is_public = false
+
+  if stream:peek(0):value == "pub" {
+    stream:next()
+    is_public = true
+  }
+
+  val name = stream:expect_type(TokenType::Identifier)?:value
+  val type = parse_type(stream)?
+
+  return Result::Success(Property { name: name, type: type, is_public: is_public })
+}
+
+fn parse_struct_decl(stream TokenStream) Result[Declaration, string] {
+  stream:expect_content("struct")
+
+  val struct_name = stream:expect_type(TokenType::Identifier)?:value
+
+  if not is_capital(struct_name) {
+    return Result::Failure("Expected capitalized identifier for struct name, got '$struct_name'. Tip: Capitalize struct names.")
+  }
+
+  val property_map = map[string, Property] {}
+
+  stream:expect_content("{")?
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:type == TokenType::EOF or curr:value == "}" {
+      break
+    }
+
+    val property = parse_property(stream)?
+
+    if property:name in property_map {
+      return Result::Failure("Duplicate property '$(property:name)' in struct '$struct_name'. Tip: Properties must be unique within the same struct.")
+    }
+
+    property_map[property:name] = property
+  }
+
+  stream:expect_content("}")?
+
+  return Result::Success(Declaration::StructDeclaration(struct_name, property_map))
+}
+
 @pub_testing
 fn parse_decl(stream TokenStream) Result[Declaration, string] {
   val curr = stream:peek(0)
@@ -759,6 +858,10 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
       val res = parse_union_decl(stream)?
       return Result::Success(res)
     }
+    when "struct" {
+      val res = parse_struct_decl(stream)?
+      return Result::Success(res)
+    }
     else {
       return Result::Failure("Expected 'fn', 'var', 'val', 'enum' or 'union' keyword. Got $(curr:value).")
     }
@@ -768,7 +871,7 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
 fn parse_block_item(stream TokenStream) Result[AST, string] {
   val curr = stream:peek(0)
   match curr:value {
-    when "fn", "var", "val", "enum", "union" {
+    when "fn", "var", "val", "enum", "union", "struct" {
       val decl = parse_decl(stream)?
       return Result::Success(AST::Declaration(decl))
     }

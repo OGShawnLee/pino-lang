@@ -143,6 +143,7 @@ pub union Expression {
   UnionPattern(string, string)
   UnionPatternCall(string, string, []Expression)
   UnionPatternMatching(string, string, []Binding)
+  StructInstance(string, map[string, Expression])
 }
 
 pub struct When {
@@ -201,12 +202,19 @@ pub struct Pattern {
   field_list []Field
 }
 
+pub struct Property {
+  name string
+  type Type
+  is_public bool
+}
+
 pub union Declaration {
   FunctionDeclaration(string, []Parameter, Type, []AST)
   ConstantDeclaration(string, Expression, Type)
   VariableDeclaration(string, Expression, Type)
   EnumDeclaration(string, []string)
   UnionDeclaration(string, []Pattern, map[string, int])
+  StructDeclaration(string, map[string, Property])
 }
 
 pub union AST {
@@ -289,6 +297,16 @@ pub struct Program {
         println("Index Map: ")
         for name, index in index_map {
           println("$name => $index")
+        }
+      }
+      when Declaration::StructDeclaration(name, property_map) {
+        println("Struct: $name")
+        for name, property in property_map {
+          if property:is_public {
+            println("  pub $name: $(Program::get_type_name(property:type))")
+          } else {
+            println("  $name: $(Program::get_type_name(property:type))")
+          }
         }
       }
     }
@@ -455,6 +473,13 @@ pub struct Program {
         println("Union Pattern Matching: $union_name::$pattern_name")
         for binding in binding_list {
           println("- Binding: $binding")
+        }
+      }
+      when Expression::StructInstance(name, property_map) {
+        println("Struct Instance: $name")
+        for name, expr in property_map {
+          println("$name: ")
+          Program::print_expr(expr)
         }
       }
     }
