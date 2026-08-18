@@ -25,7 +25,7 @@ fn parse_file() Result[CompilerOutput, string] {
     CompilerOutput {
       program: resolved_program,
       is_valid: error_list:len == 0,
-      error_list: error_list
+      error_list: error_list,
       processing_time: end - begin
     }
   )

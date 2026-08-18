@@ -8,6 +8,7 @@ from Entities import
   Parameter,
   Pattern,
   Field,
+  Argument,
   Binding,
   Type,
   Primitive,
@@ -21,7 +22,7 @@ from Entities import
 union Kind {
   Var
   Val
-  Function
+  Function([]Parameter, map[string, int])
   Enum([]string)
   Union([]Pattern, map[string, int])
 }
@@ -36,7 +37,7 @@ fn get_kind_name(kind Kind) string {
   return match kind {
     when Kind::Var => "Variable"
     when Kind::Val => "Constant"
-    when Kind::Function => "Function"
+    when Kind::Function(param_list, index_map) => "Function"
     when Kind::Enum(constant_list) => "Enum"
     when Kind::Union(pattern_list, index_map) => "Union"
   }
@@ -73,30 +74,37 @@ fn resolve_enum_access_expr(entity Entity, right_expr Expression, variable_map m
 fn resolve_union_pattern_matching_expr(
   entity Entity,
   pattern_name string,
-  arg_list []Expression,
+  arg_list []Argument,
   variable_map map[string, Entity]
 ) Result[Expression, string] {
   val new_variable_map = copy_variable_map(variable_map)
   val binding_list = []Binding
+  val clean_union_name = demangle_name(entity:unique_name)
 
   for arg in arg_list {
-    val resolved_arg = resolve_expr(arg, new_variable_map, true)?
-    
-    if resolved_arg is Expression::Var(name) {
-      val unique_name = mangle_name(name)
-      
-      new_variable_map[name] = Entity {
-        unique_name: unique_name
-        is_from_current_block: true
-        kind: Kind::Var
+    match arg {
+      when Argument::Label(label_name, expr) {
+        return Result::Failure("Type Checker Error: Invalid Union Pattern Matching on union '$clean_union_name'. Argument labels are not yet supported in the destructuring of union types.")
       }
-      binding_list:push(Binding { name: name, unique_name: unique_name })
+      when Argument::Expression(expr) {
+        val resolved_expr = resolve_expr(expr, new_variable_map, true)?
 
-      continue
+        if resolved_expr is Expression::Var(name) {
+          val unique_name = mangle_name(name)
+
+          new_variable_map[name] = Entity {
+            unique_name: unique_name
+            is_from_current_block: true
+            kind: Kind::Var
+          }
+          binding_list:push(Binding { name: name, unique_name: unique_name })
+
+          continue
+        }
+
+        return Result::Failure("Invalid pattern matching destructuring. Arguments inside '$clean_union_name::$pattern_name(...)' must be variable bindings/identifiers, not complex expressions or literal values.")
+      }
     }
-
-    val clean_union_name = demangle_name(entity:unique_name) 
-    return Result::Failure("Invalid pattern matching destructuring. Arguments inside '$clean_union_name::$pattern_name(...)' must be variable bindings/identifiers, not complex expressions or literal values.")
   }
 
   return Result::Success(
@@ -111,14 +119,22 @@ fn resolve_union_pattern_matching_expr(
 fn resolve_union_pattern_call_expr(
   entity Entity,
   pattern_name string,
-  arg_list []Expression,
+  arg_list []Argument,
   variable_map map[string, Entity]
 ) Result[Expression, string] {
   val resolved_arg_list = []Expression
+  val clean_union_name = demangle_name(entity:unique_name)
 
   for arg in arg_list {
-    val resolved_arg = resolve_expr(arg, variable_map, false)?
-    resolved_arg_list:push(resolved_arg)
+    match arg {
+      when Argument::Label(label_name, expr) {
+        return Result::Failure("Type Checker Error: Invalid Union Pattern Call on union '$clean_union_name'. Argument labels are not yet supported in the construction of union types.")
+      }
+      when Argument::Expression(expr) {
+        val resolved_expr = resolve_expr(expr, variable_map, false)?
+        resolved_arg_list:push(resolved_expr)
+      }
+    }
   }
 
   return Result::Success(
@@ -195,6 +211,132 @@ fn resolve_static_access_expr(
   )
 }
 
+fn resolve_fn_call_arg_list(
+  arg_list []Argument
+  variable_map map[string, Entity]
+  is_pattern_matching bool
+) Result[[]Argument, string] {
+  val initial_arg_resolved_list = []Argument
+
+  for arg in arg_list {
+    match arg {
+      when Argument::Label(label_name, expr) {
+        val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?
+        initial_arg_resolved_list:push(Argument::Label(label_name, resolved_expr))
+      }
+      when Argument::Expression(expr) {
+        val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?
+        initial_arg_resolved_list:push(Argument::Expression(resolved_expr))
+      }
+    }
+  }
+
+  return Result::Success(initial_arg_resolved_list)
+}
+
+fn desugar_fn_call_arg_list(
+  arg_list []Argument,
+  param_list []Parameter,
+  index_map map[string, int]
+  variable_map map[string, Entity]
+  is_pattern_matching bool
+) Result[[]Argument, string] {
+  val positional_param_slot_list = []Option[Argument] { 
+    len: param_list:len, 
+    init: Option::None 
+  }
+  var is_using_label = false
+  var is_desugaring_possible = true
+
+  for arg_index, arg in arg_list {
+    match arg {
+      when Argument::Expression(expr) {
+        if is_using_label or arg_index >= param_list:len {
+          is_desugaring_possible = false
+          break
+        }
+
+        positional_param_slot_list[arg_index] = Option::Some(arg)
+      }
+      when Argument::Label(label_name, expr) {
+        is_using_label = true
+
+        if label_name not in index_map {
+          is_desugaring_possible = false
+          break
+        }
+
+        val target_index = index_map[label_name]
+
+        if positional_param_slot_list[target_index] is Option::Some {
+          is_desugaring_possible = false
+          break
+        }
+
+        positional_param_slot_list[target_index] = Option::Some(Argument::Expression(expr))
+      }
+    }
+  }
+
+  if not is_desugaring_possible {
+    return Result::Success(arg_list)
+  }
+
+  if is_desugaring_possible {
+    val desugared_arg_list = []Argument
+
+    for param_index, slot in positional_param_slot_list {
+      match slot {
+        when Option::Some(provided_arg) {
+          desugared_arg_list:push(provided_arg)
+        }
+        when Option::None {
+          val param = param_list[param_index]
+          if param:default_expr is Option::Some(default_expr) {
+            val resolved_default = resolve_expr(default_expr, variable_map, is_pattern_matching)?
+            desugared_arg_list:push(Argument::Expression(resolved_default))
+          } else {
+            return Result::Success(arg_list)
+          }
+        }
+      }
+    }
+
+    return Result::Success(desugared_arg_list)
+  }
+}
+
+fn resolve_fn_call_expr(
+  name string
+  arg_list []Argument
+  variable_map map[string, Entity]
+  is_pattern_matching bool
+) Result[Expression, string] {
+  if name not in variable_map {
+    return Result::Failure("Type Checker Error: Function '$name' has not been declared in the current scope.")
+  }
+
+  val raw_resolved_arg_list = resolve_fn_call_arg_list(arg_list, variable_map, is_pattern_matching)?
+  val entity = variable_map[name]
+  
+  match entity:kind {
+    when Kind::Function(param_list, index_map) {
+      val desugared_arg_list = desugar_fn_call_arg_list(
+        raw_resolved_arg_list,
+        param_list,
+        index_map,
+        variable_map,
+        is_pattern_matching
+      )?
+      
+      return Result::Success(Expression::FunctionCall(entity:unique_name, desugared_arg_list))
+    }
+    else {
+      return Result::Success(Expression::FunctionCall(entity:unique_name, raw_resolved_arg_list))
+    }
+  }
+}
+
 fn resolve_expr(
   expr Expression, 
   variable_map map[string, Entity]
@@ -239,7 +381,7 @@ fn resolve_expr(
         val entity = variable_map[left_name]
 
         match entity:kind {
-          when Kind::Function {
+          when Kind::Function(param_list, index_map) {
             return Result::Failure("Type Checker Error: Cannot assign to function '$left_name'.")
           }
           when Kind::Enum(constant_list) {
@@ -268,18 +410,7 @@ fn resolve_expr(
       return Result::Success(Expression::Conditional(resolved_condition_expr, resolved_then_expr, resolved_else_expr))
     }
     when Expression::FunctionCall(name, arg_list) {
-      if name not in variable_map {
-        return Result::Failure("Type Checker Error: Function '$name' has not been declared in the current scope.")
-      }
-
-      val resolved_fn_name = variable_map[name]:unique_name
-      
-      val resolved_arg_list = []Expression
-      for arg in arg_list {
-        resolved_arg_list:push(resolve_expr(arg, variable_map, is_pattern_matching)?)
-      }
-
-      return Result::Success(Expression::FunctionCall(resolved_fn_name, resolved_arg_list))
+      return resolve_fn_call_expr(name, arg_list, variable_map, is_pattern_matching)
     }
     when Expression::List(expr_list, list_type) {
       val resolved_expr_list = []Expression
@@ -572,10 +703,16 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
             return Result::Failure("Type Checker Error: Function '$fn_name' has been already declared in the current scope.")
           }
 
+          val index_map = map[string, int] {}
+
+          for index, param in param_list {
+            index_map[param:name] = index            
+          }
+
           variable_map[fn_name] = Entity {
             unique_name: if is_global_scope and fn_name == "main" then fn_name else mangle_name(fn_name)
             is_from_current_block: true
-            kind: Kind::Function
+            kind: Kind::Function(param_list, index_map)
           }
         }
         when Declaration::EnumDeclaration(enum_name, constant_list) {
@@ -809,32 +946,7 @@ fn infer_implicit_return_type(
   panic("Expected a function declaration for '$clean_name'. Type Checking Hoisted Declarations Pass should not have produced an invalid state")
 }
 
-fn jir_desugar_fn_call_arg_list(
-  arg_list []Expression
-  param_list []Parameter
-) {
-  if arg_list:len == param_list:len {
-    return arg_list
-  }
-
-  if arg_list:len > param_list:len {
-    return arg_list
-  }
-
-  val new_arg_list = []Expression
-  
-  for index, param in param_list {
-    if index < arg_list:len {
-      new_arg_list:push(arg_list[index])
-    } else if param:default_expr is Option::Some(expr) {
-      new_arg_list:push(expr)
-    }
-  }
-
-  return new_arg_list
-}
-
-fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[string, Type], error_list []string) Type {
+fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[string, Type], error_list []string) Type {
   if name not in symbol_table {
     panic("Undeclared name '$name' should have been caught by Identifier Resolution Pass.")
   }
@@ -848,24 +960,44 @@ fn type_check_fn_call_expr(name string, arg_list []Expression, symbol_table map[
       resolved_ret_type = infer_implicit_return_type(name, symbol_table, error_list)
     }
 
-    val desugared_arg_list = jir_desugar_fn_call_arg_list(arg_list, param_list)
+    for arg in arg_list {
+      if arg is Argument::Label(label_name, expr) {
+        error_list:push("Function '$clean_name' has no parameter named '$label_name' or was placed incorrectly.")
+      }
+    }
 
-    if param_list:len != desugared_arg_list:len {
-      error_list:push("Incorrect number of arguments passed to function '$clean_name'. Expected '$(param_list:len)' but got '$(desugared_arg_list:len)'.")
+    if param_list:len != arg_list:len {
+      error_list:push("Incorrect number of arguments passed to function '$clean_name'. Expected '$(param_list:len)' but got '$(arg_list:len)'.")
     }
 
     val arg_list_type = []Type
 
-    for arg in desugared_arg_list {
-      arg_list_type:push(
-        type_check_expr(arg, symbol_table, error_list)
-      )
+    for arg in arg_list {
+      match arg {
+        when Argument::Expression(inner_expr) {
+          arg_list_type:push(
+            type_check_expr(inner_expr, symbol_table, error_list)
+          )
+        }
+        when Argument::Label(label_name, inner_expr) {
+          arg_list_type:push(
+            type_check_expr(inner_expr, symbol_table, error_list)
+          )
+        }
+      }
     }
 
     for index, param in param_list {
       val clean_param_name = demangle_name(param:name)
+      val arg = arg_list[index]
 
-      if index >= desugared_arg_list:len {
+
+      if index >= arg_list:len {
+        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_name'.")
+        continue
+      }
+
+      if arg is Argument::Label {
         error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_name'.")
         continue
       }
