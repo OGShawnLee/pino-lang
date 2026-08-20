@@ -182,6 +182,7 @@ pub union Type {
   Union(string, []Pattern, map[string, int])
   List(Type)
   Struct(string, map[string, Property])
+  Interface(string, map[string, Property])
   Pending(string)
   Void
   Implicit
@@ -217,6 +218,7 @@ pub union Declaration {
   EnumDeclaration(string, []string)
   UnionDeclaration(string, []Pattern, map[string, int])
   StructDeclaration(string, map[string, Property])
+  InterfaceDeclaration(string, map[string, Property])
 }
 
 pub union AST {
@@ -311,6 +313,12 @@ pub struct Program {
           }
         }
       }
+      when Declaration::InterfaceDeclaration(name, property_map) {
+        println("Interface: $name")
+        for name, property in property_map {
+          println("  $name: $(Program::get_type_name(property:type))")
+        }
+      }
     }
   }
 
@@ -327,6 +335,7 @@ pub struct Program {
       when Type::Union(name, pattern_list, index_map) => demangle_name(name)
       when Type::List(inner_type) => "[]$(Program::get_type_name(inner_type))"
       when Type::Struct(name, property_map) => demangle_name(name)
+      when Type::Interface(name, property_map) => demangle_name(name)
       when Type::Pending(name) => demangle_name(name)
       when Type::Implicit => "implicit"
       when Type::Void => "void"

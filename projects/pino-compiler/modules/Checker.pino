@@ -27,6 +27,7 @@ union Kind {
   Enum([]string)
   Union([]Pattern, map[string, int])
   Struct(map[string, Property])
+  Interface(map[string, Property])
 }
 
 struct Entity {
@@ -43,6 +44,7 @@ fn get_kind_name(kind Kind) string {
     when Kind::Enum(constant_list) => "Enum"
     when Kind::Union(pattern_list, index_map) => "Union"
     when Kind::Struct(property_list) => "Struct"
+    when Kind::Interface(property_list) => "Interface"
   }
 }
 
@@ -461,6 +463,10 @@ fn resolve_expr(
         return Result::Success(Expression::StructInstance(entity:unique_name, resolved_property_map))
       }
 
+      if entity:kind is Kind::Interface {
+        return Result::Failure("Type Checker Error: '$struct_name' is an interface, not a struct.")
+      }
+
       return Result::Failure("Type Checker Error: '$struct_name' is not a struct.")
     }
     else {
@@ -662,6 +668,10 @@ fn resolve_type(target_type Type, variable_map map[string, Entity]) Result[Type 
       return Result::Success(Type::Struct(entity:unique_name, property_list))
     }
 
+    if entity:kind is Kind::Interface(property_list) {
+      return Result::Success(Type::Interface(entity:unique_name, property_list))
+    }
+
     return Result::Failure("Type Checker Error: '$unresolved_type_name' is not a type.")
   }
 
@@ -752,6 +762,21 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
 
       return Result::Success(Declaration::StructDeclaration(unique_name, resolved_property_map))
     }
+    when Declaration::InterfaceDeclaration(interface_name, property_map) {
+      if interface_name not in variable_map {
+        panic("Undeclared interface '$interface_name' should have been caught by Declaration Hoisting Pass.")
+      }
+
+      val unique_name = variable_map[interface_name]:unique_name
+      val resolved_property_map = map[string, Property] {}
+
+      for prop_name, prop in property_map {
+        val resolved_prop_type = resolve_type(prop:type, variable_map)?
+        resolved_property_map[prop_name] = Property { name: prop_name, type: resolved_prop_type, is_public: true }
+      }
+
+      return Result::Success(Declaration::InterfaceDeclaration(unique_name, resolved_property_map))
+    }
   }
 }
 
@@ -807,6 +832,17 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
             unique_name: mangle_name(struct_name)
             is_from_current_block: true
             kind: Kind::Struct(property_list)
+          }
+        }
+        when Declaration::InterfaceDeclaration(interface_name, property_list) {
+          if interface_name in variable_map and variable_map[interface_name]:is_from_current_block {
+            return Result::Failure("Type Checker Error: Interface '$interface_name' has been already declared in the current scope.")
+          }
+
+          variable_map[interface_name] = Entity {
+            unique_name: mangle_name(interface_name)
+            is_from_current_block: true
+            kind: Kind::Interface(property_list)
           }
         }
         else {}
@@ -1113,7 +1149,6 @@ fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[st
       val clean_param_name = demangle_name(param:name)
       val arg = arg_list[index]
 
-
       if index >= arg_list:len {
         error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_name'.")
         continue
@@ -1125,6 +1160,32 @@ fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[st
       }
 
       val arg_type = arg_list_type[index]
+
+      if param:type is Type::Interface(inter_name, inter_property_map) and arg_type is Type::Struct(struct_name, struct_property_map) {
+        for prop_name, prop in inter_property_map {
+          if prop_name not in struct_property_map {
+            val clean_inter_name = demangle_name(inter_name)
+            val clean_struct_name = demangle_name(struct_name)
+
+            error_list:push("Struct '$clean_struct_name' does not implement interface '$clean_inter_name' of parameter '$clean_param_name' of function '$clean_name'. Missing property '$prop_name'.")
+          } else {
+            val clean_inter_name = demangle_name(inter_name)
+            val clean_struct_name = demangle_name(struct_name)
+            val property_type_name = Program::get_type_name(prop:type)
+            val struct_property_type_name = Program::get_type_name(struct_property_map[prop_name]:type)
+
+            if struct_property_map[prop_name]:type != prop:type {
+              error_list:push("Struct '$clean_struct_name' does not implement interface '$clean_inter_name' of parameter '$clean_param_name' of function '$clean_name'. Property '$prop_name' should be type '$property_type_name' but got '$struct_property_type_name'.")
+            }
+
+            if not struct_property_map[prop_name]:is_public {
+              error_list:push("Struct '$clean_struct_name' does not implement interface '$clean_inter_name' of parameter '$clean_param_name' of function '$clean_name'. Property '$prop_name' should be public.")
+            }
+          }
+        }
+
+        continue
+      }
 
       if arg_type != param:type and arg_type != Type::Invalid {
         val arg_type_name = Program::get_type_name(arg_type)
@@ -1367,6 +1428,17 @@ fn type_check_member_access_expr(
       }
       
       return property:type
+    }
+
+    if left_type is Type::Interface(interface_name, property_map) {
+      val clean_interface_name = demangle_name(interface_name)
+
+      if prop_name not in property_map {
+        error_list:push("Property '$prop_name' does not exist in interface '$clean_interface_name'.")
+        return Type::Invalid
+      }
+
+      return property_map[prop_name]:type
     }
   }
 
@@ -2296,6 +2368,13 @@ fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, 
           }
 
           symbol_table[struct_name] = Type::Struct(struct_name, property_map)
+        }
+        when Declaration::InterfaceDeclaration(interface_name, property_map) {
+          if interface_name in symbol_table {
+            panic("Duplicate interface '$interface_name' should have been caught by Identifier Resolution Pass.")
+          }
+
+          symbol_table[interface_name] = Type::Interface(interface_name, property_map)
         }
         else {}
       }

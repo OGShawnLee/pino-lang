@@ -841,6 +841,40 @@ fn parse_struct_decl(stream TokenStream) Result[Declaration, string] {
   return Result::Success(Declaration::StructDeclaration(struct_name, property_map))
 }
 
+fn parse_interface_decl(stream TokenStream) Result[Declaration, string] {
+  stream:expect_content("interface")
+
+  val interface_name = stream:expect_type(TokenType::Identifier)?:value
+
+  if not is_capital(interface_name) {
+    return Result::Failure("Expected capitalized identifier for interface name, got '$interface_name'. Tip: Capitalize interface names.")
+  }
+
+  val property_map = map[string, Property] {}
+
+  stream:expect_content("{")?
+
+  for {
+    val curr = stream:peek(0)
+
+    if curr:type == TokenType::EOF or curr:value == "}" {
+      break
+    }
+
+    val property = parse_property(stream)?
+
+    if property:name in property_map {
+      return Result::Failure("Duplicate property '$(property:name)' in interface '$interface_name'. Tip: Properties must be unique within the same interface.")
+    }
+
+    property_map[property:name] = property
+  }
+
+  stream:expect_content("}")?
+
+  return Result::Success(Declaration::InterfaceDeclaration(interface_name, property_map))
+}
+
 @pub_testing
 fn parse_decl(stream TokenStream) Result[Declaration, string] {
   val curr = stream:peek(0)
@@ -865,8 +899,12 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
       val res = parse_struct_decl(stream)?
       return Result::Success(res)
     }
+    when "interface" {
+      val res = parse_interface_decl(stream)?
+      return Result::Success(res)
+    }
     else {
-      return Result::Failure("Expected 'fn', 'var', 'val', 'enum' or 'union' keyword. Got $(curr:value).")
+      return Result::Failure("Expected 'fn', 'var', 'val', 'enum', 'union' or 'interface' keyword. Got $(curr:value).")
     }
   }
 }
@@ -874,7 +912,7 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
 fn parse_block_item(stream TokenStream) Result[AST, string] {
   val curr = stream:peek(0)
   match curr:value {
-    when "fn", "var", "val", "enum", "union", "struct" {
+    when "fn", "var", "val", "enum", "union", "struct", "interface" {
       val decl = parse_decl(stream)?
       return Result::Success(AST::Declaration(decl))
     }
