@@ -25,6 +25,7 @@ from Entities import
 
 val PRECEDENCE_MAP = map[string, int] {
   "::": 100
+  ":": 100
 	"*": 50
 	"/": 50
 	"%": 50
@@ -57,6 +58,7 @@ val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
   ">": BinaryOperator::GreaterThan
   "=": BinaryOperator::Assign
   "::": BinaryOperator::StaticMemberAccess
+  ":": BinaryOperator::MemberAccess
 }
 
 val UNARY_OPERATOR_MAP = map[string, UnaryOperator] {
@@ -294,7 +296,7 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
         return Result::Success(Expression::FunctionCall(curr:value, arg_list))
       }
 
-      if stream:peek(0):value == "{" {
+      if is_capital(curr:value) and stream:peek(0):value == "{" {
         val struct_instance = parse_struct_instance(stream, curr:value)?
         return Result::Success(struct_instance)
       }

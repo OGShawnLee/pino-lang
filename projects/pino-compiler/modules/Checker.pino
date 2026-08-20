@@ -374,6 +374,22 @@ fn resolve_expr(
         return resolve_static_access_expr(left_expr, right_expr, variable_map, is_pattern_matching)
       }
 
+      if bin_operator == BinaryOperator::MemberAccess {
+        val resolved_left = resolve_expr(left_expr, variable_map, is_pattern_matching)?
+
+        if right_expr is Expression::Var(prop_name) {
+          return Result::Success(
+            Expression::Binary(
+              BinaryOperator::MemberAccess
+              resolved_left,
+              Expression::Var(prop_name)
+            )
+          )
+        }
+
+        return Result::Success(Expression::Binary(BinaryOperator::MemberAccess, resolved_left, right_expr))
+      }
+
       val resolved_left_expr = resolve_expr(left_expr, variable_map, is_pattern_matching)?
       val resolved_right_expr = resolve_expr(right_expr, variable_map, is_pattern_matching)?
 
@@ -1328,6 +1344,42 @@ fn type_check_union_pattern_matching_expr(
   panic("This is not an Union in Union Pattern Matching. Should have been caught in Identifier Resolution Pass.")
 }
 
+fn type_check_member_access_expr(
+  left_type Type
+  right_expr Expression
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  if right_expr is Expression::Var(prop_name) {
+    if left_type is Type::Struct(struct_name, property_map) {
+      val clean_struct_name = demangle_name(struct_name)
+
+      if prop_name not in property_map {
+        error_list:push("Property '$prop_name' does not exist in struct '$clean_struct_name'.")
+        return Type::Invalid
+      }
+
+      val property = property_map[prop_name]
+
+      if not property:is_public {
+        error_list:push("Property '$prop_name' of struct '$clean_struct_name' is private and cannot be accessed.")
+        return Type::Invalid
+      }
+      
+      return property:type
+    }
+  }
+
+  if left_type == Type::Invalid {
+    return left_type
+  }
+
+  val left_type_name = Program::get_type_name(left_type)
+
+  error_list:push("Invalid use Member Access Operator (:). The left operand must be a struct instance, not '$left_type_name'.")
+  return Type::Invalid
+}
+
 fn type_check_binary_expr(
   bin_op BinaryOperator
   left_expr Expression
@@ -1336,6 +1388,11 @@ fn type_check_binary_expr(
   error_list []string
 ) Type {
   val left_type = type_check_expr(left_expr, symbol_table, error_list)
+
+  if bin_op == BinaryOperator::MemberAccess {
+    return type_check_member_access_expr(left_type, right_expr, symbol_table, error_list)
+  }
+
   val right_type = type_check_expr(right_expr, symbol_table, error_list)
 
   if left_type == Type::Invalid or right_type == Type::Invalid {
@@ -1452,13 +1509,13 @@ fn type_check_binary_expr(
         when Type::Enum(enum_name, enum_constant) {
           val clean_name = demangle_name(enum_name)
 
-          error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a constant of enum '$clean_name' .")
+          error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a constant of enum '$clean_name'.")
           return Type::Invalid
         }
         when Type::Union(union_name, pattern_list, index_map) {
           val clean_name = demangle_name(union_name)
 
-          error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a pattern of union '$clean_name' .")
+          error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a pattern of union '$clean_name'.")
           return Type::Invalid
         }
         else {}
@@ -1467,6 +1524,7 @@ fn type_check_binary_expr(
       error_list:push("Invalid use of Binary Operator Static Member Access (::). The left-hand operand of '$left_type_name::$right_type_name' must be an enum/union name and the right-hand operand must be a constant/pattern of that enum/union type.")
       return Type::Invalid
     }
+    else {}
   }
 
   return Type::Invalid

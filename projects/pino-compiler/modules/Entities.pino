@@ -112,6 +112,7 @@ pub enum BinaryOperator {
   Assign
   Conditional
   StaticMemberAccess
+  MemberAccess
 }
 
 pub union Constant {
