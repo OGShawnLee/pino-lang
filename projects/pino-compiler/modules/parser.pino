@@ -235,12 +235,13 @@ fn parse_struct_instance(stream TokenStream, struct_name string) Result[Expressi
       return Result::Failure("Expected unique property name. Got '$property_name' repeated in struct instance '$struct_name'.")
     }
 
-    stream:expect_content(":") or {
-      return Result::Failure("Syntax Error: Expected ':' after property name '$property_name' in struct instance '$struct_name'.")
+    if stream:peek(0):value == ":" {
+      stream:next()
+      val property_expr = parse_expr(stream, 0)?
+      property_map[property_name] = property_expr
+    } else {
+      property_map[property_name] = Expression::Var(property_name)
     }
-
-    val property_expr = parse_expr(stream, 0)?
-    property_map[property_name] = property_expr
   } 
 
   stream:expect_content("}") or {
