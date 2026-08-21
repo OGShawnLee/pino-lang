@@ -699,6 +699,38 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
   return Result::Success(Parameter { name: unique_name, type: resolved_type, default_expr: resolved_default_expr }) 
 }
 
+fn resolve_union_pattern(pattern Pattern, variable_map map[string, Entity]) Result[Pattern, string] {
+  val resolved_field_list = []Field
+  
+  for field in pattern:field_list {
+    val resolved_type = resolve_type(field:type, variable_map)?
+    resolved_field_list:push(Field { name: field:name, type: resolved_type })
+  }
+
+  return Result::Success(Pattern { name: pattern:name, field_list: resolved_field_list })
+}
+
+fn resolve_union_decl(
+  name string
+  pattern_list []Pattern
+  index_map map[string, int]
+  variable_map map[string, Entity]
+) Result[Declaration, string] {
+  if name not in variable_map {
+    panic("Undeclared union '$name' should have been caught by Declaration Hoisting Pass.")
+  }
+
+  val unique_name = variable_map[name]:unique_name
+  val resolved_pattern_list = []Pattern
+
+  for pattern in pattern_list {
+    val resolved_pattern = resolve_union_pattern(pattern, variable_map)?
+    resolved_pattern_list:push(resolved_pattern)
+  }
+  
+  return Result::Success(Declaration::UnionDeclaration(unique_name, resolved_pattern_list, index_map))
+}
+
 fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
   match decl {
     when Declaration::FunctionDeclaration(name, param_list, ret_type, block) {
@@ -739,13 +771,7 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
       return Result::Success(Declaration::EnumDeclaration(unique_name, constant_list))
     }
     when Declaration::UnionDeclaration(name, pattern_list, index_map) {
-      if name not in variable_map {
-        panic("Undeclared union '$name' should have been caught by Declaration Hoisting Pass.")
-      }
-
-      val unique_name = variable_map[name]:unique_name
-
-      return Result::Success(Declaration::UnionDeclaration(unique_name, pattern_list, index_map))
+      return resolve_union_decl(name, pattern_list, index_map, variable_map)
     }
     when Declaration::StructDeclaration(struct_name, property_map) {
       if struct_name not in variable_map {
