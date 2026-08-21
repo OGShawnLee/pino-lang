@@ -2301,7 +2301,11 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
       }
 
       val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))      
-      val resolved_ret_type = get_fn_ret_type(name, symbol_table)
+      var resolved_ret_type = get_fn_ret_type(name, symbol_table)
+
+      if node_list:len == 0 and resolved_ret_type is Type::Implicit {
+        resolved_ret_type = Type::Void
+      }
 
       symbol_table[name] = Type::Function(resolved_param_list, resolved_ret_type)
 
