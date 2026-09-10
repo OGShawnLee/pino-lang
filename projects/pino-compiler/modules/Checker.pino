@@ -2128,7 +2128,10 @@ fn type_check_loop_stmt(
             error_list:push("Invalid use of 'for <limit>' statement. The limit expression must be of type 'int' instead of 'float'.")
           }
         }
-        else {}
+        else {
+          val type_name = Program::get_type_name(cond_type)
+          error_list:push("Invalid type for 'for <limit>' statement. The limit expression must be of type 'int' or 'bool', not '$type_name'.")
+        }
       }
 
       match evaluated_cond {
@@ -2159,7 +2162,7 @@ fn type_check_loop_stmt(
         
         if iterable_type is not Type::List and iterable_type != Type::Primitive(Primitive::Int) {
           val type_name = Program::get_type_name(iterable_type)
-          error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be of type list or int, not '$type_name'.")
+          error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T' or 'int', not '$type_name'.")
 
           return false
         }
