@@ -21,7 +21,8 @@ from Entities import
   Token,
   TokenType,
   Literal,
-  TokenStream
+  TokenStream,
+  Property
 
 val PRECEDENCE_MAP = map[string, int] {
   "::": 100
@@ -134,7 +135,7 @@ fn parse_arg_list(stream TokenStream) Result[[]Argument, string] {
       if stream:peek(0):value == ":" {
         stream:next()
 
-        val expr = parse_expr(stream, 0)?
+        val expr = parse_expr(stream, 0, true)?
     
         arg_list:push(Argument::Label(name, expr))
       } else {
@@ -144,7 +145,7 @@ fn parse_arg_list(stream TokenStream) Result[[]Argument, string] {
       continue
     }
 
-    val arg_expr = parse_expr(stream, 0)?
+    val arg_expr = parse_expr(stream, 0, true)?
     arg_list:push(Argument::Expression(arg_expr))
   }
 
@@ -189,7 +190,7 @@ fn parse_list(stream TokenStream) Result[Expression, string] {
       continue
     }
 
-    val expr = parse_expr(stream, 0)?
+    val expr = parse_expr(stream, 0, true)?
     expr_list:push(expr)
   } 
 
@@ -237,7 +238,7 @@ fn parse_struct_instance(stream TokenStream, struct_name string) Result[Expressi
 
     if stream:peek(0):value == ":" {
       stream:next()
-      val property_expr = parse_expr(stream, 0)?
+      val property_expr = parse_expr(stream, 0, true)?
       property_map[property_name] = property_expr
     } else {
       property_map[property_name] = Expression::Var(property_name)
@@ -251,7 +252,14 @@ fn parse_struct_instance(stream TokenStream, struct_name string) Result[Expressi
   return Result::Success(Expression::StructInstance(struct_name, property_map))
 }
 
-fn parse_factor(stream TokenStream) Result[Expression, string] {
+fn is_struct_init_lookahead(stream TokenStream) {
+  return 
+    stream:peek(0):value == "{" and 
+    stream:peek(1):type == TokenType::Identifier and 
+    (stream:peek(2):value == ":" or stream:peek(2):value == "," or stream:peek(2):value == "}")
+}
+
+fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expression, string] {
   val curr = stream:consume()
   match curr:type {
     when TokenType::Literal(literal) {
@@ -260,7 +268,7 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
     }
     when TokenType::UnaryOperator {
       val operator = parse_unary_operator(curr)?
-      val expr = parse_factor(stream)?
+      val expr = parse_factor(stream, is_struct_instance_allowed)?
       return Result::Success(Expression::Unary(operator, expr))
     }
     when TokenType::Marker {
@@ -272,7 +280,7 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
         return Result::Failure("Unable to Parse factor. Expected '(' Marker. Got '$(curr:value)'.")
       }
 
-      val inner_expr = parse_expr(stream, 0)?
+      val inner_expr = parse_expr(stream, 0, true)?
       stream:expect_content(")")?
 
       return Result::Success(inner_expr)
@@ -282,11 +290,11 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
         return Result::Failure("Unexpected keyword '$(curr:value)' inside factor.")
       }
 
-      val condition = parse_expr(stream, 0)?
+      val condition = parse_expr(stream, 0, true)?
       stream:expect_content("then")?
-      val then_branch = parse_expr(stream, 0)?
+      val then_branch = parse_expr(stream, 0, true)?
       stream:expect_content("else")?
-      val else_branch = parse_expr(stream, 0)?
+      val else_branch = parse_expr(stream, 0, true)?
 
       return Result::Success(Expression::Conditional(condition, then_branch, else_branch))
     }
@@ -298,8 +306,12 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
       }
 
       if is_capital(curr:value) and stream:peek(0):value == "{" {
-        val struct_instance = parse_struct_instance(stream, curr:value)?
-        return Result::Success(struct_instance)
+        if is_struct_init_lookahead(stream) or is_struct_instance_allowed { 
+          val struct_instance = parse_struct_instance(stream, curr:value)?
+          return Result::Success(struct_instance)
+        }
+
+        return Result::Success(Expression::Var(curr:value))
       }
 
       return Result::Success(Expression::Var(curr:value))
@@ -311,8 +323,8 @@ fn parse_factor(stream TokenStream) Result[Expression, string] {
 }
 
 @pub_testing
-fn parse_expr(stream TokenStream, min_prec int) Result[Expression, string] {
-  var left = parse_factor(stream)?
+fn parse_expr(stream TokenStream, min_prec int, is_struct_instance_allowed bool) Result[Expression, string] {
+  var left = parse_factor(stream, is_struct_instance_allowed)?
 
   for {
     val curr = stream:peek(0)
@@ -325,12 +337,12 @@ fn parse_expr(stream TokenStream, min_prec int) Result[Expression, string] {
       val operator = parse_binary_operator(stream:consume())?
 
       if operator == BinaryOperator::Assign {
-        val right = parse_expr(stream, get_precedence(curr))?
+        val right = parse_expr(stream, get_precedence(curr), is_struct_instance_allowed)?
         left = Expression::Assignment(left, right)
         continue
       }
 
-      val right = parse_expr(stream, get_precedence(curr) + 1)?
+      val right = parse_expr(stream, get_precedence(curr) + 1, is_struct_instance_allowed)?
       left = Expression::Binary(operator, left, right)
     } else {
       break
@@ -362,7 +374,7 @@ fn parse_when_case(stream TokenStream) Result[When, string] {
       continue
     }
 
-    val condition_expr = parse_expr(stream, 0)?
+    val condition_expr = parse_expr(stream, 0, false)?
     cond_list:push(condition_expr)
   }
 
@@ -387,7 +399,7 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
     )
   }
 
-  val iterator_expr = parse_expr(stream, 0)?
+  val iterator_expr = parse_expr(stream, 0, false)?
 
   if stream:peek(0):value == "{" {
     val block = parse_block(stream, true)?
@@ -400,7 +412,7 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
 
   stream:expect_content("in")?
 
-  val iterable_expr = parse_expr(stream, 0)?
+  val iterable_expr = parse_expr(stream, 0, false)?
   val block = parse_block(stream, true)?
 
   return Result::Success(
@@ -412,55 +424,56 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
 
 @pub_testing
 fn parse_match_stmt(stream TokenStream) Result[Statement, string] {
-    stream:expect_content("match")?
-    val condition = parse_expr(stream, 0)?
-    stream:expect_content("{")?
+  stream:expect_content("match")?
+  val condition = parse_expr(stream, 0, false)?
+  stream:expect_content("{")?
 
-    val when_case_list = []When
-    var else_branch_list = [][]AST
 
-    for {
-      val curr = stream:peek(0)
-      
-      if curr:type == TokenType::EOF or curr:value == "}" {
-        break
-      }
+  val when_case_list = []When
+  var else_branch_list = [][]AST
 
-      if curr:value == "when" {
-        val when_case = parse_when_case(stream)?
-        when_case_list:push(when_case)
-        continue
-      }
-
-      if curr:value == "else" {
-        stream:next()
-        val else_block = parse_block(stream, true)?
-        else_branch_list:push(else_block)
+  for {
+    val curr = stream:peek(0)
     
-        if else_branch_list:len > 1 {
-          return Result::Failure("Expected at most one else branch in match statement.")
-        }
-
-        continue
-      }
-
-      return Result::Failure(
-        "Expected only multiple when branches or one else branch inside a match statement. Instead got '$(curr:value)'."
-      )
+    if curr:type == TokenType::EOF or curr:value == "}" {
+      break
     }
 
-    stream:expect_content("}")?
+    if curr:value == "when" {
+      val when_case = parse_when_case(stream)?
+      when_case_list:push(when_case)
+      continue
+    }
 
-    return Result::Success(
-      Statement::Match(
-        condition,
-        when_case_list,
-        if else_branch_list:len > 0 then
-          Option::Some(else_branch_list[0])
-        else
-          Option::None
-      )
+    if curr:value == "else" {
+      stream:next()
+      val else_block = parse_block(stream, true)?
+      else_branch_list:push(else_block)
+  
+      if else_branch_list:len > 1 {
+        return Result::Failure("Expected at most one else branch in match statement.")
+      }
+
+      continue
+    }
+
+    return Result::Failure(
+      "Expected only multiple when branches or one else branch inside a match statement. Instead got '$(curr:value)'."
     )
+  }
+
+  stream:expect_content("}")?
+
+  return Result::Success(
+    Statement::Match(
+      condition,
+      when_case_list,
+      if else_branch_list:len > 0 then
+        Option::Some(else_branch_list[0])
+      else
+        Option::None
+    )
+  )
 }
 
 @pub_testing
@@ -470,12 +483,12 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
   match curr:value {
     when "return" {
       stream:next()
-      val expr = parse_expr(stream, 0)?
+      val expr = parse_expr(stream, 0, true)?
       return Result::Success(Statement::Return(expr))
     }
     when "if" {
       stream:next()
-      val condition = parse_expr(stream, 0)?
+      val condition = parse_expr(stream, 0, false)?
       val then_branch = parse_stmt(stream)?
 
       if stream:peek(0):value == "else" {
@@ -505,7 +518,7 @@ fn parse_stmt(stream TokenStream) Result[Statement, string] {
       return Result::Success(Statement::Compound(block))
     }
     else {
-      val expr = parse_expr(stream, 0)?
+      val expr = parse_expr(stream, 0, true)?
       return Result::Success(Statement::Expression(expr))
     }
   }
@@ -590,7 +603,7 @@ fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
 
   val name_token = stream:expect_type(TokenType::Identifier)?
   stream:expect_content("=")?
-  val expr = parse_expr(stream, 0)?
+  val expr = parse_expr(stream, 0, true)?
 
   return Result::Success(
     if curr:value == "val" then
@@ -651,7 +664,7 @@ fn parse_fn_param_list(stream TokenStream) Result[[]Parameter, string] {
     val default_expr = match stream:peek(0):value {
       when "=" {
         stream:next()
-        yield Option::Some(parse_expr(stream, 0)?)
+        yield Option::Some(parse_expr(stream, 0, true)?)
       }
       else => Option::None
     }
