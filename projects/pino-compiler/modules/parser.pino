@@ -613,12 +613,52 @@ fn parse_var_or_val_decl(stream TokenStream) Result[Declaration, string] {
   )
 }
 
+fn parse_fn_type(stream TokenStream) Result[Type, string] {
+  val param_type_list = []Parameter
+
+  if stream:peek(0):value == "(" {
+    stream:next()
+
+    for {
+      val curr = stream:peek(0)
+
+      if curr:type == TokenType::EOF or curr:value == ")" {
+        break
+      }
+
+      if curr:value == "," {
+        stream:next()
+        continue
+      }
+
+      val type = parse_type(stream)?
+      param_type_list:push(Parameter { name: "", type: type, default_expr: Option::None })
+    }
+
+    stream:expect_content(")")?
+  }
+
+  var return_type = Type::Void
+
+  if stream:peek(0):value == "->" {
+    stream:next()
+    return_type = parse_type(stream)?
+  }
+
+  return Result::Success(Type::Function(param_type_list, return_type))
+}
+
 fn parse_type(stream TokenStream) Result[Type, string] {
   if stream:peek(0):value == "[" {
     stream:next()
     stream:expect_content("]")?
     val list_type = parse_type(stream)?
     return Result::Success(Type::List(list_type))
+  }
+
+  if stream:peek(0):value == "fn" {
+    stream:next()
+    return parse_fn_type(stream)
   }
 
   val type_token = stream:expect_type(TokenType::Identifier) or {

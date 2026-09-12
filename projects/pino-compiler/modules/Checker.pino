@@ -18,7 +18,8 @@ from Entities import
   Expression,
   BinaryOperator,
   UnaryOperator,
-  Constant
+  Constant,
+  When
 
 union Kind {
   Var
@@ -333,7 +334,7 @@ fn resolve_fn_call_expr(
         variable_map,
         is_pattern_matching
       )?
-      
+
       return Result::Success(Expression::FunctionCall(entity:unique_name, desugared_arg_list))
     }
     else {
@@ -443,7 +444,7 @@ fn resolve_expr(
         resolved_expr_list:push(resolve_expr(expr, variable_map, is_pattern_matching)?)
       }
 
-      return Result::Success(Expression::List(resolved_expr_list, list_type))
+      return Result::Success(Expression::List(resolved_expr_list, resolve_type(list_type, variable_map)?))
     }
     when Expression::StructInstance(struct_name, property_map) {
       if struct_name not in variable_map {
@@ -649,38 +650,59 @@ fn resolve_var_or_val_decl(
 }
 
 fn resolve_type(target_type Type, variable_map map[string, Entity]) Result[Type , string] {
-  if target_type is Type::Pending(unresolved_type_name) {
-    if unresolved_type_name not in variable_map {
-      return Result::Failure("Type Checker Error: Type '$unresolved_type_name' has not been declared in the current scope.")
+  match target_type {
+    when Type::Pending(unresolved_type_name) {
+      if unresolved_type_name not in variable_map {
+        return Result::Failure("Type Checker Error: Type '$unresolved_type_name' has not been declared in the current scope.")
+      }
+
+      val entity = variable_map[unresolved_type_name]
+
+      if entity:kind is Kind::Enum(constant_list) {
+        return Result::Success(Type::Enum(entity:unique_name, constant_list))
+      }
+
+      if entity:kind is Kind::Union(pattern_list, index_map) {
+        return Result::Success(Type::Union(entity:unique_name))
+      }
+
+      if entity:kind is Kind::Struct(property_list) {
+        return Result::Success(Type::Struct(entity:unique_name))
+      }
+
+      if entity:kind is Kind::Interface(property_list) {
+        return Result::Success(Type::Interface(entity:unique_name))
+      }
+
+      return Result::Failure("Type Checker Error: '$unresolved_type_name' is not a type.")
     }
+    when Type::Function(param_list, ret_type) {
+      val resolved_param_list = []Parameter
 
-    val entity = variable_map[unresolved_type_name]
+      for param in param_list {
+        resolved_param_list:push(Parameter {
+          name: param:name,
+          type: resolve_type(param:type, variable_map)?,
+          default_expr: match param:default_expr {
+            when Option::Some(expr) => Option::Some(resolve_expr(expr, variable_map, false)?)
+            when Option::None => Option::None
+            else => panic("@UNDERLYING PINO CHECKER ERROR")
+          }
+        })
+      }
 
-    if entity:kind is Kind::Enum(constant_list) {
-      return Result::Success(Type::Enum(entity:unique_name, constant_list))
+      val resolved_ret_type = resolve_type(ret_type, variable_map)?
+
+      return Result::Success(Type::Function(resolved_param_list, resolved_ret_type))
     }
-
-    if entity:kind is Kind::Union(pattern_list, index_map) {
-      return Result::Success(Type::Union(entity:unique_name, pattern_list, index_map))
+    when Type::List(inner_type) {
+      val resolved_inner_type = resolve_type(inner_type, variable_map)?
+      return Result::Success(Type::List(resolved_inner_type))
     }
-
-    if entity:kind is Kind::Struct(property_list) {
-      return Result::Success(Type::Struct(entity:unique_name, property_list))
+    else {
+      return Result::Success(target_type)
     }
-
-    if entity:kind is Kind::Interface(property_list) {
-      return Result::Success(Type::Interface(entity:unique_name, property_list))
-    }
-
-    return Result::Failure("Type Checker Error: '$unresolved_type_name' is not a type.")
   }
-
-  if target_type is Type::List(inner_type) {
-    val resolved_inner_type = resolve_type(inner_type, variable_map)?
-    return Result::Success(Type::List(resolved_inner_type))
-  }
-
-  return Result::Success(target_type)
 }
 
 fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Parameter, string] {
@@ -924,7 +946,15 @@ union Invariant {
   Variant
 }
 
+struct UnionContent {
+  pattern_list []Pattern
+  index_map map[string, int]
+}
+
 val global_decl_map = map[string, Declaration] {}
+val global_union_map = map[string, UnionContent] {}
+val global_struct_map = map[string, map[string, Property]] {}
+val global_interface_map = map[string, map[string, Property]] {}
 val global_fn_infer_stack = []string
 val global_const_invariant = map[string, Invariant] {}
 
@@ -1005,8 +1035,10 @@ fn type_check_struct_instance(
   val struct_type = symbol_table[struct_name]
   val covered_prop_names = []string
 
-  if struct_type is Type::Struct(struct_canonical_name, canonical_prop_map) {
+  if struct_type is Type::Struct(struct_canonical_name) {
+    val canonical_prop_map = global_struct_map[struct_canonical_name]
     val clean_struct_name = demangle_name(struct_canonical_name)
+
     for candidate_name, candidate_expr in property_map {
       if candidate_name not in canonical_prop_map {
         error_list:push("Struct property '$candidate_name' not found in struct '$clean_struct_name'.")
@@ -1020,11 +1052,12 @@ fn type_check_struct_instance(
           continue
         }
 
-        if candidate_type != canonical_type {
-          val candidate_type_name = Program::get_type_name(candidate_type)
-          val canonical_type_name = Program::get_type_name(canonical_type)
-          error_list:push("Type mismatch for property '$candidate_name' of struct '$clean_struct_name'. Expected '$canonical_type_name', got '$candidate_type_name'.")
-        }
+        type_check_type_compatibility(
+          canonical_type,
+          candidate_type,
+          "in property '$candidate_name' of struct '$clean_struct_name'",
+          error_list
+        )
       }
     }
 
@@ -1064,12 +1097,8 @@ fn type_check_list_expr(
 
     type_list:push(expr_type)
 
-    if expr_type != type_list[0] {
-      val list_type_name = Program::get_type_name(type_list[0])
-      val expr_type_name = Program::get_type_name(expr_type)
-      
+    if type_check_type_compatibility(type_list[0], expr_type, "in list expression. All elements must have a compatible type", error_list) == Type::Invalid {
       is_invalid = true
-      error_list:push("Type Checker Error: Expected all elements in a list to have the same type '$(list_type_name)'. Got '$(expr_type_name)'.")
     }
   }
 
@@ -1082,10 +1111,6 @@ fn infer_implicit_return_type(
   error_list []string
 ) Type {
   val clean_name = demangle_name(name)
-
-  if name not in global_decl_map {
-    panic("Undeclared function declaration '$clean_name' should have been caught by Identifier Resolution Pass.")
-  }
 
   if name in global_fn_infer_stack {
     error_list:push("Can't infer the return type of function '$clean_name' because it has a circular dependency or is recursive. Tip: Declare an explicit return type for the function.")
@@ -1101,7 +1126,11 @@ fn infer_implicit_return_type(
     return Type::Invalid
   }
 
-  val fn_decl = global_decl_map[name]
+  if name not in global_decl_map {
+    panic("Undeclared function declaration '$clean_name' should have been caught by Identifier Resolution Pass.")
+  }
+
+  val fn_decl = global_decl_map:remove(name)
 
   if fn_decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
     if param_list:any(it:type is Type::Implicit) {
@@ -1135,28 +1164,189 @@ fn infer_implicit_return_type(
   panic("Expected a function declaration for '$clean_name'. Type Checking Hoisted Declarations Pass should not have produced an invalid state")
 }
 
-fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[string, Type], error_list []string) Type {
-  if name not in symbol_table {
-    panic("Undeclared name '$name' should have been caught by Identifier Resolution Pass.")
-  }
-  
-  val clean_name = demangle_name(name)
+fn report_type_mismatch(exp_type Type, can_type Type, content_message string, error_list []string) Type {
+  val expected_name = Program::get_type_name(exp_type)
+  val actual_name = Program::get_type_name(can_type)
 
-  if symbol_table[name] is Type::Function(param_list, ret_type) {
+  error_list:push("Type mismatch $content_message. Expected '$expected_name', got '$actual_name'.")
+
+  return Type::Invalid
+}
+
+fn type_check_interface_compatibility(
+  exp_type Type
+  can_type Type
+  exp_inter_name string
+  content_message string
+  error_list []string
+) {
+  match can_type {
+    when Type::Struct(can_struct_name) {
+      val inter_property_map = global_interface_map[exp_inter_name]
+      val struct_property_map = global_struct_map[can_struct_name]
+      val clean_inter_name = demangle_name(exp_inter_name)
+      val clean_struct_name = demangle_name(can_struct_name)
+      var is_compatible = true
+
+      for prop_name, prop in inter_property_map {
+        if prop_name not in struct_property_map {
+          val prop_type_name = Program::get_type_name(prop:type)
+
+          error_list:push("Type mismatch $content_message. Struct '$clean_struct_name' does not implement interface '$clean_inter_name'. Missing property '$prop_name' of type '$prop_type_name'.")
+          is_compatible = false
+        } else {
+          val property_type_name = Program::get_type_name(prop:type)
+          val struct_property_type_name = Program::get_type_name(struct_property_map[prop_name]:type)
+
+          if struct_property_map[prop_name]:type != prop:type {
+            error_list:push("Type mismatch $content_message. Struct '$clean_struct_name' does not implement interface '$clean_inter_name'. Property '$prop_name' should be type '$property_type_name' but got '$struct_property_type_name'.")
+            is_compatible = false
+          }
+
+          if not struct_property_map[prop_name]:is_public {
+            error_list:push("Type mismatch $content_message. Struct '$clean_struct_name' does not implement interface '$clean_inter_name'. Property '$prop_name' should be public.")
+            is_compatible = false
+          }
+        }
+      }
+
+      return if is_compatible then exp_type else Type::Invalid
+    }
+    when Type::Interface(can_inter_name) {
+      val exp_inter_prop_map = global_interface_map[exp_inter_name]
+      val can_inter_prop_map = global_interface_map[can_inter_name]
+      val clean_exp_inter_name = demangle_name(exp_inter_name)
+      val clean_can_inter_name = demangle_name(can_inter_name)
+      var is_compatible = true
+
+      for prop_name, prop in exp_inter_prop_map {
+        if prop_name not in can_inter_prop_map {
+          val prop_type_name = Program::get_type_name(prop:type)
+
+          error_list:push("Type mismatch $content_message. Interface '$clean_can_inter_name' does not implement interface '$clean_exp_inter_name'. Missing property '$prop_name' of type '$prop_type_name'.")
+          is_compatible = false
+        } else {
+          val property_type_name = Program::get_type_name(prop:type)
+          val can_property_type_name = Program::get_type_name(can_inter_prop_map[prop_name]:type)
+
+          if can_inter_prop_map[prop_name]:type != prop:type {
+            error_list:push("Type mismatch $content_message. Interface '$clean_can_inter_name' does not implement interface '$clean_exp_inter_name'. Property '$prop_name' should be type '$property_type_name' but got '$can_property_type_name'.")
+            is_compatible = false
+          }
+        }
+      }
+
+      return if is_compatible then exp_type else Type::Invalid
+    }
+    else {
+      return report_type_mismatch(exp_type, can_type, content_message, error_list)
+    }
+  }
+}
+
+fn type_check_fn_type_compatibility(
+  exp_type Type
+  can_type Type
+  exp_param_list []Parameter
+  exp_ret_type Type
+  content_message string
+  error_list []string
+) Type {
+  if can_type is Type::Function(can_param_list, can_ret_type) {
+    var is_compatible = true
+
+    if exp_param_list:len != can_param_list:len {
+      error_list:push("Type mismatch $content_message. Expected a function with '$(exp_param_list:len)' parameters, got '$(can_param_list:len)'.")
+      is_compatible = false
+    }
+
+    for index, param in exp_param_list {
+      val param_type = param:type
+
+      if index >= can_param_list:len {
+        val expected_name = Program::get_type_name(param_type)
+        error_list:push("Type mismatch $content_message. Missing argument for parameter at position '$(index + 1)' of type '$(expected_name)'.")
+        is_compatible = false
+
+        continue
+      }
+
+      val arg_type = can_param_list[index]:type
+      
+      if type_check_type_compatibility(param_type, arg_type, "for argument at position '$(index + 1)'", error_list) == Type::Invalid {
+        is_compatible = false
+      }
+    }
+
+    if type_check_type_compatibility(exp_ret_type, can_ret_type, "of return type $content_message", error_list) == Type::Invalid {
+      is_compatible = false
+    }
+
+    return if is_compatible then exp_type else Type::Invalid
+  } else {
+    error_list:push("Type mismatch $content_message. Expected a function, got '$(Program::get_type_name(can_type))'.")
+    return Type::Invalid
+  }
+}
+
+fn type_check_type_compatibility(
+  exp_type Type 
+  can_type Type
+  content_message string
+  error_list []string
+) Type {
+  if exp_type == Type::Invalid or can_type == Type::Invalid {
+    return Type::Invalid
+  }
+
+  if exp_type == can_type {
+    return exp_type
+  }
+
+  match exp_type {
+    when Type::Interface(inter_name) {
+      return type_check_interface_compatibility(exp_type, can_type, inter_name, content_message, error_list)
+    }
+    when Type::Function(exp_param_list, exp_ret_type) {
+      return type_check_fn_type_compatibility(exp_type, can_type, exp_param_list, exp_ret_type, content_message, error_list)
+    }
+    when Type::List(exp_inner_type) {
+      if can_type is Type::List(can_inner_type) {
+        return type_check_type_compatibility(exp_inner_type, can_inner_type, content_message, error_list)
+      } else {
+        return report_type_mismatch(exp_type, can_type, content_message, error_list)
+      }
+    }
+    else {
+      return report_type_mismatch(exp_type, can_type, content_message, error_list)
+    }
+  }
+}
+
+fn type_check_call_signature(
+  fn_type Type
+  fn_name string
+  arg_list []Argument
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  val clean_fn_name = demangle_name(fn_name)
+
+  if fn_type is Type::Function(param_list, ret_type) {
     var resolved_ret_type = ret_type
 
     if ret_type == Type::Implicit {
-      resolved_ret_type = infer_implicit_return_type(name, symbol_table, error_list)
+      resolved_ret_type = infer_implicit_return_type(fn_name, symbol_table, error_list)
     }
 
     for arg in arg_list {
       if arg is Argument::Label(label_name, expr) {
-        error_list:push("Function '$clean_name' has no parameter named '$label_name' or was placed incorrectly.")
+        error_list:push("Function '$clean_fn_name' has no parameter named '$label_name' or was placed incorrectly.")
       }
     }
 
     if param_list:len != arg_list:len {
-      error_list:push("Incorrect number of arguments passed to function '$clean_name'. Expected '$(param_list:len)' but got '$(arg_list:len)'.")
+      error_list:push("Incorrect number of arguments passed to function '$clean_fn_name'. Expected '$(param_list:len)' but got '$(arg_list:len)'.")
     }
 
     val arg_list_type = []Type
@@ -1181,56 +1371,33 @@ fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[st
       val arg = arg_list[index]
 
       if index >= arg_list:len {
-        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_name'.")
+        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_fn_name'.")
         continue
       }
 
       if arg is Argument::Label {
-        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_name'.")
+        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_fn_name'.")
         continue
       }
 
       val arg_type = arg_list_type[index]
 
-      if param:type is Type::Interface(inter_name, inter_property_map) and arg_type is Type::Struct(struct_name, struct_property_map) {
-        for prop_name, prop in inter_property_map {
-          if prop_name not in struct_property_map {
-            val clean_inter_name = demangle_name(inter_name)
-            val clean_struct_name = demangle_name(struct_name)
-
-            error_list:push("Struct '$clean_struct_name' does not implement interface '$clean_inter_name' of parameter '$clean_param_name' of function '$clean_name'. Missing property '$prop_name'.")
-          } else {
-            val clean_inter_name = demangle_name(inter_name)
-            val clean_struct_name = demangle_name(struct_name)
-            val property_type_name = Program::get_type_name(prop:type)
-            val struct_property_type_name = Program::get_type_name(struct_property_map[prop_name]:type)
-
-            if struct_property_map[prop_name]:type != prop:type {
-              error_list:push("Struct '$clean_struct_name' does not implement interface '$clean_inter_name' of parameter '$clean_param_name' of function '$clean_name'. Property '$prop_name' should be type '$property_type_name' but got '$struct_property_type_name'.")
-            }
-
-            if not struct_property_map[prop_name]:is_public {
-              error_list:push("Struct '$clean_struct_name' does not implement interface '$clean_inter_name' of parameter '$clean_param_name' of function '$clean_name'. Property '$prop_name' should be public.")
-            }
-          }
-        }
-
-        continue
-      }
-
-      if arg_type != param:type and arg_type != Type::Invalid {
-        val arg_type_name = Program::get_type_name(arg_type)
-        val param_type_name = Program::get_type_name(param:type)
-        
-        error_list:push("Type mismatch for parameter '$clean_param_name' of function '$clean_name'. Expected '$param_type_name' but got '$arg_type_name'.")
-      }
+      type_check_type_compatibility(param:type, arg_type, "for parameter '$clean_param_name' of function '$clean_fn_name'", error_list)
     }
 
     return resolved_ret_type
   }
 
-  error_list:push("Entity '$clean_name' is not a function.")
+  error_list:push("Entity '$clean_fn_name' is not a function.")
   return Type::Invalid
+}
+
+fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[string, Type], error_list []string) Type {
+  if name not in symbol_table {
+    panic("Undeclared name '$name' should have been caught by Identifier Resolution Pass.")
+  }
+  
+  return type_check_call_signature(symbol_table[name], name, arg_list, symbol_table, error_list)
 }
 
 fn type_check_conditional_expr(
@@ -1253,8 +1420,14 @@ fn type_check_conditional_expr(
     return Type::Invalid
   }
 
-  if then_type != else_type {
-    error_list:push("Conditional Expression 'if <expr> then <expr> else <expr>' requires both branches to return the same type.")
+  val then_type_name = Program::get_type_name(then_type) 
+
+  if type_check_type_compatibility(
+    then_type, 
+    else_type, 
+    "in conditional expression 'if <expr> then <expr> else <expr>'. Else branch is not compatible with then branch '$then_type_name'", 
+    error_list
+  ) == Type::Invalid {
     return Type::Invalid
   }
 
@@ -1270,18 +1443,7 @@ fn type_check_assignment_expr(
   val assignee_type = type_check_expr(assignee, symbol_table, error_list)
   val assigned_type = type_check_expr(assigned, symbol_table, error_list)
 
-  if assigned_type == Type::Invalid or assignee_type == Type::Invalid {
-    return Type::Invalid
-  }
-
-  if assignee_type != assigned_type {
-    val left_type_name = Program::get_type_name(assignee_type)
-    val right_type_name = Program::get_type_name(assigned_type)
-    error_list:push("Assignment Type Mismatch: The assigned value's type '$right_type_name' must match the assignee's type '$left_type_name'.")
-    return Type::Invalid
-  }
-
-  return assignee_type
+  return type_check_type_compatibility(assignee_type, assigned_type, "for assignment expression", error_list)
 }
 
 fn type_check_enum_const(
@@ -1324,8 +1486,10 @@ fn type_check_union_pattern_expr(
 
   val union_type = symbol_table[union_name]
 
-  if union_type is Type::Union(union_name, pattern_list, index_map) {
-    if pattern_name not in index_map {
+  if union_type is Type::Union(union_name) {
+    val union_content = global_union_map[union_name]
+
+    if pattern_name not in union_content:index_map {
       error_list:push("'$pattern_name' is not a pattern of union '$clean_union_name'")
       return Type::Invalid
     }
@@ -1345,9 +1509,12 @@ fn type_check_union_pattern_call_expr(
 ) Type {
   val union_type = type_check_union_pattern_expr(union_name, pattern_name, symbol_table, error_list)
 
-  if union_type is Type::Union(union_name, pattern_list, index_map) {
+  if union_type is Type::Union(union_name) {
     val clean_union_name = demangle_name(union_name)
+    val union_content = global_union_map[union_name]
+    val index_map = union_content:index_map
     val pattern_index = index_map[pattern_name]
+    val pattern_list = union_content:pattern_list
     val pattern = pattern_list[pattern_index]
 
     if pattern:field_list:len == 0 {
@@ -1376,12 +1543,7 @@ fn type_check_union_pattern_call_expr(
 
       val arg_type = arg_list_type[index]
 
-      if arg_type != field:type and arg_type != Type::Invalid {
-        val arg_type_name = Program::get_type_name(arg_type)
-        val field_type_name = Program::get_type_name(field:type)
-
-        error_list:push("Type mismatch for field '$(field:name)' of pattern '$clean_union_name::$pattern_name'. Expected '$field_type_name' but got '$arg_type_name'.")
-      }
+      type_check_type_compatibility(field:type, arg_type, "for field '$(field:name)' of pattern '$clean_union_name::$pattern_name'", error_list)
     }
   }
 
@@ -1397,8 +1559,11 @@ fn type_check_union_pattern_matching_expr(
 ) Type {
   val union_type = type_check_union_pattern_expr(union_name, pattern_name, symbol_table, error_list)
 
-  if union_type is Type::Union(union_name, pattern_list, index_map) {
+  if union_type is Type::Union(union_name) {
+    val union_content = global_union_map[union_name]
+    val index_map = union_content:index_map
     val pattern_index = index_map[pattern_name]
+    val pattern_list = union_content:pattern_list
     val pattern = pattern_list[pattern_index]
     val field_list = pattern:field_list
 
@@ -1443,8 +1608,9 @@ fn type_check_member_access_expr(
   error_list []string
 ) Type {
   if right_expr is Expression::Var(prop_name) {
-    if left_type is Type::Struct(struct_name, property_map) {
+    if left_type is Type::Struct(struct_name) {
       val clean_struct_name = demangle_name(struct_name)
+      val property_map = global_struct_map[struct_name]
 
       if prop_name not in property_map {
         error_list:push("Property '$prop_name' does not exist in struct '$clean_struct_name'.")
@@ -1461,8 +1627,9 @@ fn type_check_member_access_expr(
       return property:type
     }
 
-    if left_type is Type::Interface(interface_name, property_map) {
+    if left_type is Type::Interface(interface_name) {
       val clean_interface_name = demangle_name(interface_name)
+      val property_map = global_interface_map[interface_name]
 
       if prop_name not in property_map {
         error_list:push("Property '$prop_name' does not exist in interface '$clean_interface_name'.")
@@ -1470,6 +1637,57 @@ fn type_check_member_access_expr(
       }
 
       return property_map[prop_name]:type
+    }
+  }
+
+  if right_expr is Expression::FunctionCall(fn_name, arg_list) {
+    if left_type is Type::Struct(struct_name) {
+      val clean_struct_name = demangle_name(struct_name)
+      val property_map = global_struct_map[struct_name]
+
+      if fn_name not in property_map {
+        error_list:push("Function property '$fn_name' does not exist in struct '$clean_struct_name'.")
+        return Type::Invalid
+      }
+
+      val property = property_map[fn_name]
+
+      if not property:is_public {
+        error_list:push("Function property '$fn_name' of struct '$clean_struct_name' is private and cannot be accessed.")
+        return Type::Invalid
+      }
+
+      if property:type is not Type::Function {
+        val prop_type_name = Program::get_type_name(property:type)
+        error_list:push("Property '$fn_name' of struct '$clean_struct_name' is not a function. It is a '$prop_type_name'.")
+        return Type::Invalid
+      }
+
+      val struct_fn_name = "$clean_struct_name:$fn_name"
+
+      return type_check_call_signature(property:type, struct_fn_name, arg_list, symbol_table, error_list)
+    }
+
+    if left_type is Type::Interface(interface_name) {
+      val clean_interface_name = demangle_name(interface_name)
+      val property_map = global_interface_map[interface_name]
+
+      if fn_name not in property_map {
+        error_list:push("Function property '$fn_name' does not exist in interface '$clean_interface_name'.")
+        return Type::Invalid
+      }
+
+      val property = property_map[fn_name]
+
+      if property:type is not Type::Function {
+        val prop_type_name = Program::get_type_name(property:type)
+        error_list:push("Function property '$fn_name' of interface '$clean_interface_name' is not a function. It is a '$prop_type_name'.")
+        return Type::Invalid
+      }
+
+      val interface_fn_name = "$clean_interface_name:$fn_name"
+
+      return type_check_call_signature(property:type, interface_fn_name, arg_list, symbol_table, error_list)
     }
   }
 
@@ -1615,7 +1833,7 @@ fn type_check_binary_expr(
           error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a constant of enum '$clean_name'.")
           return Type::Invalid
         }
-        when Type::Union(union_name, pattern_list, index_map) {
+        when Type::Union(union_name) {
           val clean_name = demangle_name(union_name)
 
           error_list:push("Type mismatch for static access operator (::). Expression of type '$right_type_name' is not a pattern of union '$clean_name'.")
@@ -1899,8 +2117,9 @@ fn type_check_match_stmt(
     return type_check_match_enum_stmt(enum_name, constant_list, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
   }
 
-  if cond_type is Type::Union(union_name, pattern_list, index_map) {
-    return type_check_match_union_stmt(union_name, pattern_list, index_map, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
+  if cond_type is Type::Union(union_name) {
+    val union_content = global_union_map[union_name]
+    return type_check_match_union_stmt(union_name, union_content:pattern_list, union_content:index_map, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
   }
 
   for when_case in when_case_list {
@@ -1959,11 +2178,10 @@ fn type_check_ret_stmt(
     if fn_type is Type::Function(param_list, ret_type) {
       if ret_type == Type::Implicit {
         symbol_table[fn_name] = Type::Function(param_list, expr_type)
-      } else if expr_type != ret_type {
-        val type_name = Program::get_type_name(expr_type)
-        val expected_ret_type_name = Program::get_type_name(ret_type)
+      } else {
         val clean_fn_name = demangle_name(fn_name)
-        error_list:push("Type mismatch for return statement in function '$clean_fn_name'. The return type expected is '$expected_ret_type_name' but got '$type_name'.")
+        val content_message = "for return statement in function '$clean_fn_name'"
+        type_check_type_compatibility(ret_type, expr_type, content_message, error_list)
       }
     } else {
       panic("Expected function type for '$fn_name' but got '$fn_type'.")
@@ -2337,7 +2555,7 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
       val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))      
       var resolved_ret_type = get_fn_ret_type(name, symbol_table)
 
-      if node_list:len == 0 and resolved_ret_type is Type::Implicit {
+      if node_list:len == 0 or resolved_ret_type is Type::Implicit {
         resolved_ret_type = Type::Void
       }
 
@@ -2398,21 +2616,24 @@ fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, 
             panic("Duplicate union '$union_name' should have been caught by Identifier Resolution Pass.")
           }
 
-          symbol_table[union_name] = Type::Union(union_name, pattern_list, index_map)
+          symbol_table[union_name] = Type::Union(union_name)
+          global_union_map[union_name] = UnionContent { pattern_list: pattern_list, index_map: index_map }
         }
         when Declaration::StructDeclaration(struct_name, property_map) {
           if struct_name in symbol_table {
             panic("Duplicate struct '$struct_name' should have been caught by Identifier Resolution Pass.")
           }
 
-          symbol_table[struct_name] = Type::Struct(struct_name, property_map)
+          symbol_table[struct_name] = Type::Struct(struct_name)
+          global_struct_map[struct_name] = property_map
         }
         when Declaration::InterfaceDeclaration(interface_name, property_map) {
           if interface_name in symbol_table {
             panic("Duplicate interface '$interface_name' should have been caught by Identifier Resolution Pass.")
           }
 
-          symbol_table[interface_name] = Type::Interface(interface_name, property_map)
+          symbol_table[interface_name] = Type::Interface(interface_name)
+          global_interface_map[interface_name] = property_map
         }
         else {}
       }

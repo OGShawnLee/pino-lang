@@ -179,10 +179,10 @@ pub union Type {
   Primitive(Primitive)
   Function([]Parameter, Type)
   Enum(string, []string)
-  Union(string, []Pattern, map[string, int])
+  Union(string)
   List(Type)
-  Struct(string, map[string, Property])
-  Interface(string, map[string, Property])
+  Struct(string)
+  Interface(string)
   Pending(string)
   Void
   Implicit
@@ -330,12 +330,12 @@ pub struct Program {
         when Primitive::Bool => "bool"
         else => "Invalid Primitive"
       }
-      when Type::Function(param_list, ret_type) => "Function ($(Program::get_type_name(ret_type)))"
+      when Type::Function(param_list, ret_type) => "fn -> $(Program::get_type_name(ret_type))"
       when Type::Enum(name, constant_list) => demangle_name(name)
-      when Type::Union(name, pattern_list, index_map) => demangle_name(name)
+      when Type::Union(name) => demangle_name(name)
       when Type::List(inner_type) => "[]$(Program::get_type_name(inner_type))"
-      when Type::Struct(name, property_map) => demangle_name(name)
-      when Type::Interface(name, property_map) => demangle_name(name)
+      when Type::Struct(name) => demangle_name(name)
+      when Type::Interface(name) => demangle_name(name)
       when Type::Pending(name) => demangle_name(name)
       when Type::Implicit => "implicit"
       when Type::Void => "void"
