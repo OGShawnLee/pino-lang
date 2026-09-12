@@ -14,7 +14,7 @@
 
 enum {
   END, BRANCH, ANY, EXACT, ANYOF, ANYBUT, OPEN, CLOSE, BOL, EOL, STAR, PLUS,
-  STARQ, PLUSQ, QUEST, SPACE, NONSPACE, DIGIT
+  STARQ, PLUSQ, QUEST, SPACE, NONSPACE, DIGIT, WORD_BOUNDARY
 };
 
 static const char *meta_characters = "|.^$*+?()[\\";
@@ -57,6 +57,10 @@ static void exact(struct slre *r, const char **re) {
   emit(r, r->data_size - old_data_size);
 }
 
+static int is_word_char(int ch) {
+  return isalnum((unsigned char)ch) || ch == '_';
+}
+
 static int get_escape_char(const char **re) {
   int  res;
 
@@ -68,6 +72,7 @@ static int get_escape_char(const char **re) {
     case 'S':  res = NONSPACE << 8;  break;
     case 's':  res = SPACE << 8;  break;
     case 'd':  res = DIGIT << 8;  break;
+    case 'b':  res = WORD_BOUNDARY << 8; break;
     default:  res = (*re)[-1];  break;
   }
 
@@ -501,6 +506,14 @@ static const char *match(const struct slre *r, int pc, const char *s, int len,
         error_string = *ofs == len ? NULL : error_no_match;
         pc++;
         break;
+
+      case WORD_BOUNDARY: {
+        int prev = (*ofs > 0) ? is_word_char((unsigned char)s[*ofs - 1]) : 0;
+        int curr = (*ofs < len) ? is_word_char((unsigned char)s[*ofs]) : 0;
+        error_string = (prev != curr) ? NULL : error_no_match;
+        pc++;
+        break;
+      }
 
       case OPEN:
         if (caps != NULL) {
