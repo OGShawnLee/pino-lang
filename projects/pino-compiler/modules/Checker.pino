@@ -675,6 +675,11 @@ fn resolve_type(target_type Type, variable_map map[string, Entity]) Result[Type 
     return Result::Failure("Type Checker Error: '$unresolved_type_name' is not a type.")
   }
 
+  if target_type is Type::List(inner_type) {
+    val resolved_inner_type = resolve_type(inner_type, variable_map)?
+    return Result::Success(Type::List(resolved_inner_type))
+  }
+
   return Result::Success(target_type)
 }
 
