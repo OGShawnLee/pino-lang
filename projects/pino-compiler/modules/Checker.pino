@@ -1101,16 +1101,18 @@ fn type_check_lambda_expr(
     symbol_table[param:name] = param:type
   }
 
-  symbol_table["curr-lambda"] = Type::Function(resolved_param_list, ret_type)
-  
-  val has_ret_guaranteed = type_check_block(block, symbol_table, error_list, Option::Some("curr-lambda"))
-  var resolved_ret_type = get_fn_ret_type("curr-lambda", symbol_table)
+  val unique_lambda_name = mangle_name("curr-lambda")
+
+  symbol_table[unique_lambda_name] = Type::Function(resolved_param_list, ret_type)
+
+  val has_ret_guaranteed = type_check_block(block, symbol_table, error_list, Option::Some(unique_lambda_name))
+  var resolved_ret_type = get_fn_ret_type(unique_lambda_name, symbol_table)
 
   if block:len == 0 or resolved_ret_type is Type::Implicit {
     resolved_ret_type = Type::Void
   }
 
-  symbol_table:remove("curr-lambda")
+  symbol_table:remove(unique_lambda_name)
 
   return Type::Function(resolved_param_list, resolved_ret_type)
 }
