@@ -286,17 +286,35 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
       return Result::Success(inner_expr)
     }
     when TokenType::Keyword {
-      if curr:value != "if" {
-        return Result::Failure("Unexpected keyword '$(curr:value)' inside factor.")
+      if curr:value == "if" {
+        val condition = parse_expr(stream, 0, true)?
+        stream:expect_content("then")?
+        val then_branch = parse_expr(stream, 0, true)?
+        stream:expect_content("else")?
+        val else_branch = parse_expr(stream, 0, true)?
+
+        return Result::Success(Expression::Conditional(condition, then_branch, else_branch))
       }
 
-      val condition = parse_expr(stream, 0, true)?
-      stream:expect_content("then")?
-      val then_branch = parse_expr(stream, 0, true)?
-      stream:expect_content("else")?
-      val else_branch = parse_expr(stream, 0, true)?
+      if curr:value == "fn" {
+        val param_list = if stream:peek(0):value == "("
+          then parse_fn_param_list(stream)?
+          else []Parameter
 
-      return Result::Success(Expression::Conditional(condition, then_branch, else_branch))
+        if stream:peek(0):value == "->" {
+          stream:next()
+          val expr = parse_expr(stream, 0, true)?
+          val block = [AST::Statement(Statement::Return(expr))]
+          
+          return Result::Success(Expression::Lambda(param_list, Type::Implicit, block, false))
+        } else {
+          val block = parse_block(stream, true)?
+          
+          return Result::Success(Expression::Lambda(param_list, Type::Implicit, block, false))
+        }
+      }
+
+      return Result::Failure("Unexpected keyword '$(curr:value)' inside factor.")
     }
     when TokenType::Identifier {
       if stream:peek(0):value == "(" {

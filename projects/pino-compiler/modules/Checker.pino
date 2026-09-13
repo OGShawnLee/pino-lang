@@ -183,7 +183,7 @@ fn resolve_union_access_expr(
 
 fn resolve_static_access_expr(
   left_expr Expression
-  right_expr Expression 
+  right_expr Expression
   variable_map map[string, Entity]
   is_pattern_matching bool
 ) Result[Expression, string] {
@@ -217,27 +217,123 @@ fn resolve_static_access_expr(
   )
 }
 
+fn has_undeclared_it(expr Expression, variable_map map[string, Entity]) bool {
+  match expr {
+    when Expression::Var(name) {
+      return name == "it" and name not in variable_map
+    }
+    when Expression::Unary(un_op, inner_expr) {
+      return has_undeclared_it(inner_expr, variable_map)
+    }
+    when Expression::Binary(bi_op, left_expr, right_expr) {
+      return has_undeclared_it(left_expr, variable_map) or has_undeclared_it(right_expr, variable_map)
+    }
+    when Expression::Assignment(left_expr, right_expr) {
+      return has_undeclared_it(left_expr, variable_map) or has_undeclared_it(right_expr, variable_map)
+    }
+    when Expression::Conditional(condition_expr, then_expr, else_expr) {
+      return has_undeclared_it(condition_expr, variable_map) or has_undeclared_it(then_expr, variable_map) or has_undeclared_it(else_expr, variable_map)
+    }
+    when Expression::FunctionCall(name, arg_list) {
+      for arg in arg_list {
+        match arg {
+          when Argument::Expression(expr) {
+            if has_undeclared_it(expr, variable_map) {
+              return true
+            }
+          }
+          when Argument::Label(label_name, expr) {
+            if has_undeclared_it(expr, variable_map) {
+              return true
+            }
+          }
+        }
+      }
+    }
+    when Expression::List(expr_list, type) {
+      for expr in expr_list {
+        if has_undeclared_it(expr, variable_map) {
+          return true
+        }
+      }
+    }
+    when Expression::UnionPatternCall(union_name, pattern_name, arg_list) {
+      for expr in arg_list {
+        if has_undeclared_it(expr, variable_map) {
+          return true
+        }
+      }
+    }
+    when Expression::StructInstance(name, field_map) {
+      for field_name, expr in field_map {
+        if has_undeclared_it(expr, variable_map) {
+          return true
+        }
+      }
+    }
+    else {}
+  }
+
+  return false
+}
+
+fn resolve_fn_call_arg(
+  expr Expression,
+  variable_map map[string, Entity]
+  is_pattern_matching bool
+) Result[Expression, string] {
+  val contains_undeclared_it = has_undeclared_it(expr, variable_map)
+
+  if contains_undeclared_it {
+    var local_variable_map = copy_variable_map(variable_map)
+    val unique_name = mangle_name("it")
+
+    local_variable_map["it"] = Entity {
+      unique_name: unique_name
+      is_from_current_block: true
+      kind: Kind::Var
+    }
+
+    val resolved_body = resolve_expr(expr, local_variable_map, is_pattern_matching)?     
+    val implicit_it_parameter = Parameter {
+      name: unique_name
+      type: Type::Implicit
+      default_expr: Option::None 
+    }
+
+    val lambda_block = [
+      AST::Statement(Statement::Return(resolved_body))
+    ]
+    val lambda_expr = Expression::Lambda([implicit_it_parameter], Type::Implicit, lambda_block, true)
+
+    return Result::Success(lambda_expr)
+  } else {
+    val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?        
+    return Result::Success(resolved_expr)
+  }
+}
+
 fn resolve_fn_call_arg_list(
   arg_list []Argument
   variable_map map[string, Entity]
   is_pattern_matching bool
 ) Result[[]Argument, string] {
-  val initial_arg_resolved_list = []Argument
+  val resolved_arg_list = []Argument
 
   for arg in arg_list {
     match arg {
       when Argument::Label(label_name, expr) {
-        val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?
-        initial_arg_resolved_list:push(Argument::Label(label_name, resolved_expr))
+        val resolved_expr = resolve_fn_call_arg(expr, variable_map, is_pattern_matching)?
+        resolved_arg_list:push(Argument::Label(label_name, resolved_expr))
       }
       when Argument::Expression(expr) {
-        val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?
-        initial_arg_resolved_list:push(Argument::Expression(resolved_expr))
+        val resolved_expr = resolve_fn_call_arg(expr, variable_map, is_pattern_matching)?
+        resolved_arg_list:push(Argument::Expression(resolved_expr))
       }
     }
   }
 
-  return Result::Success(initial_arg_resolved_list)
+  return Result::Success(resolved_arg_list)
 }
 
 fn desugar_fn_call_arg_list(
@@ -480,7 +576,7 @@ fn resolve_expr(
 
       return Result::Failure("Type Checker Error: '$struct_name' is not a struct.")
     }
-    when Expression::Lambda(param_list, ret_type, block) {
+    when Expression::Lambda(param_list, ret_type, block, is_from_implicit_it) {
       val inner_map = copy_variable_map(variable_map)
       val resolved_param_list = []Parameter
 
@@ -493,7 +589,7 @@ fn resolve_expr(
       val resolved_ret_type = resolve_type(ret_type, inner_map)?
       val resolved_block = resolve_block(block, inner_map, false)?
 
-      return Result::Success(Expression::Lambda(resolved_param_list, resolved_ret_type, resolved_block))
+      return Result::Success(Expression::Lambda(resolved_param_list, resolved_ret_type, resolved_block, is_from_implicit_it))
     }
     else {
       # UnionPattern, UnionPatternCall, UnionPatternMatching and EnumConstant are not generated by the Parser.
@@ -667,10 +763,13 @@ fn resolve_var_or_val_decl(
     kind: if is_constant then Kind::Val else Kind::Var
   }
 
+  val resolved_type = resolve_type(type, variable_map)?
+
   return Result::Success(
-    if is_constant 
-      then Declaration::ConstantDeclaration(unique_name, resolved_expr, type) 
-      else Declaration::VariableDeclaration(unique_name, resolved_expr, type)
+    if is_constant then 
+      Declaration::ConstantDeclaration(unique_name, resolved_expr, resolved_type)
+    else
+      Declaration::VariableDeclaration(unique_name, resolved_expr, resolved_type)
   )
 }
 
@@ -1418,6 +1517,72 @@ fn type_check_type_compatibility(
   }
 }
 
+fn infer_implicit_lambda_expr(
+  can_param_list []Parameter
+  exp_param_list []Parameter
+  can_ret_type Type
+  can_block []AST
+  is_from_implicit_it bool
+  symbol_table map[string, Type]
+  error_list []string
+) Expression {
+  val resolved_can_param_list = []Parameter
+
+  for index, can_param in can_param_list {
+    if index >= exp_param_list:len {
+      break
+    }
+
+    val exp_param = exp_param_list[index]
+
+    if can_param:type == Type::Implicit {
+      resolved_can_param_list:push(Parameter { 
+        name: can_param:name
+        type: exp_param:type
+        default_expr: Option::None
+      })
+    } else {
+      resolved_can_param_list:push(can_param)
+    }
+  }
+
+  return Expression::Lambda(resolved_can_param_list, can_ret_type, can_block, is_from_implicit_it)
+}
+
+fn type_check_call_arg_expr(
+  expr Expression
+  param_list []Parameter
+  param_index int
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  var resolved_expr = expr
+  
+  if 
+    expr is Expression::Lambda(can_param_list, can_ret_type, can_block, is_from_implicit_it) and
+    param_list[param_index]:type is Type::Function(exp_param_list, exp_ret_type)
+  {
+    if is_from_implicit_it and exp_param_list:len > 1 {
+      val clean_param_name = demangle_name(param_list[param_index]:name)
+      error_list:push("Type mismatch for argument of parameter '$clean_param_name'. Implicit 'it' is only allowed for single-parameter callables, but the callable expects '$(exp_param_list:len)' parameters. Tip: Use an explicit lambda expression instead as (x <type>, y <type>...) -> <expr>.")
+
+      return Type::Invalid
+    }
+
+    resolved_expr = infer_implicit_lambda_expr(
+      can_param_list, 
+      exp_param_list, 
+      can_ret_type, 
+      can_block, 
+      is_from_implicit_it,
+      symbol_table, 
+      error_list
+    )
+  }
+
+  return type_check_expr(resolved_expr, symbol_table, error_list)
+}
+
 fn type_check_call_signature(
   fn_type Type
   fn_name string
@@ -1446,16 +1611,16 @@ fn type_check_call_signature(
 
     val arg_list_type = []Type
 
-    for arg in arg_list {
+    for arg_index, arg in arg_list {
       match arg {
         when Argument::Expression(inner_expr) {
           arg_list_type:push(
-            type_check_expr(inner_expr, symbol_table, error_list)
+            type_check_call_arg_expr(inner_expr, param_list, arg_index, symbol_table, error_list)
           )
         }
         when Argument::Label(label_name, inner_expr) {
           arg_list_type:push(
-            type_check_expr(inner_expr, symbol_table, error_list)
+            type_check_call_arg_expr(inner_expr, param_list, arg_index, symbol_table, error_list)
           )
         }
       }
@@ -1463,14 +1628,8 @@ fn type_check_call_signature(
 
     for index, param in param_list {
       val clean_param_name = demangle_name(param:name)
-      val arg = arg_list[index]
 
       if index >= arg_list:len {
-        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_fn_name'.")
-        continue
-      }
-
-      if arg is Argument::Label {
         error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_fn_name'.")
         continue
       }
@@ -2029,7 +2188,7 @@ fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list [
     when Expression::StructInstance(struct_name, property_map) {
       return type_check_struct_instance(struct_name, property_map, symbol_table, error_list)
     }
-    when Expression::Lambda(param_list, ret_type, block) {
+    when Expression::Lambda(param_list, ret_type, block, is_from_implicit_it) {
       return type_check_lambda_expr(param_list, ret_type, block, symbol_table, error_list)
     }
   }

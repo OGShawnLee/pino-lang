@@ -145,6 +145,7 @@ pub union Expression {
   UnionPatternCall(string, string, []Expression)
   UnionPatternMatching(string, string, []Binding)
   StructInstance(string, map[string, Expression])
+  Lambda([]Parameter, Type, []AST, bool)
 }
 
 pub struct When {
@@ -493,6 +494,28 @@ pub struct Program {
           println("$name: ")
           Program::print_expr(expr)
         }
+      }
+      when Expression::Lambda(param_list, ret_type, block, is_from_implicit_it) {
+        if is_from_implicit_it {
+          println("Desugarized Lambda (implicit 'it'): ")
+        } else {
+          println("Lambda: ")
+        }
+
+        if param_list:len > 0 {
+          println("Parameters: ")
+          for param in param_list {
+            println("Name: $(param:name)")
+            println("Type: $(Program::get_type_name(param:type))")
+            if param:default_expr is Option::Some(default_expr) {
+              println("Default: ")
+              Program::print_expr(default_expr)
+            }
+          }
+        }
+
+        println("Return Type: $(Program::get_type_name(ret_type))")
+        Program::print_block(block)
       }
     }
   }
