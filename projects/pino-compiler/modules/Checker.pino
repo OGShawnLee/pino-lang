@@ -664,26 +664,22 @@ fn resolve_loop_stmt(
       
       return Result::Success(Statement::Loop(Loop::While(resolved_cond_expr, resolved_block)))
     }
-    when Loop::ForIn(iterator_expr, iterable_expr, block) {
-      if iterator_expr is Expression::Var(name) {
-        val resolved_iterable_expr = resolve_expr(iterable_expr, variable_map, false)?
-        val new_variable_map = copy_variable_map(variable_map)
+    when Loop::ForIn(value_var, iterable_expr, block) {
+      val resolved_iterable_expr = resolve_expr(iterable_expr, variable_map, false)?
+      val new_variable_map = copy_variable_map(variable_map)
+      val unique_value_var = mangle_name(value_var)
 
-        new_variable_map[name] = Entity {
-          unique_name: mangle_name(name)
-          is_from_current_block: true
-          kind: Kind::Val
-        }
-
-        val resolved_iterator_expr = resolve_expr(iterator_expr, new_variable_map, false)?
-        val resolved_block = resolve_block(block, new_variable_map, true)?
-
-        return Result::Success(
-          Statement::Loop(Loop::ForIn(resolved_iterator_expr, resolved_iterable_expr, resolved_block))
-        )
+      new_variable_map[value_var] = Entity {
+        unique_name: unique_value_var
+        is_from_current_block: true
+        kind: Kind::Val
       }
 
-      return Result::Failure("Type Checker Error: Invalid loop iterator. Expected variable name.")
+      val resolved_block = resolve_block(block, new_variable_map, true)?
+
+      return Result::Success(
+        Statement::Loop(Loop::ForIn(unique_value_var, resolved_iterable_expr, resolved_block))
+      )
     }
     when Loop::PairForIn(key_var, value_var, iterable_expr, block) {
       val resolved_iterable_expr = resolve_expr(iterable_expr, variable_map, false)?
@@ -2706,33 +2702,28 @@ fn type_check_loop_stmt(
 
       return is_true_invariant and has_ret_in_block
     }
-    when Loop::ForIn(iterator_expr, iterable_expr, block) {
-      if iterator_expr is Expression::Var(name) {
-        val iterable_type = type_check_expr(iterable_expr, symbol_table, error_list)
-        
-        if iterable_type is not Type::List and iterable_type != Type::Primitive(Primitive::Int) {
-          val type_name = Program::get_type_name(iterable_type)
-          error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T' or 'int', not '$type_name'.")
+    when Loop::ForIn(value_var, iterable_expr, block) {
+      val iterable_type = type_check_expr(iterable_expr, symbol_table, error_list)
+      
+      if iterable_type is not Type::List and iterable_type != Type::Primitive(Primitive::Int) {
+        val type_name = Program::get_type_name(iterable_type)
+        error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T' or 'int', not '$type_name'.")
 
-          return false
-        }
-
-        symbol_table[name] = match iterable_type {
-          when Type::List(list_type) => list_type
-          else => iterable_type
-        }
-
-        val evaluated_iterable = eval_const_expr(iterable_expr, error_list)
-        val is_true_invariant = 
-          evaluated_iterable is Invariant::List(list) and list:len > 0 or 
-          evaluated_iterable is Invariant::Int(n) and n > 0
-        val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
-        
-        return is_true_invariant and has_ret_in_block
+        return false
       }
 
+      symbol_table[value_var] = match iterable_type {
+        when Type::List(list_type) => list_type
+        else => iterable_type
+      }
 
-      panic("Invalid Iterator Expression should have been caught by Identifier Resolution Pass.")
+      val evaluated_iterable = eval_const_expr(iterable_expr, error_list)
+      val is_true_invariant = 
+        evaluated_iterable is Invariant::List(list) and list:len > 0 or 
+        evaluated_iterable is Invariant::Int(n) and n > 0
+      val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
+      
+      return is_true_invariant and has_ret_in_block
     }
     when Loop::PairForIn(key_var, value_var, iterable_expr, block) {
       val iterable_type = type_check_expr(iterable_expr, symbol_table, error_list)

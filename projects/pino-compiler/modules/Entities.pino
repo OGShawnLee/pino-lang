@@ -157,7 +157,7 @@ pub struct When {
 pub union Loop {
   Infinite([]AST)
   While(Expression, []AST)
-  ForIn(Expression, Expression, []AST)
+  ForIn(string, Expression, []AST)
   PairForIn(string, string, Expression, []AST)
 }
 
@@ -397,9 +397,9 @@ pub struct Program {
             Program::print_expr(condition)
             Program::print_block(block)
           }
-          when Loop::ForIn(iterator_expr, iterable_expr, block) {
+          when Loop::ForIn(value_var, iterable_expr, block) {
             println("For In Loop:")
-            println("Var: $iterator_expr")
+            println("Value Var: $value_var")
             Program::print_expr(iterable_expr)
             Program::print_block(block)
           }

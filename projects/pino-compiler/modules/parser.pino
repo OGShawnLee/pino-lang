@@ -456,16 +456,20 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
   }
 
   if stream:peek(0):value == "in" {
-    stream:next()
+    if iterator_expr is Expression::Var(value_var) {
+      stream:next()
 
-    val iterable_expr = parse_expr(stream, 0, false)?
-    val block = parse_block(stream, true)?
+      val iterable_expr = parse_expr(stream, 0, false)?
+      val block = parse_block(stream, true)?
 
-    return Result::Success(
-      Statement::Loop(
-        Loop::ForIn(iterator_expr, iterable_expr, block)
+      return Result::Success(
+        Statement::Loop(
+          Loop::ForIn(value_var, iterable_expr, block)
+        )
       )
-    )
+    }
+
+    return Result::Failure("Syntax Error: Expected identifier for 'value' in for-in loop: 'for <value> in <iterable-expr> { ... }'.")
   }
 
   stream:expect_content(",")?
