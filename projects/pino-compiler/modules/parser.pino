@@ -298,7 +298,7 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
 
       if curr:value == "fn" {
         val param_list = if stream:peek(0):value == "("
-          then parse_fn_param_list(stream)?
+          then parse_fn_param_list(stream, true)?
           else []Parameter
 
         if stream:peek(0):value == "->" {
@@ -745,7 +745,7 @@ fn parse_type(stream TokenStream) Result[Type, string] {
   }
 }
 
-fn parse_fn_param_list(stream TokenStream) Result[[]Parameter, string] {
+fn parse_fn_param_list(stream TokenStream, is_lambda bool) Result[[]Parameter, string] {
   stream:expect_content("(")?
 
   if stream:peek(0):value == "," {
@@ -762,7 +762,7 @@ fn parse_fn_param_list(stream TokenStream) Result[[]Parameter, string] {
     }
 
     if curr:value == "," {
-      if stream:peek(1):value == "," or stream:peek(2):value == ")" {
+      if (stream:peek(1):value == ",") or (not is_lambda and stream:peek(2):value == ")") {
         return Result::Failure("Expected parameter name after ',' in parameter list.")
       }
 
@@ -778,6 +778,18 @@ fn parse_fn_param_list(stream TokenStream) Result[[]Parameter, string] {
       }
       else => Option::None
     }
+
+    if is_lambda and stream:peek(0):value == "," or stream:peek(0):value == ")" {
+      param_list:push(
+        Parameter { 
+          name: name:value, 
+          type: Type::Implicit, 
+          default_expr: default_expr 
+        }
+      )
+      continue
+    }
+
     val type = if default_expr is Option::None then parse_type(stream)? else Type::Implicit
 
     param_list:push(
@@ -799,7 +811,7 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   stream:expect_content("fn")?
   val name_token = stream:expect_type(TokenType::Identifier)?
   val param_list = if stream:peek(0):value == "(" 
-    then parse_fn_param_list(stream)? 
+    then parse_fn_param_list(stream, false)? 
     else []Parameter
   val ret_type = if stream:peek(0):value == "{" 
     then Type::Implicit
