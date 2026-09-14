@@ -1593,7 +1593,14 @@ fn infer_implicit_lambda_expr(
 
   for index, can_param in can_param_list {
     if index >= exp_param_list:len {
-      break
+      resolved_can_param_list:push(
+        Parameter {
+          name: can_param:name
+          type: Type::Invalid
+          default_expr: Option::None
+        }
+      )
+      continue
     }
 
     val exp_param = exp_param_list[index]
