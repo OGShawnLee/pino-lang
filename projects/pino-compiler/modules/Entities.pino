@@ -158,6 +158,7 @@ pub union Loop {
   Infinite([]AST)
   While(Expression, []AST)
   ForIn(Expression, Expression, []AST)
+  PairForIn(string, string, Expression, []AST)
 }
 
 pub union Statement {
@@ -399,6 +400,13 @@ pub struct Program {
           when Loop::ForIn(iterator_expr, iterable_expr, block) {
             println("For In Loop:")
             println("Var: $iterator_expr")
+            Program::print_expr(iterable_expr)
+            Program::print_block(block)
+          }
+          when Loop::PairForIn(key_var, value_var, iterable_expr, block) {
+            println("Pair For In Loop:")
+            println("Key Var: $key_var")
+            println("Value Var: $value_var")
             Program::print_expr(iterable_expr)
             Program::print_block(block)
           }

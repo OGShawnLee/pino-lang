@@ -685,6 +685,29 @@ fn resolve_loop_stmt(
 
       return Result::Failure("Type Checker Error: Invalid loop iterator. Expected variable name.")
     }
+    when Loop::PairForIn(key_var, value_var, iterable_expr, block) {
+      val resolved_iterable_expr = resolve_expr(iterable_expr, variable_map, false)?
+      val new_variable_map = copy_variable_map(variable_map)
+      val unique_key_var = mangle_name(key_var)
+      val unique_value_var = mangle_name(value_var)
+
+      new_variable_map[key_var] = Entity {
+        unique_name: unique_key_var
+        is_from_current_block: true
+        kind: Kind::Val
+      }
+      new_variable_map[value_var] = Entity {
+        unique_name: unique_value_var
+        is_from_current_block: true
+        kind: Kind::Val
+      }
+
+      val resolved_block = resolve_block(block, new_variable_map, true)?
+
+      return Result::Success(
+        Statement::Loop(Loop::PairForIn(unique_key_var, unique_value_var, resolved_iterable_expr, resolved_block))
+      )
+    }
   }
 }
 
@@ -2710,6 +2733,25 @@ fn type_check_loop_stmt(
 
 
       panic("Invalid Iterator Expression should have been caught by Identifier Resolution Pass.")
+    }
+    when Loop::PairForIn(key_var, value_var, iterable_expr, block) {
+      val iterable_type = type_check_expr(iterable_expr, symbol_table, error_list)
+
+      if iterable_type is Type::List(infered_list_type) {
+        symbol_table[key_var] = Type::Primitive(Primitive::Int)
+        symbol_table[value_var] = infered_list_type
+
+        val evaluated_iterable = eval_const_expr(iterable_expr, error_list)
+        val is_true_invariant = evaluated_iterable is Invariant::List(inner_list) and inner_list:len > 0
+        val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
+        
+        return is_true_invariant and has_ret_in_block
+      }
+
+      val type_name = Program::get_type_name(iterable_type)
+      error_list:push("Invalid use of 'for <key-var>, <value-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T', not '$type_name'.")
+
+      return false
     }
   }
 }

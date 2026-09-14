@@ -455,16 +455,37 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
     )
   }
 
-  stream:expect_content("in")?
+  if stream:peek(0):value == "in" {
+    stream:next()
 
-  val iterable_expr = parse_expr(stream, 0, false)?
-  val block = parse_block(stream, true)?
+    val iterable_expr = parse_expr(stream, 0, false)?
+    val block = parse_block(stream, true)?
 
-  return Result::Success(
-    Statement::Loop(
-      Loop::ForIn(iterator_expr, iterable_expr, block)
+    return Result::Success(
+      Statement::Loop(
+        Loop::ForIn(iterator_expr, iterable_expr, block)
+      )
     )
-  )
+  }
+
+  stream:expect_content(",")?
+
+  val value_var = stream:expect_type(TokenType::Identifier)?:value
+  
+  if iterator_expr is Expression::Var(key_var) {
+    stream:expect_content("in")?
+
+    val iterable_expr = parse_expr(stream, 0, false)?
+    val block = parse_block(stream, true)?
+
+    return Result::Success(
+      Statement::Loop(
+        Loop::PairForIn(key_var, value_var, iterable_expr, block)
+      )
+    )
+  }
+
+  return Result::Failure("Syntax Error: Expected identifier for 'key' in pair for-in loop: 'for <key>, <value> in <iterable-expr> { ... }.")
 }
 
 @pub_testing
