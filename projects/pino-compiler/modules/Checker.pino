@@ -257,6 +257,9 @@ fn has_undeclared_it(expr Expression, variable_map map[string, Entity]) bool {
         }
       }
     }
+    when Expression::Index(target_expr, index_expr) {
+      return has_undeclared_it(target_expr, variable_map) or has_undeclared_it(index_expr, variable_map)
+    }
     when Expression::UnionPatternCall(union_name, pattern_name, arg_list) {
       for expr in arg_list {
         if has_undeclared_it(expr, variable_map) {
@@ -496,7 +499,9 @@ fn resolve_expr(
           return Result::Success(Expression::Binary(BinaryOperator::MemberAccess, resolved_left, resolved_right))
         }
 
-        return Result::Success(Expression::Binary(BinaryOperator::MemberAccess, resolved_left, right_expr))
+        val resolved_right = resolve_expr(right_expr, variable_map, is_pattern_matching)?
+
+        return Result::Success(Expression::Binary(BinaryOperator::MemberAccess, resolved_left, resolved_right))
       }
 
       val resolved_left_expr = resolve_expr(left_expr, variable_map, is_pattern_matching)?
@@ -551,6 +556,12 @@ fn resolve_expr(
       }
 
       return Result::Success(Expression::List(resolved_expr_list, resolve_type(list_type, variable_map)?))
+    }
+    when Expression::Index(target_expr, index_expr) {
+      val resolved_target_expr = resolve_expr(target_expr, variable_map, is_pattern_matching)?
+      val resolved_index_expr = resolve_expr(index_expr, variable_map, is_pattern_matching)?
+
+      return Result::Success(Expression::Index(resolved_target_expr, resolved_index_expr))
     }
     when Expression::StructInstance(struct_name, property_map) {
       if struct_name not in variable_map {
@@ -1267,6 +1278,39 @@ fn type_check_struct_instance(
 
   error_list:push("'$struct_name' is not a struct.")
   return Type::Invalid
+}
+
+fn type_check_index_expr(
+  target_expr Expression
+  index_expr Expression
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  val target_type = type_check_expr(target_expr, symbol_table, error_list)
+  val index_type = type_check_expr(index_expr, symbol_table, error_list)
+
+  if target_type == Type::Invalid or index_type == Type::Invalid {
+    return Type::Invalid
+  }
+
+  match target_type {
+    when Type::List(item_type) {
+      if index_type != Type::Primitive(Primitive::Int) {
+        val clean_list_type = Program::get_type_name(target_type)
+        val clean_index_type = Program::get_type_name(index_type)
+        error_list:push("Invalid index expression '[$clean_index_type]' type for '$clean_list_type'. Expected 'int', got '$clean_index_type'.")
+        return Type::Invalid
+      }
+
+      return item_type
+    }
+    else {
+      val clean_target_type = Program::get_type_name(target_type)
+      val clean_index_type = Program::get_type_name(index_type)
+      error_list:push("Invalid index expression '[$clean_index_type]' type for '$clean_target_type'. Cannot index '$clean_target_type' with '$clean_index_type'.")
+      return Type::Invalid
+    }
+  }
 }
 
 fn type_check_list_expr(
@@ -2172,6 +2216,9 @@ fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list [
     }
     when Expression::List(expr_list, list_type) {
       return type_check_list_expr(expr_list, list_type, symbol_table, error_list)
+    }
+    when Expression::Index(target_expr, index_expr) {
+      return type_check_index_expr(target_expr, index_expr, symbol_table, error_list)
     }
     when Expression::EnumConstant(enum_name, enum_constant) {
       return type_check_enum_const(enum_name, enum_constant, symbol_table, error_list)

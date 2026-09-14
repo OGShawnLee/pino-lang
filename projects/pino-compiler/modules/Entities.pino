@@ -140,6 +140,7 @@ pub union Expression {
   Conditional(Expression, Expression, Expression)
   FunctionCall(string, []Argument)
   List([]Expression, Type)
+  Index(Expression, Expression)
   EnumConstant(string, string)
   UnionPattern(string, string)
   UnionPatternCall(string, string, []Expression)
@@ -469,6 +470,13 @@ pub struct Program {
           }
           println("]")
         }
+      }
+      when Expression::Index(target_expr, index_expr) {
+        println("Index Access")
+        println("Target")
+        Program::print_expr(target_expr)
+        println("Index")
+        Program::print_expr(index_expr)
       }
       when Expression::EnumConstant(union_name, enum_constant_name) {
         println("Enum Constant: $union_name::$enum_constant_name")

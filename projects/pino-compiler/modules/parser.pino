@@ -340,11 +340,34 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
   }
 }
 
+fn parse_postfix(left_expr Expression, stream TokenStream) Result[Expression, string] {
+  var expr = left_expr
+
+  for {
+    if stream:peek(0):value == "[" {
+      stream:next()
+      
+      val index_expr = parse_expr(stream, 0, true)?
+      
+      stream:expect_content("]")?
+
+      expr = Expression::Index(expr, index_expr)
+      continue
+    }
+
+    break
+  }
+
+  return Result::Success(expr)
+}
+
 @pub_testing
 fn parse_expr(stream TokenStream, min_prec int, is_struct_instance_allowed bool) Result[Expression, string] {
   var left = parse_factor(stream, is_struct_instance_allowed)?
 
   for {
+    left = parse_postfix(left, stream)?
+
     val curr = stream:peek(0)
 
     if curr:type == TokenType::EOF {
@@ -360,7 +383,11 @@ fn parse_expr(stream TokenStream, min_prec int, is_struct_instance_allowed bool)
         continue
       }
 
-      val right = parse_expr(stream, get_precedence(curr) + 1, is_struct_instance_allowed)?
+      val right = if operator == BinaryOperator::MemberAccess or operator == BinaryOperator::StaticMemberAccess then
+        parse_factor(stream, is_struct_instance_allowed)?
+      else 
+        parse_expr(stream, get_precedence(curr) + 1, is_struct_instance_allowed)?
+
       left = Expression::Binary(operator, left, right)
     } else {
       break
