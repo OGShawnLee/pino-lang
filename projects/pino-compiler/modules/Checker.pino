@@ -20,6 +20,7 @@ from Entities import
   UnaryOperator,
   Constant,
   When
+from Environment import built_in_instance_method_map, get_type_identifier
 
 union Kind {
   Var
@@ -1925,98 +1926,240 @@ fn type_check_union_pattern_matching_expr(
   panic("This is not an Union in Union Pattern Matching. Should have been caught in Identifier Resolution Pass.")
 }
 
+fn type_check_var_member_access_expr(
+  member_name string
+  left_type Type
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  match left_type {
+    when Type::Struct(struct_name) {
+      val clean_struct_name = demangle_name(struct_name)
+      val property_map = global_struct_map[struct_name]
+
+      if member_name not in property_map {
+        error_list:push("Property '$member_name' does not exist in struct '$clean_struct_name'.")
+        return Type::Invalid
+      }
+
+      val property = property_map[member_name]
+
+      if not property:is_public {
+        error_list:push("Property '$member_name' of struct '$clean_struct_name' is private and cannot be accessed.")
+        return Type::Invalid
+      }
+
+      return property:type
+    }
+    when Type::Interface(interface_name) {
+      val clean_interface_name = demangle_name(interface_name)
+      val property_map = global_interface_map[interface_name]
+
+      if member_name not in property_map {
+        error_list:push("Property '$member_name' does not exist in interface '$clean_interface_name'.")
+        return Type::Invalid
+      }
+
+      return property_map[member_name]:type
+    }
+    else {
+      val type_identifier = get_type_identifier(left_type)
+      val concrete_type_name = Program::get_type_name(left_type)
+
+      if type_identifier in built_in_instance_method_map {
+        val prop_map = built_in_instance_method_map[type_identifier]
+        
+        if member_name not in prop_map {
+          error_list:push("Property '$member_name' does not exist in '$concrete_type_name'.")
+          return Type::Invalid
+        }
+
+        return prop_map[member_name]
+      }
+
+      error_list:push("Property '$member_name' does not exist in '$concrete_type_name'.")
+      return Type::Invalid
+    }
+  }
+}
+
+fn specialize_implicit_type(initial_type Type, concrete_type Type) {
+  match initial_type {
+    when Type::Function(param_list, ret_type) {
+      val specialized_ret_type = specialize_implicit_type(ret_type, concrete_type)
+      val specialized_param_list = []Parameter
+
+      for param in param_list {
+        if param:type == Type::Implicit {
+          specialized_param_list:push(Parameter {
+            name: param:name
+            type: specialize_implicit_type(param:type, concrete_type)
+            default_expr: param:default_expr
+          })
+        } else {
+          specialized_param_list:push(param)
+        }
+      }
+
+      return Type::Function(specialized_param_list, specialized_ret_type)
+    }
+    when Type::List(inner_type) {
+      return Type::List(specialize_implicit_type(inner_type, concrete_type))
+    }
+    when Type::Implicit {
+      return concrete_type
+    }
+    else {
+      return initial_type
+    }
+  }
+}
+
+fn specialize_built_in_list_method(
+  list_type Type
+  arg_list []Argument 
+  method_signature Type
+) {
+  if method_signature is Type::Function(param_list, ret_type) {
+    val specialized_param_list = []Parameter
+    val generic_type_map = map[string, Type] {}
+
+    for param in param_list {
+      specialized_param_list:push(Parameter {
+        name: param:name
+        type: specialize_implicit_type(param:type, list_type)
+        default_expr: param:default_expr
+      })
+    }
+    
+    return Type::Function(specialized_param_list, specialize_implicit_type(ret_type, list_type))
+  }
+
+  val type_name = Program::get_type_name(list_type)
+
+  panic("Expected a method call to a list method, but got '$type_name'.")
+}
+
+fn type_check_instance_method_call_expr(
+  method_name string
+  left_type Type
+  arg_list []Argument
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  match left_type {
+    when Type::Struct(struct_name) {
+      val clean_struct_name = demangle_name(struct_name)
+      val property_map = global_struct_map[struct_name]
+
+      if method_name not in property_map {
+        error_list:push("Instance method '$method_name' does not exist in struct '$clean_struct_name'.")
+        return Type::Invalid
+      }
+
+      val property = property_map[method_name]
+
+      if not property:is_public {
+        error_list:push("Instance method '$method_name' of struct '$clean_struct_name' is private and cannot be accessed.")
+        return Type::Invalid
+      }
+
+      if property:type is not Type::Function {
+        val prop_type_name = Program::get_type_name(property:type)
+        error_list:push("Instance method '$method_name' of struct '$clean_struct_name' is not a function. It is a '$prop_type_name'.")
+        return Type::Invalid
+      }
+
+      val struct_fn_name = "$clean_struct_name:$method_name"
+
+      return type_check_call_signature(property:type, struct_fn_name, arg_list, symbol_table, error_list)
+    }
+    when Type::Interface(interface_name) {
+      val clean_interface_name = demangle_name(interface_name)
+      val property_map = global_interface_map[interface_name]
+
+      if method_name not in property_map {
+        error_list:push("Instance method '$method_name' does not exist in interface '$clean_interface_name'.")
+        return Type::Invalid
+      }
+
+      val property = property_map[method_name]
+
+      if property:type is not Type::Function {
+        val prop_type_name = Program::get_type_name(property:type)
+        error_list:push("Instance method '$method_name' of interface '$clean_interface_name' is not a function. It is a '$prop_type_name'.")
+        return Type::Invalid
+      }
+
+      val interface_fn_name = "$clean_interface_name:$method_name"
+
+      return type_check_call_signature(property:type, interface_fn_name, arg_list, symbol_table, error_list)
+    }
+    when Type::List(inner_type) {
+      val type_identifier = get_type_identifier(left_type)
+      val concrete_type_name = Program::get_type_name(left_type)
+
+      if type_identifier in built_in_instance_method_map {
+        val method_map = built_in_instance_method_map[type_identifier]
+
+        if method_name not in method_map {
+          error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+          return Type::Invalid 
+        }
+
+        val method_signature = method_map[method_name]
+        val specialized_signature = specialize_built_in_list_method(inner_type, arg_list, method_signature)
+
+        return type_check_call_signature(specialized_signature, method_name, arg_list, symbol_table, error_list)
+      }
+
+      error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+
+      return Type::Invalid
+    }
+    else {
+      # val type_identifier = get_type_name(left_type)
+      val concrete_type_name = Program::get_type_name(left_type)
+
+      # if type_identifier in built_in_instance_method_map {
+      #   val method_map = built_in_instance_method_map[type_identifier]
+        
+      #   if method_name not in method_map {
+      #     error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+      #     return Type::Invalid
+      #   }
+
+        # val method_signature = method_map[method_name]
+        # specialize_built_in_method(arg_list, method_signature)
+        # val right_type = type_check_call_signature(method_signature, "$concrete_type_name:$method_name", arg_list, symbol_table, error_list)
+        
+        # error_list:push("Instance method '$method_name' of '$concrete_type_name' is not properly checked as of now.")
+
+        # return Type::Invalid
+      # }
+
+      error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+      return Type::Invalid
+    }
+  }
+}
+
 fn type_check_member_access_expr(
   left_type Type
   right_expr Expression
   symbol_table map[string, Type]
   error_list []string
 ) Type {
-  if right_expr is Expression::Var(prop_name) {
-    if left_type is Type::Struct(struct_name) {
-      val clean_struct_name = demangle_name(struct_name)
-      val property_map = global_struct_map[struct_name]
-
-      if prop_name not in property_map {
-        error_list:push("Property '$prop_name' does not exist in struct '$clean_struct_name'.")
-        return Type::Invalid
-      }
-
-      val property = property_map[prop_name]
-
-      if not property:is_public {
-        error_list:push("Property '$prop_name' of struct '$clean_struct_name' is private and cannot be accessed.")
-        return Type::Invalid
-      }
-      
-      return property:type
-    }
-
-    if left_type is Type::Interface(interface_name) {
-      val clean_interface_name = demangle_name(interface_name)
-      val property_map = global_interface_map[interface_name]
-
-      if prop_name not in property_map {
-        error_list:push("Property '$prop_name' does not exist in interface '$clean_interface_name'.")
-        return Type::Invalid
-      }
-
-      return property_map[prop_name]:type
-    }
-  }
-
-  if right_expr is Expression::FunctionCall(fn_name, arg_list) {
-    if left_type is Type::Struct(struct_name) {
-      val clean_struct_name = demangle_name(struct_name)
-      val property_map = global_struct_map[struct_name]
-
-      if fn_name not in property_map {
-        error_list:push("Function property '$fn_name' does not exist in struct '$clean_struct_name'.")
-        return Type::Invalid
-      }
-
-      val property = property_map[fn_name]
-
-      if not property:is_public {
-        error_list:push("Function property '$fn_name' of struct '$clean_struct_name' is private and cannot be accessed.")
-        return Type::Invalid
-      }
-
-      if property:type is not Type::Function {
-        val prop_type_name = Program::get_type_name(property:type)
-        error_list:push("Property '$fn_name' of struct '$clean_struct_name' is not a function. It is a '$prop_type_name'.")
-        return Type::Invalid
-      }
-
-      val struct_fn_name = "$clean_struct_name:$fn_name"
-
-      return type_check_call_signature(property:type, struct_fn_name, arg_list, symbol_table, error_list)
-    }
-
-    if left_type is Type::Interface(interface_name) {
-      val clean_interface_name = demangle_name(interface_name)
-      val property_map = global_interface_map[interface_name]
-
-      if fn_name not in property_map {
-        error_list:push("Function property '$fn_name' does not exist in interface '$clean_interface_name'.")
-        return Type::Invalid
-      }
-
-      val property = property_map[fn_name]
-
-      if property:type is not Type::Function {
-        val prop_type_name = Program::get_type_name(property:type)
-        error_list:push("Function property '$fn_name' of interface '$clean_interface_name' is not a function. It is a '$prop_type_name'.")
-        return Type::Invalid
-      }
-
-      val interface_fn_name = "$clean_interface_name:$fn_name"
-
-      return type_check_call_signature(property:type, interface_fn_name, arg_list, symbol_table, error_list)
-    }
-  }
-
   if left_type == Type::Invalid {
     return left_type
+  }
+
+  if right_expr is Expression::Var(member_name) {
+    return type_check_var_member_access_expr(member_name, left_type, symbol_table, error_list)
+  }
+
+  if right_expr is Expression::FunctionCall(method_name, arg_list) {
+    return type_check_instance_method_call_expr(method_name, left_type, arg_list, symbol_table, error_list)
   }
 
   val left_type_name = Program::get_type_name(left_type)

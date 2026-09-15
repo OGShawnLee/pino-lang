@@ -1,0 +1,101 @@
+module Environment
+
+from Entities import Parameter, Primitive, Type
+
+pub fn get_type_identifier(type Type) string {
+  return match type {
+    when Type::Primitive(primitive) => match primitive {
+      when Primitive::Int => "Primitive::Int"
+      when Primitive::Float => "Primitive::Float"
+      when Primitive::Bool => "Primitive::Bool"
+      else => "Invalid Primitive"
+    }
+    when Type::Function(param_list, ret_type) => "Function"
+    when Type::Enum(name, constant_list) => "Enum"
+    when Type::Union(name) => "Union"
+    when Type::List(inner_type) => "List"
+    when Type::Struct(name) => "Struct"
+    when Type::Interface(name) => "Interface"
+    when Type::Pending(name) => "Pending"
+    when Type::Implicit => "Implicit"
+    when Type::Void => "Void"
+    when Type::Invalid => "Invalid"
+  }
+}
+
+fn get_implicit_it() {
+  return Parameter {
+    name: "it"
+    type: Type::Implicit
+    default_expr: Option::None
+  }
+}
+
+fn get_implicit_it_fn(ret_type Type) {
+  return Type::Function([get_implicit_it()], ret_type)
+}
+
+pub val built_in_instance_method_map = map[string, map[string, Type]] {
+  get_type_identifier(Type::List(Type::Implicit)): map[string, Type] {
+    "all": Type::Function(
+      [
+        Parameter { 
+          name: "predicate"
+          type: Type::Function(
+            [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
+            Type::Primitive(Primitive::Bool)
+          )
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Bool)
+    )
+    "any": Type::Function(
+      [
+        Parameter { 
+          name: "predicate"
+          type: Type::Function(
+            [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
+            Type::Primitive(Primitive::Bool)
+          )
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Bool)
+    )
+    "extend": Type::Function(
+      [
+        Parameter {
+          name: "list"
+          type: Type::List(Type::Implicit)
+          default_expr: Option::None
+        }
+      ],
+      Type::List(Type::Implicit)
+    )
+    "filter": Type::Function(
+      [
+        Parameter { 
+          name: "predicate"
+          type: Type::Function(
+            [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
+            Type::Primitive(Primitive::Bool)
+          )
+          default_expr: Option::None
+        }
+      ],
+      Type::List(Type::Implicit)
+    )
+    "length": Type::Primitive(Primitive::Int)
+    "push": Type::Function(
+      [
+        Parameter {
+          name: "element"
+          type: Type::Implicit
+          default_expr: Option::None
+        }
+      ],
+      Type::Void
+    )
+  }
+}
