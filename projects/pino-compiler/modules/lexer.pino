@@ -7,7 +7,7 @@ struct TokenRule {
   type TokenType
 }
 
-val ARROW_REGEX = regex("(=>|->)")
+val SPECIAL_REGEX = regex("(->|@@)")
 val BINARY_OPERATOR_REGEX = regex("^(\+|\*|/|%|and|or|==|!=|<=|>=|<|>|=|::)")
 val UNARY_OPERATOR_REGEX = regex("^(-|not)")
 val IDENTIFIER_REGEX = regex("^[a-zA-Z_][a-zA-Z0-9_]*")
@@ -19,7 +19,7 @@ val FLOAT_REGEX = regex("^[0-9]+\\.[0-9]+")
 val BOOL_REGEX = regex("^(true|false)")
 val WHITE_SPACE_REGEX = regex("^\s+")
 val TOKEN_RULE_LIST = [
-  TokenRule { pattern: ARROW_REGEX, type: TokenType::Marker },
+  TokenRule { pattern: SPECIAL_REGEX, type: TokenType::Marker },
   TokenRule { pattern: BINARY_OPERATOR_REGEX, type: TokenType::BinaryOperator },
   TokenRule { pattern: UNARY_OPERATOR_REGEX, type: TokenType::UnaryOperator },
   TokenRule { pattern: KEYWORD_REGEX, type: TokenType::Keyword },

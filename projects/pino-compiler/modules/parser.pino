@@ -942,7 +942,7 @@ fn parse_property(stream TokenStream) Result[Property, string] {
   return Result::Success(Property { name: name, type: type, is_public: is_public })
 }
 
-fn parse_struct_decl(stream TokenStream) Result[Declaration, string] {
+fn parse_struct_decl(stream TokenStream, generic_map map[string, Type]) Result[Declaration, string] {
   stream:expect_content("struct")
 
   val struct_name = stream:expect_type(TokenType::Identifier)?:value
@@ -973,7 +973,7 @@ fn parse_struct_decl(stream TokenStream) Result[Declaration, string] {
 
   stream:expect_content("}")?
 
-  return Result::Success(Declaration::StructDeclaration(struct_name, property_map))
+  return Result::Success(Declaration::StructDeclaration(struct_name, property_map, generic_map))
 }
 
 fn parse_interface_decl(stream TokenStream) Result[Declaration, string] {
@@ -1031,7 +1031,7 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
       return Result::Success(res)
     }
     when "struct" {
-      val res = parse_struct_decl(stream)?
+      val res = parse_struct_decl(stream, map[string, Type] {})?
       return Result::Success(res)
     }
     when "interface" {
@@ -1044,11 +1044,77 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
   }
 }
 
+fn parse_generic_params(stream TokenStream) Result[map[string, Type], string] {
+  stream:expect_content("[")?
+  
+  val generic_map = map[string, Type] {}
+  
+  for {
+    val curr = stream:peek(0)
+    
+    if curr:value == "]" {
+      break
+    }
+
+    if curr:value == "," {
+      if stream:peek(1):value == "," or stream:peek(1):value == "]" {
+        return Result::Failure("Syntax Error: Expected generic parameter after ',' in generic parameter list. Tip: Add only one comma between generic parameters.")
+      }
+      stream:next()
+      continue
+    }
+
+    val generic = stream:expect_type(TokenType::Identifier)?
+
+    if not is_capital(generic:value) {
+      return Result::Failure("Syntax Error: Expected capitalized identifier for generic parameter, got '$(generic:value)'. Tip: Capitalize generic parameters.")
+    }
+
+    if generic:value in generic_map {
+      return Result::Failure("Syntax Error: Duplicate generic parameter '$(generic:value)' in generic parameter list. Tip: Generic parameters must be unique within the same generic parameter list.")
+    }
+
+    generic_map[generic:value] = Type::Implicit
+  }
+
+  if generic_map:len == 0 {
+    return Result::Failure("Syntax Error: Expected at least one generic parameter after '@@Generic' directive. Tip: Add at least one generic parameter to the '@@Generic' directive.")
+  }
+
+  stream:expect_content("]")?
+  return Result::Success(generic_map)
+}
+
+fn parse_directive(stream TokenStream) Result[Declaration, string] {
+  stream:expect_content("@@")?
+  val name = stream:expect_type(TokenType::Identifier)?
+  
+  if name:value == "Generic" {
+    val generic_map = parse_generic_params(stream)?
+    match stream:peek(0):value {
+      when "struct" {
+        val struct_decl = parse_struct_decl(stream, generic_map)?
+        return Result::Success(struct_decl)
+      }
+      else {
+        return Result::Failure("Expected 'struct' keyword after '@@Generic' directive. Got $(stream:peek(0):value).")
+      }
+    } 
+  } 
+  else {
+    return Result::Failure("Unknown directive '$(name:value)'")
+  }
+}
+
 fn parse_block_item(stream TokenStream) Result[AST, string] {
   val curr = stream:peek(0)
   match curr:value {
     when "fn", "var", "val", "enum", "union", "struct", "interface" {
       val decl = parse_decl(stream)?
+      return Result::Success(AST::Declaration(decl))
+    }
+    when "@@" {
+      val decl = parse_directive(stream)?
       return Result::Success(AST::Declaration(decl))
     }
     else {

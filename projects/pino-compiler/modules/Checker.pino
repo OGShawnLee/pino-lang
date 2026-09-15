@@ -25,6 +25,7 @@ from Environment import built_in_instance_method_map, get_type_identifier
 union Kind {
   Var
   Val
+  Generic
   Function([]Parameter, map[string, int])
   Enum([]string)
   Union([]Pattern, map[string, int])
@@ -42,6 +43,7 @@ fn get_kind_name(kind Kind) string {
   return match kind {
     when Kind::Var => "Variable"
     when Kind::Val => "Constant"
+    when Kind::Generic => "Generic"
     when Kind::Function(param_list, index_map) => "Function"
     when Kind::Enum(constant_list) => "Enum"
     when Kind::Union(pattern_list, index_map) => "Union"
@@ -829,6 +831,10 @@ fn resolve_type(target_type Type, variable_map map[string, Entity]) Result[Type 
         return Result::Success(Type::Interface(entity:unique_name))
       }
 
+      if entity:kind is Kind::Generic {
+        return Result::Success(Type::Generic(entity:unique_name))
+      }
+
       return Result::Failure("Type Checker Error: '$unresolved_type_name' is not a type.")
     }
     when Type::Function(param_list, ret_type) {
@@ -955,20 +961,32 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
     when Declaration::UnionDeclaration(name, pattern_list, index_map) {
       return resolve_union_decl(name, pattern_list, index_map, variable_map)
     }
-    when Declaration::StructDeclaration(struct_name, property_map) {
+    when Declaration::StructDeclaration(struct_name, property_map, generic_map) {
       if struct_name not in variable_map {
         panic("Undeclared struct '$struct_name' should have been caught by Declaration Hoisting Pass.")
       }
 
       val unique_name = variable_map[struct_name]:unique_name
       val resolved_property_map = map[string, Property] {}
+      val local_variable_map = copy_variable_map(variable_map)
+      val resolved_generic_map = map[string, Type] {}
+
+      for generic, type in generic_map {
+        val unique_name = mangle_name(generic)
+        resolved_generic_map[generic] = Type::Generic(unique_name)
+        local_variable_map[generic] = Entity { 
+          unique_name: unique_name, 
+          is_from_current_block: true, 
+          kind: Kind::Generic
+        }
+      }
 
       for prop_name, prop in property_map {
-        val resolved_prop_type = resolve_type(prop:type, variable_map)?
+        val resolved_prop_type = resolve_type(prop:type, local_variable_map)?
         resolved_property_map[prop_name] = Property { name: prop_name, type: resolved_prop_type, is_public: prop:is_public }
       }
 
-      return Result::Success(Declaration::StructDeclaration(unique_name, resolved_property_map))
+      return Result::Success(Declaration::StructDeclaration(unique_name, resolved_property_map, resolved_generic_map))
     }
     when Declaration::InterfaceDeclaration(interface_name, property_map) {
       if interface_name not in variable_map {
@@ -1031,7 +1049,7 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
             kind: Kind::Union(pattern_list, index_map)
           }
         }
-        when Declaration::StructDeclaration(struct_name, property_list) {
+        when Declaration::StructDeclaration(struct_name, property_list, generic_map) {
           if struct_name in variable_map and variable_map[struct_name]:is_from_current_block {
             return Result::Failure("Type Checker Error: Struct '$struct_name' has been already declared in the current scope.")
           }
@@ -1274,6 +1292,12 @@ fn type_check_struct_instance(
         val candidate_type = type_check_expr(candidate_expr, symbol_table, error_list)
 
         if candidate_type == Type::Invalid {
+          continue
+        }
+
+        if canonical_type is Type::Generic(generic_name) {
+          val clean_generic_name = demangle_name(generic_name)
+          error_list:push("Generic type '$clean_generic_name' not supported yet as a property type of struct '$clean_struct_name'.")
           continue
         }
 
@@ -1574,6 +1598,9 @@ fn type_check_type_compatibility(
       } else {
         return report_type_mismatch(exp_type, can_type, content_message, error_list)
       }
+    }
+    when Type::Generic(id) {
+      return can_type
     }
     else {
       return report_type_mismatch(exp_type, can_type, content_message, error_list)
@@ -2118,25 +2145,7 @@ fn type_check_instance_method_call_expr(
       return Type::Invalid
     }
     else {
-      # val type_identifier = get_type_name(left_type)
       val concrete_type_name = Program::get_type_name(left_type)
-
-      # if type_identifier in built_in_instance_method_map {
-      #   val method_map = built_in_instance_method_map[type_identifier]
-        
-      #   if method_name not in method_map {
-      #     error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
-      #     return Type::Invalid
-      #   }
-
-        # val method_signature = method_map[method_name]
-        # specialize_built_in_method(arg_list, method_signature)
-        # val right_type = type_check_call_signature(method_signature, "$concrete_type_name:$method_name", arg_list, symbol_table, error_list)
-        
-        # error_list:push("Instance method '$method_name' of '$concrete_type_name' is not properly checked as of now.")
-
-        # return Type::Invalid
-      # }
 
       error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
       return Type::Invalid
@@ -3108,7 +3117,7 @@ fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, 
           symbol_table[union_name] = Type::Union(union_name)
           global_union_map[union_name] = UnionContent { pattern_list: pattern_list, index_map: index_map }
         }
-        when Declaration::StructDeclaration(struct_name, property_map) {
+        when Declaration::StructDeclaration(struct_name, property_map, generic_map) {
           if struct_name in symbol_table {
             panic("Duplicate struct '$struct_name' should have been caught by Identifier Resolution Pass.")
           }

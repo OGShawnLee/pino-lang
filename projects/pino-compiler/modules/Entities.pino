@@ -187,6 +187,7 @@ pub union Type {
   Struct(string)
   Interface(string)
   Pending(string)
+  Generic(string)
   Void
   Implicit
   Invalid
@@ -220,7 +221,7 @@ pub union Declaration {
   VariableDeclaration(string, Expression, Type)
   EnumDeclaration(string, []string)
   UnionDeclaration(string, []Pattern, map[string, int])
-  StructDeclaration(string, map[string, Property])
+  StructDeclaration(string, map[string, Property], map[string, Type])
   InterfaceDeclaration(string, map[string, Property])
 }
 
@@ -306,8 +307,16 @@ pub struct Program {
           println("$name => $index")
         }
       }
-      when Declaration::StructDeclaration(name, property_map) {
-        println("Struct: $name")
+      when Declaration::StructDeclaration(name, property_map, generic_map) {
+        if generic_map:len > 0 {
+          println("Struct: $name")
+          for name, type in generic_map {
+            println("Generic: $name")
+          }
+        } else {
+          println("Struct: $name")
+        }
+        
         for name, property in property_map {
           if property:is_public {
             println("  pub $name: $(Program::get_type_name(property:type))")
@@ -340,6 +349,7 @@ pub struct Program {
       when Type::Struct(name) => demangle_name(name)
       when Type::Interface(name) => demangle_name(name)
       when Type::Pending(name) => demangle_name(name)
+      when Type::Generic(id) => demangle_name(id)
       when Type::Implicit => "implicit"
       when Type::Void => "void"
       when Type::Invalid => "invalid"

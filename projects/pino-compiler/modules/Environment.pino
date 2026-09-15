@@ -17,6 +17,7 @@ pub fn get_type_identifier(type Type) string {
     when Type::Struct(name) => "Struct"
     when Type::Interface(name) => "Interface"
     when Type::Pending(name) => "Pending"
+    when Type::Generic(id) => "Generic"
     when Type::Implicit => "Implicit"
     when Type::Void => "Void"
     when Type::Invalid => "Invalid"
