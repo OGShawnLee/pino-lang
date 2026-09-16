@@ -19,7 +19,8 @@ from Entities import
   BinaryOperator,
   UnaryOperator,
   Constant,
-  When
+  When,
+  Pair
 from Environment import built_in_instance_method_map, get_type_identifier
 
 union Kind {
@@ -250,6 +251,13 @@ fn has_undeclared_it(expr Expression, variable_map map[string, Entity]) bool {
               return true
             }
           }
+        }
+      }
+    }
+    when Expression::Map(key_type, value_type, pair_list) {
+      for pair in pair_list {
+        if has_undeclared_it(pair:key, variable_map) or has_undeclared_it(pair:value, variable_map) {
+          return true
         }
       }
     }
@@ -550,6 +558,20 @@ fn resolve_expr(
     }
     when Expression::FunctionCall(name, arg_list) {
       return resolve_fn_call_expr(name, arg_list, variable_map, is_pattern_matching)
+    }
+    when Expression::Map(key_type, value_type, pair_list) {
+      val resolved_key_type = resolve_type(key_type, variable_map)?
+      val resolved_value_type = resolve_type(value_type, variable_map)?
+      val resolved_pair_list = []Pair
+
+      for pair in pair_list {
+        val resolved_key = resolve_expr(pair:key, variable_map, is_pattern_matching)?
+        val resolved_value = resolve_expr(pair:value, variable_map, is_pattern_matching)?
+
+        resolved_pair_list:push(Pair { key: resolved_key, value: resolved_value })
+      }
+
+      return Result::Success(Expression::Map(resolved_key_type, resolved_value_type, resolved_pair_list))
     }
     when Expression::List(expr_list, list_type) {
       val resolved_expr_list = []Expression
@@ -1348,6 +1370,13 @@ fn type_check_index_expr(
 
       return item_type
     }
+    when Type::Map(key_type, value_type) {
+      if type_check_type_compatibility(key_type, index_type, "in map index expression", error_list) == Type::Invalid {
+        return Type::Invalid
+      }
+
+      return value_type
+    }
     else {
       val clean_target_type = Program::get_type_name(target_type)
       val clean_index_type = Program::get_type_name(index_type)
@@ -1355,6 +1384,70 @@ fn type_check_index_expr(
       return Type::Invalid
     }
   }
+}
+
+fn get_constant_value(expr Expression) {
+  if expr is Expression::Constant(value) {
+    return match value {
+      when Constant::Int(int_value) => str(int_value)
+      when Constant::Bool(bool_value) => str(bool_value)
+      when Constant::Float(float_value) => str(float_value)
+      else => panic("Internal Error: Expected a constant value but got an expression: $expr.")
+    }
+  }
+
+  panic("Internal Error: Expected a constant value but got an expression: $expr.")
+}
+
+fn type_check_map_expr(
+  canonical_key_type Type
+  canonical_value_type Type
+  pair_list []Pair
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  if canonical_key_type is Type::Primitive {
+    val key_expr_list = []Expression
+
+    for pair in pair_list {
+      val candidate_key_type = type_check_expr(pair:key, symbol_table, error_list)
+      val candidate_value_type = type_check_expr(pair:value, symbol_table, error_list)
+
+      if candidate_key_type != Type::Invalid {
+        type_check_type_compatibility(canonical_key_type, candidate_key_type, "in map expression. All keys must have a compatible type", error_list)
+      }
+
+      if candidate_value_type != Type::Invalid {
+        type_check_type_compatibility(canonical_value_type, candidate_value_type, "in map expression. All values must have a compatible type", error_list)
+      }
+
+      for key_expr in key_expr_list {
+        if key_expr == pair:key {
+          val const_str = get_constant_value(pair:key)
+          error_list:push("Static Semantic Error: Duplicate key '$const_str' found in map instance expression. Tip: Ensure all keys are distinct from one another.")
+        }
+      }
+
+      key_expr_list:push(pair:key)
+    }
+
+    return Type::Map(canonical_key_type, canonical_value_type)
+  }
+
+  for pair in pair_list {
+    val candidate_key_type = type_check_expr(pair:key, symbol_table, error_list)
+    val candidate_value_type = type_check_expr(pair:value, symbol_table, error_list)
+
+    if candidate_key_type != Type::Invalid {
+      type_check_type_compatibility(canonical_key_type, candidate_key_type, "in map expression. All keys must have a compatible type", error_list)
+    }
+
+    if candidate_value_type != Type::Invalid {
+      type_check_type_compatibility(canonical_value_type, candidate_value_type, "in map expression. All values must have a compatible type", error_list)
+    }
+  }
+
+  return Type::Map(canonical_key_type, canonical_value_type)
 }
 
 fn type_check_list_expr(
@@ -2033,6 +2126,9 @@ fn specialize_implicit_type(initial_type Type, concrete_type Type) {
     when Type::List(inner_type) {
       return Type::List(specialize_implicit_type(inner_type, concrete_type))
     }
+    when Type::Map(key_type, value_type) {
+      return Type::Map(specialize_implicit_type(key_type, concrete_type), specialize_implicit_type(value_type, concrete_type))
+    }
     when Type::Implicit {
       return concrete_type
     }
@@ -2042,29 +2138,28 @@ fn specialize_implicit_type(initial_type Type, concrete_type Type) {
   }
 }
 
-fn specialize_built_in_list_method(
-  list_type Type
+fn specialize_built_in_method(
+  concrete_type Type
   arg_list []Argument 
   method_signature Type
 ) {
   if method_signature is Type::Function(param_list, ret_type) {
     val specialized_param_list = []Parameter
-    val generic_type_map = map[string, Type] {}
 
     for param in param_list {
       specialized_param_list:push(Parameter {
         name: param:name
-        type: specialize_implicit_type(param:type, list_type)
+        type: specialize_implicit_type(param:type, concrete_type)
         default_expr: param:default_expr
       })
     }
     
-    return Type::Function(specialized_param_list, specialize_implicit_type(ret_type, list_type))
+    return Type::Function(specialized_param_list, specialize_implicit_type(ret_type, concrete_type))
   }
 
-  val type_name = Program::get_type_name(list_type)
+  val type_name = Program::get_type_name(concrete_type)
 
-  panic("Expected a method call to a list method, but got '$type_name'.")
+  panic("Internal Error: Expected a method call to a built-in method, but got '$type_name'.")
 }
 
 fn type_check_instance_method_call_expr(
@@ -2135,7 +2230,7 @@ fn type_check_instance_method_call_expr(
         }
 
         val method_signature = method_map[method_name]
-        val specialized_signature = specialize_built_in_list_method(inner_type, arg_list, method_signature)
+        val specialized_signature = specialize_built_in_method(inner_type, arg_list, method_signature)
 
         return type_check_call_signature(specialized_signature, method_name, arg_list, symbol_table, error_list)
       }
@@ -2394,6 +2489,9 @@ fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list [
     }
     when Expression::List(expr_list, list_type) {
       return type_check_list_expr(expr_list, list_type, symbol_table, error_list)
+    }
+    when Expression::Map(key_type, value_type, pair_list) {
+      return type_check_map_expr(key_type, value_type, pair_list, symbol_table, error_list)
     }
     when Expression::Index(target_expr, index_expr) {
       return type_check_index_expr(target_expr, index_expr, symbol_table, error_list)
@@ -2896,6 +2994,13 @@ fn type_check_loop_stmt(
         val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
         
         return is_true_invariant and has_ret_in_block
+      }
+
+      if iterable_type is Type::Map(infered_key_type, infered_value_type) {
+        symbol_table[key_var] = infered_key_type
+        symbol_table[value_var] = infered_value_type
+
+        return type_check_block(block, symbol_table, error_list, fn_name_context_opt)
       }
 
       val type_name = Program::get_type_name(iterable_type)

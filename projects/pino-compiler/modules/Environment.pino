@@ -18,6 +18,7 @@ pub fn get_type_identifier(type Type) string {
     when Type::Interface(name) => "Interface"
     when Type::Pending(name) => "Pending"
     when Type::Generic(id) => "Generic"
+    when Type::Map(key_type, value_type) => "Map"
     when Type::Implicit => "Implicit"
     when Type::Void => "Void"
     when Type::Invalid => "Invalid"

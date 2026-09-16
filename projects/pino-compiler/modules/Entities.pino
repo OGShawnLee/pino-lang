@@ -131,6 +131,11 @@ pub union Argument {
   Expression(Expression)
 }
 
+pub struct Pair {
+  key Expression
+  value Expression
+}
+
 pub union Expression {
   Constant(Constant)
   Var(string)
@@ -140,6 +145,7 @@ pub union Expression {
   Conditional(Expression, Expression, Expression)
   FunctionCall(string, []Argument)
   List([]Expression, Type)
+  Map(Type, Type, []Pair)
   Index(Expression, Expression)
   EnumConstant(string, string)
   UnionPattern(string, string)
@@ -188,6 +194,7 @@ pub union Type {
   Interface(string)
   Pending(string)
   Generic(string)
+  Map(Type, Type)
   Void
   Implicit
   Invalid
@@ -350,6 +357,7 @@ pub struct Program {
       when Type::Interface(name) => demangle_name(name)
       when Type::Pending(name) => demangle_name(name)
       when Type::Generic(id) => demangle_name(id)
+      when Type::Map(key_type, value_type) => "map[$(Program::get_type_name(key_type))]$(Program::get_type_name(value_type))"
       when Type::Implicit => "implicit"
       when Type::Void => "void"
       when Type::Invalid => "invalid"
@@ -474,6 +482,20 @@ pub struct Program {
               Program::print_expr(expr)
             }
           }
+        }
+      }
+      when Expression::Map(key_type, value_type, entry_list) {
+        val type_str = Program::get_type_name(key_type) + " -> " + Program::get_type_name(value_type)
+
+        if entry_list:len == 0 {
+          println("Map ($(type_str)): {}")
+        } else {
+          println("Map ($(type_str)): {")
+          for entry in entry_list {
+            Program::print_expr(entry:key)
+            Program::print_expr(entry:value)
+          }
+          println("}")
         }
       }
       when Expression::List(expr_list, list_type) {

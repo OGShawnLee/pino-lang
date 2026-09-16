@@ -22,7 +22,8 @@ from Entities import
   TokenType,
   Literal,
   TokenStream,
-  Property
+  Property,
+  Pair
 
 val PRECEDENCE_MAP = map[string, int] {
   "::": 100
@@ -259,6 +260,64 @@ fn is_struct_init_lookahead(stream TokenStream) {
     (stream:peek(2):value == ":" or stream:peek(2):value == "," or stream:peek(2):value == "}")
 }
 
+fn parse_map_instance(stream TokenStream) Result[Expression, string] {
+  stream:expect_content("[") or {
+    return Result::Failure("Syntax Error: Expected '[' to open map instance type.")
+  }
+
+  val key_type = parse_type(stream)?
+  stream:expect_content(",") or {
+    return Result::Failure("Syntax Error: Expected ',' to separate key and value types in map instance type.")
+  }
+  val value_type = parse_type(stream)?
+  stream:expect_content("]") or {
+    return Result::Failure("Syntax Error: Expected ']' to close map instance type.")
+  }
+
+  if stream:peek(0):value == "{" {
+    stream:next()
+
+    val pair_list = []Pair
+
+    for {
+      val curr = stream:peek(0)
+
+      if curr:type == TokenType::EOF or curr:value == "}" {
+        break
+      }
+
+      if curr:value == "," {
+        if stream:peek(1):value == "," {
+          return Result::Failure("Syntax Error: Expected pair before ',' in map instance. Tip: Remove consecutive ',' from map instance.")
+        }
+
+        if stream:peek(1):value == "}" {
+          return Result::Failure("Syntax Error: Expected pair before '}' in map instance. Tip: Remove trailing ',' from map instance.")
+        }
+
+        stream:next()
+        continue
+      }
+
+      val key = parse_expr(stream, 0, true)?
+      stream:expect_content("->") or {
+        return Result::Failure("Syntax Error: Expected '->' before value in map instance pair. Tip: Use '->' between key and value in map instance pair.")
+      }
+      val value = parse_expr(stream, 0, true)?
+
+      pair_list:push(Pair { key: key, value: value })
+    }
+
+    stream:expect_content("}") or {
+      return Result::Failure("Syntax Error: Expected '}' to close map instance.")
+    }
+
+    return Result::Success(Expression::Map(key_type, value_type, pair_list))
+  } else {
+    return Result::Success(Expression::Map(key_type, value_type, []Pair))
+  }
+}
+
 fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expression, string] {
   val curr = stream:consume()
   match curr:type {
@@ -330,6 +389,11 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
         }
 
         return Result::Success(Expression::Var(curr:value))
+      }
+
+      if curr:value == "map" {
+        val map_instance = parse_map_instance(stream)?
+        return Result::Success(map_instance)
       }
 
       return Result::Success(Expression::Var(curr:value))
@@ -729,6 +793,17 @@ fn parse_type(stream TokenStream) Result[Type, string] {
   if stream:peek(0):value == "fn" {
     stream:next()
     return parse_fn_type(stream)
+  }
+
+  if stream:peek(0):value == "map" {
+    stream:next()
+    stream:expect_content("[")?
+    val key_type = parse_type(stream)?
+    stream:expect_content(",")?
+    val value_type = parse_type(stream)?
+    stream:expect_content("]")?
+
+    return Result::Success(Type::Map(key_type, value_type))
   }
 
   val type_token = stream:expect_type(TokenType::Identifier) or {
