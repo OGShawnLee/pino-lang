@@ -1,0 +1,20 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Navbar from '../components/Navbar.astro';
+import Hero from '../components/Hero.astro';
+import HumanCompiler from '../components/HumanCompiler.astro';
+import RealityCheck from '../components/RealityCheck.astro';
+import EnginesSpec from '../components/EnginesSpec.astro';
+import ColophonFooter from '../components/ColophonFooter.astro';
+---
+
+<BaseLayout>
+  <Navbar />
+  <main class="flex-1">
+    <Hero />
+    <HumanCompiler />
+    <RealityCheck />
+    <EnginesSpec />
+  </main>
+  <ColophonFooter />
+</BaseLayout>

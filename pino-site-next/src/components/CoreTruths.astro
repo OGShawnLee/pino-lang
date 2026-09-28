@@ -1,0 +1,65 @@
+---
+const truths = [
+  {
+    index: "01",
+    label: "ERGONOMICS",
+    title: "Syntax without punishment",
+    verse: "Commas and semicolons optional. Human intention is respected; the compiler quietly supports you.",
+    detail: "No forced parentheses around control flow. Minimal friction when writing, crystal clarity when reading.",
+  },
+  {
+    index: "02",
+    label: "FRUGALITY",
+    title: "Self-contained and nimble",
+    verse: "A single, compact binary. Respect for the planet's resources and for your machine's memory.",
+    detail: "Engineered to run effortlessly on 4 GB laptops. No 15 GB enterprise SDK bloat required to build your code.",
+  },
+  {
+    index: "03",
+    label: "GENTLE RIGOR",
+    title: "Typing with warmth",
+    verse: "Algebraic sum types and errors as explicit values. The tranquility of knowing code won't fail unwarned.",
+    detail: "Exhaustive pattern matching and static safety without the clinical coldness of hostile compiler errors.",
+  },
+];
+---
+
+<section id="truths" class="w-full px-6 sm:px-12 max-w-7xl mx-auto py-20 sm:py-24 border-t border-[#2C241D]/10">
+  <!-- Section Header -->
+  <div class="space-y-2 pb-10">
+    <span class="text-[10px] font-mono tracking-widest text-[#2C241D]/40 uppercase block">
+      PRINCIPLES // TRIPTYCH
+    </span>
+    <h2 class="text-3xl sm:text-4xl font-serif-editorial font-light tracking-tight text-[#2C241D]">
+      Three Core Commitments
+    </h2>
+  </div>
+
+  <!-- Three Clean Editorial Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    {truths.map((item) => (
+      <div class="bg-white/60 border border-[#2C241D]/10 p-7 sm:p-8 rounded-sm space-y-5 transition-all duration-300 hover:border-[#E59728]/40 hover:bg-white/90">
+        <div class="flex items-baseline justify-between border-b border-[#2C241D]/8 pb-3">
+          <span class="text-xs font-mono text-[#E59728] font-bold">
+            {item.index}
+          </span>
+          <span class="text-[9px] font-mono tracking-widest text-[#2C241D]/40 uppercase">
+            {item.label}
+          </span>
+        </div>
+
+        <h3 class="text-xl font-serif-editorial font-normal tracking-tight text-[#2C241D]">
+          {item.title}
+        </h3>
+
+        <p class="text-sm font-serif-editorial italic text-[#2C241D]/85 leading-relaxed">
+          “{item.verse}”
+        </p>
+
+        <p class="text-xs font-sans text-[#2C241D]/60 leading-normal pt-2 border-t border-[#2C241D]/6">
+          {item.detail}
+        </p>
+      </div>
+    ))}
+  </div>
+</section>

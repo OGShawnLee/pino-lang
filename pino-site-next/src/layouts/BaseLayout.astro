@@ -1,0 +1,45 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "Pino — A Programming Language with Soul",
+  description = "A friendly, aesthetic, and type-safe systems language. Bridging ergonomic simplicity with native performance.",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth bg-[#F5F2EB] text-[#2C241D]">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Google Fonts: Cormorant Garamond (Editorial Serif), Plus Jakarta Sans, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="font-sans antialiased min-h-screen flex flex-col relative selection:bg-[#E59728] selection:text-white">
+    <!-- Marco de revista / página editorial sutil en bordes -->
+    <div class="fixed inset-0 pointer-events-none z-50 border-[10px] sm:border-[16px] border-[#F5F2EB]/60"></div>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  body {
+    background-color: #F5F2EB;
+    color: #2C241D;
+  }
+  .font-serif-editorial {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+</style>

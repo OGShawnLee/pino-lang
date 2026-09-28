@@ -1,0 +1,119 @@
+---
+---
+
+<section id="about" class="w-full px-6 sm:px-12 max-w-7xl mx-auto pt-14 sm:pt-20 pb-24">
+  <!-- Layout de Revista: Grid de 12 Columnas -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+    <!-- Columna Izquierda: Tipografía Editorial & Filosofía -->
+    <div class="lg:col-span-7 space-y-10">
+      <!-- Metadatos superiores con numeración fina (estilo Elena Stolnikova) -->
+      <div class="flex items-center gap-6 text-[11px] font-mono tracking-widest text-[#2C241D]/50 uppercase select-none">
+        <span>ED_03 // REVISION 2026</span>
+        <span>——</span>
+        <span>A PROGRAMMING LANGUAGE</span>
+      </div>
+
+      <!-- Gran Título Editorial con Serif fina e itálica -->
+      <div class="space-y-4">
+        <h1 class="text-5xl sm:text-7xl lg:text-8xl font-serif-editorial font-light tracking-tight text-[#2C241D] leading-[0.95]">
+          A language crafted <br />
+          with <em class="italic font-normal text-[#E59728]">soul</em> and{" "}
+          <em class="italic font-normal text-[#3B57C4]">curiosity.</em>
+        </h1>
+      </div>
+
+      <!-- Subtítulo / Ensayo editorial de apertura -->
+      <div class="max-w-xl space-y-4 text-[#2C241D]/80 text-base sm:text-lg leading-relaxed font-normal">
+        <p>
+          Pino is a thoughtful programming language designed to unite the
+          ergonomic warmth of high-level scripting with the predictability and
+          lightweight footprint of native systems.
+        </p>
+        <p class="text-sm text-[#2C241D]/60 leading-normal">
+          Currently at <strong>v0.3.2</strong> with a tree-walk interpreter in
+          C#, an experimental bytecode VM, and advancing toward full
+          self-hosting in <strong>v0.4.0</strong>.
+        </p>
+      </div>
+
+      <!-- Instalación Mínima: Una sola línea de comando limpia -->
+      <div class="pt-2 space-y-3 max-w-md">
+        <span class="text-[10px] font-mono tracking-widest uppercase text-[#2C241D]/50 block">
+          Quick Install
+        </span>
+        <div class="bg-white/70 border border-[#2C241D]/15 rounded-lg px-4 py-3 flex items-center justify-between gap-4 font-mono text-xs text-[#2C241D] shadow-2xs">
+          <div class="flex items-center gap-2 truncate">
+            <span class="text-[#E59728] select-none">$</span>
+            <span class="truncate">irm https://pino.dev/install.ps1 | iex</span>
+          </div>
+          <span class="text-[10px] font-mono uppercase text-[#2C241D]/40">
+            win / sh
+          </span>
+        </div>
+      </div>
+
+      <!-- Notas marginales de revista al pie del texto -->
+      <div class="pt-8 border-t border-[#2C241D]/10 flex items-center gap-8 text-[11px] font-mono tracking-wider text-[#2C241D]/60">
+        <div>
+          <span class="text-[#2C241D]/40 block text-[9px] uppercase">
+            Engine
+          </span>
+          <span class="font-medium text-[#2C241D]">Tree-Walk .NET 10</span>
+        </div>
+        <div>
+          <span class="text-[#2C241D]/40 block text-[9px] uppercase">
+            Roadmap
+          </span>
+          <span class="font-medium text-[#2C241D]">v0.4.0 Self-Host C</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna Derecha: Composición de Ilustración en Marco Editorial / Postal -->
+    <div class="lg:col-span-5 flex flex-col items-center lg:items-end">
+      <div class="relative w-full max-w-sm sm:max-w-md">
+        <!-- Tarjeta tipo postal / estampa de arte botánico (inspirada en la ilustración) -->
+        <div class="bg-white p-4 sm:p-5 pb-8 rounded-sm shadow-[0_12px_36px_rgba(44,36,29,0.08)] border border-[#2C241D]/10 relative group transition-all duration-300 hover:shadow-[0_18px_44px_rgba(44,36,29,0.12)]">
+          <!-- Metadatos de lámina de arte vertical (como en el margen de Elena Stolnikova) -->
+          <div class="absolute -left-7 top-1/2 -translate-y-1/2 -rotate-90 hidden sm:block text-[9px] font-mono tracking-widest text-[#2C241D]/40 uppercase select-none">
+            PINO COMPANION // 2026
+          </div>
+
+          <!-- Imagen de la ilustración editorial enmarcada -->
+          <div class="aspect-3/4 rounded-xs overflow-hidden bg-[#FAF7F2] border border-[#2C241D]/6 relative flex items-center justify-center">
+            <img
+              src="/assets/pino_editorial_art.jpg"
+              alt="Pino Editorial Botanical Artwork"
+              class="w-full h-full object-cover select-none"
+            />
+          </div>
+
+          <!-- Pie de lámina estilo catálogo de museo / revista -->
+          <div class="mt-4 flex items-baseline justify-between pt-2 border-t border-[#2C241D]/8">
+            <div>
+              <span class="font-serif-editorial italic text-base text-[#2C241D] block leading-tight">
+                Plate 01: The Companion
+              </span>
+              <span class="text-[10px] font-mono text-[#2C241D]/50 uppercase tracking-widest">
+                Forest & Awakening
+              </span>
+            </div>
+            <span class="text-[10px] font-mono text-[#E59728] font-bold">
+              v0.3.2
+            </span>
+          </div>
+        </div>
+
+        <!-- Pequeño detalle de sello postal lateral -->
+        <div class="hidden sm:block absolute -bottom-5 -right-5 bg-[#FAF7F2] border border-[#2C241D]/15 px-3 py-2 rounded-xs shadow-xs text-center select-none">
+          <span class="text-[9px] font-mono tracking-widest text-[#2C241D]/60 uppercase block">
+            AUTOREIV
+          </span>
+          <span class="font-serif-editorial italic text-xs text-[#2C241D]">
+            Soul Inside
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
