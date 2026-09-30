@@ -2363,6 +2363,29 @@ fn type_check_binary_expr(
   val right_type_name = Program::get_type_name(right_type)
 
   match bin_op {
+    when BinaryOperator::In {
+      match right_type {
+        when Type::List(inner_list_type) {
+          if type_check_type_compatibility(inner_list_type, left_type, "for 'in' operator.", error_list) != Type::Invalid {
+            return Type::Primitive(Primitive::Bool)
+          }
+        }
+        when Type::Set(inner_set_type) {
+          if type_check_type_compatibility(inner_set_type, left_type, "for 'in' operator.", error_list) != Type::Invalid {
+            return Type::Primitive(Primitive::Bool)
+          }
+        }
+        when Type::Map(inner_key_type, inner_value_type) {
+          if type_check_type_compatibility(inner_key_type, left_type, "for 'in' operator.", error_list) != Type::Invalid {
+            return Type::Primitive(Primitive::Bool)
+          }
+        }
+        else {
+          error_list:push("Type mismatch for 'in' operator. It can only be used on list, set, or map types. Received '$left_type_name' and '$right_type_name'.")
+          return Type::Invalid
+        }
+      }
+    }
     when
       BinaryOperator::And
       BinaryOperator::Or
@@ -3045,9 +3068,9 @@ fn type_check_loop_stmt(
       }
 
       symbol_table[value_var] = match iterable_type {
-        when Type::List(list_type) =>  list_type
-        when Type::Set(set_type) =>  set_type
-        else =>  iterable_type
+        when Type::List(list_type) => list_type
+        when Type::Set(set_type) => set_type
+        else => iterable_type
       }
 
       val evaluated_iterable = eval_const_expr(iterable_expr, error_list)

@@ -103,6 +103,7 @@ pub enum BinaryOperator {
   Remainder
   And
   Or
+  In
   Equal
   NotEqual
   LessThan
