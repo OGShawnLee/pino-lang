@@ -1,7 +1,7 @@
 module Parser
 
 from Lexer import lex
-from Entities import 
+from Entities import
   Program,
   AST,
   Declaration,
@@ -130,14 +130,14 @@ fn parse_arg_list(stream TokenStream) Result[[]Argument, string] {
 
     if stream:peek(0):value == "@" {
       stream:next()
-      
+
       val name = stream:expect_type(TokenType::Identifier)?:value
-    
+
       if stream:peek(0):value == ":" {
         stream:next()
 
         val expr = parse_expr(stream, 0, true)?
-    
+
         arg_list:push(Argument::Label(name, expr))
       } else {
         arg_list:push(Argument::Label(name, Expression::Var(name)))
@@ -193,7 +193,7 @@ fn parse_list(stream TokenStream) Result[Expression, string] {
 
     val expr = parse_expr(stream, 0, true)?
     expr_list:push(expr)
-  } 
+  }
 
   stream:expect_content("]")?
 
@@ -232,7 +232,7 @@ fn parse_struct_instance(stream TokenStream, struct_name string) Result[Expressi
     }
 
     val property_name = stream:expect_type(TokenType::Identifier)?:value
-    
+
     if property_name in property_map {
       return Result::Failure("Expected unique property name. Got '$property_name' repeated in struct instance '$struct_name'.")
     }
@@ -244,7 +244,7 @@ fn parse_struct_instance(stream TokenStream, struct_name string) Result[Expressi
     } else {
       property_map[property_name] = Expression::Var(property_name)
     }
-  } 
+  }
 
   stream:expect_content("}") or {
     return Result::Failure("Syntax Error: Expected '}' to close struct instance '$struct_name'.")
@@ -254,9 +254,9 @@ fn parse_struct_instance(stream TokenStream, struct_name string) Result[Expressi
 }
 
 fn is_struct_init_lookahead(stream TokenStream) {
-  return 
-    stream:peek(0):value == "{" and 
-    stream:peek(1):type == TokenType::Identifier and 
+  return
+    stream:peek(0):value == "{" and
+    stream:peek(1):type == TokenType::Identifier and
     (stream:peek(2):value == ":" or stream:peek(2):value == "," or stream:peek(2):value == "}")
 }
 
@@ -318,6 +318,55 @@ fn parse_map_instance(stream TokenStream) Result[Expression, string] {
   }
 }
 
+fn parse_set_instance(stream TokenStream) Result[Expression, string] {
+  stream:expect_content("[") or {
+    return Result::Failure("Syntax Error: Expected '[' to open set instance type.")
+  }
+
+  val set_type = parse_type(stream)?
+  stream:expect_content("]") or {
+    return Result::Failure("Syntax Error: Expected ']' to close set instance type.")
+  }
+
+  if stream:peek(0):value == "{" {
+    stream:next()
+
+    val value_list = []Expression
+
+    for {
+      val curr = stream:peek(0)
+
+      if curr:type == TokenType::EOF or curr:value == "}" {
+        break
+      }
+
+      if curr:value == "," {
+        if stream:peek(1):value == "," {
+          return Result::Failure("Syntax Error: Expected value before ',' in set instance. Tip: Remove consecutive ',' from set instance.")
+        }
+
+        if stream:peek(1):value == "}" {
+          return Result::Failure("Syntax Error: Expected value before '}' in set instance. Tip: Remove trailing ',' from set instance.")
+        }
+
+        stream:next()
+        continue
+      }
+
+      val value = parse_expr(stream, 0, true)?
+      value_list:push(value)
+    }
+
+    stream:expect_content("}") or {
+      return Result::Failure("Syntax Error: Expected '}' to close set instance.")
+    }
+
+    return Result::Success(Expression::Set(value_list, set_type))
+  } else {
+    return Result::Success(Expression::Set([]Expression, set_type))
+  }
+}
+
 fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expression, string] {
   val curr = stream:consume()
   match curr:type {
@@ -328,6 +377,7 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
     when TokenType::UnaryOperator {
       val operator = parse_unary_operator(curr)?
       val expr = parse_factor(stream, is_struct_instance_allowed)?
+
       return Result::Success(Expression::Unary(operator, expr))
     }
     when TokenType::Marker {
@@ -364,11 +414,11 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
           stream:next()
           val expr = parse_expr(stream, 0, true)?
           val block = [AST::Statement(Statement::Return(expr))]
-          
+
           return Result::Success(Expression::Lambda(param_list, Type::Implicit, block, false))
         } else {
           val block = parse_block(stream, true)?
-          
+
           return Result::Success(Expression::Lambda(param_list, Type::Implicit, block, false))
         }
       }
@@ -383,7 +433,7 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
       }
 
       if is_capital(curr:value) and stream:peek(0):value == "{" {
-        if is_struct_init_lookahead(stream) or is_struct_instance_allowed { 
+        if is_struct_init_lookahead(stream) or is_struct_instance_allowed {
           val struct_instance = parse_struct_instance(stream, curr:value)?
           return Result::Success(struct_instance)
         }
@@ -394,6 +444,11 @@ fn parse_factor(stream TokenStream, is_struct_instance_allowed bool) Result[Expr
       if curr:value == "map" {
         val map_instance = parse_map_instance(stream)?
         return Result::Success(map_instance)
+      }
+
+      if curr:value == "set" {
+        val set_instance = parse_set_instance(stream)?
+        return Result::Success(set_instance)
       }
 
       return Result::Success(Expression::Var(curr:value))
@@ -410,9 +465,9 @@ fn parse_postfix(left_expr Expression, stream TokenStream) Result[Expression, st
   for {
     if stream:peek(0):value == "[" {
       stream:next()
-      
+
       val index_expr = parse_expr(stream, 0, true)?
-      
+
       stream:expect_content("]")?
 
       expr = Expression::Index(expr, index_expr)
@@ -437,7 +492,7 @@ fn parse_expr(stream TokenStream, min_prec int, is_struct_instance_allowed bool)
     if curr:type == TokenType::EOF {
       break
     }
-    
+
     if is_binary_operator(curr) and get_precedence(curr) >= min_prec {
       val operator = parse_binary_operator(stream:consume())?
 
@@ -449,7 +504,7 @@ fn parse_expr(stream TokenStream, min_prec int, is_struct_instance_allowed bool)
 
       val right = if operator == BinaryOperator::MemberAccess or operator == BinaryOperator::StaticMemberAccess then
         parse_factor(stream, is_struct_instance_allowed)?
-      else 
+      else
         parse_expr(stream, get_precedence(curr) + 1, is_struct_instance_allowed)?
 
       left = Expression::Binary(operator, left, right)
@@ -472,7 +527,7 @@ fn parse_when_case(stream TokenStream) Result[When, string] {
     if curr:type == TokenType::EOF or curr:value == "{" {
       break
     }
-    
+
     if curr:value == "," {
       stream:next()
 
@@ -492,7 +547,7 @@ fn parse_when_case(stream TokenStream) Result[When, string] {
   }
 
   val block = parse_block(stream, true)?
-  
+
   return Result::Success(When { cond_list: cond_list, block: block })
 }
 
@@ -539,7 +594,7 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
   stream:expect_content(",")?
 
   val value_var = stream:expect_type(TokenType::Identifier)?:value
-  
+
   if iterator_expr is Expression::Var(key_var) {
     stream:expect_content("in")?
 
@@ -568,7 +623,7 @@ fn parse_match_stmt(stream TokenStream) Result[Statement, string] {
 
   for {
     val curr = stream:peek(0)
-    
+
     if curr:type == TokenType::EOF or curr:value == "}" {
       break
     }
@@ -583,7 +638,7 @@ fn parse_match_stmt(stream TokenStream) Result[Statement, string] {
       stream:next()
       val else_block = parse_block(stream, true)?
       else_branch_list:push(else_block)
-  
+
       if else_branch_list:len > 1 {
         return Result::Failure("Expected at most one else branch in match statement.")
       }
@@ -685,18 +740,18 @@ fn parse_enum_decl(stream TokenStream) Result[Declaration, string] {
   val constant_list = []string
   for {
     val curr = stream:peek(0)
-   
+
     if curr:type == TokenType::EOF or curr:value == "}" {
       break
     }
 
     if curr:value == "," {
       stream:next()
-      
+
       if stream:peek(0):value == "," {
         return Result::Failure("Expected identifier before ',' in enum '$name'. Tip: Avoid consecutive commas in enum declaration.")
       }
-      
+
       continue
     }
 
@@ -806,6 +861,15 @@ fn parse_type(stream TokenStream) Result[Type, string] {
     return Result::Success(Type::Map(key_type, value_type))
   }
 
+  if stream:peek(0):value == "set" {
+    stream:next()
+    stream:expect_content("[")?
+    val set_type = parse_type(stream)?
+    stream:expect_content("]")?
+
+    return Result::Success(Type::Set(set_type))
+  }
+
   val type_token = stream:expect_type(TokenType::Identifier) or {
     val curr = stream:peek(0)
     return Result::Failure("Expected type identifier. Got '$(curr:value)'.")
@@ -856,10 +920,10 @@ fn parse_fn_param_list(stream TokenStream, is_lambda bool) Result[[]Parameter, s
 
     if is_lambda and stream:peek(0):value == "," or stream:peek(0):value == ")" {
       param_list:push(
-        Parameter { 
-          name: name:value, 
-          type: Type::Implicit, 
-          default_expr: default_expr 
+        Parameter {
+          name: name:value,
+          type: Type::Implicit,
+          default_expr: default_expr
         }
       )
       continue
@@ -868,10 +932,10 @@ fn parse_fn_param_list(stream TokenStream, is_lambda bool) Result[[]Parameter, s
     val type = if default_expr is Option::None then parse_type(stream)? else Type::Implicit
 
     param_list:push(
-      Parameter { 
-        name: name:value, 
-        type: type, 
-        default_expr: default_expr 
+      Parameter {
+        name: name:value,
+        type: type,
+        default_expr: default_expr
       }
     )
   }
@@ -885,17 +949,17 @@ fn parse_fn_param_list(stream TokenStream, is_lambda bool) Result[[]Parameter, s
 fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
   stream:expect_content("fn")?
   val name_token = stream:expect_type(TokenType::Identifier)?
-  val param_list = if stream:peek(0):value == "(" 
-    then parse_fn_param_list(stream, false)? 
+  val param_list = if stream:peek(0):value == "("
+    then parse_fn_param_list(stream, false)?
     else []Parameter
-  val ret_type = if stream:peek(0):value == "{" 
+  val ret_type = if stream:peek(0):value == "{"
     then Type::Implicit
     else parse_type(stream)?
   val block = parse_block(stream, true)?
 
   return Result::Success(
     Declaration::FunctionDeclaration(
-      name_token:value, 
+      name_token:value,
       param_list,
       ret_type,
       block
@@ -928,9 +992,9 @@ fn parse_pattern_field_list(stream TokenStream) Result[[]Field, string] {
     val type = parse_type(stream)?
 
     field_list:push(
-      Field { 
-        name: name:value, 
-        type: type 
+      Field {
+        name: name:value,
+        type: type
       }
     )
   }
@@ -942,7 +1006,7 @@ fn parse_pattern_field_list(stream TokenStream) Result[[]Field, string] {
 
 fn parse_pattern(stream TokenStream, union_name string, index_map map[string, int]) Result[Pattern, string] {
   val pattern_name = stream:expect_type(TokenType::Identifier)?:value
-  
+
   if not is_capital(pattern_name) {
     return Result::Failure("Expected capitalized identifier for pattern name of union '$union_name', got '$pattern_name'. Tip: Capitalize pattern names.")
   }
@@ -989,9 +1053,9 @@ fn parse_union_decl(stream TokenStream) Result[Declaration, string] {
     }
 
     val pattern = parse_pattern(stream, union_name, index_map)?
-    
+
     index_map[pattern:name] = pattern_list:len
-    pattern_list:push(pattern)    
+    pattern_list:push(pattern)
   }
 
   if pattern_list:len == 0 {
@@ -1131,12 +1195,12 @@ fn parse_decl(stream TokenStream) Result[Declaration, string] {
 
 fn parse_generic_params(stream TokenStream) Result[map[string, Type], string] {
   stream:expect_content("[")?
-  
+
   val generic_map = map[string, Type] {}
-  
+
   for {
     val curr = stream:peek(0)
-    
+
     if curr:value == "]" {
       break
     }
@@ -1173,7 +1237,7 @@ fn parse_generic_params(stream TokenStream) Result[map[string, Type], string] {
 fn parse_directive(stream TokenStream) Result[Declaration, string] {
   stream:expect_content("@@")?
   val name = stream:expect_type(TokenType::Identifier)?
-  
+
   if name:value == "Generic" {
     val generic_map = parse_generic_params(stream)?
     match stream:peek(0):value {
@@ -1184,8 +1248,8 @@ fn parse_directive(stream TokenStream) Result[Declaration, string] {
       else {
         return Result::Failure("Expected 'struct' keyword after '@@Generic' directive. Got $(stream:peek(0):value).")
       }
-    } 
-  } 
+    }
+  }
   else {
     return Result::Failure("Unknown directive '$(name:value)'")
   }
@@ -1209,7 +1273,7 @@ fn parse_block_item(stream TokenStream) Result[AST, string] {
   }
 }
 
-@pub_testing 
+@pub_testing
 fn parse_block(stream TokenStream, as_block bool) Result[[]AST, string] {
   if as_block {
     stream:expect_content("{")?
@@ -1218,7 +1282,7 @@ fn parse_block(stream TokenStream, as_block bool) Result[[]AST, string] {
   val block_list = []AST
 
   for {
-    val curr = stream:peek(0) 
+    val curr = stream:peek(0)
 
     if curr:type == TokenType::EOF {
       break
@@ -1241,7 +1305,7 @@ fn parse_block(stream TokenStream, as_block bool) Result[[]AST, string] {
 
 pub fn parse(list []Token) Result[Program, string] {
   val stream = TokenStream { list: list, cursor: 0 }
-  val program = Program { 
+  val program = Program {
     content: parse_block(stream, false)?
   }
   return Result::Success(program)

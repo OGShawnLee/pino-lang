@@ -1,7 +1,7 @@
 module Checker
 
 from Utility import mangle_name, demangle_name
-from Entities import 
+from Entities import
   Program,
   AST,
   Declaration,
@@ -308,11 +308,11 @@ fn resolve_fn_call_arg(
       kind: Kind::Var
     }
 
-    val resolved_body = resolve_expr(expr, local_variable_map, is_pattern_matching)?     
+    val resolved_body = resolve_expr(expr, local_variable_map, is_pattern_matching)?
     val implicit_it_parameter = Parameter {
       name: unique_name
       type: Type::Implicit
-      default_expr: Option::None 
+      default_expr: Option::None
     }
 
     val lambda_block = [
@@ -322,7 +322,7 @@ fn resolve_fn_call_arg(
 
     return Result::Success(lambda_expr)
   } else {
-    val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?        
+    val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?
     return Result::Success(resolved_expr)
   }
 }
@@ -357,9 +357,9 @@ fn desugar_fn_call_arg_list(
   variable_map map[string, Entity]
   is_pattern_matching bool
 ) Result[[]Argument, string] {
-  val positional_param_slot_list = []Option[Argument] { 
-    len: param_list:len, 
-    init: Option::None 
+  val positional_param_slot_list = []Option[Argument] {
+    len: param_list:len,
+    init: Option::None
   }
   var is_using_label = false
   var is_desugaring_possible = true
@@ -434,7 +434,7 @@ fn resolve_fn_call_expr(
 
   val raw_resolved_arg_list = resolve_fn_call_arg_list(arg_list, variable_map, is_pattern_matching)?
   val entity = variable_map[name]
-  
+
   match entity:kind {
     when Kind::Function(param_list, index_map) {
       val desugared_arg_list = desugar_fn_call_arg_list(
@@ -454,7 +454,7 @@ fn resolve_fn_call_expr(
 }
 
 fn resolve_expr(
-  expr Expression, 
+  expr Expression,
   variable_map map[string, Entity]
   is_pattern_matching bool
 ) Result[Expression, string] {
@@ -582,6 +582,15 @@ fn resolve_expr(
 
       return Result::Success(Expression::List(resolved_expr_list, resolve_type(list_type, variable_map)?))
     }
+    when Expression::Set(expr_list, set_type) {
+      val resolved_expr_list = []Expression
+
+      for expr in expr_list {
+        resolved_expr_list:push(resolve_expr(expr, variable_map, is_pattern_matching)?)
+      }
+
+      return Result::Success(Expression::Set(resolved_expr_list, resolve_type(set_type, variable_map)?))
+    }
     when Expression::Index(target_expr, index_expr) {
       val resolved_target_expr = resolve_expr(target_expr, variable_map, is_pattern_matching)?
       val resolved_index_expr = resolve_expr(index_expr, variable_map, is_pattern_matching)?
@@ -600,7 +609,7 @@ fn resolve_expr(
 
         for prop, expr in property_map {
           val resolved_expr = resolve_expr(expr, variable_map, is_pattern_matching)?
-          resolved_property_map[prop] = resolved_expr 
+          resolved_property_map[prop] = resolved_expr
         }
 
         return Result::Success(Expression::StructInstance(entity:unique_name, resolved_property_map))
@@ -618,7 +627,7 @@ fn resolve_expr(
 
       for param in param_list {
         val resolved_param = resolve_param(param, inner_map)?
-        
+
         resolved_param_list:push(resolved_param)
       }
 
@@ -647,7 +656,7 @@ fn resolve_when(when_case When, variable_map map[string, Entity]) Result[When, s
 
   for condition in when_case:cond_list {
     val resolved_expr = resolve_expr(condition, new_variable_map, true)?
-    
+
     if resolved_expr is Expression::UnionPatternMatching(union_name, pattern_name, binding_list) {
       for binding in binding_list {
         new_variable_map[binding:name] = Entity {
@@ -679,14 +688,14 @@ fn resolve_loop_stmt(
     when Loop::Infinite(block) {
       val new_variable_map = copy_variable_map(variable_map)
       val resolved_block = resolve_block(block, new_variable_map, true)?
-      
+
       return Result::Success(Statement::Loop(Loop::Infinite(resolved_block)))
     }
     when Loop::While(cond_expr, block) {
       val new_variable_map = copy_variable_map(variable_map)
       val resolved_cond_expr = resolve_expr(cond_expr, new_variable_map, false)?
       val resolved_block = resolve_block(block, new_variable_map, true)?
-      
+
       return Result::Success(Statement::Loop(Loop::While(resolved_cond_expr, resolved_block)))
     }
     when Loop::ForIn(value_var, iterable_expr, block) {
@@ -738,7 +747,7 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
     val resolved_expr = resolve_expr(expr, variable_map, false)?
 
     return Result::Success(Statement::Return(resolved_expr))
-   }  
+   }
    when Statement::If(condition, then_branch, else_branch_opt) {
     val resolved_condition = resolve_expr(condition, variable_map, false)?
     val resolved_then_branch = resolve_stmt(then_branch, variable_map)?
@@ -760,7 +769,7 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
     val resolved_else_block_opt = match else_block_opt {
       when Option::Some(else_block) => Option::Some(resolve_block_scope(else_block, variable_map)?)
       when Option::None => Option::None
-    } 
+    }
 
     return Result::Success(
       Statement::Match(
@@ -794,8 +803,8 @@ fn resolve_stmt(stmt Statement, variable_map map[string, Entity]) Result[Stateme
 
 fn resolve_var_or_val_decl(
   name string
-  expr Expression 
-  is_constant bool 
+  expr Expression
+  is_constant bool
   type Type
   variable_map map[string, Entity]
 ) Result[Declaration, string] {
@@ -803,7 +812,7 @@ fn resolve_var_or_val_decl(
 
   if name in variable_map {
     val prev_entry = variable_map[name]
-    
+
     if prev_entry:is_from_current_block {
       val type_name = if is_constant then "Constant" else "Variable"
       return Result::Failure("Type Checker Error: $type_name '$name' has been already declared in the current scope.")
@@ -821,7 +830,7 @@ fn resolve_var_or_val_decl(
   val resolved_type = resolve_type(type, variable_map)?
 
   return Result::Success(
-    if is_constant then 
+    if is_constant then
       Declaration::ConstantDeclaration(unique_name, resolved_expr, resolved_type)
     else
       Declaration::VariableDeclaration(unique_name, resolved_expr, resolved_type)
@@ -906,12 +915,12 @@ fn resolve_param(param Parameter, variable_map map[string, Entity]) Result[Param
     kind: Kind::Var
   }
 
-  return Result::Success(Parameter { name: unique_name, type: resolved_type, default_expr: resolved_default_expr }) 
+  return Result::Success(Parameter { name: unique_name, type: resolved_type, default_expr: resolved_default_expr })
 }
 
 fn resolve_union_pattern(pattern Pattern, variable_map map[string, Entity]) Result[Pattern, string] {
   val resolved_field_list = []Field
-  
+
   for field in pattern:field_list {
     val resolved_type = resolve_type(field:type, variable_map)?
     resolved_field_list:push(Field { name: field:name, type: resolved_type })
@@ -937,7 +946,7 @@ fn resolve_union_decl(
     val resolved_pattern = resolve_union_pattern(pattern, variable_map)?
     resolved_pattern_list:push(resolved_pattern)
   }
-  
+
   return Result::Success(Declaration::UnionDeclaration(unique_name, resolved_pattern_list, index_map))
 }
 
@@ -996,9 +1005,9 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
       for generic, type in generic_map {
         val unique_name = mangle_name(generic)
         resolved_generic_map[generic] = Type::Generic(unique_name)
-        local_variable_map[generic] = Entity { 
-          unique_name: unique_name, 
-          is_from_current_block: true, 
+        local_variable_map[generic] = Entity {
+          unique_name: unique_name,
+          is_from_current_block: true,
           kind: Kind::Generic
         }
       }
@@ -1040,7 +1049,7 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
           val index_map = map[string, int] {}
 
           for index, param in param_list {
-            index_map[param:name] = index            
+            index_map[param:name] = index
           }
 
           variable_map[fn_name] = Entity {
@@ -1199,7 +1208,7 @@ fn resolve_numeric_numeric_bin_operation_type(left_type Type, right_type Type) T
   if is_float_primitive(left_type) or is_float_primitive(right_type) {
     return Type::Primitive(Primitive::Float)
   }
-  
+
   return Type::Primitive(Primitive::Int)
 }
 
@@ -1234,7 +1243,7 @@ fn type_check_lambda_expr(
           when Type::Void {
             val clean_name = demangle_name(param:name)
             error_list:push("Invalid default value type 'void' for parameter '$clean_name' of anonymous function. Tip: 'void' can only be used as the return type of a function.")
-      
+
             yield Parameter {
               name: param:name,
               type: Type::Invalid,
@@ -1480,6 +1489,33 @@ fn type_check_list_expr(
   return if is_invalid then Type::Invalid else Type::List(type_list[0])
 }
 
+fn type_check_set_expr(
+  expr_list []Expression
+  set_type Type
+  symbol_table map[string, Type]
+  error_list []string
+) Type {
+  if expr_list:len == 0 {
+    return Type::Set(set_type)
+  }
+
+  var is_invalid = false
+
+  for expr in expr_list {
+    val expr_type = type_check_expr(expr, symbol_table, error_list)
+
+    if expr_type == Type::Invalid {
+      return Type::Invalid
+    }
+
+    if type_check_type_compatibility(set_type, expr_type, "in set expression. All elements must have a compatible type", error_list) == Type::Invalid {
+      is_invalid = true
+    }
+  }
+
+  return if is_invalid then Type::Invalid else Type::Set(set_type)
+}
+
 fn infer_implicit_return_type(
   name string
   symbol_table map[string, Type]
@@ -1665,7 +1701,7 @@ fn type_check_fn_type_compatibility(
 }
 
 fn type_check_type_compatibility(
-  exp_type Type 
+  exp_type Type
   can_type Type
   content_message string
   error_list []string
@@ -1688,6 +1724,13 @@ fn type_check_type_compatibility(
     when Type::List(exp_inner_type) {
       if can_type is Type::List(can_inner_type) {
         return type_check_type_compatibility(exp_inner_type, can_inner_type, content_message, error_list)
+      } else {
+        return report_type_mismatch(exp_type, can_type, content_message, error_list)
+      }
+    }
+    when Type::Set(exp_set_type) {
+      if can_type is Type::Set(can_set_type) {
+        return type_check_type_compatibility(exp_set_type, can_set_type, content_message, error_list)
       } else {
         return report_type_mismatch(exp_type, can_type, content_message, error_list)
       }
@@ -1727,7 +1770,7 @@ fn infer_implicit_lambda_expr(
     val exp_param = exp_param_list[index]
 
     if can_param:type == Type::Implicit {
-      resolved_can_param_list:push(Parameter { 
+      resolved_can_param_list:push(Parameter {
         name: can_param:name
         type: exp_param:type
         default_expr: Option::None
@@ -1748,8 +1791,8 @@ fn type_check_call_arg_expr(
   error_list []string
 ) Type {
   var resolved_expr = expr
-  
-  if 
+
+  if
     expr is Expression::Lambda(can_param_list, can_ret_type, can_block, is_from_implicit_it) and
     param_list[param_index]:type is Type::Function(exp_param_list, exp_ret_type)
   {
@@ -1761,12 +1804,12 @@ fn type_check_call_arg_expr(
     }
 
     resolved_expr = infer_implicit_lambda_expr(
-      can_param_list, 
-      exp_param_list, 
-      can_ret_type, 
-      can_block, 
+      can_param_list,
+      exp_param_list,
+      can_ret_type,
+      can_block,
       is_from_implicit_it,
-      symbol_table, 
+      symbol_table,
       error_list
     )
   }
@@ -1841,7 +1884,7 @@ fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[st
   if name not in symbol_table {
     panic("Undeclared name '$name' should have been caught by Identifier Resolution Pass.")
   }
-  
+
   return type_check_call_signature(symbol_table[name], name, arg_list, symbol_table, error_list)
 }
 
@@ -1865,12 +1908,12 @@ fn type_check_conditional_expr(
     return Type::Invalid
   }
 
-  val then_type_name = Program::get_type_name(then_type) 
+  val then_type_name = Program::get_type_name(then_type)
 
   if type_check_type_compatibility(
-    then_type, 
-    else_type, 
-    "in conditional expression 'if <expr> then <expr> else <expr>'. Else branch is not compatible with then branch '$then_type_name'", 
+    then_type,
+    else_type,
+    "in conditional expression 'if <expr> then <expr> else <expr>'. Else branch is not compatible with then branch '$then_type_name'",
     error_list
   ) == Type::Invalid {
     return Type::Invalid
@@ -2088,7 +2131,7 @@ fn type_check_var_member_access_expr(
 
       if type_identifier in built_in_instance_method_map {
         val prop_map = built_in_instance_method_map[type_identifier]
-        
+
         if member_name not in prop_map {
           error_list:push("Property '$member_name' does not exist in '$concrete_type_name'.")
           return Type::Invalid
@@ -2126,6 +2169,9 @@ fn specialize_implicit_type(initial_type Type, concrete_type Type) {
     when Type::List(inner_type) {
       return Type::List(specialize_implicit_type(inner_type, concrete_type))
     }
+    when Type::Set(inner_type) {
+      return Type::Set(specialize_implicit_type(inner_type, concrete_type))
+    }
     when Type::Map(key_type, value_type) {
       return Type::Map(specialize_implicit_type(key_type, concrete_type), specialize_implicit_type(value_type, concrete_type))
     }
@@ -2140,7 +2186,7 @@ fn specialize_implicit_type(initial_type Type, concrete_type Type) {
 
 fn specialize_built_in_method(
   concrete_type Type
-  arg_list []Argument 
+  arg_list []Argument
   method_signature Type
 ) {
   if method_signature is Type::Function(param_list, ret_type) {
@@ -2153,7 +2199,7 @@ fn specialize_built_in_method(
         default_expr: param:default_expr
       })
     }
-    
+
     return Type::Function(specialized_param_list, specialize_implicit_type(ret_type, concrete_type))
   }
 
@@ -2226,7 +2272,29 @@ fn type_check_instance_method_call_expr(
 
         if method_name not in method_map {
           error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
-          return Type::Invalid 
+          return Type::Invalid
+        }
+
+        val method_signature = method_map[method_name]
+        val specialized_signature = specialize_built_in_method(inner_type, arg_list, method_signature)
+
+        return type_check_call_signature(specialized_signature, method_name, arg_list, symbol_table, error_list)
+      }
+
+      error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+
+      return Type::Invalid
+    }
+    when Type::Set(inner_type) {
+      val type_identifier = get_type_identifier(left_type)
+      val concrete_type_name = Program::get_type_name(left_type)
+
+      if type_identifier in built_in_instance_method_map {
+        val method_map = built_in_instance_method_map[type_identifier]
+
+        if method_name not in method_map {
+          error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+          return Type::Invalid
         }
 
         val method_signature = method_map[method_name]
@@ -2295,7 +2363,7 @@ fn type_check_binary_expr(
   val right_type_name = Program::get_type_name(right_type)
 
   match bin_op {
-    when 
+    when
       BinaryOperator::And
       BinaryOperator::Or
     {
@@ -2306,20 +2374,20 @@ fn type_check_binary_expr(
       error_list:push("Type mismatch for logical operator. It can only be used on boolean types. Received '$left_type_name' and '$right_type_name'.")
     }
     when
-      BinaryOperator::Equal 
-      BinaryOperator::NotEqual 
+      BinaryOperator::Equal
+      BinaryOperator::NotEqual
     {
       if left_type == right_type {
         return Type::Primitive(Primitive::Bool)
       }
 
       error_list:push("Type mismatch for equality operator. Cannot perform equality check between '$left_type_name' and '$right_type_name'.")
-    } 
+    }
     when
-      BinaryOperator::LessThan 
+      BinaryOperator::LessThan
       BinaryOperator::LessOrEqual
-      BinaryOperator::GreaterThan 
-      BinaryOperator::GreaterOrEqual 
+      BinaryOperator::GreaterThan
+      BinaryOperator::GreaterOrEqual
     {
       if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
         return Type::Primitive(Primitive::Bool)
@@ -2490,6 +2558,9 @@ fn type_check_expr(expr Expression, symbol_table map[string, Type], error_list [
     when Expression::List(expr_list, list_type) {
       return type_check_list_expr(expr_list, list_type, symbol_table, error_list)
     }
+    when Expression::Set(expr_list, set_type) {
+      return type_check_set_expr(expr_list, set_type, symbol_table, error_list)
+    }
     when Expression::Map(key_type, value_type, pair_list) {
       return type_check_map_expr(key_type, value_type, pair_list, symbol_table, error_list)
     }
@@ -2643,7 +2714,7 @@ fn type_check_match_union_stmt(
           } else {
             covered_list:push(pattern_name)
           }
-        } 
+        }
         else {
           val type_name = Program::get_type_name(expr_type)
           error_list:push("Match Statement type mismatch. The when case condition must be a pattern of '$clean_union_name', got '$type_name'.")
@@ -2691,7 +2762,7 @@ fn type_check_match_stmt(
   val evaluated_cond = eval_const_expr(condition_expr, error_list)
   val invariant_str = get_invariant_str_value(evaluated_cond)
   val has_ret_stmt_list = []bool
-  var has_static_match = false 
+  var has_static_match = false
 
   if cond_type is Type::Enum(enum_name, constant_list) {
     return type_check_match_enum_stmt(enum_name, constant_list, when_case_list, else_block_opt, symbol_table, error_list, fn_name_context_opt)
@@ -2717,7 +2788,7 @@ fn type_check_match_stmt(
         if evaluated_when_cond != evaluated_cond {
           val when_invariant_str = get_invariant_str_value(evaluated_when_cond)
           error_list:push("Match statement has redundant when case condition '$when_invariant_str' for '$invariant_str' constant value.")
-        } 
+        }
         continue
       }
 
@@ -2733,7 +2804,7 @@ fn type_check_match_stmt(
       error_list:push("Match statement has redundant else block for '$else_invariant_str' constant value.")
     }
 
-    has_ret_stmt_list:push(type_check_block(else_block, symbol_table, error_list, fn_name_context_opt))    
+    has_ret_stmt_list:push(type_check_block(else_block, symbol_table, error_list, fn_name_context_opt))
     return (has_static_match and evaluated_cond != Invariant::Variant) and has_ret_stmt_list:all(it)
   }
 
@@ -2898,7 +2969,7 @@ fn eval_const_expr(expr Expression, error_list []string) Invariant {
         if evaluated_expr is Invariant::Variant {
           return Invariant::Variant
         }
-        
+
         evaluated_list:push(evaluated_expr)
       }
 
@@ -2961,25 +3032,30 @@ fn type_check_loop_stmt(
     }
     when Loop::ForIn(value_var, iterable_expr, block) {
       val iterable_type = type_check_expr(iterable_expr, symbol_table, error_list)
-      
-      if iterable_type is not Type::List and iterable_type != Type::Primitive(Primitive::Int) {
+
+      if iterable_type == Type::Invalid {
+        return false
+      }
+
+      if iterable_type is not Type::List and iterable_type != Type::Primitive(Primitive::Int) and iterable_type is not Type::Set {
         val type_name = Program::get_type_name(iterable_type)
-        error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T' or 'int', not '$type_name'.")
+        error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T', set[T] or 'int', not '$type_name'.")
 
         return false
       }
 
       symbol_table[value_var] = match iterable_type {
-        when Type::List(list_type) => list_type
-        else => iterable_type
+        when Type::List(list_type) =>  list_type
+        when Type::Set(set_type) =>  set_type
+        else =>  iterable_type
       }
 
       val evaluated_iterable = eval_const_expr(iterable_expr, error_list)
-      val is_true_invariant = 
-        evaluated_iterable is Invariant::List(list) and list:len > 0 or 
+      val is_true_invariant =
+        evaluated_iterable is Invariant::List(list) and list:len > 0 or
         evaluated_iterable is Invariant::Int(n) and n > 0
       val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
-      
+
       return is_true_invariant and has_ret_in_block
     }
     when Loop::PairForIn(key_var, value_var, iterable_expr, block) {
@@ -2992,7 +3068,7 @@ fn type_check_loop_stmt(
         val evaluated_iterable = eval_const_expr(iterable_expr, error_list)
         val is_true_invariant = evaluated_iterable is Invariant::List(inner_list) and inner_list:len > 0
         val has_ret_in_block = type_check_block(block, symbol_table, error_list, fn_name_context_opt)
-        
+
         return is_true_invariant and has_ret_in_block
       }
 
@@ -3012,9 +3088,9 @@ fn type_check_loop_stmt(
 }
 
 fn type_check_stmt(
-  stmt Statement, 
-  symbol_table map[string, Type], 
-  error_list []string, 
+  stmt Statement,
+  symbol_table map[string, Type],
+  error_list []string,
   fn_name_context_opt Option[string]
 ) {
   match stmt {
@@ -3025,7 +3101,7 @@ fn type_check_stmt(
     when Statement::If(condition_expr, then_stmt, else_stmt_opt) {
       val cond_type = type_check_expr(condition_expr, symbol_table, error_list)
       val has_ret_in_then_stmt = type_check_stmt(then_stmt, symbol_table, error_list, fn_name_context_opt)
-      
+
       if cond_type != Type::Invalid and cond_type != Type::Primitive(Primitive::Bool) {
         val type_name = Program::get_type_name(cond_type)
         error_list:push("Invalid use of if statement. 'if <condition-expr> { ... }'. The condition expression must be of type boolean instead of '$type_name'.")
@@ -3093,7 +3169,7 @@ fn type_check_fn_param_list(
             val clean_name = demangle_name(parameter:name)
             val clean_fn_name = demangle_name(fn_name)
             error_list:push("Unable to infer type of parameter '$clean_name' of function '$clean_fn_name'. Tip: A parameter must have a defined type.")
-            
+
             yield Parameter {
               name: parameter:name,
               type: Type::Invalid,
@@ -3124,9 +3200,9 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
   match decl {
     when Declaration::ConstantDeclaration(name, expr, initial_type) {
       val infered_type = type_check_expr(expr, symbol_table, error_list)
-      
+
       global_const_invariant[name] = eval_const_expr(expr, error_list)
-      symbol_table[name] = infered_type 
+      symbol_table[name] = infered_type
 
       if infered_type is Type::Void {
         val clean_name = demangle_name(name)
@@ -3155,7 +3231,7 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
         symbol_table[name] = Type::Function(resolved_param_list, ret_type)
       }
 
-      val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))      
+      val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))
       var resolved_ret_type = get_fn_ret_type(name, symbol_table)
 
       if node_list:len == 0 or resolved_ret_type is Type::Implicit {
@@ -3167,7 +3243,7 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
       if not has_ret_guaranteed and resolved_ret_type != Type::Implicit and resolved_ret_type != Type::Void {
         val clean_name = demangle_name(name)
         val ret_type_name = Program::get_type_name(resolved_ret_type)
-        
+
         error_list:push("Expected function '$clean_name' to always return '$ret_type_name' but it doesn't guarantee it. Tip: Make sure all execution paths return a value of type '$ret_type_name'.")
       }
     }

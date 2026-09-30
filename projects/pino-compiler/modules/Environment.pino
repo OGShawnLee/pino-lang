@@ -14,6 +14,7 @@ pub fn get_type_identifier(type Type) string {
     when Type::Enum(name, constant_list) => "Enum"
     when Type::Union(name) => "Union"
     when Type::List(inner_type) => "List"
+    when Type::Set(set_type) => "Set"
     when Type::Struct(name) => "Struct"
     when Type::Interface(name) => "Interface"
     when Type::Pending(name) => "Pending"
@@ -38,10 +39,20 @@ fn get_implicit_it_fn(ret_type Type) {
 }
 
 pub val built_in_instance_method_map = map[string, map[string, Type]] {
-  get_type_identifier(Type::List(Type::Implicit)): map[string, Type] {
+  get_type_identifier(Type::Set(Type::Implicit)): map[string, Type] {
+    "add": Type::Function(
+      [
+        Parameter {
+          name: "element"
+          type: Type::Implicit
+          default_expr: Option::None
+        }
+      ],
+      Type::Void
+    )
     "all": Type::Function(
       [
-        Parameter { 
+        Parameter {
           name: "predicate"
           type: Type::Function(
             [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
@@ -54,7 +65,7 @@ pub val built_in_instance_method_map = map[string, map[string, Type]] {
     )
     "any": Type::Function(
       [
-        Parameter { 
+        Parameter {
           name: "predicate"
           type: Type::Function(
             [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
@@ -64,6 +75,58 @@ pub val built_in_instance_method_map = map[string, map[string, Type]] {
         }
       ],
       Type::Primitive(Primitive::Bool)
+    )
+    "length": Type::Primitive(Primitive::Int)
+    "remove": Type::Function(
+      [
+        Parameter {
+          name: "element"
+          type: Type::Implicit
+          default_expr: Option::None
+        }
+      ],
+      Type::Void
+    )
+  }
+  get_type_identifier(Type::List(Type::Implicit)): map[string, Type] {
+    "all": Type::Function(
+      [
+        Parameter {
+          name: "predicate"
+          type: Type::Function(
+            [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
+            Type::Primitive(Primitive::Bool)
+          )
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Bool)
+    )
+    "any": Type::Function(
+      [
+        Parameter {
+          name: "predicate"
+          type: Type::Function(
+            [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
+            Type::Primitive(Primitive::Bool)
+          )
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Bool)
+    )
+    "each": Type::Function(
+      [
+        Parameter {
+          name: "procedure"
+          type: Type::Function(
+            [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
+            Type::Void
+          )
+          default_expr: Option::None
+        }
+      ],
+      Type::Void
     )
     "extend": Type::Function(
       [
@@ -77,7 +140,7 @@ pub val built_in_instance_method_map = map[string, map[string, Type]] {
     )
     "filter": Type::Function(
       [
-        Parameter { 
+        Parameter {
           name: "predicate"
           type: Type::Function(
             [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]

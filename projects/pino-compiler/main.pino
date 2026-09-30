@@ -10,10 +10,16 @@ struct CompilerOutput {
   processing_time float
 }
 
-fn parse_file() Result[CompilerOutput, string] {
+fn get_file_content() Result[string, string] {
   val content = read_file("main.pino") or {
     return Result::Failure("Unable to read main.pino")
   }
+
+  return Result::Success(content)
+}
+
+fn parse_file() Result[CompilerOutput, string] {
+  val content = get_file_content()?
   val begin = time()
   val list = Lexer::lex(content)
   val program = Parser::parse(list)?
@@ -23,28 +29,28 @@ fn parse_file() Result[CompilerOutput, string] {
 
   return Result::Success(
     CompilerOutput {
-      program: resolved_program,
-      is_valid: error_list:len == 0,
-      error_list: error_list,
+      program: resolved_program
+      is_valid: error_list:len == 0
+      error_list: error_list
       processing_time: end - begin
     }
   )
 }
 
 fn main {
-  match parse_file(){
+  match parse_file() {
     when Result::Success(res) {
       if res:is_valid {
-        println("Program main.pino Processed Successfully in $(res:processing_time) ms")
+        println("Program 'main.pino' Processed Successfully in $(res:processing_time) ms")
       } else {
-        println("Program main.pino Processed with Errors in $(res:processing_time) ms")
+        println("Program 'main.pino' Processed with Errors in $(res:processing_time) ms")
         for error in res:error_list {
           println(error)
         }
       }
     }
     when Result::Failure(error) {
-      println("Program main.pino Processed with Critical Errors.")
+      println("Program 'main.pino' Processed with Critical Errors.")
       println("Error: $error")
     }
   }

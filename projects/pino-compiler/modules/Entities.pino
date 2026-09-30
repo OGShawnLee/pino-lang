@@ -6,7 +6,7 @@ pub enum Literal {
   Bool
   Float
   Int
-} 
+}
 
 pub union TokenType {
   Keyword
@@ -146,6 +146,7 @@ pub union Expression {
   FunctionCall(string, []Argument)
   List([]Expression, Type)
   Map(Type, Type, []Pair)
+  Set([]Expression, Type)
   Index(Expression, Expression)
   EnumConstant(string, string)
   UnionPattern(string, string)
@@ -190,6 +191,7 @@ pub union Type {
   Enum(string, []string)
   Union(string)
   List(Type)
+  Set(Type)
   Struct(string)
   Interface(string)
   Pending(string)
@@ -323,7 +325,7 @@ pub struct Program {
         } else {
           println("Struct: $name")
         }
-        
+
         for name, property in property_map {
           if property:is_public {
             println("  pub $name: $(Program::get_type_name(property:type))")
@@ -353,6 +355,7 @@ pub struct Program {
       when Type::Enum(name, constant_list) => demangle_name(name)
       when Type::Union(name) => demangle_name(name)
       when Type::List(inner_type) => "[]$(Program::get_type_name(inner_type))"
+      when Type::Set(set_type) => "set[$(Program::get_type_name(set_type))]"
       when Type::Struct(name) => demangle_name(name)
       when Type::Interface(name) => demangle_name(name)
       when Type::Pending(name) => demangle_name(name)
@@ -385,7 +388,7 @@ pub struct Program {
         println("Match:")
         println("Condition:")
         Program::print_expr(expr)
-        
+
         for when_case in when_case_list {
           println("When")
           for condition in when_case:cond_list {
@@ -509,6 +512,19 @@ pub struct Program {
             Program::print_expr(expr)
           }
           println("]")
+        }
+      }
+      when Expression::Set(expr_list, set_type) {
+        val type_str = Program::get_type_name(set_type)
+
+        if expr_list:len == 0 {
+          println("Set ($(type_str)): {}")
+        } else {
+          println("Set ($(type_str)): {")
+          for expr in expr_list {
+            Program::print_expr(expr)
+          }
+          println("}")
         }
       }
       when Expression::Index(target_expr, index_expr) {
