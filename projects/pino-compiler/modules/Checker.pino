@@ -2767,7 +2767,7 @@ fn type_check_match_union_stmt(
     }
   }
 
-  if uncovered_list:len != 0 {
+  if uncovered_list:len != 0 and else_block_opt is Option::None {
     error_list:push("Match statement lacks exhaustivity for union '$clean_union_name'.")
     for name in uncovered_list {
       error_list:push("- Missing coverage for pattern '$clean_union_name::$name'.")
