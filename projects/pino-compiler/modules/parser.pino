@@ -1037,6 +1037,16 @@ fn parse_struct_decl(stream TokenStream, generic_map map[string, Type]) Result[D
       break
     }
 
+    if curr:value == "," {
+      if stream:peek(1):value == "," or stream:peek(2):value == "}" {
+        return Result::Failure("Expected property name after ',' in struct '$struct_name'. Tip: Avoid consecutive commas or trailing commas.")
+      }
+
+      stream:next()
+      continue
+    }
+
+
     val property = parse_property(stream)?
 
     if property:name in property_map {
