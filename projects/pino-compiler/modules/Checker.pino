@@ -891,6 +891,15 @@ fn resolve_type(target_type Type, variable_map map[string, Entity]) Result[Type 
       val resolved_inner_type = resolve_type(inner_type, variable_map)?
       return Result::Success(Type::List(resolved_inner_type))
     }
+    when Type::Map(key_type, value_type) {
+      val resolved_key_type = resolve_type(key_type, variable_map)?
+      val resolved_value_type = resolve_type(value_type, variable_map)?
+      return Result::Success(Type::Map(resolved_key_type, resolved_value_type))
+    }
+    when Type::Set(set_type) {
+      val resolved_set_type = resolve_type(set_type, variable_map)?
+      return Result::Success(Type::Set(resolved_set_type))
+    }
     else {
       return Result::Success(target_type)
     }
