@@ -3,6 +3,7 @@ module Entities
 from Utility import demangle_name
 
 pub enum Literal {
+  String
   Bool
   Float
   Int
@@ -120,6 +121,7 @@ pub union Constant {
   Bool(bool)
   Float(float)
   Int(int)
+  String(string)
 }
 
 pub struct Binding {
@@ -184,6 +186,7 @@ pub enum Primitive {
   Float
   Int
   Bool
+  String
 }
 
 pub union Type {
@@ -350,6 +353,7 @@ pub struct Program {
         when Primitive::Int => "int"
         when Primitive::Float => "float"
         when Primitive::Bool => "bool"
+        when Primitive::String => "string"
         else => "Invalid Primitive"
       }
       when Type::Function(param_list, ret_type) => "fn -> $(Program::get_type_name(ret_type))"

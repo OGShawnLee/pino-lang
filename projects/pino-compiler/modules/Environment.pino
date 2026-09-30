@@ -7,6 +7,7 @@ pub fn get_type_identifier(type Type) string {
     when Type::Primitive(primitive) => match primitive {
       when Primitive::Int => "Primitive::Int"
       when Primitive::Float => "Primitive::Float"
+      when Primitive::String => "Primitive::String"
       when Primitive::Bool => "Primitive::Bool"
       else => "Invalid Primitive"
     }
@@ -39,6 +40,122 @@ fn get_implicit_it_fn(ret_type Type) {
 }
 
 pub val built_in_instance_method_map = map[string, map[string, Type]] {
+  get_type_identifier(Type::Primitive(Primitive::String)): map[string, Type] {
+    "length": Type::Function(
+      []Parameter,
+      Type::Primitive(Primitive::Int)
+    )
+    "lower": Type::Function(
+      []Parameter,
+      Type::Primitive(Primitive::String)
+    )
+    "upper": Type::Function(
+      []Parameter,
+      Type::Primitive(Primitive::String)
+    )
+    "trim": Type::Function(
+      []Parameter,
+      Type::Primitive(Primitive::String)
+    )
+    "contains": Type::Function(
+      [
+        Parameter {
+          name: "substring"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Bool)
+    )
+    "split": Type::Function(
+      [
+        Parameter {
+          name: "delimiter"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::String)
+    )
+    "replace": Type::Function(
+      [
+        Parameter {
+          name: "pattern"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+        Parameter {
+          name: "replacement"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::String)
+    )
+    "substring": Type::Function(
+      [
+        Parameter {
+          name: "start"
+          type: Type::Primitive(Primitive::Int)
+          default_expr: Option::None
+        }
+        Parameter {
+          name: "end"
+          type: Type::Primitive(Primitive::Int)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::String)
+    )
+    "starts_with": Type::Function(
+      [
+        Parameter {
+          name: "prefix"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Bool)
+    )
+    "ends_with": Type::Function(
+      [
+        Parameter {
+          name: "suffix"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Bool)
+    )
+    "index_of": Type::Function(
+      [
+        Parameter {
+          name: "substring"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Int)
+    )
+    "last_index_of": Type::Function(
+      [
+        Parameter {
+          name: "substring"
+          type: Type::Primitive(Primitive::String)
+          default_expr: Option::None
+        }
+      ],
+      Type::Primitive(Primitive::Int)
+    )
+    "trim_start": Type::Function(
+      []Parameter,
+      Type::Primitive(Primitive::String)
+    )
+    "trim_end": Type::Function(
+      []Parameter,
+      Type::Primitive(Primitive::String)
+    )
+  }
   get_type_identifier(Type::Set(Type::Implicit)): map[string, Type] {
     "add": Type::Function(
       [

@@ -2316,6 +2316,32 @@ fn type_check_instance_method_call_expr(
 
       return Type::Invalid
     }
+    when Type::Primitive(primitive) {
+      val concrete_type_name = Program::get_type_name(left_type)
+
+      if primitive != Primitive::String {
+        error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+        return Type::Invalid
+      }
+
+      val type_identifier = get_type_identifier(left_type)
+
+      if type_identifier in built_in_instance_method_map {
+        val method_map = built_in_instance_method_map[type_identifier]
+
+        if method_name not in method_map {
+          error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+          return Type::Invalid
+        }
+
+        val method_signature = method_map[method_name]
+        return type_check_call_signature(method_signature, method_name, arg_list, symbol_table, error_list)
+      }
+
+      error_list:push("Instance method '$method_name' does not exist in '$concrete_type_name'.")
+
+      return Type::Invalid
+    }
     else {
       val concrete_type_name = Program::get_type_name(left_type)
 
@@ -2389,8 +2415,13 @@ fn type_check_binary_expr(
             return Type::Primitive(Primitive::Bool)
           }
         }
+        when Type::Primitive(primitive) {
+          if primitive is Primitive::String and right_type == Type::Primitive(Primitive::String) {
+            return Type::Primitive(Primitive::Bool)
+          }
+        }
         else {
-          error_list:push("Type mismatch for 'in' operator. It can only be used on list, set, or map types. Received '$left_type_name' and '$right_type_name'.")
+          error_list:push("Type mismatch for 'in' operator. It can only be used on '[]T', 'set[T]', 'map[K, V]' or 'string' types. Received '$left_type_name' and '$right_type_name'.")
           return Type::Invalid
         }
       }
@@ -2436,6 +2467,17 @@ fn type_check_binary_expr(
       error_list:push("Type mismatch for comparison operator '$operator_name'. Cannot perform comparison between '$left_type_name' and '$right_type_name'.")
     }
     when BinaryOperator::Add {
+      if left_type == Type::Primitive(Primitive::String) {
+        if right_type == Type::Primitive(Primitive::String) {
+          return Type::Primitive(Primitive::String)
+        }
+
+        # TODO: DEFINE IMPLICIT CONVERSION FOR OTHER DATA TYPES
+
+        error_list:push("Type mismatch for concatenate operator. Cannot concatenate '$left_type_name' and '$right_type_name'.")
+        return Type::Invalid
+      }
+
       if is_numeric_primitive(left_type) and is_numeric_primitive(right_type) {
         return resolve_numeric_numeric_bin_operation_type(left_type, right_type)
       }
@@ -2556,6 +2598,7 @@ fn type_check_const(constant Constant) Type {
     when Constant::Int(integer) => Type::Primitive(Primitive::Int)
     when Constant::Float(f) => Type::Primitive(Primitive::Float)
     when Constant::Bool(boolean) => Type::Primitive(Primitive::Bool)
+    when Constant::String(str_value) => Type::Primitive(Primitive::String)
     else => panic("Invalid Constant")
   }
 }
@@ -2879,6 +2922,7 @@ fn eval_const(constant Constant) Invariant {
     when Constant::Bool(b) => Invariant::Bool(b)
     when Constant::Float(f) => Invariant::Float(f)
     when Constant::Int(n) => Invariant::Int(n)
+    when Constant::String(str_value) => Invariant::Variant
     else => panic("Invalid Constant")
   }
 }
@@ -3069,9 +3113,14 @@ fn type_check_loop_stmt(
         return false
       }
 
-      if iterable_type is not Type::List and iterable_type != Type::Primitive(Primitive::Int) and iterable_type is not Type::Set {
+      if
+        iterable_type is not Type::List and
+        iterable_type != Type::Primitive(Primitive::Int) and
+        iterable_type != Type::Primitive(Primitive::String) and
+        iterable_type is not Type::Set
+      {
         val type_name = Program::get_type_name(iterable_type)
-        error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T', set[T] or 'int', not '$type_name'.")
+        error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T', 'set[T]', 'int' or 'string', not '$type_name'.")
 
         return false
       }

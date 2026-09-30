@@ -37,6 +37,7 @@ val PRECEDENCE_MAP = map[string, int] {
 	"<=": 35
 	">": 35
 	">=": 35
+	"in": 35
 	"!=": 30
 	"==": 30
 	"and": 10
@@ -52,6 +53,7 @@ val BINARY_OPERATOR_MAP = map[string, BinaryOperator] {
   "%": BinaryOperator::Remainder
   "and": BinaryOperator::And
   "or": BinaryOperator::Or
+  "in": BinaryOperator::In
   "==": BinaryOperator::Equal
   "!=": BinaryOperator::NotEqual
   "<=": BinaryOperator::LessOrEqual
@@ -165,6 +167,9 @@ fn parse_literal(value string, literal Literal) Result[Constant, string] {
     }
     when Literal::Bool {
       return Result::Success(Constant::Bool(value == "true"))
+    }
+    when Literal::String {
+      return Result::Success(Constant::String(value))
     }
     else {
       return Result::Failure("Expected Constant Literal. Got $(value).")
@@ -565,6 +570,19 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
 
   val iterator_expr = parse_expr(stream, 0, false)?
 
+  if iterator_expr is Expression::Binary(bin_op, left, right) and bin_op == BinaryOperator::In {
+    if left is Expression::Var(value_var) {
+      val block = parse_block(stream, true)?
+      return Result::Success(
+        Statement::Loop(
+          Loop::ForIn(value_var, right, block)
+        )
+      )
+    } else {
+      return Result::Failure("Syntax Error: Expected variable for 'value' in for-in loop: 'for <value> in <iterable-expr> { ... }'.")
+    }
+  }
+
   if stream:peek(0):value == "{" {
     val block = parse_block(stream, true)?
     return Result::Success(
@@ -572,23 +590,6 @@ fn parse_loop_stmt(stream TokenStream) Result[Statement, string] {
         Loop::While(iterator_expr, block)
       )
     )
-  }
-
-  if stream:peek(0):value == "in" {
-    if iterator_expr is Expression::Var(value_var) {
-      stream:next()
-
-      val iterable_expr = parse_expr(stream, 0, false)?
-      val block = parse_block(stream, true)?
-
-      return Result::Success(
-        Statement::Loop(
-          Loop::ForIn(value_var, iterable_expr, block)
-        )
-      )
-    }
-
-    return Result::Failure("Syntax Error: Expected identifier for 'value' in for-in loop: 'for <value> in <iterable-expr> { ... }'.")
   }
 
   stream:expect_content(",")?
@@ -879,6 +880,7 @@ fn parse_type(stream TokenStream) Result[Type, string] {
     when "int" => Result::Success(Type::Primitive(Primitive::Int))
     when "float" => Result::Success(Type::Primitive(Primitive::Float))
     when "bool" => Result::Success(Type::Primitive(Primitive::Bool))
+    when "string" => Result::Success(Type::Primitive(Primitive::String))
     when "void" => Result::Success(Type::Void)
     else => Result::Success(Type::Pending(type_token:value))
   }
