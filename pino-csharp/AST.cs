@@ -117,7 +117,7 @@ public record RecoveryExpression(Expression Value, Statement Body) : Expression;
 
 public record TernaryExpression(Expression Condition, Expression Consequent, Expression Alternate) : Expression;
 
-public record VectorExpression(List<Expression>? Elements, Expression? Len = null, Expression? Init = null, string Typing = "") : Expression;
+public record VectorExpression(List<Expression>? Elements, Expression? Len = null, Expression? Init = null, string Typing = "", Expression? Cap = null) : Expression;
 
 public record StructInstanceExpression : Expression {
   public string StructName { get; set; }

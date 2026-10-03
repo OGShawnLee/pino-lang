@@ -107,6 +107,15 @@ static inline Vector_string* Vector_string_construct(int length) {
     return vec;
 }
 
+static inline Vector_string* Vector_string_construct_with_capacity(int capacity) {
+    Vector_string* vec = (Vector_string*)pino_malloc(sizeof(Vector_string));
+    vec->length = 0;
+    vec->capacity = capacity >= 4 ? capacity : 4;
+    vec->items = (PinoString*)pino_malloc(vec->capacity * sizeof(PinoString));
+    memset(vec->items, 0, vec->capacity * sizeof(PinoString));
+    return vec;
+}
+
 static inline Vector_string* Vector_string_push(Vector_string* vec, PinoString item) {
     if (vec->length >= vec->capacity) {
         vec->capacity = vec->capacity == 0 ? 4 : vec->capacity * 2;

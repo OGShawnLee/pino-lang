@@ -254,10 +254,51 @@ public partial class Evaluator {
         if (vec.Elements != null) {
           return vec.Elements.Select(e => Evaluate(e, env)).ToList();
         } else {
-          // Vector init constructor: []type { len: limit, init: expr } | []type
+          // Vector init constructor: []type { cap: limit } | []type { len: limit, init: expr } | []type
+          if (vec.Cap != null && vec.Len == null) {
+            var capOnlyVal = Evaluate(vec.Cap, env);
+            int capOnly = capOnlyVal is long cl ? (int)cl : Convert.ToInt32(capOnlyVal);
+            if (capOnly < 0) {
+              Console.ForegroundColor = ConsoleColor.Yellow;
+              Console.WriteLine($"[WARNING] Invalid vector capacity ({capOnly}); clamped to minimum capacity 4.");
+              Console.ResetColor();
+              capOnly = 4;
+            } else if (capOnly < 4) {
+              capOnly = 4;
+            }
+            return new List<object?>(capOnly);
+          }
+
           var lenVal = vec.Len == null ? 0 : Evaluate(vec.Len!, env);
           long length = lenVal is long l ? l : Convert.ToInt64(lenVal);
-          var initList = new List<object?>();
+          bool hadInvalidLen = length < 0;
+          if (length < 0) {
+            length = 0;
+          }
+
+          int capacity = length > 4 ? (int)length : 4;
+          bool hadInvalidCap = false;
+          object? rawCapVal = null;
+          if (vec.Cap != null) {
+            rawCapVal = Evaluate(vec.Cap, env);
+            int c = rawCapVal is long cl ? (int)cl : Convert.ToInt32(rawCapVal);
+            if (c < 0) {
+              hadInvalidCap = true;
+              c = 4;
+            }
+            if (c < length) {
+              c = (int)length;
+            }
+            if (c > capacity) capacity = c;
+          }
+
+          if (hadInvalidLen || hadInvalidCap) {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"[WARNING] Invalid vector parameters (len: {lenVal}, cap: {(rawCapVal ?? "none")}); clamped to len: {length}, capacity: {capacity}.");
+            Console.ResetColor();
+          }
+
+          var initList = new List<object?>(capacity);
 
           for (long i = 0; i < length; i++) {
             var initEnv = new Environment(env);
@@ -442,9 +483,12 @@ public partial class Evaluator {
         throw new Exception($"RUNTIME ERROR: Map has no method '{methodName}'.");
       }
     } else if (leftVal is List<object?> list) {
-      // Case 3: vector:len or vector:length
+      // Case 3: vector:len or vector:length or vector:cap or vector:capacity
       if (rightExpr is IdentifierExpression listId && (listId.Name == "length" || listId.Name == "len")) {
         return (long) list.Count;
+      }
+      if (rightExpr is IdentifierExpression capId && (capId.Name == "capacity" || capId.Name == "cap")) {
+        return (long) list.Capacity;
       }
 
       // Case 4: vector method calls

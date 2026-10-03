@@ -446,14 +446,19 @@ public partial class Parser {
 
       if (stream.Current.IsMarker(MarkerType.BlockBegin)) {
         var props = ConsumeProperties(stream);
-        VariableDeclaration? len = props.Find(p => p.Identifier == "len");
+        VariableDeclaration? len = props.Find(p => p.Identifier == "len" || p.Identifier == "length");
         VariableDeclaration? init = props.Find(p => p.Identifier == "init");
+        VariableDeclaration? cap = props.Find(p => p.Identifier == "cap" || p.Identifier == "capacity");
 
-        if (len == null || init == null) {
-          throw new Exception("PARSER: Empty or invalid vector init block properties");
+        if (cap != null && len == null && init == null) {
+          return new VectorExpression(null, null, null, typing, cap.Value);
         }
 
-        return new VectorExpression(null, len.Value, init.Value, typing);
+        if (len != null && init != null) {
+          return new VectorExpression(null, len.Value, init.Value, typing, cap?.Value);
+        }
+
+        throw new Exception("PARSER: Empty or invalid vector init block properties. Expected { cap: expr } or { len: limit, init: expr }");
       }
 
       return new VectorExpression(null, Typing: typing);

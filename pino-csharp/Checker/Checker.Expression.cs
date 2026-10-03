@@ -328,7 +328,33 @@ public partial class Checker {
             CheckExpression(el);
           }
         }
-        if (vec.Len != null) CheckExpression(vec.Len);
+        if (vec.Len != null) {
+          CheckExpression(vec.Len);
+          string lenType = InferType(vec.Len);
+          if (!IsCompatible(lenType, "int")) {
+            throw new Exception($"TYPE CHECK ERROR: Vector 'len' must be an integer, got '{lenType}'.");
+          }
+        }
+        if (vec.Cap != null) {
+          CheckExpression(vec.Cap);
+          string capType = InferType(vec.Cap);
+          if (!IsCompatible(capType, "int")) {
+            throw new Exception($"TYPE CHECK ERROR: Vector 'cap' must be an integer, got '{capType}'.");
+          }
+        }
+
+        int? constLen = vec.Len != null ? TryGetConstantInt(vec.Len) : null;
+        int? constCap = vec.Cap != null ? TryGetConstantInt(vec.Cap) : null;
+
+        if (constLen.HasValue && constLen.Value < 0) {
+          throw new Exception($"TYPE CHECK ERROR: Vector 'len' cannot be negative, got {constLen.Value}.");
+        }
+
+        if (constCap.HasValue && constCap.Value < 0) {
+          throw new Exception($"TYPE CHECK ERROR: Vector 'cap' cannot be negative, got {constCap.Value}.");
+        } else if (constCap.HasValue && constLen.HasValue && constCap.Value < constLen.Value && constCap.Value >= 0) {
+          throw new Exception($"TYPE CHECK ERROR: Vector 'cap' ({constCap.Value}) cannot be less than initial 'len' ({constLen.Value}).");
+        }
         if (vec.Init != null) {
           PushScope();
           DeclareVariable("it", "int");
@@ -809,7 +835,7 @@ public partial class Checker {
           }
           if (leftType.StartsWith("[]")) {
             string elemType = leftType.Substring(2);
-            if (bin.Right is IdentifierExpression arrayId && (arrayId.Name == "len" || arrayId.Name == "length")) {
+            if (bin.Right is IdentifierExpression arrayId && (arrayId.Name == "len" || arrayId.Name == "length" || arrayId.Name == "cap" || arrayId.Name == "capacity")) {
               return "int";
             }
             if (bin.Right is FunctionCallExpression methodCall) {
@@ -1518,5 +1544,16 @@ public partial class Checker {
     } else if (stmt is LoopStatement loop) {
       FindYieldStatementsRecursive(loop.Body, list);
     }
+  }
+
+  private static int? TryGetConstantInt(Expression expr) {
+    if (expr is LiteralExpression lit && lit.LiteralType == LiteralType.Integer && int.TryParse(lit.Value, out var val)) {
+      return val;
+    }
+    if (expr is UnaryExpression un && un.Operator == OperatorType.Subtraction) {
+      var inner = TryGetConstantInt(un.Right);
+      if (inner.HasValue) return -inner.Value;
+    }
+    return null;
   }
 }

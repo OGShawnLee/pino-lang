@@ -83,6 +83,7 @@ public partial class Parser {
           }
         }
         if (vec.Len != null && ContainsUndeclaredIt(vec.Len, stream)) return true;
+        if (vec.Cap != null && ContainsUndeclaredIt(vec.Cap, stream)) return true;
         if (vec.Init != null && ContainsUndeclaredIt(vec.Init, stream)) return true;
         return false;
 

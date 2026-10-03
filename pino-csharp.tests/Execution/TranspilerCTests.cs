@@ -147,4 +147,27 @@ public class TranspilerCTests {
     Assert.Contains("((s).len)", cCode);
     Assert.Contains("((uint32_t)(uint8_t)((s).data[0]))", cCode);
   }
+
+  [Fact]
+  public void TestTranspilerVectorCapacity() {
+    var source = @"
+      fn main {
+        val items = []int { cap: 100 }
+        val c = items:cap
+        val l = items:len
+      }
+    ";
+
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.Contains("Vector_int_construct_with_capacity", cCode);
+    Assert.Contains("items->capacity", cCode);
+    Assert.Contains("items->length", cCode);
+  }
 }
+

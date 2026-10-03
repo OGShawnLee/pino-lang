@@ -1327,6 +1327,16 @@ public class TranspilerC {
                     _tupleSb.AppendLine($"}}");
                     _tupleSb.AppendLine();
                     
+                    _tupleSb.AppendLine($"static inline {clean}* {clean}_construct_with_capacity(int capacity) {{");
+                    _tupleSb.AppendLine($"    {clean}* vec = ({clean}*)pino_malloc(sizeof({clean}));");
+                    _tupleSb.AppendLine($"    vec->length = 0;");
+                    _tupleSb.AppendLine($"    vec->capacity = capacity >= 4 ? capacity : 4;");
+                    _tupleSb.AppendLine($"    vec->items = ({cElemType}*)pino_malloc(vec->capacity * sizeof({cElemType}));");
+                    _tupleSb.AppendLine($"    memset(vec->items, 0, vec->capacity * sizeof({cElemType}));");
+                    _tupleSb.AppendLine($"    return vec;");
+                    _tupleSb.AppendLine($"}}");
+                    _tupleSb.AppendLine();
+                    
                     _tupleSb.AppendLine($"static inline {clean}* {clean}_push({clean}* vec, {cElemType} item) {{");
                     _tupleSb.AppendLine($"    if (vec->length >= vec->capacity) {{");
                     _tupleSb.AppendLine($"        vec->capacity = vec->capacity == 0 ? 4 : vec->capacity * 2;");
@@ -2336,6 +2346,9 @@ public class TranspilerC {
                         } else if (bin.Right is IdentifierExpression id && (id.Name == "len" || id.Name == "length")) {
                             TranspileExpression(bin.Left);
                             Write("->length");
+                        } else if (bin.Right is IdentifierExpression capId && (capId.Name == "cap" || capId.Name == "capacity")) {
+                            TranspileExpression(bin.Left);
+                            Write("->capacity");
                         } else {
                             throw new NotImplementedException($"Member method/property '{bin.Right}' not implemented on vectors.");
                         }
@@ -2659,9 +2672,27 @@ public class TranspilerC {
                         Write("temp; })");
                     } else if (vec.Len != null && vec.Init != null) {
                         var limitVar = $"_pino_limit_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
-                        Write($"({{ int {limitVar} = ");
-                        TranspileExpression(vec.Len);
-                        Write($"; {MapType(vec.InferredType!)} temp = {cleanType}_construct({limitVar}); ");
+                        if (vec.Cap != null) {
+                            var capVar = $"_pino_cap_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                            Write($"({{ int {limitVar} = ");
+                            TranspileExpression(vec.Len);
+                            Write($"; int {capVar} = ");
+                            TranspileExpression(vec.Cap);
+                            Write($"; int _pino_orig_len = {limitVar}; int _pino_orig_cap = {capVar}; ");
+                            Write($"int _pino_had_invalid = 0; ");
+                            Write($"if ({limitVar} < 0) {{ {limitVar} = 0; _pino_had_invalid = 1; }} ");
+                            Write($"if ({capVar} < 0) {{ {capVar} = 4; _pino_had_invalid = 1; }} ");
+                            Write($"if ({capVar} < {limitVar}) {capVar} = {limitVar}; ");
+                            Write($"if ({capVar} < 4) {capVar} = 4; ");
+                            Write($"if (_pino_had_invalid) {{ printf(\"\\033[33m[WARNING] Invalid vector parameters (len: %d, cap: %d); clamped to len: %d, capacity: %d.\\033[0m\\n\", _pino_orig_len, _pino_orig_cap, {limitVar}, {capVar}); }} ");
+                            Write($"{MapType(vec.InferredType!)} temp = {cleanType}_construct_with_capacity({capVar}); temp->length = {limitVar}; ");
+                        } else {
+                            Write($"({{ int {limitVar} = ");
+                            TranspileExpression(vec.Len);
+                            Write($"; if ({limitVar} < 0) {{ printf(\"\\033[33m[WARNING] Invalid vector length (%d); clamped to 0.\\033[0m\\n\", {limitVar}); {limitVar} = 0; }} ");
+                            Write($"int _pino_alloc_cap = {limitVar} > 4 ? {limitVar} : 4; ");
+                            Write($"{MapType(vec.InferredType!)} temp = {cleanType}_construct_with_capacity(_pino_alloc_cap); temp->length = {limitVar}; ");
+                        }
                         
                         bool hadIt = _varTypes.TryGetValue("it", out var oldIt);
                         _varTypes["it"] = "int";
@@ -2687,6 +2718,12 @@ public class TranspilerC {
                         else _varTypes.Remove("it");
 
                         Write("temp; })");
+                    } else if (vec.Cap != null) {
+                        var capVar = $"_pino_cap_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                        Write($"({{ int {capVar} = ");
+                        TranspileExpression(vec.Cap);
+                        Write($"; if ({capVar} < 0) {{ printf(\"\\033[33m[WARNING] Invalid vector capacity (%d); clamped to minimum capacity 4.\\033[0m\\n\", {capVar}); {capVar} = 4; }} else if ({capVar} < 4) {{ {capVar} = 4; }} ");
+                        Write($"{cleanType}_construct_with_capacity({capVar}); }})");
                     } else {
                         Write($"{cleanType}_construct(0)");
                     }
@@ -3795,6 +3832,7 @@ public class TranspilerC {
                     foreach (var el in vec.Elements) FindLambdas(el);
                 }
                 if (vec.Len != null) FindLambdas(vec.Len);
+                if (vec.Cap != null) FindLambdas(vec.Cap);
                 if (vec.Init != null) FindLambdas(vec.Init);
                 break;
             case Expression expr:
@@ -3940,6 +3978,7 @@ public class TranspilerC {
                     foreach (var el in vec.Elements) AnalyzeFreeVars(el, localScope, free);
                 }
                 AnalyzeFreeVars(vec.Len, localScope, free);
+                if (vec.Cap != null) AnalyzeFreeVars(vec.Cap, localScope, free);
                 if (vec.Init != null) {
                     var initScope = new HashSet<string>(localScope);
                     initScope.Add("it");

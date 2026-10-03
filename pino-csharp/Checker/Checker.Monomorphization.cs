@@ -407,6 +407,7 @@ public partial class Checker {
           Elements = vec.Elements != null ? elements : null,
           Len = SubstituteExpressionTypes(vec.Len, subst),
           Init = SubstituteExpressionTypes(vec.Init, subst),
+          Cap = SubstituteExpressionTypes(vec.Cap, subst),
           Typing = SubstituteType(vec.Typing, subst)
         };
 

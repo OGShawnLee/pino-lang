@@ -550,4 +550,66 @@ public class DataStructureTests {
     Assert.False((bool)env.Get("not_in_str_world")!);
     Assert.True((bool)env.Get("not_in_str_pino")!);
   }
+
+  [Fact]
+  public void TestVectorCapacityInitialization() {
+    var code = @"
+      val items = []int { cap: 50 }
+      val initial_len = items:len
+      val initial_cap = items:cap
+
+      items:push(10)
+      items:push(20)
+
+      val after_len = items:len
+      val after_cap = items:capacity
+      val first = items[0]
+      val second = items[1]
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(0L, env.Get("initial_len"));
+    Assert.True((long)env.Get("initial_cap")! >= 50L);
+    Assert.Equal(2L, env.Get("after_len"));
+    Assert.True((long)env.Get("after_cap")! >= 50L);
+    Assert.Equal(10L, env.Get("first"));
+    Assert.Equal(20L, env.Get("second"));
+  }
+
+  [Fact]
+  public void TestVectorCompileTimeValidation() {
+    Assert.Throws<Exception>(() => {
+      var code = "val items = []int { len: -5, init: 0 }";
+      var program = Parser.ParseProgramString(code);
+      var checker = new Checker();
+      checker.Check(program);
+    });
+
+    Assert.Throws<Exception>(() => {
+      var code = "val items = []int { cap: -10 }";
+      var program = Parser.ParseProgramString(code);
+      var checker = new Checker();
+      checker.Check(program);
+    });
+
+    Assert.Throws<Exception>(() => {
+      var code = "val items = []int { len: 20, init: 0, cap: 10 }";
+      var program = Parser.ParseProgramString(code);
+      var checker = new Checker();
+      checker.Check(program);
+    });
+  }
+
+  [Fact]
+  public void TestVectorRuntimeSafeClamping() {
+    var code = @"
+      var l = -20
+      var c = -12
+      val arr = []int { len: l, init: it + 12, cap: c }
+      val res_len = arr:len
+      val res_cap = arr:cap
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal(0L, env.Get("res_len"));
+    Assert.True((long)env.Get("res_cap")! >= 4L);
+  }
 }
