@@ -406,7 +406,7 @@ class Program {
         if (watchCompile) {
           SafeClearConsole();
           Console.WriteLine($"[Pino Watcher] Monitoring and compiling '{Path.GetFileName(path)}'... Press Ctrl+C to stop.\n");
-          CompileAndRunWatch(path);
+          CompileAndRunWatch(path, p => childProcess = p);
         } else {
           SafeClearConsole();
           Console.WriteLine($"[Pino Watcher] Monitoring '{Path.GetFileName(path)}'... Press Ctrl+C to stop.\n");
@@ -429,19 +429,26 @@ class Program {
     // Initial run
     StartChild();
 
+    object timerLock = new object();
+    System.Threading.Timer? debounceTimer = null;
+
+    void OnFileChanged(object sender, FileSystemEventArgs e) {
+      lock (timerLock) {
+        if (debounceTimer == null) {
+          debounceTimer = new System.Threading.Timer(_ => {
+            StartChild();
+          }, null, 250, Timeout.Infinite);
+        } else {
+          debounceTimer.Change(250, Timeout.Infinite);
+        }
+      }
+    }
+
     using var watcher = new FileSystemWatcher(directory, Path.GetFileName(path));
-    watcher.NotifyFilter = NotifyFilters.LastWrite;
-
-    DateTime lastRead = DateTime.MinValue;
-
-    watcher.Changed += (sender, e) => {
-      if (DateTime.UtcNow - lastRead < TimeSpan.FromMilliseconds(200)) return;
-      lastRead = DateTime.UtcNow;
-
-      System.Threading.Thread.Sleep(50);
-      StartChild();
-    };
-
+    watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size;
+    watcher.Changed += OnFileChanged;
+    watcher.Created += OnFileChanged;
+    watcher.Renamed += (sender, e) => OnFileChanged(sender, e);
     watcher.EnableRaisingEvents = true;
 
     while (true) {
@@ -449,7 +456,7 @@ class Program {
     }
   }
 
-  static void CompileAndRunWatch(string path) {
+  static void CompileAndRunWatch(string path, Action<System.Diagnostics.Process?>? registerChildProcess = null) {
     try {
       var program = Parser.ParseFile(path);
       var checker = new Checker();
@@ -545,9 +552,11 @@ class Program {
       };
 
       using var execProcess = System.Diagnostics.Process.Start(execStartInfo);
+      registerChildProcess?.Invoke(execProcess);
       if (execProcess != null) {
         execProcess.WaitForExit();
       }
+      registerChildProcess?.Invoke(null);
 
       Console.WriteLine("------------------------");
 
