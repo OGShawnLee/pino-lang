@@ -696,6 +696,9 @@ public partial class Evaluator {
           }
           return str.Substring(startIndex, len);
         }
+        if (methodName == "to_owned" || methodName == "clone" || methodName == "to_cstring" || methodName == "cstr") {
+          return str;
+        }
         if (methodName == "starts_with") {
           if (methodArgs.Count != 1 || methodArgs[0] is not string prefix) {
             throw new Exception("RUNTIME ERROR: starts_with() expects 1 string argument.");

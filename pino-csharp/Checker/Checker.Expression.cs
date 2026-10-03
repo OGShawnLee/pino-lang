@@ -884,7 +884,7 @@ public partial class Checker {
             }
             if (bin.Right is FunctionCallExpression methodCall) {
               string callee = methodCall.Callee;
-              if (callee == "lower" || callee == "upper" || callee == "trim" || callee == "trim_start" || callee == "trim_end" || callee == "replace" || callee == "substring") {
+              if (callee == "lower" || callee == "upper" || callee == "trim" || callee == "trim_start" || callee == "trim_end" || callee == "replace" || callee == "substring" || callee == "to_owned" || callee == "clone" || callee == "to_cstring" || callee == "cstr") {
                 return "string";
               }
               if (callee == "contains" || callee == "starts_with" || callee == "ends_with") {

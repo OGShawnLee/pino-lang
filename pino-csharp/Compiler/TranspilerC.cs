@@ -540,8 +540,9 @@ public class TranspilerC {
 
         if (_usesReadFile) {
             _sb.AppendLine();
-            _sb.AppendLine($"{resultIoErrorType}* pino_read_file(const char* path) {{");
-            _sb.AppendLine("    FILE* f = fopen(path, \"rb\");");
+            _sb.AppendLine($"{resultIoErrorType}* pino_read_file(PinoString path) {{");
+            _sb.AppendLine("    const char* c_path = pino_string_to_cstring(path);");
+            _sb.AppendLine("    FILE* f = fopen(c_path, \"rb\");");
             _sb.AppendLine("    if (!f) {");
             _sb.AppendLine($"        {ioErrorType}* err;");
             _sb.AppendLine("        if (errno == ENOENT) {");
@@ -551,7 +552,7 @@ public class TranspilerC {
             _sb.AppendLine("        } else if (errno == EEXIST) {");
             _sb.AppendLine($"            err = {ioErrorType}_AlreadyExists_construct(path);");
             _sb.AppendLine("        } else {");
-            _sb.AppendLine($"            err = {ioErrorType}_Gremlin_construct(strerror(errno));");
+            _sb.AppendLine($"            err = {ioErrorType}_Gremlin_construct(pino_string_from_cstr(strerror(errno)));");
             _sb.AppendLine("        }");
             _sb.AppendLine($"        return {resultIoErrorType}_Failure_construct(err);");
             _sb.AppendLine("    }");
@@ -562,24 +563,25 @@ public class TranspilerC {
             _sb.AppendLine("    size_t read_bytes = fread(buf, 1, len, f);");
             _sb.AppendLine("    buf[read_bytes] = '\\0';");
             _sb.AppendLine("    fclose(f);");
-            _sb.AppendLine($"    return {resultIoErrorType}_Success_construct(buf);");
+            _sb.AppendLine($"    return {resultIoErrorType}_Success_construct(((PinoString){{ buf, (int64_t)read_bytes }}));");
             _sb.AppendLine("}");
         }
 
         if (_usesWriteFile) {
             _sb.AppendLine();
-            _sb.AppendLine($"{resultIoErrorType}* pino_write_file(const char* path, const char* content) {{");
-            _sb.AppendLine("    FILE* f = fopen(path, \"wb\");");
+            _sb.AppendLine($"{resultIoErrorType}* pino_write_file(PinoString path, PinoString content) {{");
+            _sb.AppendLine("    const char* c_path = pino_string_to_cstring(path);");
+            _sb.AppendLine("    FILE* f = fopen(c_path, \"wb\");");
             _sb.AppendLine("    if (!f) {");
             _sb.AppendLine($"        {ioErrorType}* err;");
             _sb.AppendLine("        if (errno == EACCES || errno == EPERM) {");
             _sb.AppendLine($"            err = {ioErrorType}_PermissionDenied_construct(path);");
             _sb.AppendLine("        } else {");
-            _sb.AppendLine($"            err = {ioErrorType}_Gremlin_construct(strerror(errno));");
+            _sb.AppendLine($"            err = {ioErrorType}_Gremlin_construct(pino_string_from_cstr(strerror(errno)));");
             _sb.AppendLine("        }");
             _sb.AppendLine($"        return {resultIoErrorType}_Failure_construct(err);");
             _sb.AppendLine("    }");
-            _sb.AppendLine("    fputs(content, f);");
+            _sb.AppendLine("    fwrite(content.data, 1, (size_t)content.len, f);");
             _sb.AppendLine("    fclose(f);");
             _sb.AppendLine($"    return {resultIoErrorType}_Success_construct(path);");
             _sb.AppendLine("}");
@@ -587,8 +589,9 @@ public class TranspilerC {
 
         if (_usesFileExists) {
             _sb.AppendLine();
-            _sb.AppendLine("bool pino_file_exists(const char* path) {");
-            _sb.AppendLine("    FILE* f = fopen(path, \"rb\");");
+            _sb.AppendLine("bool pino_file_exists(PinoString path) {");
+            _sb.AppendLine("    const char* c_path = pino_string_to_cstring(path);");
+            _sb.AppendLine("    FILE* f = fopen(c_path, \"rb\");");
             _sb.AppendLine("    if (f) {");
             _sb.AppendLine("        fclose(f);");
             _sb.AppendLine("        return true;");
@@ -598,13 +601,13 @@ public class TranspilerC {
         }
 
         if (_usesReadFile) {
-            forwardFuncSb.AppendLine($"{resultIoErrorType}* pino_read_file(const char* path);");
+            forwardFuncSb.AppendLine($"{resultIoErrorType}* pino_read_file(PinoString path);");
         }
         if (_usesWriteFile) {
-            forwardFuncSb.AppendLine($"{resultIoErrorType}* pino_write_file(const char* path, const char* content);");
+            forwardFuncSb.AppendLine($"{resultIoErrorType}* pino_write_file(PinoString path, PinoString content);");
         }
         if (_usesFileExists) {
-            forwardFuncSb.AppendLine("bool pino_file_exists(const char* path);");
+            forwardFuncSb.AppendLine("bool pino_file_exists(PinoString path);");
         }
 
         var vecTypes = _declaredTuples.Where(t => t.StartsWith("[]")).ToList();
@@ -822,7 +825,7 @@ public class TranspilerC {
         var cleanType = CleanTypeName(pinoType);
         
         if (pinoType == "string" || cleanType == "string") {
-            return ("\\\"%s\\\"", valExpr);
+            return ("\\\"%.*s\\\"", $"(int)({valExpr}).len, ({valExpr}).data");
         } else if (pinoType == "any" || cleanType == "any" || cleanType == "void_ptr") {
             return ("%p", valExpr);
         } else if (pinoType == "int") {
@@ -969,11 +972,11 @@ public class TranspilerC {
         if (rawType == "any" || typeName == "any" || mappedType == "void*") {
             return $"({aVal} == {bVal})";
         }
-        if (rawType == "string" || mappedType == "const char*" || mappedType == "char*") {
-            return $"(({aVal} == {bVal}) || ({aVal} && {bVal} && strcmp({aVal}, {bVal}) == 0))";
+        if (rawType == "string" || mappedType == "PinoString" || mappedType == "const char*" || mappedType == "char*") {
+            return $"pino_string_equal({aVal}, {bVal})";
         }
         if (rawType == "regex" || mappedType == "regex*") {
-            return $"(({aVal} == {bVal}) || ({aVal} && {bVal} && strcmp({aVal}->pattern, {bVal}->pattern) == 0))";
+            return $"pino_string_equal({aVal}->pattern, {bVal}->pattern)";
         }
         if (rawType == "int" || rawType == "float" || rawType == "bool" || rawType == "rune" || mappedType == "int" || mappedType == "double" || mappedType == "bool" || mappedType == "long" || mappedType == "uint32_t" || FindEnum(rawType) != null || FindEnum(typeName) != null) {
             return $"({aVal} == {bVal})";
@@ -1090,7 +1093,7 @@ public class TranspilerC {
                 var cValsVecType = MapType($"[]{valType}");
                 
                 string hashExpr = GetHashFunction(keyType, "key");
-                string keyEqExpr = keyType == "string" ? "strcmp(a, b) == 0" : "a == b";
+                string keyEqExpr = keyType == "string" ? "pino_string_equal(a, b)" : "a == b";
                 
                 _tupleSb.AppendLine($"struct {clean}_entry;");
                 _tupleSb.AppendLine($"typedef struct {clean}_entry {clean}_entry;");
@@ -1271,7 +1274,7 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
 
-                _tupleSb.AppendLine($"const char* {clean}_to_string({clean}* map);");
+                _tupleSb.AppendLine($"static inline const char* {clean}_to_string({clean}* map);");
                 _tupleSb.AppendLine($"static inline const char* {clean}_to_string({clean}* map) {{");
                 _tupleSb.AppendLine($"    if (!map) return \"{pinoType} {{}}\";");
                 _tupleSb.AppendLine("    char* buf = (char*)pino_malloc(8192);");
@@ -1341,7 +1344,7 @@ public class TranspilerC {
 
                 _tupleSb.AppendLine($"static inline {cElemType} {clean}_pop({clean}* vec) {{");
                 _tupleSb.AppendLine($"    if (!vec || vec->length == 0) {{");
-                _tupleSb.AppendLine($"        pino_panic(\"RUNTIME ERROR: Pop on empty vector\");");
+                _tupleSb.AppendLine($"        pino_panic(PINO_STR(\"RUNTIME ERROR: Pop on empty vector\"));");
                 _tupleSb.AppendLine($"    }}");
                 _tupleSb.AppendLine($"    vec->length--;");
                 _tupleSb.AppendLine($"    return vec->items[vec->length];");
@@ -1410,16 +1413,16 @@ public class TranspilerC {
                 _tupleSb.AppendLine();
 
                 _tupleSb.AppendLine($"static inline {cElemType} {clean}_find({clean}* vec, PinoClosure fn) {{");
-                _tupleSb.AppendLine($"    if (!vec) return ({cElemType})0;");
+                _tupleSb.AppendLine($"    if (!vec) return ({cElemType}){{0}};");
                 _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
                 _tupleSb.AppendLine($"        int cond = ((int(*)(void*, {cElemType}))fn.fn_ptr)(fn.env, vec->items[i]);");
                 _tupleSb.AppendLine($"        if (cond) return vec->items[i];");
                 _tupleSb.AppendLine($"    }}");
-                _tupleSb.AppendLine($"    return ({cElemType})0;");
+                _tupleSb.AppendLine($"    return ({cElemType}){{0}};");
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
 
-                var elemEqExpr = elemType == "string" ? "strcmp(a, b) == 0" : "a == b";
+                var elemEqExpr = elemType == "string" ? "pino_string_equal(a, b)" : "a == b";
                 _tupleSb.AppendLine($"static inline bool {clean}_has({clean}* vec, {cElemType} item) {{");
                 _tupleSb.AppendLine($"    if (!vec) return false;");
                 _tupleSb.AppendLine($"    for (int i = 0; i < vec->length; i++) {{");
@@ -1508,7 +1511,7 @@ public class TranspilerC {
             "int" => "int",
             "float" => "double",
             "bool" => "int",
-            "string" => "const char*",
+            "string" => "PinoString",
             "regex" => "regex*",
             "void" => "void",
             "any" => "void*",
@@ -1746,9 +1749,9 @@ public class TranspilerC {
                     var (format, args) = ProcessStringAddition(ret.Argument);
                     var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
                     WriteIndent();
-                    Write($"snprintf(pino_ret_temp, 1024, \"{EscapeString(format)}\"{argsStr});\n");
+                    Write($"int pino_ret_len = snprintf(pino_ret_temp, 1024, \"{EscapeString(format)}\"{argsStr});\n");
                     WriteIndent();
-                    Write("return pino_ret_temp;");
+                    Write("return ((PinoString){ pino_ret_temp, (int64_t)pino_ret_len });");
                 } else if (ret.Argument != null && (ret.Argument.InferredType == "void" || (ret.Argument is FunctionCallExpression fnCall && (fnCall.Callee == "println" || fnCall.Callee == "print")))) {
                     TranspileExpression(ret.Argument);
                     _sb.AppendLine(";");
@@ -1860,11 +1863,13 @@ public class TranspilerC {
             if (varDecl.Value != null) {
                 if (IsStringConcat(varDecl.Value)) {
                     var prefixedName = GetPrefixedName(varDecl.Identifier);
-                    Write($"{prefixedName} = (char*)pino_malloc(1024);\n");
+                    Write($"char* _{prefixedName}_buf = (char*)pino_malloc(1024);\n");
                     var (format, args) = ProcessStringAddition(varDecl.Value);
                     var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
                     WriteIndent();
-                    Write($"snprintf((char*){prefixedName}, 1024, \"{EscapeString(format)}\"{argsStr})");
+                    Write($"int _{prefixedName}_len = snprintf(_{prefixedName}_buf, 1024, \"{EscapeString(format)}\"{argsStr});\n");
+                    WriteIndent();
+                    Write($"{prefixedName} = ((PinoString){{ _{prefixedName}_buf, (int64_t)_{prefixedName}_len }})");
                 } else {
                     Write($"{GetPrefixedName(varDecl.Identifier)} = ");
                     TranspileExpression(varDecl.Value);
@@ -1889,11 +1894,13 @@ public class TranspilerC {
             if (varDecl.Value != null) {
                 WriteIndent();
                 if (IsStringConcat(varDecl.Value)) {
-                    Write($"{varDecl.Identifier}->value = (char*)pino_malloc(1024);\n");
+                    Write($"char* _{varDecl.Identifier}_buf = (char*)pino_malloc(1024);\n");
                     var (format, args) = ProcessStringAddition(varDecl.Value);
                     var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
                     WriteIndent();
-                    Write($"snprintf((char*){varDecl.Identifier}->value, 1024, \"{EscapeString(format)}\"{argsStr})");
+                    Write($"int _{varDecl.Identifier}_len = snprintf(_{varDecl.Identifier}_buf, 1024, \"{EscapeString(format)}\"{argsStr});\n");
+                    WriteIndent();
+                    Write($"{varDecl.Identifier}->value = ((PinoString){{ _{varDecl.Identifier}_buf, (int64_t)_{varDecl.Identifier}_len }})");
                 } else {
                     Write($"{varDecl.Identifier}->value = ");
                     TranspileExpression(varDecl.Value);
@@ -1908,11 +1915,13 @@ public class TranspilerC {
 
         if (varDecl.Value != null && IsStringConcat(varDecl.Value)) {
             // String interpolation or addition declaration
-            Write($"{typeStr} {varDecl.Identifier} = (char*)pino_malloc(1024);\n");
+            Write($"char* _{varDecl.Identifier}_buf = (char*)pino_malloc(1024);\n");
             var (format, args) = ProcessStringAddition(varDecl.Value);
             var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
             WriteIndent();
-            Write($"snprintf((char*){varDecl.Identifier}, 1024, \"{EscapeString(format)}\"{argsStr})");
+            Write($"int _{varDecl.Identifier}_len = snprintf(_{varDecl.Identifier}_buf, 1024, \"{EscapeString(format)}\"{argsStr});\n");
+            WriteIndent();
+            Write($"{prefix}{typeStr} {varDecl.Identifier} = ((PinoString){{ _{varDecl.Identifier}_buf, (int64_t)_{varDecl.Identifier}_len }})");
         } else {
             // Normal declaration
             Write($"{prefix}{typeStr} {varDecl.Identifier}");
@@ -1933,7 +1942,7 @@ public class TranspilerC {
         switch (expr) {
             case LiteralExpression lit:
                 if (lit.LiteralType == LiteralType.String) {
-                    Write($"\"{EscapeString(lit.Value)}\"");
+                    Write($"PINO_STR(\"{EscapeString(lit.Value)}\")");
                 } else if (lit.LiteralType == LiteralType.Integer || lit.LiteralType == LiteralType.Float) {
                     Write(lit.Value.Replace("_", ""));
                 } else {
@@ -1955,13 +1964,13 @@ public class TranspilerC {
                             var cleanType = CleanTypeName(resolvedType);
                             
                             if (type != "string" && (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType))) {
-                                Write("pino_println_string(");
+                                Write("pino_println_cstring(");
                                 Write($"{resolvedType}_to_string(");
                                 TranspileExpression(arg);
                                 Write("))");
                             } else if (type.StartsWith("[]")) {
                                 var vecClean = CleanTypeName(type);
-                                Write("pino_println_string(");
+                                Write("pino_println_cstring(");
                                 Write($"{vecClean}_to_string(");
                                 TranspileExpression(arg);
                                 Write("))");
@@ -1969,7 +1978,7 @@ public class TranspilerC {
                                 if (type == "bool") {
                                     Write("pino_println_string((");
                                     TranspileExpression(arg);
-                                    Write(") ? \"True\" : \"False\")");
+                                    Write(") ? PINO_STR(\"True\") : PINO_STR(\"False\"))");
                                 } else {
                                     Write("pino_println_int(");
                                     TranspileExpression(arg);
@@ -1990,7 +1999,7 @@ public class TranspilerC {
                             }
                         }
                     } else {
-                        Write("pino_println_string(\"\")");
+                        Write("pino_println_string(PINO_STR(\"\"))");
                     }
                 } else if (call.Callee == "str") {
                     var arg = call.Arguments[0];
@@ -1999,37 +2008,40 @@ public class TranspilerC {
                     var cleanType = CleanTypeName(resolvedType);
                     
                     if (type != "string" && (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType))) {
+                        Write("pino_string_from_cstr(");
                         Write($"{resolvedType}_to_string(");
                         TranspileExpression(arg);
-                        Write(")");
+                        Write("))");
                     } else if (type == "int" || type == "bool") {
                         if (type == "bool") {
                             Write("((");
                             TranspileExpression(arg);
-                            Write(") ? \"True\" : \"False\")");
+                            Write(") ? PINO_STR(\"True\") : PINO_STR(\"False\"))");
                         } else {
-                            Write("({ char* temp = (char*)pino_malloc(32); snprintf(temp, 32, \"%d\", ");
+                            Write("({ char* temp = (char*)pino_malloc(32); int temp_len = snprintf(temp, 32, \"%d\", ");
                             TranspileExpression(arg);
-                            Write("); temp; })");
+                            Write("); ((PinoString){ temp, (int64_t)temp_len }); })");
                         }
                     } else if (type == "float") {
-                        Write("({ char* temp = (char*)pino_malloc(64); snprintf(temp, 64, \"%g\", ");
+                        Write("({ char* temp = (char*)pino_malloc(64); int temp_len = snprintf(temp, 64, \"%g\", ");
                         TranspileExpression(arg);
-                        Write("); temp; })");
+                        Write("); ((PinoString){ temp, (int64_t)temp_len }); })");
                     } else if (type == "rune") {
-                        Write("({ char* temp = (char*)pino_malloc(8); snprintf(temp, 8, \"%c\", ");
+                        Write("({ char* temp = (char*)pino_malloc(8); int temp_len = snprintf(temp, 8, \"%c\", ");
                         TranspileExpression(arg);
-                        Write("); temp; })");
+                        Write("); ((PinoString){ temp, (int64_t)temp_len }); })");
                     } else if (type.StartsWith("[]")) {
                         var vecClean = CleanTypeName(type);
+                        Write("pino_string_from_cstr(");
                         Write($"{vecClean}_to_string(");
                         TranspileExpression(arg);
-                        Write(")");
+                        Write("))");
                     } else if (type.StartsWith("map[")) {
                         var mapClean = CleanTypeName(type);
+                        Write("pino_string_from_cstr(");
                         Write($"{mapClean}_to_string(");
                         TranspileExpression(arg);
-                        Write(")");
+                        Write("))");
                     } else {
                         TranspileExpression(arg);
                     }
@@ -2037,19 +2049,20 @@ public class TranspilerC {
                     var arg = call.Arguments[0];
                     if (arg.InferredType == "string") {
                         Write("({ ");
-                        Write("const char* temp_str = ");
+                        Write("PinoString temp_pstr = ");
                         TranspileExpression(arg);
                         Write("; ");
+                        Write("const char* temp_str = pino_string_to_cstring(temp_pstr); ");
                         Write("int parsed_val = 0; ");
                         Write("bool success = false; ");
-                        Write("if (temp_str && *temp_str != '\\0') { ");
+                        Write("if (temp_pstr.len > 0) { ");
                         Write("    char* endptr; ");
                         Write("    parsed_val = (int)strtol(temp_str, &endptr, 10); ");
                         Write("    if (*endptr == '\\0' || *endptr == '.') success = true; ");
                         Write("} ");
                         Write("success ? ");
                         Write("Result_int_string_Success_construct(parsed_val) : ");
-                        Write("Result_int_string_Failure_construct(\"Invalid integer format\"); })");
+                        Write("Result_int_string_Failure_construct(PINO_STR(\"Invalid integer format\")); })");
                     } else if (arg.InferredType == "float") {
                         Write("({ ");
                         Write("double temp_f = ");
@@ -2067,19 +2080,20 @@ public class TranspilerC {
                     var arg = call.Arguments[0];
                     if (arg.InferredType == "string") {
                         Write("({ ");
-                        Write("const char* temp_str = ");
+                        Write("PinoString temp_pstr = ");
                         TranspileExpression(arg);
                         Write("; ");
+                        Write("const char* temp_str = pino_string_to_cstring(temp_pstr); ");
                         Write("double parsed_val = 0.0; ");
                         Write("bool success = false; ");
-                        Write("if (temp_str && *temp_str != '\\0') { ");
+                        Write("if (temp_pstr.len > 0) { ");
                         Write("    char* endptr; ");
                         Write("    parsed_val = strtod(temp_str, &endptr); ");
                         Write("    if (*endptr == '\\0') success = true; ");
                         Write("} ");
                         Write("success ? ");
                         Write("Result_float_string_Success_construct(parsed_val) : ");
-                        Write("Result_float_string_Failure_construct(\"Invalid float format\"); })");
+                        Write("Result_float_string_Failure_construct(PINO_STR(\"Invalid float format\")); })");
                     } else if (arg.InferredType == "int") {
                         Write("({ ");
                         Write("int temp_i = ");
@@ -2185,9 +2199,9 @@ public class TranspilerC {
                         var (format, args) = ProcessStringAddition(bin.Right);
                         var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
                         Write("({ char* _pino_concat_tmp = (char*)pino_malloc(1024); ");
-                        Write($"snprintf(_pino_concat_tmp, 1024, \"{EscapeString(format)}\"{argsStr}); ");
+                        Write($"int _pino_concat_len = snprintf(_pino_concat_tmp, 1024, \"{EscapeString(format)}\"{argsStr}); ");
                         TranspileExpression(bin.Left);
-                        Write(" = _pino_concat_tmp; })");
+                        Write(" = ((PinoString){ _pino_concat_tmp, (int64_t)_pino_concat_len }); })");
                     } else {
                         Write("(");
                         TranspileExpression(bin.Left);
@@ -2196,10 +2210,18 @@ public class TranspilerC {
                         Write(")");
                     }
                 } else if (bin.Operator == OperatorType.Addition && bin.InferredType == "string") {
-                    var (format, args) = ProcessStringAddition(bin);
-                    var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
-                    Write("({ char* temp = (char*)pino_malloc(1024); ");
-                    Write($"snprintf(temp, 1024, \"{EscapeString(format)}\"{argsStr}); temp; }})");
+                    if (bin.Left.InferredType == "string" && bin.Right.InferredType == "string") {
+                        Write("pino_string_concat(");
+                        TranspileExpression(bin.Left);
+                        Write(", ");
+                        TranspileExpression(bin.Right);
+                        Write(")");
+                    } else {
+                        var (format, args) = ProcessStringAddition(bin);
+                        var argsStr = args.Count > 0 ? ", " + string.Join(", ", args) : "";
+                        Write("({ char* temp = (char*)pino_malloc(1024); ");
+                        Write($"int temp_len = snprintf(temp, 1024, \"{EscapeString(format)}\"{argsStr}); ((PinoString){{ temp, (int64_t)temp_len }}); }})");
+                    }
                 } else if (bin.Operator == OperatorType.StaticMemberAccess) {
                     if (bin.Left is IdentifierExpression structId) {
                         string name = structId.Name;
@@ -2267,9 +2289,9 @@ public class TranspilerC {
                     }
                 } else if (bin.Operator == OperatorType.MemberAccess) {
                     if (bin.Left.InferredType == "string" && bin.Right is IdentifierExpression strId && (strId.Name == "len" || strId.Name == "length")) {
-                        Write("string_len(");
+                        Write("((");
                         TranspileExpression(bin.Left);
-                        Write(")");
+                        Write(").len)");
                     } else if (bin.Left.InferredType != null && bin.Left.InferredType.StartsWith("[]")) {
                         if (bin.Right is FunctionCallExpression call && (call.Callee == "push" || call.Callee == "add")) {
                             var cleanType = CleanTypeName(bin.Left.InferredType);
@@ -2340,7 +2362,7 @@ public class TranspilerC {
                     } else if (bin.Right is FunctionCallExpression call) {
                         var structName = CleanTypeName(bin.Left.InferredType!);
                         if (structName == "string" && call.Callee == "substring") {
-                            Write("string_substring(");
+                            Write("pino_string_substring(");
                             TranspileExpression(bin.Left);
                             Write(", ");
                             TranspileExpression(call.Arguments[0]);
@@ -2348,11 +2370,19 @@ public class TranspilerC {
                             if (call.Arguments.Count > 1) {
                                 TranspileExpression(call.Arguments[1]);
                             } else {
-                                Write("string_len(");
+                                Write("((");
                                 TranspileExpression(bin.Left);
-                                Write(") - ");
+                                Write(").len) - ");
                                 TranspileExpression(call.Arguments[0]);
                             }
+                            Write(")");
+                        } else if (structName == "string" && (call.Callee == "to_owned" || call.Callee == "clone")) {
+                            Write("pino_string_to_owned(");
+                            TranspileExpression(bin.Left);
+                            Write(")");
+                        } else if (structName == "string" && (call.Callee == "to_cstring" || call.Callee == "cstr")) {
+                            Write("pino_string_to_cstring(");
+                            TranspileExpression(bin.Left);
                             Write(")");
                         } else {
                             Write($"{structName}_{call.Callee}(");
@@ -2398,11 +2428,19 @@ public class TranspilerC {
                         TranspileExpression(bin.Left);
                         Write(")");
                     } else if (bin.Right.InferredType == "string") {
-                        Write("(strstr(");
-                        TranspileExpression(bin.Right);
-                        Write(", ");
-                        TranspileExpression(bin.Left);
-                        Write(") != NULL)");
+                        if (bin.Left.InferredType == "rune" || bin.Left.InferredType == "int") {
+                            Write("pino_string_contains_rune(");
+                            TranspileExpression(bin.Right);
+                            Write(", ");
+                            TranspileExpression(bin.Left);
+                            Write(")");
+                        } else {
+                            Write("string_contains(");
+                            TranspileExpression(bin.Right);
+                            Write(", ");
+                            TranspileExpression(bin.Left);
+                            Write(")");
+                        }
                     } else {
                         throw new NotImplementedException($"Operator {bin.Operator} not supported for type {bin.Right.InferredType}");
                     }
@@ -2416,23 +2454,32 @@ public class TranspilerC {
                             bin.Operator == OperatorType.GreaterThan ||
                             bin.Operator == OperatorType.GreaterThanEqual) &&
                            (bin.Left.InferredType == "string" || bin.Right.InferredType == "string")) {
-                    Write("(");
-                    Write("strcmp(");
-                    TranspileExpression(bin.Left);
-                    Write(", ");
-                    TranspileExpression(bin.Right);
-                    Write(")");
-                    var opStr = bin.Operator switch {
-                        OperatorType.Equal => "== 0",
-                        OperatorType.NotEqual => "!= 0",
-                        OperatorType.LessThan => "< 0",
-                        OperatorType.LessThanEqual => "<= 0",
-                        OperatorType.GreaterThan => "> 0",
-                        OperatorType.GreaterThanEqual => ">= 0",
-                        _ => throw new NotImplementedException()
-                    };
-                    Write($" {opStr}");
-                    Write(")");
+                    if (bin.Operator == OperatorType.Equal) {
+                        Write("pino_string_equal(");
+                        TranspileExpression(bin.Left);
+                        Write(", ");
+                        TranspileExpression(bin.Right);
+                        Write(")");
+                    } else if (bin.Operator == OperatorType.NotEqual) {
+                        Write("!pino_string_equal(");
+                        TranspileExpression(bin.Left);
+                        Write(", ");
+                        TranspileExpression(bin.Right);
+                        Write(")");
+                    } else {
+                        Write("(pino_string_compare(");
+                        TranspileExpression(bin.Left);
+                        Write(", ");
+                        TranspileExpression(bin.Right);
+                        var opStr = bin.Operator switch {
+                            OperatorType.LessThan => "< 0",
+                            OperatorType.LessThanEqual => "<= 0",
+                            OperatorType.GreaterThan => "> 0",
+                            OperatorType.GreaterThanEqual => ">= 0",
+                            _ => throw new NotImplementedException()
+                        };
+                        Write($") {opStr})");
+                    }
                 } else if ((bin.Operator == OperatorType.Equal || bin.Operator == OperatorType.NotEqual) &&
                            IsComplexType(bin.Left.InferredType ?? bin.Right.InferredType)) {
                     string type = bin.Left.InferredType ?? bin.Right.InferredType ?? "any";
@@ -2678,11 +2725,11 @@ public class TranspilerC {
                         TranspileExpression(idx.Index);
                         Write(")");
                     } else if (targetType == "string") {
-                        Write("((uint32_t)(");
+                        Write("((uint32_t)(uint8_t)((");
                         TranspileExpression(idx.Target);
-                        Write(")[");
+                        Write(").data[");
                         TranspileExpression(idx.Index);
-                        Write("])");
+                        Write("]))");
                     } else {
                         throw new NotImplementedException("Map or custom index access is not implemented in transpilation.");
                     }
@@ -2855,9 +2902,9 @@ public class TranspilerC {
                     _matchResultVars.Push(resVar);
                     _matchExitLabels.Push(exitLabel);
                     if (failureVariant == "Failure") {
-                        Write($"const char* err = {varName}->value.Failure._0; ");
+                        Write($"__typeof__({varName}->value.Failure._0) err = {varName}->value.Failure._0; ");
                     } else {
-                        Write($"const char* err = \"None\"; ");
+                        Write($"PinoString err = PINO_STR(\"None\"); ");
                     }
 
                     if (rec.Body is BlockStatement block) {
@@ -2930,34 +2977,45 @@ public class TranspilerC {
                 var resolvedType = ResolveTypeName(type);
                 var cleanType = CleanTypeName(resolvedType);
                 
-                var specifier = "%s";
-                if (type == "int") specifier = "%d";
-                else if (type == "float") specifier = "%g";
-                else if (type == "rune") specifier = "%c";
-                
-                formatSb.Append(specifier);
-                
                 var oldSb = _sb;
                 _sb = new StringBuilder();
-                
-                if (type != "string" && (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType))) {
+
+                if (type == "string" || cleanType == "string") {
+                    formatSb.Append("%.*s");
+                    TranspileExpression(op);
+                    var opCode = _sb.ToString();
+                    args.Add($"(int)({opCode}).len");
+                    args.Add($"({opCode}).data");
+                } else if (FindEnum(resolvedType) != null || FindUnion(resolvedType) != null || _structFields.ContainsKey(resolvedType)) {
+                    formatSb.Append("%s");
                     Write($"{resolvedType}_to_string(");
                     TranspileExpression(op);
                     Write(")");
+                    args.Add(_sb.ToString());
                 } else if (type.StartsWith("[]")) {
+                    formatSb.Append("%s");
                     var vecClean = CleanTypeName(type);
                     Write($"{vecClean}_to_string(");
                     TranspileExpression(op);
                     Write(")");
+                    args.Add(_sb.ToString());
                 } else if (type == "bool") {
+                    formatSb.Append("%s");
                     Write("(");
                     TranspileExpression(op);
                     Write(" ? \"True\" : \"False\")");
+                    args.Add(_sb.ToString());
                 } else {
+                    var specifier = "%s";
+                    if (type == "int") specifier = "%d";
+                    else if (type == "float") specifier = "%g";
+                    else if (type == "rune") specifier = "%c";
+                    formatSb.Append(specifier);
+
                     TranspileExpression(op);
+                    args.Add(_sb.ToString());
                 }
                 
-                args.Add(_sb.ToString());
                 _sb = oldSb;
             }
         }
@@ -3017,7 +3075,7 @@ public class TranspilerC {
             foreach (var bv in boundVars) {
                 if (!_varTypes.ContainsKey(bv.Name)) {
                     WriteIndent();
-                    Write($"{MapType(bv.Type)} {bv.Name} = 0;\n");
+                    Write($"{MapType(bv.Type)} {bv.Name} = {{0}};\n");
                     _varTypes[bv.Name] = bv.Type;
                     newlyDeclared.Add(bv.Name);
                 }
@@ -3255,20 +3313,16 @@ public class TranspilerC {
                         }
                     } else if (collType == "string") {
                         WriteIndent();
-                        Write($"const char* {collVar} = ");
+                        Write($"PinoString {collVar} = ");
                         TranspileExpression(collExpr);
                         _sb.AppendLine(";");
 
-                        var lenVar = $"_pino_len_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
                         WriteIndent();
-                        WriteLine($"int {lenVar} = strlen({collVar});");
-
-                        WriteIndent();
-                        WriteLine($"for (int {idxVar} = 0; {idxVar} < {lenVar}; {idxVar}++) {{");
+                        WriteLine($"for (int {idxVar} = 0; {idxVar} < {collVar}.len; {idxVar}++) {{");
                         _indent++;
 
                         WriteIndent();
-                        WriteLine($"char {valId} = {collVar}[{idxVar}];");
+                        WriteLine($"uint32_t {valId} = (uint32_t)(uint8_t){collVar}.data[{idxVar}];");
                         if (!string.IsNullOrEmpty(keyId)) {
                             WriteIndent();
                             WriteLine($"int {keyId} = {idxVar};");
@@ -3386,7 +3440,7 @@ public class TranspilerC {
                     var litStr = _sb.ToString();
                     _sb = oldSb;
                     if (targetType == "string" || litPat.Value.InferredType == "string") {
-                        condList.Add($"(strcmp({target}, {litStr}) == 0)");
+                        condList.Add($"(pino_string_equal({target}, {litStr}))");
                     } else {
                         condList.Add($"({target} == {litStr})");
                     }

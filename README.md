@@ -63,6 +63,7 @@ We have designed multiple official variations of our beloved mascot, available i
 * **Kotlin-style Variables**: Clear distinction between mutable (`var`) and immutable (`val`) values.
 * **Kotlin/JS-style String Injections**: Interpolate variables directly in strings using simple `$variable` syntax.
 * **Go & Vlang-style Loops**: Easing block structures by using `for` as the unified keyword for loops (including infinite loops).
+* **Go & Vlang-style Zero-Copy String Slices**: Strings are lightweight 16-byte value types (`{ data, len }`) providing $O(1)$ zero-copy slicing without heap allocations ([RFC 013](./proposals/013-immutable-string-slices-zero-copy.md)).
 * **Unicode-first Runes**: Native 32-bit Unicode code point type (`rune`) using single quotes `'🌲'` with character arithmetic.
 * **Flexible Syntactic Commas**: Commas are optional in vectors, struct properties, and parameter lists—meaning you write cleaner layouts.
 * **No Unnecessary Parentheses**: Clean control blocks (`if`, `match`, and loop conditions) do not require parentheses around their conditions.
@@ -90,7 +91,7 @@ Pino is designed with a clear, pragmatic vision that balances developer experien
 | Feature Category | Feature Description | Status |
 | :--- | :--- | :---: |
 | **Variables** | Constant (`val`) & Mutable (`var`) declarations | `[X]` |
-| **Strings** | Lexical interpolation/injection (`$var`) | `[X]` |
+| **Strings** | Lexical interpolation/injection (`$var`) & $O(1)$ zero-copy slices (`{ data, len }`) | `[X]` |
 | **Rune Type** | 32-bit Unicode points (`'a'`) & code point arithmetic | `[X]` |
 | **Control Flow** | Unified `for` loop (infinite, range, iterator, string decomposition) | `[X]` |
 | | Control escape keywords (`break`, `continue`) | `[X]` |

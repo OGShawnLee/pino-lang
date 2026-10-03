@@ -83,8 +83,11 @@ Pino features a strong type system with automated type inference. The compiler a
 | **`int`** | 64-bit signed integer | `42`, `-10`, `1_000_000` (supports underscores) |
 | **`float`** | 64-bit double-precision floating-point number | `3.14159`, `-0.005` |
 | **`rune`** | 32-bit Unicode code point | `'a'`, `'🌲'`, `'\n'` (delimited by single quotes) |
-| **`string`** | Immutable UTF-8 encoded text sequence | `"Pino Lang"` (delimited by double quotes) |
+| **`string`** | Immutable UTF-8 text slice (`{ data, len }`) with $O(1)$ zero-copy slicing | `"Pino Lang"` (delimited by double quotes) |
 | **`null`** | Represents the absence of value or null reference | `null` |
+
+> [!NOTE]
+> **Zero-Copy String Architecture**: In Pino, `string` is a 16-byte value type containing a pointer to UTF-8 bytes and an explicit 64-bit length, inspired by Go and Vlang. Substrings and slicing produce zero-copy views without heap allocations. To detach a slice into its own independent memory buffer, use `:to_owned()`. For C FFI compatibility, use `:to_cstring()`.
 
 ---
 
@@ -1028,9 +1031,19 @@ Replaces all occurrences of the `old` substring with the `new` string.
 *   **Example**: `"hello world":replace("world", "Pino")` returns `"hello Pino"`.
 
 #### `substring(start int, len int)`
-Extracts a substring starting at `start` index with the specified length `len`.
+Extracts a substring starting at `start` index with the specified length `len`. In the native C runtime, this is an **$O(1)$ zero-copy slice** operation that allocates no heap memory.
 *   **Return**: `string`
 *   **Example**: `"hello world":substring(6, 5)` returns `"world"`.
+
+#### `to_owned()` / `clone()`
+Creates an independent, null-terminated heap-allocated copy of the string slice. This is recommended when storing a small substring extracted from a massive file or buffer so that the garbage collector can reclaim the large underlying buffer.
+*   **Return**: `string`
+*   **Example**: `val token = large_buffer:substring(0, 10):to_owned()`
+
+#### `to_cstring()` / `cstr()`
+Extracts a null-terminated C string (`const char*`) suitable for direct interop with C FFI and external libraries.
+*   **Return**: `string`
+*   **Example**: `val c_path = path:to_cstring()`
 
 #### `starts_with(prefix string)`
 Checks if the string begins with the specified `prefix` string.

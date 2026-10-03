@@ -119,4 +119,32 @@ public class TranspilerCTests {
     // Verify call site has no 'this' parameter passed
     Assert.Contains("Calculator_multiply(6, 7)", cCode);
   }
+
+  [Fact]
+  public void TestTranspilerStringSlicesAndMethods() {
+    var source = @"
+      fn main {
+        val s = ""hello world""
+        val sub = s:substring(0, 5)
+        val owned = sub:to_owned()
+        val c_str = sub:to_cstring()
+        val l = s:len
+        val ch = s[0]
+      }
+    ";
+
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.Contains("PinoString s = PINO_STR(\"hello world\");", cCode);
+    Assert.Contains("pino_string_substring(s, 0, 5)", cCode);
+    Assert.Contains("pino_string_to_owned(sub)", cCode);
+    Assert.Contains("pino_string_to_cstring(sub)", cCode);
+    Assert.Contains("((s).len)", cCode);
+    Assert.Contains("((uint32_t)(uint8_t)((s).data[0]))", cCode);
+  }
 }

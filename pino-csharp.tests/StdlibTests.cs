@@ -186,6 +186,36 @@ public class StdlibTests {
     Assert.Equal("hello\n", output);
   }
 
+  [Fact]
+  public void TestStringToOwnedAndClone() {
+    var code = @"
+      val s = ""hello world""
+      val sub = s:substring(0, 5)
+      val owned = sub:to_owned()
+      val cloned = sub:clone()
+      println(owned)
+      println(cloned)
+      println(owned == cloned)
+    ";
+    var output = RunCode(code);
+    Assert.Equal("hello\nhello\nTrue\n", output);
+  }
+
+  [Fact]
+  public void TestStringToCString() {
+    var code = @"
+      val s = ""hello world""
+      val sub = s:substring(6, 5)
+      val cstr1 = sub:to_cstring()
+      val cstr2 = sub:cstr()
+      println(cstr1)
+      println(cstr2)
+      println(cstr1 == cstr2)
+    ";
+    var output = RunCode(code);
+    Assert.Equal("world\nworld\nTrue\n", output);
+  }
+
   // --- REGEX PROPERTIES AND METHODS ---
 
   [Fact]
