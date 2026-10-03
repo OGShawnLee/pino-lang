@@ -287,10 +287,16 @@ public partial class Evaluator {
             if (!string.IsNullOrEmpty(loop.KeyVar)) {
               childEnv.Define(loop.KeyVar, idx, false);
             }
+            bool shouldBreak = false;
             try {
               Execute(loop.Body, childEnv);
-            } catch (PinoBreakException) { break; } catch (PinoContinueException) { continue; }
+            } catch (PinoBreakException) {
+              shouldBreak = true;
+            } catch (PinoContinueException) {
+              // continue to next iteration, ensuring idx is incremented
+            }
             idx++;
+            if (shouldBreak) break;
           }
         } else {
           throw new Exception("RUNTIME ERROR: Cannot iterate over non-iterable object.");

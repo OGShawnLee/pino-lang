@@ -157,4 +157,23 @@ public partial class ControlFlowTests {
     var env4 = PinoTestRunner.Execute(code4, ExecutionEngine.TreeWalk);
     Assert.Equal("Offline", env4.Get("message"));
   }
+
+  [Theory]
+  [InlineData(ExecutionEngine.TreeWalk)]
+  public void TestStringLoopWithContinueIncrementsIndex(ExecutionEngine engine) {
+    var code = @"
+      val text = ""val n = 12""
+      var last_idx = 0
+      for i, ch in text {
+        if ch == 'a' or ch == 'l' {
+          continue
+        }
+        last_idx = i
+      }
+    ";
+    var env = PinoTestRunner.Execute(code, engine);
+    // Length of ""val n = 12"" is 10. The last character '2' is at index 9.
+    Assert.Equal(9L, env.Get("last_idx"));
+  }
 }
+
