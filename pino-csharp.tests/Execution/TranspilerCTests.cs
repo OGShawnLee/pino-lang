@@ -169,5 +169,27 @@ public class TranspilerCTests {
     Assert.Contains("items->capacity", cCode);
     Assert.Contains("items->length", cCode);
   }
+
+  [Fact]
+  public void TestTranspilerMapSetReturnsValue() {
+    var source = @"
+      fn main {
+        var cache = map[int, int] {}
+        val res = cache[10] = 42
+      }
+    ";
+
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    // Verify map_int_int_set returns the value type int instead of void
+    Assert.Contains("static inline int map_int_int_set(map_int_int* map, int key, int value) {", cCode);
+    Assert.Contains("int res = map_int_int_set(cache, 10, 42);", cCode);
+  }
 }
+
 

@@ -1123,7 +1123,7 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
                 
-                _tupleSb.AppendLine($"static inline void {clean}_set({clean}* map, {cKeyType} key, {cValType} value) {{");
+                _tupleSb.AppendLine($"static inline {cValType} {clean}_set({clean}* map, {cKeyType} key, {cValType} value) {{");
                 _tupleSb.AppendLine($"    if (map->size * 2 >= map->capacity) {{");
                 _tupleSb.AppendLine($"        int old_cap = map->capacity;");
                 _tupleSb.AppendLine($"        {clean}_entry* old_entries = map->entries;");
@@ -1146,7 +1146,7 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"            {cKeyType} b = key;");
                 _tupleSb.AppendLine($"            if ({keyEqExpr}) {{");
                 _tupleSb.AppendLine($"                map->entries[idx].value = value;");
-                _tupleSb.AppendLine($"                return;");
+                _tupleSb.AppendLine($"                return value;");
                 _tupleSb.AppendLine($"            }}");
                 _tupleSb.AppendLine($"        }}");
                 _tupleSb.AppendLine($"        if (map->entries[idx].occupied == 2 && first_tombstone == -1) {{");
@@ -1159,6 +1159,7 @@ public class TranspilerC {
                 _tupleSb.AppendLine($"    map->entries[insert_idx].key = key;");
                 _tupleSb.AppendLine($"    map->entries[insert_idx].value = value;");
                 _tupleSb.AppendLine($"    map->size++;");
+                _tupleSb.AppendLine($"    return value;");
                 _tupleSb.AppendLine($"}}");
                 _tupleSb.AppendLine();
                 
