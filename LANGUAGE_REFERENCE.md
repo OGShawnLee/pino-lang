@@ -36,6 +36,10 @@ This document serves as the definitive reference guide for the syntax, type syst
    * [Vector Methods](#vector-methods)
    * [Map Methods](#map-methods)
 11. [Execution Engines](#11-execution-engines)
+12. [Project Tooling and CLI](#12-project-tooling-and-cli)
+   * [Project Scaffolding (`pino init`)](#project-scaffolding-pino-init)
+   * [Standard Project Layout](#standard-project-layout)
+   * [CLI Commands Reference](#cli-commands-reference)
 
 ---
 
@@ -265,7 +269,9 @@ Vectors are dynamic, homogeneous arrays (all elements must be of the same type).
 #### Initialization Syntax:
 1. **Literal initialization**: Declare items inside `[...]` with implicit type inference.
 2. **Empty vector initialization**: Specify the type `[]type` without curly braces `{}`.
-3. **Dynamic initialization constructor**: Initialize with a given length and a generator expression using the `[]type { len: <int>, init: <expression> }` syntax. The variable `it` is implicitly injected into the `init` expression, representing the current index.
+3. **Capacity pre-allocation**: Allocate internal buffer capacity ahead of time using `[]type { cap: <int> }`. The vector length remains `0`, but memory is reserved up front to avoid reallocations during consecutive `push` calls.
+4. **Dynamic initialization constructor**: Initialize with a given length and a generator expression using `[]type { len: <int>, init: <expression> }`. The variable `it` is implicitly injected into the `init` expression, representing the current index.
+5. **Dynamic initialization with custom capacity**: Specify both `len`, `init`, and `cap` via `[]type { len: <int>, init: <expression>, cap: <int> }`.
 
 ```pino
 # 1. Implicit type inference for []int
@@ -274,13 +280,38 @@ val numbers = [1, 2, 3, 4]
 # 2. Empty vector of strings (no curly braces needed, just type annotation)
 var names = []string
 
-# 3. Dynamic initialization of 5 integers, generating [0, 2, 4, 6, 8]
+# 3. Pre-allocated capacity for high-throughput accumulation
+val tokens = []string { cap: 1000 }
+println(tokens:len) # 0 (empty vector)
+println(tokens:cap) # 1000 (pre-allocated buffer)
+
+# 4. Dynamic initialization of 5 integers, generating [0, 2, 4, 6, 8]
 val evens = []int { len: 5, init: it * 2 }
+
+# 5. Dynamic initialization with explicit reserved headroom
+val buffer = []int { len: 5, init: it, cap: 20 }
+println(buffer:cap) # 20
 
 # Index access and assignment (0-indexed)
 val first = numbers[0]
 names:push("Vincent")
 ```
+
+#### Vector Validation & Safety Semantics
+Pino enforces strict safety rules while maintaining a forgiving runtime:
+
+* **Compile-Time Static Validation**:
+  If literal values are known statically at compile time, the static `Checker` rejects invalid configurations with immediate compilation errors:
+  - Negative lengths (`len: -5`): `TYPE CHECK ERROR: Vector length cannot be negative`
+  - Negative capacities (`cap: -10`): `TYPE CHECK ERROR: Vector capacity cannot be negative`
+  - Capacity smaller than length (`len: 10, cap: 5`): `TYPE CHECK ERROR: Vector capacity cannot be less than length`
+
+* **Runtime Dynamic Clamping & Warnings**:
+  When vector sizing parameters are computed dynamically at runtime (e.g. from variables or function calls), Pino safeguards against crashes through **Safe Clamping**:
+  - If dynamic `len < 0`, length is clamped to `0`.
+  - If dynamic `cap < len`, capacity is clamped to `len`.
+  - A minimum base capacity of `4` is guaranteed for all dynamic allocations.
+  - A descriptive `[WARNING]` is emitted to standard error indicating the adjusted bounds without terminating program execution.
 
 ---
 
@@ -1122,10 +1153,15 @@ Returns the current number of elements stored in the vector.
 *   **Return**: `int`
 *   **Example**: `[10, 20]:len` returns `2`.
 
+#### `cap` / `capacity` (Property)
+Returns the currently allocated internal buffer capacity of the vector.
+*   **Return**: `int`
+*   **Example**: `([]int { cap: 50 }):cap` returns `50`.
+
 #### `push(item)` or `add(item)`
 Appends an element to the end of the vector, modifying the original instance. Returns the modified vector to allow chaining.
 *   **Return**: `vector` (mutated)
-*   **Example**: `var v = []int {}; v:push(5):push(10)` (Leaves vector as `[5, 10]`).
+*   **Example**: `var v = []int; v:push(5):push(10)` (Leaves vector as `[5, 10]`).
 
 #### `pop()`
 Removes and returns the last element of the vector. If the vector is empty, returns `null`.
@@ -1260,3 +1296,61 @@ Pino provides three execution engines that operate in parallel to offer advanced
     # Launches watcher mode to continuously compile, run, and auto-delete output
     pino watch main.pino --compile
     ```
+
+---
+
+## 12. Project Tooling and CLI
+
+Pino provides an integrated suite of developer tooling directly within the single CLI binary.
+
+### Project Scaffolding (`pino init`)
+
+Create a standardized, production-ready Pino project layout with a single command:
+
+```bash
+# Scaffold into a new folder
+pino init my-project
+cd my-project
+
+# Or initialize inside the current empty directory
+pino init
+```
+
+The scaffolding generator creates:
+* `main.pino`: Application entry point configured in **Program Mode** with `fn main()`.
+* `modules/utils.pino`: Example library module exporting functions and types.
+* `test/main_test.pino`: Test suite using native `test "name" { ... }` blocks.
+* `.gitignore`: Pre-configured exclusions for compiled C binaries and build artifacts.
+
+> [!NOTE]
+> **Overwrite Protection**: `pino init` refuses to overwrite existing files to prevent accidental data loss.
+
+### Standard Project Layout
+
+```text
+my-project/
+├── main.pino          # Application entry point (Program Mode)
+├── modules/
+│   └── utils.pino     # Reusable modules (cannot contain fn main())
+├── test/
+│   └── main_test.pino # Atomic unit tests ('test' blocks)
+└── .gitignore         # Build artifacts & binary exclusions
+```
+
+### CLI Commands Reference
+
+| Command | Description |
+| :--- | :--- |
+| `pino init [name]` | Scaffold a new Pino project structure |
+| `pino run [file]` | Execute a file with the Tree-Walk engine (defaults to `main.pino`) |
+| `pino run [file] --vm` | Execute via the high-performance Bytecode Virtual Machine |
+| `pino run [file] --c` | Transpile to C, compile with bundled TCC, run native binary, and auto-clean |
+| `pino watch [file]` | Hot-reloading watcher with trailing-edge debounce |
+| `pino watch [file] --compile` | Hot-reloading watcher with native C transpilation |
+| `pino test [file]` | Discover and execute all `test` blocks |
+| `pino compile [file] [out.c]` | Transpile Pino source code to standalone C |
+| `pino repl` | Interactive Read-Eval-Print Loop |
+| `pino play` | Launch the retro Pino Games Station |
+| `pino version` | Display current compiler version |
+| `pino update` | Check for and install compiler updates from GitHub |
+

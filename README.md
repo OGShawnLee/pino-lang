@@ -129,6 +129,51 @@ curl -fsSL https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.s
 
 ---
 
+## ⚡ Quick Start & Project Scaffolding
+
+Create and run a new Pino project in seconds with the built-in scaffolding tool:
+
+```bash
+# Create and scaffold a new project directory
+pino init my-app
+cd my-app
+
+# Run the project
+pino run
+
+# Run the test suite
+pino test
+```
+
+### Standard Project Layout
+```text
+my-app/
+├── main.pino          # Application entry point
+├── modules/
+│   └── utils.pino     # Reusable library modules
+├── test/
+│   └── main_test.pino # Test suites ('test' blocks)
+└── .gitignore         # Build artifacts & binary exclusions
+```
+
+### CLI Commands Reference
+
+| Command | Description |
+| :--- | :--- |
+| `pino init [name]` | Scaffold a new Pino project with `main.pino`, `modules/`, and `test/` |
+| `pino run [file]` | Run a `.pino` file with the Tree-Walk interpreter (defaults to `main.pino`) |
+| `pino run [file] --vm` | Execute via the optimized Bytecode Virtual Machine |
+| `pino run [file] --c` | Transpile to C, compile natively with TCC, execute, and auto-clean |
+| `pino watch [file]` | Monitor file changes and automatically re-run on save (with trailing debounce) |
+| `pino test [file]` | Discover and run all `test` blocks in the project or file |
+| `pino compile [file] [out.c]` | Transpile Pino source code directly to standard C |
+| `pino repl` | Start the interactive Pino REPL |
+| `pino play` | Launch the interactive Pino Games Station |
+| `pino version` | Display current Pino compiler version |
+| `pino update` | Check for and install compiler updates from GitHub |
+
+---
+
 ## 📖 Syntax Showcase
 
 ### Variables & Constants
@@ -250,19 +295,24 @@ print_content(doc)
 Pino supports dynamic arrays called vectors. You can declare vectors with explicit type signatures like `[]int` or `[]string`, initialize them dynamically using initializers (with `it` as the implicit index parameter), and apply functional methods.
 
 ```pino
-# 1. Initialization with length and generator expression (using 'it')
-val numbers = []int { len: 6, init: it + 1 }
-println(numbers) # [1, 2, 3, 4, 5, 6]
+# 1. Pre-allocated capacity for high throughput
+val tokens = []string { cap: 100 }
+println(tokens:cap) # 100
 
-# 2. Add or remove elements
-var list = []string {}
+# 2. Dynamic initialization with length, generator expression (using 'it'), and capacity
+val numbers = []int { len: 6, init: it + 1, cap: 12 }
+println(numbers)    # [1, 2, 3, 4, 5, 6]
+println(numbers:cap) # 12
+
+# 3. Add or remove elements
+var list = []string
 list:push("first")
 list:push("second")
-println(list:len()) # Outputs 2
+println(list:len) # Outputs 2
 val popped = list:pop()
 println(popped) # "second"
 
-# 3. Functional utilities: map, filter, and each
+# 4. Functional utilities: map, filter, and each
 val get_times_it_fn = fn (multiplier int) => fn (it int) => it * multiplier
 val doubled = numbers:map(get_times_it_fn(2))
 println(doubled) # [2, 4, 6, 8, 10, 12]

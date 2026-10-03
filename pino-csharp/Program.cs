@@ -83,9 +83,14 @@ class Program {
         }
         break;
 
+      case "init":
+        var targetProjectName = argList.Count > 1 ? argList[1] : null;
+        InitProject(targetProjectName);
+        break;
+
       case "v":
       case "version":
-        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.3.2";
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.0";
         Console.WriteLine($"Pino version: {version} (.NET 10)");
         break;
 
@@ -119,6 +124,7 @@ class Program {
     Console.WriteLine("Usage: pino [command] [arguments] [flags]");
     Console.WriteLine("Commands:");
     Console.WriteLine("  help, h                   : Display this help message");
+    Console.WriteLine("  init [project-name]       : Scaffold a new Pino project with main.pino, modules/, and test/");
     Console.WriteLine("  repl                      : Start the Pino interactive REPL");
     Console.WriteLine("  run [file-name]           : Run the given .pino file (defaults to main.pino)");
     Console.WriteLine("  compile, c [file] [out.c] : Transpile .pino source to a C source file (defaults to main.pino -> main.c)");
@@ -135,9 +141,110 @@ class Program {
     Console.WriteLine("  --c, --compile            : Transpile to C, compile using TCC, execute, and auto-delete binary (available for run, watch, test)");
   }
 
+  public static void InitProject(string? projectName, string? workingDir = null) {
+    var baseDir = workingDir ?? System.Environment.CurrentDirectory;
+    string targetDir;
+    string displayName;
+
+    if (string.IsNullOrWhiteSpace(projectName)) {
+      targetDir = baseDir;
+      displayName = Path.GetFileName(targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+      if (string.IsNullOrEmpty(displayName)) displayName = "current directory";
+    } else {
+      targetDir = Path.IsPathRooted(projectName) 
+        ? projectName 
+        : Path.Combine(baseDir, projectName);
+      displayName = projectName;
+    }
+
+    if (!Directory.Exists(targetDir)) {
+      Directory.CreateDirectory(targetDir);
+    }
+
+    var mainPinoPath = Path.Combine(targetDir, "main.pino");
+    if (File.Exists(mainPinoPath)) {
+      Console.ForegroundColor = ConsoleColor.Red;
+      Console.WriteLine($"Error: 'main.pino' already exists in '{targetDir}'. Aborting initialization to prevent overwriting.");
+      Console.ResetColor();
+      return;
+    }
+
+    var modulesDir = Path.Combine(targetDir, "modules");
+    if (!Directory.Exists(modulesDir)) {
+      Directory.CreateDirectory(modulesDir);
+    }
+
+    var testDir = Path.Combine(targetDir, "test");
+    if (!Directory.Exists(testDir)) {
+      Directory.CreateDirectory(testDir);
+    }
+
+    var gitignorePath = Path.Combine(targetDir, ".gitignore");
+    var utilsPinoPath = Path.Combine(modulesDir, "utils.pino");
+    var testPinoPath = Path.Combine(testDir, "main_test.pino");
+
+    // 1. main.pino
+    var mainContent = @"from utils import add
+
+fn main {
+  val result = add(20, 22)
+  println(""🌲 Welcome to Pino! Result: $(result)"")
+}
+";
+    File.WriteAllText(mainPinoPath, mainContent);
+
+    // 2. modules/utils.pino
+    var utilsContent = @"module utils
+
+pub fn add(a int, b int) int {
+  return a + b
+}
+";
+    if (!File.Exists(utilsPinoPath)) {
+      File.WriteAllText(utilsPinoPath, utilsContent);
+    }
+
+    // 3. test/main_test.pino
+    var testContent = @"from utils import add
+
+test ""should add numbers correctly"" {
+  assert(add(2, 3) == 5)
+}
+";
+    if (!File.Exists(testPinoPath)) {
+      File.WriteAllText(testPinoPath, testContent);
+    }
+
+    // 4. .gitignore
+    var gitignoreContent = @"*.exe
+pino_output.c
+*.pdb
+";
+    if (!File.Exists(gitignorePath)) {
+      File.WriteAllText(gitignorePath, gitignoreContent);
+    }
+
+    Console.ForegroundColor = ConsoleColor.Green;
+    Console.WriteLine($"🌲 Initialized new Pino project in {displayName}");
+    Console.ResetColor();
+    Console.WriteLine("   ├── main.pino");
+    Console.WriteLine("   ├── modules/");
+    Console.WriteLine("   │   └── utils.pino");
+    Console.WriteLine("   ├── test/");
+    Console.WriteLine("   │   └── main_test.pino");
+    Console.WriteLine("   └── .gitignore");
+    Console.WriteLine();
+    Console.WriteLine("Get started:");
+    if (!string.IsNullOrWhiteSpace(projectName)) {
+      Console.WriteLine($"   cd {projectName}");
+    }
+    Console.WriteLine("   pino run");
+    Console.WriteLine("   pino test");
+  }
+
   static void RunUpdate() {
     Console.WriteLine("🌲 Checking for updates...");
-    var currentVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 2, 0);
+    var currentVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 4, 0);
 
     try {
       using var client = new HttpClient();

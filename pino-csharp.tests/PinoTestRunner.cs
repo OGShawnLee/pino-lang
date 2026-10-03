@@ -1,5 +1,8 @@
 using System;
 using Pino;
+using Xunit;
+
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace pino_csharp.tests;
 
