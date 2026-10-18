@@ -23,6 +23,8 @@ from Entities import
   Literal,
   TokenStream,
   Property,
+  FunctionDeclaration,
+  StructDeclaration,
   Pair
 
 val PRECEDENCE_MAP = map[string, int] {
@@ -961,10 +963,13 @@ fn parse_fn_decl(stream TokenStream) Result[Declaration, string] {
 
   return Result::Success(
     Declaration::FunctionDeclaration(
-      name_token:value,
-      param_list,
-      ret_type,
-      block
+      FunctionDeclaration {
+        name: name_token:value,
+        parameter_list: param_list,
+        return_type: ret_type,
+        block: block,
+        is_public: false
+      }
     )
   )
 }
@@ -1093,6 +1098,7 @@ fn parse_struct_decl(stream TokenStream, generic_map map[string, Type]) Result[D
   }
 
   val property_map = map[string, Property] {}
+  val method_map = map[string, FunctionDeclaration] {}
 
   stream:expect_content("{")?
 
@@ -1112,6 +1118,14 @@ fn parse_struct_decl(stream TokenStream, generic_map map[string, Type]) Result[D
       continue
     }
 
+    if curr:value == "fn" {
+      val method = parse_fn_decl(stream)?
+      if method is Declaration::FunctionDeclaration(fn_decl) {
+        method_map[fn_decl:name] = fn_decl
+      }
+      
+      continue
+    }
 
     val property = parse_property(stream)?
 
@@ -1124,7 +1138,17 @@ fn parse_struct_decl(stream TokenStream, generic_map map[string, Type]) Result[D
 
   stream:expect_content("}")?
 
-  return Result::Success(Declaration::StructDeclaration(struct_name, property_map, generic_map))
+  return Result::Success(
+    Declaration::StructDeclaration(
+      StructDeclaration {
+        name: struct_name,
+        property_map: property_map,
+        method_map: method_map,
+        generic_map: generic_map,
+        is_public: false
+      }
+    )
+  )
 }
 
 fn parse_interface_decl(stream TokenStream) Result[Declaration, string] {

@@ -1,100 +1,266 @@
-enum Status {
-  Pending
-  Active
-  Completed
-  Failed
+enum BinaryOperator {
+  Add
+  Subtract
+  Multiply
+  Divide
+  Remainder
+  And
+  Or
+  In
+  Equal
+  NotEqual
+  LessThan
+  LessOrEqual
+  GreaterThan
+  GreaterOrEqual
+  Assign
+  Conditional
+  StaticMemberAccess
+  MemberAccess
 }
 
-val pi = 3.1415
-val is_true = 10 >= 5
-val is_false = 1 == 0
-val static_cond = if is_true then 100 else 0
+enum UnaryOperator {
+  Negate
+  Not
+}
 
-val half = 1 / 2
-val ratio = 10 / 4
+union Constant {
+  Bool(b bool)
+  Float(f float)
+  Int(n int)
+  String(str string)
+}
 
-fn fib(n int) {
-  if n <= 1 {
-    return n
+union Expression {
+  Constant(const Constant)
+  Var(name string)
+  Unary(un_op UnaryOperator, expr Expression)
+  Binary(bin_op BinaryOperator, left_expr Expression, right_expr Expression)
+}
+
+union Statement {
+  Expression(expr Expression)
+  Return(expr Expression)
+}
+
+union Primitive {
+  Bool
+  Float
+  Int
+  String
+}
+
+union Type {
+  Primitive(p Primitive)
+  Struct(name string)
+  Function(name string)
+  Void
+  Any
+  Implicit
+  Invalid
+}
+
+struct Field {
+  pub type Type
+  pub is_public bool
+}
+
+struct Method {
+  pub fn_decl FunctionDeclaration
+  pub is_public bool
+}
+
+struct StructDeclaration {
+  pub name string
+  pub field_map map[string, Field]
+  pub method_map map[string, Method]
+}
+
+struct FunctionDeclaration {
+  pub name string
+  pub return_type Type
+}
+
+union Declaration {
+  Variable(name string, expr Expression)
+  Struct(struct_decl StructDeclaration)
+  Function(fn_decl FunctionDeclaration)
+}
+
+union Node {
+  Statement(stmt Statement)
+  Declaration(decl Declaration)
+}
+
+struct Program {
+  pub node_list []Node
+}
+
+struct Context {
+  symbol_table map[string, Type]
+  error_list []string
+  pub fn_name string
+  pub struct_name string
+
+  fn add_err(message string) {
+    error_list:push(message)
   }
-  return fib(n - 1) + fib(n - 2)
+
+  fn set_symbol(name string, type Type) {
+    symbol_table[name] = type
+  }
+
+  fn get_symbol(name string) {
+    return if name in symbol_table then symbol_table[name] else Type::Invalid
+  }
+
+  fn is_already_declared(name string) {
+    return name in symbol_table
+  }
 }
 
-fn calculate_status_code(status Status) int {
-  match status {
-    when Status::Pending {
-      return 100
+fn type_check_const(const Constant) {
+  match const {
+    when Constant::Bool {
+      return Type::Primitive(Primitive::Bool)
     }
-    when Status::Active {
-      return 200
+    when Constant::Float {
+      return Type::Primitive(Primitive::Float)
     }
-    when Status::Completed {
-      return 300
+    when Constant::Int {
+      return Type::Primitive(Primitive::Int)
     }
-    when Status::Failed {
-      return 500
+    when Constant::String {
+      return Type::Primitive(Primitive::String)
     }
   }
 }
 
-fn get_discount_rate(tier int) int {
-  val base_tier = 10 - 5
+fn type_check_expr(expr Expression, context Context) {
+  match expr {
+    when Expression::Constant(const) {
+      return type_check_const(const)
+    }
+    when Expression::Var(name) {
+      return context:get_symbol(name)
+    }
+    when Expression::Unary(un_op, expr) {
+      return type_check_expr(expr, context)
+    }
+    when Expression::Binary(bin_op, left_expr, right_expr) {
+      val l_type = type_check_expr(left_expr, context)
+      val r_type = type_check_expr(right_expr, context)
 
-  match base_tier {
-    when 5 {
-      return 20
-    }
-    when 1, 2 {
-      return 5
-    }
-    else {
-      return 0
+      return l_type
     }
   }
 }
 
-fn evaluate_score(score int) int {
-  val passing_limit = 60
-  val is_passed = score >= passing_limit
+fn type_check_stmt(stmt Statement, context Context) {
+  match stmt {
+    when Statement::Expression(expr) {
+      type_check_expr(expr, context)
+    }
+    when Statement::Return(expr) {
+      if context:fn_name:length == 0 {
+        context:add_err("Semantic Error: Invalid use of Return Statement: Cannot return value outside a function.")
+      }
 
-  if is_passed {
-    val bonus = if score > 90 then 10 else 5
-    return score + bonus
-  } else if score >= 50 {
-    return 55
+      type_check_expr(expr, context)
+    }
+  }
+}
+
+fn type_check_struct_decl(struct_decl StructDeclaration, context Context) {
+  if context:is_already_declared(struct_decl:name) {
+    context:add_err("Semantic Error: Struct '${struct_decl:name}' has been already declared.")
   } else {
-    return 0
+    context:set_symbol(struct_decl:name, Type::Struct(struct_decl:name))
+
+    for field_name, field in struct_decl:field_map {
+      if context:is_already_declared(field_name) {
+        context:add_err("Semantic Error: Field '${field_name}' of struct '${struct_decl:name}' has been already declared.")
+      } else {
+        context:set_symbol(field_name, field:type)
+      }
+    }
+
+    for method_name, method in struct_decl:method_map {
+      if context:is_already_declared(method_name) {
+        context:add_err("Semantic Error: Method '${method_name}' of struct '${struct_decl:name}' has been already declared.")
+      } else {
+        context:set_symbol(method_name, Type::Function(method_name))
+      }
+    }
   }
 }
 
-fn is_pi_static bool {
-  if pi > 3.14 {
-    return true
+fn type_check_decl(decl Declaration, context Context) {
+  match decl {
+    when Declaration::Function(fn_decl) {
+      if context:is_already_declared(fn_decl:name) {
+        context:add_err("Semantic Error: Function '${fn_decl:name}' has been already declared.")
+      }
+
+      context:set_symbol(fn_decl:name, Type::Function(fn_decl:name))
+    }
+    when Declaration::Struct(struct_decl) {
+      type_check_struct_decl(struct_decl, context)
+    }
+    when Declaration::Variable(name, expr) {
+      if context:is_already_declared(name) {
+        context:add_err("Semantic Error: Variable '${name}' has been already declared.")
+      }
+
+      context:set_symbol(name, type_check_expr(expr, context))
+    }
   }
 }
 
-fn matrix_multiplication(a [][]int, b [][]int) {
-  return [[1, 2], [3, 4]]
+fn type_check_node(node Node, context Context) {
+  match node {
+    when Node::Statement(stmt) {
+      type_check_stmt(stmt, context)
+    }
+    when Node::Declaration(decl) {
+      type_check_decl(decl, context)
+    }
+  }
 }
 
-fn is_list_equal {
-  val n = 1 + 4
-  if [1, 2, 3, n] == [1, 2, 3, n] {
-    return true
+fn type_check_program(program Program) {
+  val context = Context { 
+    symbol_table: map[string, Type]
+    error_list: []string
+    fn_name: ""
+    struct_name: ""
+  }
+
+  for node in program:node_list {
+    type_check_node(node, context)
   }
 }
 
 fn main {
-  val f_10 = fib(10)
-  val code = calculate_status_code(Status::Active)
-  val discount = get_discount_rate(1)
-  val final_score = evaluate_score(85)
+  val program = Program {
+    node_list: [
+      Node::Declaration(
+        Declaration::Variable(
+          "name", 
+          Expression::Constant(Constant::String("Shawn Lee"))
+        )
+      )
+      Node::Statement(
+        Statement::Return(
+          Expression::Binary(
+            BinaryOperator::Assign,
+            Expression::Var("name"),
+            Expression::Constant(Constant::Int(32))
+          )
+        )
+      )
+    ]
+  }
 
-  is_pi_static()
-
-  var matrix = matrix_multiplication(1, 2)
-
-  matrix = Status::Pending
-
-  val list_mixed = [1, 2, 3, false, 3.5]
+  type_check_program(program)
 }

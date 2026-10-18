@@ -9,6 +9,8 @@ from Entities import
   Pattern,
   Field,
   Property,
+  FunctionDeclaration,
+  StructDeclaration,
   Argument,
   Binding,
   Type,
@@ -938,6 +940,39 @@ fn resolve_union_pattern(pattern Pattern, variable_map map[string, Entity]) Resu
   return Result::Success(Pattern { name: pattern:name, field_list: resolved_field_list })
 }
 
+fn resolve_fn_decl(fn_decl FunctionDeclaration, variable_map map[string, Entity]) Result[Declaration, string] {
+  val name = fn_decl:name
+
+  if name not in variable_map {
+    panic("Undeclared function '$name' should have been caught by Declaration Hoisting Pass.")
+  }
+
+  val unique_name = variable_map[name]:unique_name
+  val inner_map = copy_variable_map(variable_map)
+  val resolved_param_list = []Parameter
+
+  for param in fn_decl:parameter_list {
+    resolved_param_list:push(
+      resolve_param(param, inner_map)?
+    )
+  }
+
+  val resolved_ret_type = resolve_type(fn_decl:return_type, inner_map)?
+  val resolved_block = resolve_block(fn_decl:block, inner_map, false)?
+
+  return Result::Success(
+    Declaration::FunctionDeclaration(
+      FunctionDeclaration {
+        name: unique_name
+        parameter_list: resolved_param_list
+        return_type: resolved_ret_type
+        block: resolved_block
+        is_public: fn_decl:is_public
+      }
+    )
+  )
+}
+
 fn resolve_union_decl(
   name string
   pattern_list []Pattern
@@ -959,29 +994,89 @@ fn resolve_union_decl(
   return Result::Success(Declaration::UnionDeclaration(unique_name, resolved_pattern_list, index_map))
 }
 
+fn resolve_struct_decl(struct_decl StructDeclaration, variable_map map[string, Entity]) Result[Declaration, string] {
+  val struct_name = struct_decl:name
+
+  if struct_name not in variable_map {
+    panic("Undeclared struct '$struct_name' should have been caught by Declaration Hoisting Pass.")
+  }
+
+  val unique_struct_name = variable_map[struct_name]:unique_name
+  val resolved_property_map = map[string, Property] {}
+  val local_variable_map = copy_variable_map(variable_map)
+  val resolved_generic_map = map[string, Type] {}
+
+  for generic, type in struct_decl:generic_map {
+    val unique_generic_name = mangle_name(generic)
+
+    resolved_generic_map[generic] = Type::Generic(unique_generic_name)
+    local_variable_map[generic] = Entity {
+      unique_name: unique_generic_name
+      is_from_current_block: true
+      kind: Kind::Generic
+    }
+  }
+
+  for prop_name, prop in struct_decl:property_map {
+    val resolved_prop_type = resolve_type(prop:type, local_variable_map)?
+    
+    # We declare the property in the local scope so that it is visible to the methods.
+    local_variable_map[prop_name] = Entity {
+      unique_name: "$unique_struct_name:$prop_name"
+      is_from_current_block: false
+      kind: Kind::Var
+    }
+    resolved_property_map[prop_name] = Property { name: prop_name, type: resolved_prop_type, is_public: prop:is_public }
+  }
+
+  for method_name, method in struct_decl:method_map {
+    val index_map = map[string, int] {}
+
+    for param_index, param in method:parameter_list {
+      index_map[param:name] = param_index
+    }
+
+    # We hoist all methods in the struct so that they are visible to each other.
+    local_variable_map[method_name] = Entity {
+      unique_name: "$unique_struct_name:$method_name"
+      is_from_current_block: false
+      kind: Kind::Function(method:parameter_list, index_map)
+    }
+  }
+
+  val resolved_method_map = map[string, FunctionDeclaration] {}
+
+  local_variable_map["self"] = Entity {
+    unique_name: "$unique_struct_name:self"
+    is_from_current_block: false
+    kind: Kind::Var
+  }
+
+  for method_name, method in struct_decl:method_map {
+    val resolved_method = resolve_fn_decl(method, local_variable_map)?
+
+    if resolved_method is Declaration::FunctionDeclaration(resolved_fn_decl) {
+      resolved_method_map[method_name] = resolved_fn_decl
+    }
+  }
+
+  return Result::Success(
+    Declaration::StructDeclaration(
+      StructDeclaration {
+        name: unique_struct_name
+        property_map: resolved_property_map
+        method_map: resolved_method_map
+        generic_map: resolved_generic_map
+        is_public: struct_decl:is_public
+      }
+    )
+  )
+}
+
 fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Declaration, string] {
   match decl {
-    when Declaration::FunctionDeclaration(name, param_list, ret_type, block) {
-      if name not in variable_map {
-        panic("Undeclared function '$name' should have been caught by Declaration Hoisting Pass.")
-      }
-
-      val unique_name = variable_map[name]:unique_name
-      val inner_map = copy_variable_map(variable_map)
-      val resolved_param_list = []Parameter
-
-      for param in param_list {
-        resolved_param_list:push(
-          resolve_param(param, inner_map)?
-        )
-      }
-
-      val resolved_ret_type = resolve_type(ret_type, inner_map)?
-      val resolved_block = resolve_block(block, inner_map, false)?
-
-      return Result::Success(
-        Declaration::FunctionDeclaration(unique_name, resolved_param_list, resolved_ret_type, resolved_block)
-      )
+    when Declaration::FunctionDeclaration(fn_decl) {
+      return resolve_fn_decl(fn_decl, variable_map)
     }
     when Declaration::ConstantDeclaration(name, expr, type) {
       return resolve_var_or_val_decl(name, expr, true, type, variable_map)
@@ -1001,32 +1096,8 @@ fn resolve_decl(decl Declaration, variable_map map[string, Entity]) Result[Decla
     when Declaration::UnionDeclaration(name, pattern_list, index_map) {
       return resolve_union_decl(name, pattern_list, index_map, variable_map)
     }
-    when Declaration::StructDeclaration(struct_name, property_map, generic_map) {
-      if struct_name not in variable_map {
-        panic("Undeclared struct '$struct_name' should have been caught by Declaration Hoisting Pass.")
-      }
-
-      val unique_name = variable_map[struct_name]:unique_name
-      val resolved_property_map = map[string, Property] {}
-      val local_variable_map = copy_variable_map(variable_map)
-      val resolved_generic_map = map[string, Type] {}
-
-      for generic, type in generic_map {
-        val unique_name = mangle_name(generic)
-        resolved_generic_map[generic] = Type::Generic(unique_name)
-        local_variable_map[generic] = Entity {
-          unique_name: unique_name,
-          is_from_current_block: true,
-          kind: Kind::Generic
-        }
-      }
-
-      for prop_name, prop in property_map {
-        val resolved_prop_type = resolve_type(prop:type, local_variable_map)?
-        resolved_property_map[prop_name] = Property { name: prop_name, type: resolved_prop_type, is_public: prop:is_public }
-      }
-
-      return Result::Success(Declaration::StructDeclaration(unique_name, resolved_property_map, resolved_generic_map))
+    when Declaration::StructDeclaration(struct_decl) {
+      return resolve_struct_decl(struct_decl, variable_map)
     }
     when Declaration::InterfaceDeclaration(interface_name, property_map) {
       if interface_name not in variable_map {
@@ -1050,7 +1121,10 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
   for block_item in block_item_list {
     if block_item is AST::Declaration(decl) {
       match decl {
-        when Declaration::FunctionDeclaration(fn_name, param_list, ret_type, node_list) {
+        when Declaration::FunctionDeclaration(fn_decl) {
+          val fn_name = fn_decl:name
+          val param_list = fn_decl:parameter_list
+
           if fn_name in variable_map and variable_map[fn_name]:is_from_current_block {
             return Result::Failure("Type Checker Error: Function '$fn_name' has been already declared in the current scope.")
           }
@@ -1089,7 +1163,9 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
             kind: Kind::Union(pattern_list, index_map)
           }
         }
-        when Declaration::StructDeclaration(struct_name, property_list, generic_map) {
+        when Declaration::StructDeclaration(struct_decl) {
+          val struct_name = struct_decl:name
+
           if struct_name in variable_map and variable_map[struct_name]:is_from_current_block {
             return Result::Failure("Type Checker Error: Struct '$struct_name' has been already declared in the current scope.")
           }
@@ -1097,7 +1173,7 @@ fn hoist_decl_map(block_item_list []AST, variable_map map[string, Entity], is_gl
           variable_map[struct_name] = Entity {
             unique_name: mangle_name(struct_name)
             is_from_current_block: true
-            kind: Kind::Struct(property_list)
+            kind: Kind::Struct(struct_decl:property_map)
           }
         }
         when Declaration::InterfaceDeclaration(interface_name, property_list) {
@@ -1163,10 +1239,14 @@ struct UnionContent {
   pattern_list []Pattern
   index_map map[string, int]
 }
+struct StructContent {
+  property_map map[string, Property]
+  method_map map[string, FunctionDeclaration]
+}
 
 val global_decl_map = map[string, Declaration] {}
 val global_union_map = map[string, UnionContent] {}
-val global_struct_map = map[string, map[string, Property]] {}
+val global_struct_map = map[string, StructContent] {}
 val global_interface_map = map[string, map[string, Property]] {}
 val global_fn_infer_stack = []string
 val global_const_invariant = map[string, Invariant] {}
@@ -1318,17 +1398,18 @@ fn type_check_struct_instance(
   val struct_type = symbol_table[struct_name]
   val covered_prop_names = []string
 
-  if struct_type is Type::Struct(struct_canonical_name) {
-    val canonical_prop_map = global_struct_map[struct_canonical_name]
-    val clean_struct_name = demangle_name(struct_canonical_name)
+  if struct_type is Type::Struct(struct_name) {
+    val struct_content = global_struct_map[struct_name]
+    val prop_map = struct_content:property_map
+    val clean_struct_name = demangle_name(struct_name)
 
     for candidate_name, candidate_expr in property_map {
-      if candidate_name not in canonical_prop_map {
+      if candidate_name not in prop_map {
         error_list:push("Struct property '$candidate_name' not found in struct '$clean_struct_name'.")
       } else {
         covered_prop_names:push(candidate_name)
 
-        val canonical_type = canonical_prop_map[candidate_name]:type
+        val canonical_type = prop_map[candidate_name]:type
         val candidate_type = type_check_expr(candidate_expr, symbol_table, error_list)
 
         if candidate_type == Type::Invalid {
@@ -1350,9 +1431,9 @@ fn type_check_struct_instance(
       }
     }
 
-    for canonical_name in canonical_prop_map {
+    for canonical_name in prop_map {
       if canonical_name not in covered_prop_names {
-        val canonical_type_name = Program::get_type_name(canonical_prop_map[canonical_name]:type)
+        val canonical_type_name = Program::get_type_name(prop_map[canonical_name]:type)
         error_list:push("Missing property '$canonical_name' in struct instance of '$clean_struct_name'. Expected '$canonical_type_name'.")
       }
     }
@@ -1550,17 +1631,23 @@ fn infer_implicit_return_type(
     panic("Undeclared function declaration '$clean_name' should have been caught by Identifier Resolution Pass.")
   }
 
-  val fn_decl = global_decl_map:remove(name)
+  val fn_decl = global_decl_map[name]
 
-  if fn_decl is Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+  if fn_decl is Declaration::FunctionDeclaration(fn_decl_data) {
+    val param_list = fn_decl_data:parameter_list
+
     if param_list:any(it:type is Type::Implicit) {
       val resolved_param_list = type_check_fn_param_list(name, param_list, symbol_table, error_list)
+
+      for param in resolved_param_list {
+        symbol_table[param:name] = param:type
+      }
 
       symbol_table[name] = Type::Function(resolved_param_list, Type::Implicit)
     }
 
     global_fn_infer_stack:push(name)
-    type_check_block(node_list, symbol_table, error_list, Option::Some(name))
+    type_check_block(fn_decl_data:block, symbol_table, error_list, Option::Some(name))
     global_fn_infer_stack:pop()
 
     if name not in symbol_table {
@@ -1603,27 +1690,28 @@ fn type_check_interface_compatibility(
   match can_type {
     when Type::Struct(can_struct_name) {
       val inter_property_map = global_interface_map[exp_inter_name]
-      val struct_property_map = global_struct_map[can_struct_name]
+      val struct_content = global_struct_map[can_struct_name]
+      val struct_prop_map = struct_content:property_map
       val clean_inter_name = demangle_name(exp_inter_name)
       val clean_struct_name = demangle_name(can_struct_name)
       var is_compatible = true
 
       for prop_name, prop in inter_property_map {
-        if prop_name not in struct_property_map {
+        if prop_name not in struct_prop_map {
           val prop_type_name = Program::get_type_name(prop:type)
 
           error_list:push("Type mismatch $content_message. Struct '$clean_struct_name' does not implement interface '$clean_inter_name'. Missing property '$prop_name' of type '$prop_type_name'.")
           is_compatible = false
         } else {
           val property_type_name = Program::get_type_name(prop:type)
-          val struct_property_type_name = Program::get_type_name(struct_property_map[prop_name]:type)
+          val struct_property_type_name = Program::get_type_name(struct_prop_map[prop_name]:type)
 
-          if struct_property_map[prop_name]:type != prop:type {
+          if struct_prop_map[prop_name]:type != prop:type {
             error_list:push("Type mismatch $content_message. Struct '$clean_struct_name' does not implement interface '$clean_inter_name'. Property '$prop_name' should be type '$property_type_name' but got '$struct_property_type_name'.")
             is_compatible = false
           }
 
-          if not struct_property_map[prop_name]:is_public {
+          if not struct_prop_map[prop_name]:is_public {
             error_list:push("Type mismatch $content_message. Struct '$clean_struct_name' does not implement interface '$clean_inter_name'. Property '$prop_name' should be public.")
             is_compatible = false
           }
@@ -1837,9 +1925,19 @@ fn type_check_call_signature(
 
   if fn_type is Type::Function(param_list, ret_type) {
     var resolved_ret_type = ret_type
+    var resolved_param_list = param_list
 
     if ret_type == Type::Implicit {
-      resolved_ret_type = infer_implicit_return_type(fn_name, symbol_table, error_list)
+      infer_implicit_return_type(fn_name, symbol_table, error_list)
+
+      val resolved_fn_decl = symbol_table[fn_name]
+
+      if resolved_fn_decl is Type::Function(resolved_param_list, resolved_ret_type) {
+        resolved_ret_type = resolved_ret_type
+        resolved_param_list = resolved_param_list
+      } else {
+        panic("Function '$clean_fn_name' is not a function.")
+      }
     }
 
     for arg in arg_list {
@@ -1848,8 +1946,8 @@ fn type_check_call_signature(
       }
     }
 
-    if param_list:len != arg_list:len {
-      error_list:push("Incorrect number of arguments passed to function '$clean_fn_name'. Expected '$(param_list:len)' but got '$(arg_list:len)'.")
+    if resolved_param_list:len != arg_list:len {
+      error_list:push("Incorrect number of arguments passed to function '$clean_fn_name'. Expected '$(resolved_param_list:len)' but got '$(arg_list:len)'.")
     }
 
     val arg_list_type = []Type
@@ -1858,18 +1956,18 @@ fn type_check_call_signature(
       match arg {
         when Argument::Expression(inner_expr) {
           arg_list_type:push(
-            type_check_call_arg_expr(inner_expr, param_list, arg_index, symbol_table, error_list)
+            type_check_call_arg_expr(inner_expr, resolved_param_list, arg_index, symbol_table, error_list)
           )
         }
         when Argument::Label(label_name, inner_expr) {
           arg_list_type:push(
-            type_check_call_arg_expr(inner_expr, param_list, arg_index, symbol_table, error_list)
+            type_check_call_arg_expr(inner_expr, resolved_param_list, arg_index, symbol_table, error_list)
           )
         }
       }
     }
 
-    for index, param in param_list {
+    for index, param in resolved_param_list {
       val clean_param_name = demangle_name(param:name)
 
       if index >= arg_list:len {
@@ -2107,14 +2205,15 @@ fn type_check_var_member_access_expr(
   match left_type {
     when Type::Struct(struct_name) {
       val clean_struct_name = demangle_name(struct_name)
-      val property_map = global_struct_map[struct_name]
+      val struct_content = global_struct_map[struct_name]
+      val prop_map = struct_content:property_map
 
-      if member_name not in property_map {
+      if member_name not in prop_map {
         error_list:push("Property '$member_name' does not exist in struct '$clean_struct_name'.")
         return Type::Invalid
       }
 
-      val property = property_map[member_name]
+      val property = prop_map[member_name]
 
       if not property:is_public {
         error_list:push("Property '$member_name' of struct '$clean_struct_name' is private and cannot be accessed.")
@@ -2227,14 +2326,22 @@ fn type_check_instance_method_call_expr(
   match left_type {
     when Type::Struct(struct_name) {
       val clean_struct_name = demangle_name(struct_name)
-      val property_map = global_struct_map[struct_name]
+      val struct_content = global_struct_map[struct_name]
+      val prop_map = struct_content:property_map
+      val method_map = struct_content:method_map
 
-      if method_name not in property_map {
+      if method_name in method_map {
+        val method = method_map[method_name]
+        val method_signature = Type::Function(method:parameter_list, method:return_type)
+        return type_check_call_signature(method_signature, method:name, arg_list, symbol_table, error_list)
+      }
+
+      if method_name not in prop_map {
         error_list:push("Instance method '$method_name' does not exist in struct '$clean_struct_name'.")
         return Type::Invalid
       }
 
-      val property = property_map[method_name]
+      val property = prop_map[method_name]
 
       if not property:is_public {
         error_list:push("Instance method '$method_name' of struct '$clean_struct_name' is private and cannot be accessed.")
@@ -3227,7 +3334,7 @@ fn type_check_fn_param_list(
   param_list []Parameter
   symbol_table map[string, Type]
   error_list []string
-) {
+) []Parameter {
   val resolved_param_list = []Parameter
 
   for parameter in param_list {
@@ -3299,7 +3406,9 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
         error_list:push("Invalid assignment of type 'void' to variable '$clean_name'. Tip: Can't assign 'void' to a variable.")
       }
     }
-    when Declaration::FunctionDeclaration(name, param_list, ret_type, node_list) {
+    when Declaration::FunctionDeclaration(fn_decl) {
+      val name = fn_decl:name
+      val param_list = fn_decl:parameter_list
       var resolved_param_list = param_list
 
       if param_list:any(it:type is Type::Implicit) {
@@ -3309,13 +3418,13 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
           symbol_table[resolved_param:name] = resolved_param:type
         }
 
-        symbol_table[name] = Type::Function(resolved_param_list, ret_type)
+        symbol_table[name] = Type::Function(resolved_param_list, fn_decl:return_type)
       }
 
-      val has_ret_guaranteed = type_check_block(node_list, symbol_table, error_list, Option::Some(name))
+      val has_ret_guaranteed = type_check_block(fn_decl:block, symbol_table, error_list, Option::Some(name))
       var resolved_ret_type = get_fn_ret_type(name, symbol_table)
 
-      if node_list:len == 0 or resolved_ret_type is Type::Implicit {
+      if fn_decl:block:len == 0 or resolved_ret_type is Type::Implicit {
         resolved_ret_type = Type::Void
       }
 
@@ -3326,6 +3435,23 @@ fn type_check_decl(decl Declaration, symbol_table map[string, Type], error_list 
         val ret_type_name = Program::get_type_name(resolved_ret_type)
 
         error_list:push("Expected function '$clean_name' to always return '$ret_type_name' but it doesn't guarantee it. Tip: Make sure all execution paths return a value of type '$ret_type_name'.")
+      }
+    }
+    when Declaration::StructDeclaration(struct_decl) {
+      if struct_decl:method_map:len > 0 {
+        # We declare self inside the struct scope so it is accessible by all methods.
+        symbol_table["$(struct_decl:name):self"] = Type::Struct(struct_decl:name)
+
+        for method_name, method in struct_decl:method_map {
+          if method:name not in global_decl_map {
+            panic("Unexpected $(struct_decl:name):$(method:name) not found in global declaration map. Should have been hoisted during hoist_type_decl_map().")
+          }
+
+          type_check_decl(global_decl_map[method:name], symbol_table, error_list, Option::None)
+        }
+
+        # Remove self from symbol table after checking all methods.
+        symbol_table:remove("$(struct_decl:name):self")
       }
     }
     else {}
@@ -3344,9 +3470,48 @@ fn type_check_block_item(block_item AST, symbol_table map[string, Type], error_l
   }
 }
 
+fn hoist_fn_decl(decl Declaration, fn_decl FunctionDeclaration, symbol_table map[string, Type]) {
+  val fn_name = fn_decl:name
+
+  if fn_name in symbol_table {
+    panic("Duplicate function '$fn_name' should have been caught by Identifier Resolution Pass.")
+  }
+
+  for param in fn_decl:parameter_list {
+    if param:type is Type::Pending(unresolved_type_name) {
+      panic("Undeclared type '$unresolved_type_name' should have been caught by Identifier Resolution Pass.")
+    }
+
+    symbol_table[param:name] = param:type
+  }
+
+  symbol_table[fn_name] = Type::Function(fn_decl:parameter_list, fn_decl:return_type)
+  global_decl_map[fn_name] = decl
+}
+
+fn hoist_struct_decl(struct_decl StructDeclaration, symbol_table map[string, Type]) {
+  if struct_decl:name in symbol_table {
+    panic("Duplicate struct '$struct_decl:name' should have been caught by Identifier Resolution Pass.")
+  }
+
+  symbol_table[struct_decl:name] = Type::Struct(struct_decl:name)
+  global_struct_map[struct_decl:name] = StructContent {
+    property_map: struct_decl:property_map
+    method_map: struct_decl:method_map
+  }
+
+  for method_name, method_decl in struct_decl:method_map {
+    hoist_fn_decl(Declaration::FunctionDeclaration(method_decl), method_decl, symbol_table)
+  }
+
+  for prop_name, prop_decl in struct_decl:property_map {
+    symbol_table["$(struct_decl:name):$prop_name"] = prop_decl:type
+  }
+}
+
 fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, Type] {
   for block_item in block {
-    if block_item is  AST::Declaration(decl) {
+    if block_item is AST::Declaration(decl) {
       match decl {
         when Declaration::EnumDeclaration(enum_name, constant_list) {
           if enum_name in symbol_table {
@@ -3355,21 +3520,8 @@ fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, 
 
           symbol_table[enum_name] = Type::Enum(enum_name, constant_list)
         }
-        when Declaration::FunctionDeclaration(fn_name, param_list, ret_type, node_list) {
-          if fn_name in symbol_table {
-            panic("Duplicate function '$fn_name' should have been caught by Identifier Resolution Pass.")
-          }
-
-          for param in param_list {
-            if param:type is Type::Pending(unresolved_type_name) {
-              panic("Undeclared type '$unresolved_type_name' should have been caught by Identifier Resolution Pass.")
-            }
-
-            symbol_table[param:name] = param:type
-          }
-
-          symbol_table[fn_name] = Type::Function(param_list, ret_type)
-          global_decl_map[fn_name] = decl
+        when Declaration::FunctionDeclaration(fn_decl) {
+          hoist_fn_decl(decl, fn_decl, symbol_table)
         }
         when Declaration::UnionDeclaration(union_name, pattern_list, index_map) {
           if union_name in symbol_table {
@@ -3379,13 +3531,8 @@ fn hoist_type_decl_map(block []AST, symbol_table map[string, Type]) map[string, 
           symbol_table[union_name] = Type::Union(union_name)
           global_union_map[union_name] = UnionContent { pattern_list: pattern_list, index_map: index_map }
         }
-        when Declaration::StructDeclaration(struct_name, property_map, generic_map) {
-          if struct_name in symbol_table {
-            panic("Duplicate struct '$struct_name' should have been caught by Identifier Resolution Pass.")
-          }
-
-          symbol_table[struct_name] = Type::Struct(struct_name)
-          global_struct_map[struct_name] = property_map
+        when Declaration::StructDeclaration(struct_decl) {
+          hoist_struct_decl(struct_decl, symbol_table)
         }
         when Declaration::InterfaceDeclaration(interface_name, property_map) {
           if interface_name in symbol_table {

@@ -41,10 +41,7 @@ fn get_implicit_it_fn(ret_type Type) {
 
 pub val built_in_instance_method_map = map[string, map[string, Type]] {
   get_type_identifier(Type::Primitive(Primitive::String)): map[string, Type] {
-    "length": Type::Function(
-      []Parameter,
-      Type::Primitive(Primitive::Int)
-    )
+    "length": Type::Primitive(Primitive::Int)
     "lower": Type::Function(
       []Parameter,
       Type::Primitive(Primitive::String)

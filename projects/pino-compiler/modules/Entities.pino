@@ -228,13 +228,29 @@ pub struct Property {
   is_public bool
 }
 
+pub struct FunctionDeclaration {
+  name string
+  parameter_list []Parameter
+  return_type Type
+  block []AST
+  is_public bool
+}
+
+pub struct StructDeclaration {
+  name string
+  property_map map[string, Property]
+  method_map map[string, FunctionDeclaration]
+  generic_map map[string, Type]
+  is_public bool
+}
+
 pub union Declaration {
-  FunctionDeclaration(string, []Parameter, Type, []AST)
+  FunctionDeclaration(FunctionDeclaration)
   ConstantDeclaration(string, Expression, Type)
   VariableDeclaration(string, Expression, Type)
   EnumDeclaration(string, []string)
   UnionDeclaration(string, []Pattern, map[string, int])
-  StructDeclaration(string, map[string, Property], map[string, Type])
+  StructDeclaration(StructDeclaration)
   InterfaceDeclaration(string, map[string, Property])
 }
 
@@ -270,12 +286,12 @@ pub struct Program {
 
   static fn print_decl(decl Declaration) {
     match decl {
-      when Declaration::FunctionDeclaration(name, param_list, ret_type, block) {
-        println("Function: $name")
+      when Declaration::FunctionDeclaration(fn_decl) {
+        println("Function: $(fn_decl:name)")
 
-        if param_list:len > 0 {
+        if fn_decl:parameter_list:len > 0 {
           println("Parameters: ")
-          for param in param_list {
+          for param in fn_decl:parameter_list {
             println("Name: $(param:name)")
             println("Type: $(Program::get_type_name(param:type))")
             if param:default_expr is Option::Some(default_expr) {
@@ -285,8 +301,8 @@ pub struct Program {
           }
         }
 
-        println("Return Type: $(Program::get_type_name(ret_type))")
-        Program::print_block(block)
+        println("Return Type: $(Program::get_type_name(fn_decl:return_type))")
+        Program::print_block(fn_decl:block)
       }
       when Declaration::VariableDeclaration(name, expr, type) {
         println("Variable: $name")
@@ -320,22 +336,26 @@ pub struct Program {
           println("$name => $index")
         }
       }
-      when Declaration::StructDeclaration(name, property_map, generic_map) {
-        if generic_map:len > 0 {
-          println("Struct: $name")
-          for name, type in generic_map {
+      when Declaration::StructDeclaration(struct_decl) {
+        if struct_decl:generic_map:len > 0 {
+          println("Struct: $(struct_decl:name)")
+          for name, type in struct_decl:generic_map {
             println("Generic: $name")
           }
         } else {
-          println("Struct: $name")
+          println("Struct: $(struct_decl:name)")
         }
 
-        for name, property in property_map {
+        for name, property in struct_decl:property_map {
           if property:is_public {
             println("  pub $name: $(Program::get_type_name(property:type))")
           } else {
             println("  $name: $(Program::get_type_name(property:type))")
           }
+        }
+
+        for name, method in struct_decl:method_map {
+          println("  Method: $name")
         }
       }
       when Declaration::InterfaceDeclaration(name, property_map) {
