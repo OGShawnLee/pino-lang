@@ -1115,6 +1115,10 @@ public partial class Checker {
         // Branch type checking and inference
         var branchTypes = new List<string>();
         foreach (var branch in match.Branches) {
+          PushScope();
+          foreach (var cond in branch.Conditions) {
+            CheckPattern(cond, condType);
+          }
           string bType = "any";
           if (branch.Body is BlockStatement block) {
             var yields = FindYieldStatements(block);
@@ -1128,6 +1132,7 @@ public partial class Checker {
           } else {
             bType = "any";
           }
+          PopScope();
           branchTypes.Add(bType);
         }
 

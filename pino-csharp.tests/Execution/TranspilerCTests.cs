@@ -251,6 +251,203 @@ public class TranspilerCTests {
     Assert.Contains("symbols->items[(int64_t)(sym_idx)]", cCode);
     Assert.Contains("(text).data[(int64_t)(i)]", cCode);
   }
+
+  [Fact]
+  public void TestNativeSwitchEnumMatch() {
+    var source = @"
+      enum Status {
+        Pending,
+        Approved,
+        Rejected
+      }
+      fn evaluate(s Status) int {
+        return match s {
+          when Status::Pending => 1
+          when Status::Approved => 2
+          when Status::Rejected => 3
+          else => 0
+        }
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.Contains("switch (", cCode);
+    Assert.Contains("case Status_Pending:", cCode);
+    Assert.Contains("case Status_Approved:", cCode);
+    Assert.Contains("case Status_Rejected:", cCode);
+    Assert.Contains("default:", cCode);
+  }
+
+  [Fact]
+  public void TestNativeSwitchUnionMatch() {
+    var source = @"
+      union Message {
+        Quit,
+        ChangeColor(int, int, int),
+        Move(int, int)
+      }
+      fn handle(msg Message) int {
+        match msg {
+          when Message::Quit {
+            return 0
+          }
+          when Message::Move(x, y) {
+            return x + y
+          }
+          when Message::ChangeColor(r, g, b) {
+            return r + g + b
+          }
+        }
+        return -1
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.Contains("switch (", cCode);
+    Assert.Contains("->tag)", cCode);
+    Assert.Contains("case MessageTag_Quit:", cCode);
+    Assert.Contains("case MessageTag_Move:", cCode);
+    Assert.Contains("case MessageTag_ChangeColor:", cCode);
+    Assert.Contains("->value.Move._0", cCode);
+    Assert.Contains("->value.ChangeColor._2", cCode);
+  }
+
+  [Fact]
+  public void TestNativeSwitchMultiConditionFallthrough() {
+    var source = @"
+      enum Direction {
+        North,
+        South,
+        East,
+        West
+      }
+      fn is_vertical(d Direction) bool {
+        match d {
+          when Direction::North, Direction::South {
+            return true
+          }
+          when Direction::East, Direction::West {
+            return false
+          }
+        }
+        return false
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.Contains("case Direction_North:\n", cCode.Replace("\r\n", "\n"));
+    Assert.Contains("case Direction_South:\n", cCode.Replace("\r\n", "\n"));
+  }
+
+  [Fact]
+  public void TestNativeSwitchFallbackOnString() {
+    var source = @"
+      fn test_str(s string) int {
+        match s {
+          when ""apple"" {
+            return 1
+          }
+          when ""banana"" {
+            return 2
+          }
+          else {
+            return 0
+          }
+        }
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.DoesNotContain("switch (", cCode);
+    Assert.Contains("pino_string_equal(", cCode);
+  }
+
+  [Fact]
+  public void TestNativeSwitchFallbackOnLoopBreak() {
+    var source = @"
+      enum Token {
+        Word,
+        EOF
+      }
+      fn parse_tokens(tokens []Token) int {
+        var count = 0
+        for t in tokens {
+          match t {
+            when Token::EOF {
+              break
+            }
+            when Token::Word {
+              count = count + 1
+            }
+          }
+        }
+        return count
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.DoesNotContain("switch (_pino_match_cond", cCode);
+    Assert.Contains("== Token_EOF", cCode);
+    Assert.Contains("break;", cCode);
+  }
+
+  [Fact]
+  public void TestNativeSwitchIntAndRune() {
+    var source = @"
+      fn test_int(n int) int {
+        return match n {
+          when 1 => 10
+          when 2, 3 => 20
+          else => 0
+        }
+      }
+      fn test_rune(r rune) int {
+        match r {
+          when '(' { return 1 }
+          when ')' { return 2 }
+          else { return 0 }
+        }
+      }
+    ";
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.Contains("case 1:", cCode);
+    Assert.Contains("case 2:", cCode);
+    Assert.Contains("case 3:", cCode);
+    Assert.Contains("case 40:", cCode);
+    Assert.Contains("case 41:", cCode);
+  }
 }
+
 
 

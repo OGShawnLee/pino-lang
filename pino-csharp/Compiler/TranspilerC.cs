@@ -2784,12 +2784,23 @@ public class TranspilerC {
 
             case MatchStatement match:
                 {
+                    if (CanTranspileToNativeSwitch(match, out var plan) && plan != null) {
+                        TranspileNativeSwitchExpression(match, plan);
+                        break;
+                    }
+
                     Write("({ ");
                     var exitLabel = $"_pino_match_exit_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
                     _matchExitLabels.Push(exitLabel);
 
                     var condVar = $"_pino_match_cond_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
                     var condType = match.Condition.InferredType!;
+                    if ((string.IsNullOrEmpty(condType) || condType == "any") &&
+                        match.Condition is IdentifierExpression condId &&
+                        _varTypes.TryGetValue(condId.Name, out var vType) &&
+                        !string.IsNullOrEmpty(vType) && vType != "any") {
+                        condType = vType;
+                    }
                     Write($"{MapType(condType)} {condVar} = ");
                     TranspileExpression(match.Condition);
                     Write("; ");
@@ -3155,13 +3166,536 @@ public class TranspilerC {
         }
     }
 
-    private void TranspileMatchStatement(MatchStatement match) {
+    private enum SwitchKind {
+        Enum,
+        Union,
+        Int,
+        Rune
+    }
+
+    private class SwitchBinding {
+        public string VarName { get; set; } = "";
+        public string VarType { get; set; } = "";
+        public string? AccessPath { get; set; }
+    }
+
+    private class SwitchBranchPlan {
+        public List<string> CaseLabels { get; } = new();
+        public List<SwitchBinding> Bindings { get; } = new();
+        public Statement Body { get; set; } = null!;
+        public bool IsDefault { get; set; }
+    }
+
+    private class SwitchPlan {
+        public SwitchKind Kind { get; set; }
+        public List<SwitchBranchPlan> Branches { get; } = new();
+        public SwitchBranchPlan? DefaultBranch { get; set; }
+        public bool HasDefault => DefaultBranch != null;
+    }
+
+    private bool ContainsUnenclosedLoopControl(Statement? stmt) {
+        if (stmt == null) return false;
+        switch (stmt) {
+            case LoopStatement:
+                // Any break/continue inside an inner loop binds to that inner loop!
+                return false;
+
+            case BlockStatement block:
+                return block.Statements != null && block.Statements.Any(ContainsUnenclosedLoopControl);
+
+            case ReturnStatement ret:
+                return ret.Argument != null && ContainsUnenclosedLoopControl(ret.Argument);
+
+            case YieldStatement yield:
+                return yield.Value != null && ContainsUnenclosedLoopControl(yield.Value);
+
+            case AssertStatement assert:
+                return assert.Expression != null && ContainsUnenclosedLoopControl(assert.Expression);
+
+            case IfStatement ifStmt:
+                return ContainsUnenclosedLoopControl(ifStmt.Condition) ||
+                       ContainsUnenclosedLoopControl(ifStmt.Consequent) ||
+                       (ifStmt.Alternate != null && ContainsUnenclosedLoopControl(ifStmt.Alternate));
+
+            case ElseStatement elseStmt:
+                return ContainsUnenclosedLoopControl(elseStmt.Body);
+
+            case WhenStatement whenStmt:
+                return ContainsUnenclosedLoopControl(whenStmt.Body);
+
+            case MatchStatement match:
+                if (ContainsUnenclosedLoopControl(match.Condition)) return true;
+                if (match.Branches != null && match.Branches.Any(ContainsUnenclosedLoopControl)) return true;
+                if (match.Alternate != null && ContainsUnenclosedLoopControl(match.Alternate)) return true;
+                return false;
+
+            case VariableDeclaration v:
+                return v.Value != null && ContainsUnenclosedLoopControl(v.Value);
+
+            case TupleDestructuringDeclaration t:
+                return t.Value != null && ContainsUnenclosedLoopControl(t.Value);
+
+            case IdentifierExpression id:
+                return id.Name == "break" || id.Name == "continue";
+
+            case BinaryExpression bin:
+                return ContainsUnenclosedLoopControl(bin.Left) || ContainsUnenclosedLoopControl(bin.Right);
+
+            case UnaryExpression un:
+                return ContainsUnenclosedLoopControl(un.Right);
+
+            case BubbleExpression b:
+                return ContainsUnenclosedLoopControl(b.Value);
+
+            case IsExpression isExpr:
+                return ContainsUnenclosedLoopControl(isExpr.Value);
+
+            case RecoveryExpression rec:
+                return ContainsUnenclosedLoopControl(rec.Value) || ContainsUnenclosedLoopControl(rec.Body);
+
+            case TernaryExpression tern:
+                return ContainsUnenclosedLoopControl(tern.Condition) ||
+                       ContainsUnenclosedLoopControl(tern.Consequent) ||
+                       ContainsUnenclosedLoopControl(tern.Alternate);
+
+            case VectorExpression vec:
+                if (vec.Elements != null && vec.Elements.Any(ContainsUnenclosedLoopControl)) return true;
+                if (vec.Len != null && ContainsUnenclosedLoopControl(vec.Len)) return true;
+                if (vec.Init != null && ContainsUnenclosedLoopControl(vec.Init)) return true;
+                if (vec.Cap != null && ContainsUnenclosedLoopControl(vec.Cap)) return true;
+                return false;
+
+            case StructInstanceExpression inst:
+                return inst.Properties != null && inst.Properties.Any(p => p.Value != null && ContainsUnenclosedLoopControl(p.Value));
+
+            case FunctionCallExpression call:
+                return call.Arguments != null && call.Arguments.Any(ContainsUnenclosedLoopControl);
+
+            case FunctionLambdaExpression:
+                return false;
+
+            case IndexAccessExpression idx:
+                return ContainsUnenclosedLoopControl(idx.Target) || ContainsUnenclosedLoopControl(idx.Index);
+
+            case MapExpression map:
+                return map.Entries != null && map.Entries.Any(kvp => ContainsUnenclosedLoopControl(kvp.Key) || ContainsUnenclosedLoopControl(kvp.Value));
+
+            case TupleLiteralExpression tup:
+                return tup.Fields != null && tup.Fields.Any(f => ContainsUnenclosedLoopControl(f.Value));
+
+            default:
+                return false;
+        }
+    }
+
+    private string GetUnionVariantAssociatedType(UnionDeclaration unionDecl, string condType, UnionVariant variant, int typeIndex) {
+        var rawType = variant.AssociatedTypes[typeIndex];
+        if (unionDecl.GenericParams == null || unionDecl.GenericParams.Count == 0) return rawType;
+
+        if (condType.Contains("[") && condType.EndsWith("]")) {
+            int bracketIdx = condType.IndexOf('[');
+            var argsStr = condType.Substring(bracketIdx + 1, condType.Length - bracketIdx - 2);
+            var rawArgs = ParseGenericArgs(argsStr);
+            for (int i = 0; i < unionDecl.GenericParams.Count && i < rawArgs.Count; i++) {
+                if (unionDecl.GenericParams[i].Name == rawType) {
+                    return rawArgs[i].Trim();
+                }
+            }
+        }
+        return rawType;
+    }
+
+    private bool CanTranspileToNativeSwitch(MatchStatement match, out SwitchPlan? plan) {
+        plan = null;
+        if (match.Branches == null || match.Branches.Count == 0) return false;
+        if (ContainsUnenclosedLoopControl(match)) return false;
+
+        string condType = match.Condition.InferredType ?? "";
+        if ((string.IsNullOrEmpty(condType) || condType == "any") &&
+            match.Condition is IdentifierExpression condId &&
+            _varTypes.TryGetValue(condId.Name, out var vType) &&
+            !string.IsNullOrEmpty(vType) && vType != "any") {
+            condType = vType;
+        }
+
+        if (string.IsNullOrEmpty(condType) || condType == "any" || condType == "void") return false;
+
+        string cleanCondType = CleanTypeName(condType);
+        string resolvedCondType = ResolveTypeName(condType);
+
+        string baseName = condType;
+        if (condType.Contains("[") && condType.EndsWith("]")) {
+            baseName = condType.Substring(0, condType.IndexOf('['));
+        }
+        string cleanBase = CleanTypeName(baseName);
+        string resolvedBase = ResolveTypeName(baseName);
+
+        var enumDecl = FindEnum(cleanCondType) ?? FindEnum(resolvedCondType) ?? FindEnum(condType) ?? FindEnum(cleanBase) ?? FindEnum(resolvedBase);
+        var unionDecl = enumDecl == null ? (FindUnion(cleanCondType) ?? FindUnion(resolvedCondType) ?? FindUnion(condType) ?? FindUnion(cleanBase) ?? FindUnion(resolvedBase)) : null;
+
+        SwitchKind kind;
+        if (enumDecl != null) {
+            kind = SwitchKind.Enum;
+        } else if (unionDecl != null) {
+            kind = SwitchKind.Union;
+        } else if (condType == "int") {
+            kind = SwitchKind.Int;
+        } else if (condType == "rune") {
+            kind = SwitchKind.Rune;
+        } else {
+            return false;
+        }
+
+        var resultPlan = new SwitchPlan { Kind = kind };
+        var seenCases = new HashSet<string>();
+
+        for (int bIdx = 0; bIdx < match.Branches.Count; bIdx++) {
+            var branch = match.Branches[bIdx];
+            if (branch.Conditions == null || branch.Conditions.Count == 0) return false;
+
+            var branchPlan = new SwitchBranchPlan { Body = branch.Body };
+
+            if (branch.Conditions.Count > 1 && kind == SwitchKind.Union) {
+                foreach (var condPat in branch.Conditions) {
+                    if (condPat is VariantPattern vp && vp.SubPatterns.Count > 0 &&
+                        vp.SubPatterns.Any(p => !(p is IdentifierPattern id && id.Name == "_"))) {
+                        return false;
+                    }
+                }
+            }
+
+            foreach (var condPat in branch.Conditions) {
+                if (condPat is IdentifierPattern idPat) {
+                    if (branch.Conditions.Count > 1) return false;
+                    if (resultPlan.HasDefault || match.Alternate != null) return false;
+                    if (bIdx != match.Branches.Count - 1) return false;
+
+                    branchPlan.IsDefault = true;
+                    if (idPat.Name != "_") {
+                        branchPlan.Bindings.Add(new SwitchBinding {
+                            VarName = idPat.Name,
+                            VarType = condType,
+                            AccessPath = null
+                        });
+                    }
+                    resultPlan.DefaultBranch = branchPlan;
+                } else if (kind == SwitchKind.Enum) {
+                    if (condPat is not VariantPattern varPat || varPat.SubPatterns.Count > 0) return false;
+                    var unionName = ResolveTypeName(varPat.UnionName);
+                    var caseLabel = $"{unionName}_{varPat.VariantName}";
+                    if (!seenCases.Add(caseLabel)) return false;
+                    branchPlan.CaseLabels.Add(caseLabel);
+                } else if (kind == SwitchKind.Union) {
+                    if (condPat is not VariantPattern varPat) return false;
+                    var unionName = ResolveTypeName(varPat.UnionName);
+                    string tagPrefix = unionName;
+                    if (unionDecl!.GenericParams != null && unionDecl.GenericParams.Count > 0 && !unionName.Contains("_")) {
+                        tagPrefix = cleanCondType;
+                    }
+                    var caseLabel = $"{tagPrefix}Tag_{varPat.VariantName}";
+                    if (!seenCases.Add(caseLabel)) return false;
+                    branchPlan.CaseLabels.Add(caseLabel);
+
+                    var variant = unionDecl.Variants.Find(v => v.Identifier == varPat.VariantName);
+                    if (variant != null && varPat.SubPatterns.Count > 0) {
+                        for (int i = 0; i < varPat.SubPatterns.Count; i++) {
+                            var subPat = varPat.SubPatterns[i];
+                            if (subPat is IdentifierPattern subId) {
+                                if (subId.Name != "_") {
+                                    var subType = GetUnionVariantAssociatedType(unionDecl, condType, variant, i);
+                                    branchPlan.Bindings.Add(new SwitchBinding {
+                                        VarName = subId.Name,
+                                        VarType = subType,
+                                        AccessPath = $"{varPat.VariantName}._{i}"
+                                    });
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
+                    }
+                } else if (kind == SwitchKind.Int) {
+                    if (condPat is LiteralPattern litPat) {
+                        if (litPat.Value is LiteralExpression lit && lit.LiteralType == LiteralType.Integer) {
+                            var valStr = lit.Value.Replace("_", "");
+                            if (!seenCases.Add(valStr)) return false;
+                            branchPlan.CaseLabels.Add(valStr);
+                        } else if (litPat.Value is UnaryExpression un && un.Operator == OperatorType.Subtraction &&
+                                   un.Right is LiteralExpression unLit && unLit.LiteralType == LiteralType.Integer) {
+                            var valStr = "-" + unLit.Value.Replace("_", "");
+                            if (!seenCases.Add(valStr)) return false;
+                            branchPlan.CaseLabels.Add(valStr);
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                } else if (kind == SwitchKind.Rune) {
+                    if (condPat is LiteralPattern litPat && litPat.Value is LiteralExpression lit && lit.LiteralType == LiteralType.Rune) {
+                        var valStr = lit.Value;
+                        if (!seenCases.Add(valStr)) return false;
+                        branchPlan.CaseLabels.Add(valStr);
+                    } else {
+                        return false;
+                    }
+                }
+            }
+
+            resultPlan.Branches.Add(branchPlan);
+        }
+
+        if (seenCases.Count == 0 && !resultPlan.HasDefault) return false;
+
+        plan = resultPlan;
+        return true;
+    }
+
+    private void TranspileNativeSwitchStatement(MatchStatement match, SwitchPlan plan) {
         WriteIndent();
         WriteLine("{");
         _indent++;
 
         var condVar = $"_pino_match_cond_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
         var condType = match.Condition.InferredType!;
+        if ((string.IsNullOrEmpty(condType) || condType == "any") &&
+            match.Condition is IdentifierExpression condId &&
+            _varTypes.TryGetValue(condId.Name, out var vType) &&
+            !string.IsNullOrEmpty(vType) && vType != "any") {
+            condType = vType;
+        }
+        WriteIndent();
+        Write($"{MapType(condType)} {condVar} = ");
+        TranspileExpression(match.Condition);
+        _sb.AppendLine(";");
+
+        string switchTarget = plan.Kind == SwitchKind.Union
+            ? $"{condVar}->tag"
+            : (plan.Kind == SwitchKind.Rune ? $"((uint32_t){condVar})" : condVar);
+
+        WriteIndent();
+        WriteLine($"switch ({switchTarget}) {{");
+        _indent++;
+
+        foreach (var branch in plan.Branches) {
+            if (branch.IsDefault) {
+                WriteIndent();
+                WriteLine("default:");
+            } else {
+                foreach (var label in branch.CaseLabels) {
+                    WriteIndent();
+                    WriteLine($"case {label}:");
+                }
+            }
+            WriteIndent();
+            WriteLine("{");
+            _indent++;
+
+            var oldTypes = new Dictionary<string, string?>();
+            foreach (var b in branch.Bindings) {
+                if (_varTypes.TryGetValue(b.VarName, out var oldT)) {
+                    oldTypes[b.VarName] = oldT;
+                } else {
+                    oldTypes[b.VarName] = null;
+                }
+                _varTypes[b.VarName] = b.VarType;
+
+                string src = b.AccessPath == null ? condVar : $"{condVar}->value.{b.AccessPath}";
+                WriteIndent();
+                WriteLine($"{MapType(b.VarType)} {b.VarName} = {src};");
+            }
+
+            if (branch.Body is BlockStatement block) {
+                foreach (var s in block.Statements) {
+                    TranspileStatement(s);
+                }
+            } else {
+                TranspileStatement(branch.Body);
+            }
+
+            WriteIndent();
+            WriteLine("break;");
+
+            foreach (var kvp in oldTypes) {
+                if (kvp.Value != null) _varTypes[kvp.Key] = kvp.Value;
+                else _varTypes.Remove(kvp.Key);
+            }
+
+            _indent--;
+            WriteIndent();
+            WriteLine("}");
+        }
+
+        if (plan.DefaultBranch == null && match.Alternate != null) {
+            WriteIndent();
+            WriteLine("default: {");
+            _indent++;
+
+            if (match.Alternate.Body is BlockStatement block) {
+                foreach (var s in block.Statements) {
+                    TranspileStatement(s);
+                }
+            } else {
+                TranspileStatement(match.Alternate.Body);
+            }
+
+            WriteIndent();
+            WriteLine("break;");
+            _indent--;
+            WriteIndent();
+            WriteLine("}");
+        }
+
+        _indent--;
+        WriteIndent();
+        WriteLine("}");
+
+        _indent--;
+        WriteIndent();
+        WriteLine("}");
+    }
+
+    private void TranspileNativeSwitchExpression(MatchStatement match, SwitchPlan plan) {
+        Write("({ ");
+        var exitLabel = $"_pino_match_exit_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+        _matchExitLabels.Push(exitLabel);
+
+        var condVar = $"_pino_match_cond_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+        var condType = match.Condition.InferredType!;
+        if ((string.IsNullOrEmpty(condType) || condType == "any") &&
+            match.Condition is IdentifierExpression condId &&
+            _varTypes.TryGetValue(condId.Name, out var vType) &&
+            !string.IsNullOrEmpty(vType) && vType != "any") {
+            condType = vType;
+        }
+        Write($"{MapType(condType)} {condVar} = ");
+        TranspileExpression(match.Condition);
+        Write("; ");
+
+        string resVar = "";
+        if (match.InferredType != "void" && match.InferredType != "any" && !string.IsNullOrEmpty(match.InferredType)) {
+            resVar = $"_pino_match_res_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            Write($"{MapType(match.InferredType)} {resVar}; ");
+            _matchResultVars.Push(resVar);
+        }
+
+        string switchTarget = plan.Kind == SwitchKind.Union
+            ? $"{condVar}->tag"
+            : (plan.Kind == SwitchKind.Rune ? $"((uint32_t){condVar})" : condVar);
+
+        Write($"switch ({switchTarget}) {{ ");
+
+        foreach (var branch in plan.Branches) {
+            if (branch.IsDefault) {
+                Write("default: ");
+            } else {
+                foreach (var label in branch.CaseLabels) {
+                    Write($"case {label}: ");
+                }
+            }
+            Write("{ ");
+
+            var oldTypes = new Dictionary<string, string?>();
+            foreach (var b in branch.Bindings) {
+                if (_varTypes.TryGetValue(b.VarName, out var oldT)) {
+                    oldTypes[b.VarName] = oldT;
+                } else {
+                    oldTypes[b.VarName] = null;
+                }
+                _varTypes[b.VarName] = b.VarType;
+
+                string src = b.AccessPath == null ? condVar : $"{condVar}->value.{b.AccessPath}";
+                Write($"{MapType(b.VarType)} {b.VarName} = {src}; ");
+            }
+
+            if (branch.Body is BlockStatement block) {
+                foreach (var s in block.Statements) {
+                    var oldSb = _sb;
+                    _sb = new StringBuilder();
+                    TranspileStatement(s);
+                    var sStr = _sb.ToString().Trim();
+                    _sb = oldSb;
+                    Write(sStr + " ");
+                }
+            } else if (branch.Body is Expression branchExpr) {
+                if (!string.IsNullOrEmpty(resVar) && !IsVoidExpression(branchExpr)) {
+                    Write($"{resVar} = ");
+                    TranspileExpression(branchExpr);
+                    Write("; ");
+                } else {
+                    TranspileExpression(branchExpr);
+                    Write("; ");
+                }
+            } else {
+                TranspileStatement(branch.Body);
+            }
+
+            Write("break; ");
+
+            foreach (var kvp in oldTypes) {
+                if (kvp.Value != null) _varTypes[kvp.Key] = kvp.Value;
+                else _varTypes.Remove(kvp.Key);
+            }
+
+            Write("} ");
+        }
+
+        if (plan.DefaultBranch == null && match.Alternate != null) {
+            Write("default: { ");
+            if (match.Alternate.Body is BlockStatement block) {
+                foreach (var s in block.Statements) {
+                    var oldSb = _sb;
+                    _sb = new StringBuilder();
+                    TranspileStatement(s);
+                    var sStr = _sb.ToString().Trim();
+                    _sb = oldSb;
+                    Write(sStr + " ");
+                }
+            } else if (match.Alternate.Body is Expression branchExpr) {
+                if (!string.IsNullOrEmpty(resVar) && !IsVoidExpression(branchExpr)) {
+                    Write($"{resVar} = ");
+                    TranspileExpression(branchExpr);
+                    Write("; ");
+                } else {
+                    TranspileExpression(branchExpr);
+                    Write("; ");
+                }
+            } else {
+                TranspileStatement(match.Alternate.Body);
+            }
+            Write("break; } ");
+        }
+
+        Write("} ");
+
+        Write($" {exitLabel}:; ");
+        if (!string.IsNullOrEmpty(resVar)) {
+            Write($"{resVar}; ");
+            _matchResultVars.Pop();
+        }
+
+        _matchExitLabels.Pop();
+        Write("})");
+    }
+
+    private void TranspileMatchStatement(MatchStatement match) {
+        if (CanTranspileToNativeSwitch(match, out var plan) && plan != null) {
+            TranspileNativeSwitchStatement(match, plan);
+            return;
+        }
+
+        WriteIndent();
+        WriteLine("{");
+        _indent++;
+
+        var condVar = $"_pino_match_cond_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+        var condType = match.Condition.InferredType!;
+        if ((string.IsNullOrEmpty(condType) || condType == "any") &&
+            match.Condition is IdentifierExpression condId &&
+            _varTypes.TryGetValue(condId.Name, out var vType) &&
+            !string.IsNullOrEmpty(vType) && vType != "any") {
+            condType = vType;
+        }
         WriteIndent();
         Write($"{MapType(condType)} {condVar} = ");
         TranspileExpression(match.Condition);
@@ -3457,6 +3991,7 @@ public class TranspilerC {
     }
 
     public UnionDeclaration? FindUnion(string name) {
+        if (string.IsNullOrEmpty(name) || name == "any" || name == "void" || name == "int" || name == "string" || name == "bool" || name == "float" || name == "rune") return null;
         if (_unions.TryGetValue(name, out var u)) return u;
         if (_importedSymbols.TryGetValue(name, out var pref) && _unions.TryGetValue(pref, out var u2)) return u2;
         if (_currentModuleName != null && _unions.TryGetValue($"{_currentModuleName}_{name}", out var u3)) return u3;
@@ -3467,6 +4002,7 @@ public class TranspilerC {
     }
 
     public EnumDeclaration? FindEnum(string name) {
+        if (string.IsNullOrEmpty(name) || name == "any" || name == "void" || name == "int" || name == "string" || name == "bool" || name == "float" || name == "rune") return null;
         if (_enums.TryGetValue(name, out var e)) return e;
         if (_importedSymbols.TryGetValue(name, out var pref) && _enums.TryGetValue(pref, out var e2)) return e2;
         if (_currentModuleName != null && _enums.TryGetValue($"{_currentModuleName}_{name}", out var e3)) return e3;
