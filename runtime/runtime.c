@@ -53,6 +53,37 @@ void pino_println_float(double val) {
     printf("%g\n", val);
 }
 
+PinoString pino_readline(PinoString prompt) {
+    if (prompt.len > 0 && prompt.data) {
+        printf("%.*s", (int)prompt.len, prompt.data);
+        fflush(stdout);
+    }
+    size_t capacity = 128;
+    size_t len = 0;
+    char* buf = (char*)GC_MALLOC_ATOMIC(capacity);
+    if (!buf) {
+        return (PinoString){ "", 0 };
+    }
+    int c;
+    while ((c = fgetc(stdin)) != EOF && c != '\n') {
+        if (c == '\r') continue;
+        if (len + 1 >= capacity) {
+            size_t new_cap = capacity * 2;
+            char* new_buf = (char*)GC_MALLOC_ATOMIC(new_cap);
+            if (!new_buf) break;
+            memcpy(new_buf, buf, len);
+            buf = new_buf;
+            capacity = new_cap;
+        }
+        buf[len++] = (char)c;
+    }
+    if (c == EOF && len == 0) {
+        return (PinoString){ "", 0 };
+    }
+    buf[len] = '\0';
+    return (PinoString){ buf, (int64_t)len };
+}
+
 #ifdef _WIN32
 #include <windows.h>
 #else

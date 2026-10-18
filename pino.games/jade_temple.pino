@@ -22,7 +22,7 @@ struct Player {
     println(" Health : $hp/$max_hp HP")
     println(" Chi    : $chi/$max_chi")
     println(" Focus  : $focus/$max_focus")
-    
+
     if alignment > 115 {
       println(" Path   : WAY OF THE OPEN PALM 🕊️  ($alignment/200)")
     } else if alignment < 85 {
@@ -191,7 +191,7 @@ fn combat_loop(player Player, enemy Enemy) {
           player_used_tiger_claw = true
           println("✨ Tiger Claw absorbs +10 Chi and +10 Focus!")
         }
-        
+
         # Dire Viper Perk
         if player:style_idx == 3 {
           p_chi = p_chi + 6
@@ -285,7 +285,7 @@ fn combat_loop(player Player, enemy Enemy) {
     # Process Enemy Turn (if allowed and enemy lives)
     if enemy_should_attack and e_hp > 0 {
       var enemy_acted = false
-      
+
       # AI Decision: Heal if low HP (<40%)
       if e_hp < enemy:max_hp * 4 / 10 {
         if e_chi >= 15 and e_focus >= 15 {
@@ -406,10 +406,10 @@ fn combat_loop(player Player, enemy Enemy) {
         } else {
           println("$(enemy:name) strikes you back dealing $e_dmg damage!")
         }
-        
+
         p_hp = p_hp - e_dmg
       }
-      
+
       readline("Press Enter to continue...")
       clear()
     }
@@ -481,7 +481,7 @@ fn plaza_district(player Player) {
           println(" 2. Spar with students")
           println(" 3. Investigate the Silent Meditation Garden in the back")
           println(" 4. Return to Imperial Plaza")
-          
+
           val ac_choice = readline("> ")
           if ac_choice == "1" {
             clear()
@@ -538,17 +538,17 @@ fn plaza_district(player Player) {
               println("Song, the leader of the students, is causing unrest. Silence him.")
               println("Persuade him to leave or break his spirit in combat. Do that, and we have a deal.\"")
               readline("Press Enter to continue...")
-              
+
               clear()
               println("You find Song in the training court.")
               println("Song: \"Maestro Jiang is corrupting this academy! We must rise against him!\"")
               println("Choose option:")
               println(" 1. [Intimidate] \"Maestro Jiang will crush you. Leave the city tonight if you value your life.\" (Intimidation Lvl 3)")
               println(" 2. \"I will force you to be silent!\" (Combat)")
-              
+
               val song_sel = readline("> ")
               var song_resolved = false
-              
+
               if song_sel == "1" {
                 val check_roll = rand(100) + player:intimidation * 15
                 if check_roll >= 45 {
@@ -647,7 +647,7 @@ fn plaza_district(player Player) {
         println("You show the Imperial Seal. The guards bow and open the golden gates.")
         println("You enter the ancient Sanctum of the Jade Heart...")
         readline("Press Enter to step inside...")
-        
+
         # Fight Tigress Spirit
         clear()
         println("=========================================================")
@@ -665,10 +665,10 @@ fn plaza_district(player Player) {
           println(" 2. [Closed Fist] Dominate the spirit through the strength of your will (Requires Lvl 70- alignment)")
         }
         println(" 3. Fight the Tigress Spirit!")
-        
+
         val portal_opt = readline("> ")
         var portal_passed = false
-        
+
         if portal_opt == "1" and player:alignment >= 130 {
           println("🕊️  The Tigress Spirit bows her head. \"Your heart is pure. Pass, child of the Open Palm.\"")
           portal_passed = true
@@ -699,10 +699,10 @@ fn plaza_district(player Player) {
           println("Choose action:")
           println(" 1. [Reason] \"This power will tear your mortal soul apart, Wu!\" (Reason Lvl 4)")
           println(" 2. We settle this in combat! \"Defend yourself!\"")
-          
+
           val wu_opt = readline("> ")
           var wu_resolved = false
-          
+
           if wu_opt == "1" {
             val check_roll = rand(100) + player:reason * 20
             if check_roll >= 90 {
@@ -725,7 +725,7 @@ fn plaza_district(player Player) {
           if wu_resolved == false {
             val final_boss = Enemy { name: "General Wu", hp: 150, max_hp: 150, dmg: 16, style_weakness: 2, chi: 60, max_chi: 60, focus: 50, max_focus: 50 } # weak to Tiger Claw
             player = combat_loop(player, final_boss)
-            
+
             if player:hp > 0 {
               clear()
               if player:alignment > 100 {
@@ -749,7 +749,7 @@ fn plaza_district(player Player) {
               wu_resolved = true
             }
           }
-          
+
           if player:hp > 0 and wu_resolved {
             game_running = false
           }
@@ -832,5 +832,3 @@ fn main {
 
   plaza_district(player)
 }
-
-

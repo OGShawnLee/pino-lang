@@ -21,6 +21,20 @@ struct SableState {
   zero_allocation_count int
 }
 
+fn get_int(msg string) {
+  for {
+    val input = readline(msg)
+    match int(input) {
+      when Result::Success(value) {
+        return value
+      }
+      when Result::Failure(err) {
+        println("Invalid input: $(err). Please enter a valid number.")
+      }
+    }
+  }
+}
+
 fn corrupt_text(text string, level int) {
   if level < 15 {
     return text
@@ -657,7 +671,7 @@ fn main {
             val input = readline(glitched_prompt)
             var val_evac = 0
             if input != "" {
-              val_evac = int(input)
+              val_evac = int(input) or { yield 0 }
             }
             if val_evac >= 0 and val_evac <= cpu_left {
               cpu_left = cpu_left - val_evac
@@ -675,7 +689,7 @@ fn main {
             val input = readline(glitched_prompt)
             var val_seed = 0
             if input != "" {
-              val_seed = int(input)
+              val_seed = int(input) or { yield 0 }
             }
             if val_seed >= 0 and val_seed <= cpu_left {
               cpu_left = cpu_left - val_seed
@@ -705,7 +719,7 @@ fn main {
             val input = readline(glitched_prompt)
             var val_ram = 0
             if input != "" {
-              val_ram = int(input)
+              val_ram = int(input) or { yield 0 }
             }
             if val_ram >= 0 and val_ram <= ram_left {
               ram_left = ram_left - val_ram
@@ -726,7 +740,7 @@ fn main {
         val input = readline(glitched_prompt)
         var val_ram = 0
         if input != "" {
-          val_ram = int(input)
+          val_ram = int(input) or { yield 0 }
         }
         if val_ram >= 0 and val_ram <= ram_left {
           ram_left = ram_left - val_ram
@@ -1063,6 +1077,3 @@ fn main {
   println("")
   readline("Presiona Enter para volver a la terminal principal...")
 }
-
-
-

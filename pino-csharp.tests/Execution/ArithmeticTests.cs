@@ -76,6 +76,19 @@ public class ArithmeticTests {
     Assert.Equal(new PinoRune(122), env.Get("from_str"));
   }
 
+  [Fact]
+  public void TestRuneSurrogatesAndEmojiIndexing() {
+    var code = @"
+      val text = ""A🟥B""
+      var result = """"
+      for i in text:len {
+        result = result + text[i]
+      }
+    ";
+    var env = PinoTestRunner.Execute(code, ExecutionEngine.TreeWalk);
+    Assert.Equal("A🟥B", env.Get("result"));
+  }
+
   [Theory]
   [InlineData(ExecutionEngine.TreeWalk)]
   [InlineData(ExecutionEngine.VM)]

@@ -145,7 +145,7 @@ public class TranspilerCTests {
     Assert.Contains("pino_string_to_owned(sub)", cCode);
     Assert.Contains("pino_string_to_cstring(sub)", cCode);
     Assert.Contains("((s).len)", cCode);
-    Assert.Contains("((uint32_t)(uint8_t)((s).data[0]))", cCode);
+    Assert.Contains("((uint32_t)(uint8_t)((s).data[(int64_t)(0)]))", cCode);
   }
 
   [Fact]
@@ -189,6 +189,67 @@ public class TranspilerCTests {
     // Verify map_int_int_set returns the value type int instead of void
     Assert.Contains("static inline int map_int_int_set(map_int_int* map, int key, int value) {", cCode);
     Assert.Contains("int res = map_int_int_set(cache, 10, 42);", cCode);
+  }
+
+  [Fact]
+  public void TestTranspilerReadline() {
+    var source = @"
+      fn main {
+        val name = readline(""What is your name? "")
+        val line = readline()
+      }
+    ";
+
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+
+    Assert.Contains("PinoString name = pino_readline(PINO_STR(\"What is your name? \"));", cCode);
+    Assert.Contains("PinoString line = pino_readline(PINO_STR(\"\"));", cCode);
+  }
+
+  [Fact]
+  public void TestCorruptTextTranspilation() {
+    var source = @"
+      fn corrupt_text(text string, level int) string {
+        if level < 15 {
+          return text
+        }
+        var result = """"
+        val length = text:len
+        val symbols = [""▒"", ""░"", ""█""]
+        for i in length {
+          val roll = rand(100)
+          if roll < (level / 2) {
+            val sym_idx = rand(3)
+            val sym = symbols[sym_idx]
+            result = result + sym
+          } else {
+            result = result + text[i]
+          }
+        }
+        return result
+      }
+      fn main {
+        val s = corrupt_text(""=========================================================================="", 20)
+        println(s)
+      }
+    ";
+
+    var program = Parser.ParseProgramString(source);
+    var checker = new Checker();
+    checker.Check(program);
+
+    var transpiler = new TranspilerC();
+    var cCode = transpiler.Transpile(program, checker);
+    System.IO.File.WriteAllText("test_c.c", cCode);
+    Assert.NotNull(cCode);
+    Assert.Contains("const int sym_idx = pino_rand_int(3);", cCode);
+    Assert.Contains("symbols->items[(int64_t)(sym_idx)]", cCode);
+    Assert.Contains("(text).data[(int64_t)(i)]", cCode);
   }
 }
 

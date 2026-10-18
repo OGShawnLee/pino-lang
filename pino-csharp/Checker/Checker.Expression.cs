@@ -643,6 +643,9 @@ public partial class Checker {
         return $"map[{map.KeyType}, {map.ValueType}]";
 
       case FunctionCallExpression call:
+        if (call.Callee == "rand") {
+          return call.Arguments.Count == 0 ? "float" : "int";
+        }
         if (_functions.TryGetValue(call.Callee, out var genericFn) && genericFn.GenericParams != null && genericFn.GenericParams.Count > 0) {
           MonomorphizeFunctionCall(call);
         }

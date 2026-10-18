@@ -44,6 +44,20 @@ fn get_sector(sectors []Sector, idx int) {
   return result
 }
 
+fn get_int(msg string) {
+  for {
+    val input = readline(msg)
+    match int(input) {
+      when Result::Success(value) {
+        return value
+      }
+      when Result::Failure(err) {
+        println("Invalid input: $(err). Please enter a valid number.")
+      }
+    }
+  }
+}
+
 fn show_status(ship Ship, current_sector_name string) {
   println("----------------------------------------")
   println("          🌌 SHIP STATUS SYSTEM 🌌")
@@ -229,22 +243,22 @@ fn handle_pirate_encounter(ship Ship) {
         eff_charisma = 4
       }
       val max_siphons = 2 + eff_charisma
-      val yield = 8 + eff_charisma * 2
+      val yield_amount = 8 + eff_charisma * 2
 
       if ship:emergency_siphons < max_siphons {
         ship:emergency_siphons = ship:emergency_siphons + 1
-        ship:fuel = ship:fuel + yield
+        ship:fuel = ship:fuel + yield_amount
         if ship:fuel > ship:max_fuel {
           ship:fuel = ship:max_fuel
         }
         
         if ship:charisma_skill == 1 {
-          println("\"Begging for fuel? Real pathetic. Siphoning $yield units of low-grade sludge into your tanks.\"")
+          println("\"Begging for fuel? Real pathetic. Siphoning $yield_amount units of low-grade sludge into your tanks.\"")
         } else if ship:charisma_skill < 4 {
-          println("\"You've got a way with words, brother. We'll spare $yield units of fuel. Don't abuse our goodwill.\"")
+          println("\"You've got a way with words, brother. We'll spare $yield_amount units of fuel. Don't abuse our goodwill.\"")
         } else {
           println("\"Your reputation precedes you, Captain! The Syndicate speaks highly of you.")
-          println("Take $yield units of fuel, but even your silver tongue has its limits!\"")
+          println("Take $yield_amount units of fuel, but even your silver tongue has its limits!\"")
         }
         println("Siphons used: $(ship:emergency_siphons)/$max_siphons")
       } else {
@@ -719,8 +733,8 @@ fn trade_menu(sectors []Sector, state GameState) {
 
     if choice == "1" {
       println("How much fuel do you want to buy? (Max capacity is $(ship:max_fuel - ship:fuel))")
-      val amt_str = readline("Amount: ")
-      val amt = int(amt_str)
+      val amt = get_int("Amount: ")
+
       if amt <= 0 {
         println("Invalid amount.")
       } else if ship:fuel + amt > ship:max_fuel {
@@ -982,8 +996,7 @@ fn main {
       println(" 2. Krypton Depths (Danger: Medium)")
       println(" 3. Pirate Nebula (Danger: High)")
       println(" 4. Gliese Icefield (Danger: Low)")
-      val dest_choice = readline("Choice: ")
-      val target_idx = int(dest_choice) - 1
+      val target_idx = get_int("Choice: ") - 1
 
       if target_idx < 0 or target_idx > 3 {
         println("Invalid sector selection.")
@@ -1085,5 +1098,3 @@ fn main {
     }
   }
 }
-
-

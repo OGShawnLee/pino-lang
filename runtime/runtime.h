@@ -82,6 +82,8 @@ void pino_println_cstring(const char* str);
 void pino_println_int(int val);
 void pino_println_float(double val);
 
+PinoString pino_readline(PinoString prompt);
+
 double pino_time(void);
 double pino_rand_float(void);
 int pino_rand_int(int limit);

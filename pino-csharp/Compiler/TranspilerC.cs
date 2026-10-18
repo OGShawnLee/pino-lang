@@ -2138,6 +2138,14 @@ public class TranspilerC {
                     Write(")");
                 } else if (call.Callee == "clear") {
                     Write("pino_clear()");
+                } else if (call.Callee == "readline") {
+                    Write("pino_readline(");
+                    if (call.Arguments.Count > 0) {
+                        TranspileExpression(call.Arguments[0]);
+                    } else {
+                        Write("PINO_STR(\"\")");
+                    }
+                    Write(")");
                 } else if (call.Callee == "regex") {
                     Write("regex_compile(");
                     TranspileExpression(call.Arguments[0]);
@@ -2752,9 +2760,9 @@ public class TranspilerC {
                     var targetType = idx.Target.InferredType!;
                     if (targetType.StartsWith("[]")) {
                         TranspileExpression(idx.Target);
-                        Write("->items[");
+                        Write("->items[(int64_t)(");
                         TranspileExpression(idx.Index);
-                        Write("]");
+                        Write(")]");
                     } else if (targetType.StartsWith("map[")) {
                         var cleanType = CleanTypeName(targetType);
                         Write($"{cleanType}_get(");
@@ -2765,9 +2773,9 @@ public class TranspilerC {
                     } else if (targetType == "string") {
                         Write("((uint32_t)(uint8_t)((");
                         TranspileExpression(idx.Target);
-                        Write(").data[");
+                        Write(").data[(int64_t)(");
                         TranspileExpression(idx.Index);
-                        Write("]))");
+                        Write(")]))");
                     } else {
                         throw new NotImplementedException("Map or custom index access is not implemented in transpilation.");
                     }
@@ -4169,7 +4177,7 @@ public class TranspilerC {
     }
 
     private static readonly HashSet<string> BuiltInFunctionNames = new HashSet<string> {
-        "println", "time", "rand", "sleep", "clear", "regex", "read_file", "write_file", "file_exists"
+        "println", "readline", "panic", "time", "rand", "sleep", "clear", "regex", "read_file", "write_file", "file_exists"
     };
 
     private FunctionLambdaExpression? _currentLambda => _lambdaStack.Count > 0 ? _lambdaStack.Peek() : null;
