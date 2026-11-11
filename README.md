@@ -543,3 +543,5 @@ Pino was not born in a corporate meeting or a cold corporate research lab. Its h
 2. **The Rebirth (2026)**: After a chance encounter at the university faculty (UV), the creator met a cute Data Science student he had admired from afar since 2024. Seeking a way to connect and share his passion, Pino was reborn with a new ambition: to become a highly efficient, simple, and clean alternative to Python for data science, built entirely out of the hope of bringing two people together.
 
 Ultimately, Pino stands as a testament that the most beautiful syntax isn't crafted with cold logic alone—sometimes, it is built with the heart.
+
+> *"Love is in the things we build for those we cherish, even if they may never be seen. And when they are, we have found home."*
