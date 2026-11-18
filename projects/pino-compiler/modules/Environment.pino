@@ -190,6 +190,19 @@ pub val built_in_instance_method_map = map[string, map[string, Type]] {
       ],
       Type::Primitive(Primitive::Bool)
     )
+    "each": Type::Function(
+      [
+        Parameter {
+          name: "procedure"
+          type: Type::Function(
+            [Parameter { name: "it", type: Type::Implicit, default_expr: Option::None }]
+            Type::Void
+          )
+          default_expr: Option::None
+        }
+      ],
+      Type::Void
+    )
     "length": Type::Primitive(Primitive::Int)
     "remove": Type::Function(
       [
