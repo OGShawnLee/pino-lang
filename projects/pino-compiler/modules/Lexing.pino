@@ -1,0 +1,279 @@
+module Lexing
+
+pub union Literal {
+  Bool(bool)
+  Float(float)
+  Int(int)
+}
+
+pub enum Keyword {
+  VAL VAR
+  FOR IN CONTINUE BREAK
+  FN RETURN
+  IF THEN ELSE MATCH WHEN YIELD
+  STRUCT ENUM UNION INTERFACE IS
+  STATIC PUB
+  MODULE FROM IMPORT
+}
+
+pub enum Marker {
+  LBRACE RBRACE
+  LPAREN RPAREN
+  LBRACKET RBRACKET
+  COLON COMMA
+}
+
+pub enum BinaryOperator {
+  Add
+  Subtract
+  Multiply
+  Divide
+  Remainder
+  And
+  Or
+  In
+  Equal
+  NotEqual
+  LessThan
+  LessOrEqual
+  GreaterThan
+  GreaterOrEqual
+  Assign
+  Conditional
+  StaticMemberAccess
+  MemberAccess
+}
+
+pub union Atom {
+  BinaryOperator(BinaryOperator)
+  # UnaryOperator
+  Literal(Literal)
+  Keyword(Keyword)
+  Identifier(string)
+  Marker(Marker)
+  Illegal
+  EOF
+}
+
+pub struct Particle {
+  line int
+  column int
+  len int
+  atom Atom
+}
+
+# val binary_operator_list = ['+', '-', '*', '/', '%', '<', '>', '=', ':']
+val binary_operator_map = map[rune, Atom] {
+  '+': Atom::BinaryOperator(BinaryOperator::Add)
+  '-': Atom::BinaryOperator(BinaryOperator::Subtract)
+  '*': Atom::BinaryOperator(BinaryOperator::Multiply)
+  '/': Atom::BinaryOperator(BinaryOperator::Divide)
+  '%': Atom::BinaryOperator(BinaryOperator::Remainder)
+  '<': Atom::BinaryOperator(BinaryOperator::LessThan)
+  '>': Atom::BinaryOperator(BinaryOperator::GreaterThan)
+  '=': Atom::BinaryOperator(BinaryOperator::Assign)
+  ':': Atom::BinaryOperator(BinaryOperator::MemberAccess)
+}
+val binary_operator_string_map = map[string, Atom] {
+  "==": Atom::BinaryOperator(BinaryOperator::Equal)
+  "!=": Atom::BinaryOperator(BinaryOperator::NotEqual)
+  "<=": Atom::BinaryOperator(BinaryOperator::LessOrEqual)
+  ">=": Atom::BinaryOperator(BinaryOperator::GreaterOrEqual)
+  "::": Atom::BinaryOperator(BinaryOperator::StaticMemberAccess)
+}
+val keyword_map = map[string, Atom] {
+  "val": Atom::Keyword(Keyword::VAL)
+  "var": Atom::Keyword(Keyword::VAR)
+  "fn": Atom::Keyword(Keyword::FN)
+  "return": Atom::Keyword(Keyword::RETURN)
+  "if": Atom::Keyword(Keyword::IF)
+  "then": Atom::Keyword(Keyword::THEN)
+  "else": Atom::Keyword(Keyword::ELSE)
+  "match": Atom::Keyword(Keyword::MATCH)
+  "when": Atom::Keyword(Keyword::WHEN)
+  "yield": Atom::Keyword(Keyword::YIELD)
+  "for": Atom::Keyword(Keyword::FOR)
+  "in": Atom::Keyword(Keyword::IN)
+  "break": Atom::Keyword(Keyword::BREAK)
+  "continue": Atom::Keyword(Keyword::CONTINUE)
+  "struct": Atom::Keyword(Keyword::STRUCT)
+  "enum": Atom::Keyword(Keyword::ENUM)
+  "union": Atom::Keyword(Keyword::UNION)
+  "interface": Atom::Keyword(Keyword::INTERFACE)
+  "pub": Atom::Keyword(Keyword::PUB)
+  "is": Atom::Keyword(Keyword::IS)
+  "static": Atom::Keyword(Keyword::STATIC)
+  "module": Atom::Keyword(Keyword::MODULE)
+  "from": Atom::Keyword(Keyword::FROM)
+  "import": Atom::Keyword(Keyword::IMPORT)
+}
+val marker_list = ['{', '}', '(', ')', '[', ']', ':', ',']
+val marker_map = map[rune, Atom] {
+  '(': Atom::Marker(Marker::LPAREN)
+  ')': Atom::Marker(Marker::RPAREN)
+  '[': Atom::Marker(Marker::LBRACKET)
+  ']': Atom::Marker(Marker::RBRACKET)
+  '{': Atom::Marker(Marker::LBRACE)
+  '}': Atom::Marker(Marker::RBRACE)
+  ':': Atom::Marker(Marker::COLON)
+  ',': Atom::Marker(Marker::COMMA)
+}
+
+fn is_bool_literal(buffer string) bool {
+  return buffer == "true" or buffer == "false"
+}
+
+fn is_numerical_char(character rune) bool {
+  return character >= '0' and character <= '9'
+}
+
+fn is_binary_operator_rune(character rune) bool {
+  return match character {
+    when '+', '-', '*', '/', '%', '<', '>', '=', ':' => true
+    else => false
+  }
+}
+
+fn is_keyword(buffer string) bool {
+  return buffer:len <= 10 and buffer in keyword_map
+}
+
+fn is_identifier_char(character rune) bool {
+  return character >='a' and character <= 'z' or character >='A' and character <= 'Z' or character == '_'
+}
+
+fn is_marker(character rune) bool {
+  return character in marker_list
+}
+
+pub fn lex_program(program string) {
+  val atom_list = []Particle { cap: program:len / 6 }
+
+  var line_num = 1
+  var column = 1
+  var identifier_len = 0
+  var numerical_len = 0
+  # var scan_count = 0
+
+  for i, character in program {
+    if is_identifier_char(character) {
+      identifier_len += 1
+      column += 1
+      continue
+    } else if identifier_len > 0 {
+      push_identifier(i, identifier_len, program, line_num, column, atom_list)
+      # scan_count += 1
+      identifier_len = 0
+    }
+
+    if is_numerical_char(character) {
+      numerical_len += 1
+      column += 1
+      continue
+    } else if numerical_len > 0 {
+      push_numerical(i, numerical_len, program, line_num, column, atom_list)
+      # scan_count += 1
+      numerical_len = 0
+    }
+
+    if character == '\n' {
+      line_num += 1
+      column = 1
+      continue
+    }
+
+    if character == ' ' or character == '\t' {
+      column += 1
+      continue
+    }
+
+    if is_marker(character) {
+      atom_list:push(Particle {
+        line: line_num
+        column: column
+        len: 1
+        atom: marker_map[character]
+      })
+      column += 1
+      continue
+    }
+
+    match character {
+      when '+', '-', '*', '/', '%', '<', '>', '=', ':' {
+        atom_list:push(Particle {
+          line: line_num
+          column: column
+          len: 1
+          atom: binary_operator_map[character]
+        })
+      }
+      else {}
+    }
+
+    # if is_binary_operator(character) {
+    #   atom_list:push(Particle {
+    #     line: line_num
+    #     column: column
+    #     len: 1
+    #     atom: binary_operator_map[character]
+    #   })
+    #   column += 1
+    #   continue
+    # }
+
+    column += 1
+  }
+
+  if identifier_len > 0 {
+    push_identifier(program:len, identifier_len, program, line_num, column, atom_list)
+    # scan_count += 1
+  }
+
+  if numerical_len > 0 {
+    push_numerical(program:len, numerical_len, program, line_num, column, atom_list)
+    # scan_count += 1
+  }
+
+  atom_list:push(Particle {
+    line: line_num
+    column: column
+    len: 1
+    atom: Atom::EOF
+  })
+
+  # println(scan_count)
+
+  return atom_list
+}
+
+fn push_identifier(i int, identifier_len int, program string, line_num int, column int, atom_list []Particle) {
+  val begin = i - identifier_len
+  val identifier = program:substring(begin, identifier_len)
+  val atom = if is_keyword(identifier)
+    then keyword_map[identifier]
+    else if is_bool_literal(identifier) then Atom::Literal(Literal::Bool(identifier == "true"))
+    else if identifier == "and" then Atom::BinaryOperator(BinaryOperator::And) else if identifier == "or" then Atom::BinaryOperator(BinaryOperator::Or)
+    else Atom::Identifier(identifier)
+
+  atom_list:push(Particle {
+    line: line_num
+    column: column - identifier_len
+    len: identifier_len
+    atom: atom
+  })
+}
+
+fn push_numerical(i int, numerical_len int, program string, line_num int, column int, atom_list []Particle) {
+  val begin = i - numerical_len
+  val numerical = program:substring(begin, numerical_len)
+
+  atom_list:push(Particle {
+    line: line_num
+    column: column - numerical_len
+    len: numerical_len
+    atom: match int(numerical) {
+      when Result::Success(n) => Atom::Literal(Literal::Int(n))
+      when Result::Failure(err) => Atom::Illegal
+    }
+  })
+}

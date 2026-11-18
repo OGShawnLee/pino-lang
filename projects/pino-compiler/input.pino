@@ -1,0 +1,495 @@
+enum BinaryOperator {
+  Add
+  Subtract
+  Multiply
+  Divide
+  Remainder
+  And
+  Or
+  In
+  Equal
+  NotEqual
+  LessThan
+  LessOrEqual
+  GreaterThan
+  GreaterOrEqual
+  Assign
+  Conditional
+  StaticMemberAccess
+  MemberAccess
+}
+
+enum UnaryOperator {
+  Negate
+  Not
+}
+
+union Constant {
+  Bool(b bool)
+  Float(f float)
+  Int(n int)
+  String(str string)
+}
+
+union Expression {
+  Constant(const Constant)
+  Var(name string)
+  Unary(un_op UnaryOperator, expr Expression)
+  Binary(bin_op BinaryOperator, left_expr Expression, right_expr Expression)
+}
+
+union Statement {
+  Expression(expr Expression)
+  Return(expr Expression)
+}
+
+union Primitive {
+  Bool
+  Float
+  Int
+  String
+}
+
+union Type {
+  Primitive(p Primitive)
+  Struct(name string)
+  Function(name string)
+  Void
+  Any
+  Implicit
+  Invalid
+}
+
+struct Field {
+  pub type Type
+  pub is_public bool
+}
+
+struct Method {
+  pub fn_decl FunctionDeclaration
+  pub is_public bool
+}
+
+struct StructDeclaration {
+  pub name string
+  pub field_map map[string, Field]
+  pub method_map map[string, Method]
+}
+
+struct FunctionDeclaration {
+  pub name string
+  pub body []Node
+  pub return_type Type
+}
+
+union Declaration {
+  Variable(name string, expr Expression)
+  Struct(struct_decl StructDeclaration)
+  Function(fn_decl FunctionDeclaration)
+}
+
+union Node {
+  Statement(stmt Statement)
+  Declaration(decl Declaration)
+}
+
+struct Program {
+  pub body []Node
+}
+
+union Kind {
+  Var
+  Val
+  Struct(name string)
+  Function(name string)
+  Duplicate
+  Absent
+}
+
+struct Entity {
+  pub unique_name string
+  pub is_from_current_block bool
+  pub kind Kind
+}
+
+struct Counter {
+  count int
+
+  fn increment {
+    count = count + 1
+  }
+
+  fn reset {
+    count = 0
+  }
+}
+
+struct Environment {
+  pub current_scope map[string, Entity]
+  pseudo_name_counter Counter
+  error_list []string
+
+  fn add_err(err string) {
+    error_list:push(err)
+  }
+
+  fn add_entity(name string, is_from_current_block bool, kind Kind) {
+    if is_already_declared(name) {
+      val prev_entity = current_scope[name]
+
+      add_err("Semantic Error: Entity '$name' has been already declared.")
+
+      return Entity {
+        unique_name: prev_entity:unique_name
+        is_from_current_block: prev_entity:is_from_current_block
+        kind: Kind::Duplicate
+      }
+    }
+
+    return current_scope[name] = Entity {
+      unique_name: mangle_name(name)
+      is_from_current_block
+      kind
+    }
+  }
+
+  fn is_already_declared(name string) {
+    return name in current_scope and current_scope[name]:is_from_current_block
+  }
+
+  fn get_entity(name string) {
+    if name in current_scope {
+      return current_scope[name]
+    }
+
+    add_err("Semantic Error: Entity '$name' has not been declared.")
+
+    return current_scope[name] = Entity {
+      unique_name: name
+      is_from_current_block: false
+      kind: Kind::Absent
+    }
+  }
+
+  fn is_declared(name string) {
+    return name in current_scope
+  }
+
+  fn get_local_env {
+    val local_scope = map[string, Entity]
+
+    for name, entity in current_scope {
+      local_scope[name] = Entity {
+        unique_name: entity:unique_name
+        is_from_current_block: false
+        kind: entity:kind
+      }
+    }
+
+    return Environment { current_scope: local_scope, pseudo_name_counter, error_list }
+  }
+
+  fn mangle_name(name string) string {
+  	val new_name = "_pino_${name}_${pseudo_name_counter:count}"
+
+  	pseudo_name_counter:increment()
+
+  	return new_name
+  }
+}
+
+fn resolve_expr(expr Expression, env Environment) {
+  match expr {
+    when Expression::Constant {
+      return expr
+    }
+    when Expression::Var(name) {
+      return Expression::Var(env:get_entity(name):unique_name)
+    }
+    when Expression::Unary(un_op, expr) {
+      return Expression::Unary(un_op, resolve_expr(expr, env))
+    }
+    when Expression::Binary(bin_op, left_expr, right_expr) {
+      return Expression::Binary(bin_op, resolve_expr(left_expr, env), resolve_expr(right_expr, env))
+    }
+  }
+}
+
+fn resolve_stmt(stmt Statement, env Environment) {
+  match stmt {
+    when Statement::Expression(expr) {
+      return Statement::Expression(resolve_expr(expr, env))
+    }
+    when Statement::Return(expr) {
+      return Statement::Return(resolve_expr(expr, env))
+    }
+  }
+}
+
+fn resolve_fn_decl(fn_decl FunctionDeclaration, env Environment) {
+  val entity = env:get_entity(fn_decl:name)
+  val local_env = env:get_local_env()
+
+  return FunctionDeclaration {
+    name: entity:unique_name
+    body: resolve_block(fn_decl:body, local_env)
+    return_type: fn_decl:return_type
+  }
+}
+
+fn resolve_decl(decl Declaration, env Environment) {
+  match decl {
+    when Declaration::Variable(name, expr) {
+      val resolved_expr = resolve_expr(expr, env)
+      val entity = env:add_entity(name, true, Kind::Var)
+
+      return Declaration::Variable(entity:unique_name, resolved_expr)
+    }
+    when Declaration::Struct(struct_decl) {
+      val entity = env:get_entity(struct_decl:name)
+      val local_env = env:get_local_env()
+
+      for field_name, field in struct_decl:field_map {
+        local_env:add_entity(field_name, false, Kind::Var)
+      }
+
+      for method_name, method in struct_decl:method_map {
+        local_env:add_entity(method_name, false, Kind::Val)
+      }
+
+      for method_name, method in struct_decl:method_map {
+        struct_decl:method_map[method_name]:fn_decl = resolve_fn_decl(method:fn_decl, local_env)
+      }
+
+      return Declaration::Struct(StructDeclaration {
+        name: entity:unique_name
+        field_map: struct_decl:field_map
+        method_map: struct_decl:method_map
+      })
+    }
+    when Declaration::Function(fn_decl) {
+      return Declaration::Function(resolve_fn_decl(fn_decl, env))
+    }
+  }
+}
+
+fn resolve_node(node Node, env Environment) {
+  match node {
+    when Node::Statement(expr) {
+      return Node::Statement(resolve_stmt(expr, env))
+    }
+    when Node::Declaration(decl) {
+      return Node::Declaration(resolve_decl(decl, env))
+    }
+  }
+}
+
+fn hoist_decl_map(block []Node, env Environment) {
+  for node in block {
+    match node {
+      when Node::Declaration(decl) {
+        match decl {
+          when Declaration::Struct(struct_decl) {
+            env:add_entity(struct_decl:name, true, Kind::Struct(struct_decl:name))
+          }
+          when Declaration::Function(fn_decl) {
+            env:add_entity(fn_decl:name, true, Kind::Function(fn_decl:name))
+          }
+          else {}
+        }
+      }
+      else {}
+    }
+  }
+}
+
+fn resolve_block(block []Node, env Environment) []Node {
+  val resolved_block = []Node
+
+  hoist_decl_map(block, env)
+
+  for node in block {
+    resolved_block:push(resolve_node(node, env))
+  }
+
+  return resolved_block
+}
+
+fn resolve_program(program Program) {
+  return Program {
+    body: resolve_block(program:body, Environment {
+      current_scope: map[string, Entity]
+      pseudo_name_counter: Counter { count: 0 }
+      error_list: []string
+    })
+  }
+}
+
+struct Context {
+  symbol_table map[string, Type]
+  error_list []string
+  pub fn_name string
+  pub struct_name string
+
+  fn add_err(err string) {
+    error_list:push(err)
+  }
+
+  fn set_symbol(name string, type Type) {
+    symbol_table[name] = type
+  }
+
+  fn get_symbol(name string) {
+    return if name in symbol_table then symbol_table[name] else Type::Invalid
+  }
+
+  fn is_already_declared(name string) {
+    return name in symbol_table
+  }
+}
+
+fn type_check_const(const Constant) {
+  match const {
+    when Constant::Bool {
+      return Type::Primitive(Primitive::Bool)
+    }
+    when Constant::Float {
+      return Type::Primitive(Primitive::Float)
+    }
+    when Constant::Int {
+      return Type::Primitive(Primitive::Int)
+    }
+    when Constant::String {
+      return Type::Primitive(Primitive::String)
+    }
+  }
+}
+
+fn type_check_expr(expr Expression, context Context) {
+  match expr {
+    when Expression::Constant(const) {
+      return type_check_const(const)
+    }
+    when Expression::Var(name) {
+      return context:get_symbol(name)
+    }
+    when Expression::Unary(un_op, expr) {
+      return type_check_expr(expr, context)
+    }
+    when Expression::Binary(bin_op, left_expr, right_expr) {
+      val l_type = type_check_expr(left_expr, context)
+      val r_type = type_check_expr(right_expr, context)
+
+      return l_type
+    }
+  }
+}
+
+fn type_check_stmt(stmt Statement, context Context) {
+  match stmt {
+    when Statement::Expression(expr) {
+      type_check_expr(expr, context)
+    }
+    when Statement::Return(expr) {
+      if context:fn_name:length == 0 {
+        context:add_err("Semantic Error: Invalid use of Return Statement: Cannot return value outside a function.")
+      }
+
+      type_check_expr(expr, context)
+    }
+  }
+}
+
+fn type_check_struct_decl(struct_decl StructDeclaration, context Context) {
+  if context:is_already_declared(struct_decl:name) {
+    context:add_err("Semantic Error: Struct '${struct_decl:name}' has been already declared.")
+  } else {
+    context:set_symbol(struct_decl:name, Type::Struct(struct_decl:name))
+
+    for field_name, field in struct_decl:field_map {
+      if context:is_already_declared(field_name) {
+        context:add_err("Semantic Error: Field '${field_name}' of struct '${struct_decl:name}' has been already declared.")
+      } else {
+        context:set_symbol(field_name, field:type)
+      }
+    }
+
+    for method_name, method in struct_decl:method_map {
+      if context:is_already_declared(method_name) {
+        context:add_err("Semantic Error: Method '${method_name}' of struct '${struct_decl:name}' has been already declared.")
+      } else {
+        context:set_symbol(method_name, Type::Function(method_name))
+      }
+    }
+  }
+}
+
+fn type_check_decl(decl Declaration, context Context) {
+  match decl {
+    when Declaration::Function(fn_decl) {
+      if context:is_already_declared(fn_decl:name) {
+        context:add_err("Semantic Error: Function '${fn_decl:name}' has been already declared.")
+      }
+
+      context:set_symbol(fn_decl:name, Type::Function(fn_decl:name))
+    }
+    when Declaration::Struct(struct_decl) {
+      type_check_struct_decl(struct_decl, context)
+    }
+    when Declaration::Variable(name, expr) {
+      if context:is_already_declared(name) {
+        context:add_err("Semantic Error: Variable '${name}' has been already declared.")
+      }
+
+      context:set_symbol(name, type_check_expr(expr, context))
+    }
+  }
+}
+
+fn type_check_node(node Node, context Context) {
+  match node {
+    when Node::Statement(stmt) {
+      type_check_stmt(stmt, context)
+    }
+    when Node::Declaration(decl) {
+      type_check_decl(decl, context)
+    }
+  }
+}
+
+fn type_check_program(program Program) {
+  val context = Context {
+    symbol_table: map[string, Type]
+    error_list: []string
+    fn_name: ""
+    struct_name: ""
+  }
+
+  for node in program:body {
+    type_check_node(node, context)
+  }
+}
+
+fn main {
+  val program = Program {
+    body: [
+      Node::Declaration(
+        Declaration::Variable(
+          "name",
+          Expression::Constant(Constant::String("Shawn Lee"))
+        )
+      )
+      Node::Statement(
+        Statement::Return(
+          Expression::Binary(
+            BinaryOperator::Assign,
+            Expression::Var("name"),
+            Expression::Constant(Constant::Int(32))
+          )
+        )
+      )
+    ]
+  }
+
+  type_check_program(program)
+}
