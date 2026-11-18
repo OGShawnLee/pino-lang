@@ -3225,12 +3225,13 @@ fn type_check_loop_stmt(
 
       if
         iterable_type is not Type::List and
+        iterable_type is not Type::Map and
+        iterable_type is not Type::Set and
         iterable_type != Type::Primitive(Primitive::Int) and
-        iterable_type != Type::Primitive(Primitive::String) and
-        iterable_type is not Type::Set
+        iterable_type != Type::Primitive(Primitive::String)
       {
         val type_name = Program::get_type_name(iterable_type)
-        error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T', 'set[T]', 'int' or 'string', not '$type_name'.")
+        error_list:push("Invalid use of 'for <iterator-var> in <iterable-expr> { ... }' statement. The iterable expression must be '[]T', 'map[K, V]', 'set[T]', 'int' or 'string', not '$type_name'.")
 
         return false
       }
@@ -3238,6 +3239,7 @@ fn type_check_loop_stmt(
       symbol_table[value_var] = match iterable_type {
         when Type::List(list_type) => list_type
         when Type::Set(set_type) => set_type
+        when Type::Map(key_type, value_type) => value_type
         else => iterable_type
       }
 
