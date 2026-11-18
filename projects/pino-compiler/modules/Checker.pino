@@ -1019,7 +1019,7 @@ fn resolve_struct_decl(struct_decl StructDeclaration, variable_map map[string, E
 
   for prop_name, prop in struct_decl:property_map {
     val resolved_prop_type = resolve_type(prop:type, local_variable_map)?
-    
+
     # We declare the property in the local scope so that it is visible to the methods.
     local_variable_map[prop_name] = Entity {
       unique_name: "$unique_struct_name:$prop_name"
@@ -1923,68 +1923,71 @@ fn type_check_call_signature(
 ) Type {
   val clean_fn_name = demangle_name(fn_name)
 
-  if fn_type is Type::Function(param_list, ret_type) {
-    var resolved_ret_type = ret_type
-    var resolved_param_list = param_list
+  match fn_type {
+    when Type::Function(param_list, ret_type) {
+      var resolved_param_list = param_list
+      var resolved_ret_type = ret_type
 
-    if ret_type == Type::Implicit {
-      infer_implicit_return_type(fn_name, symbol_table, error_list)
+      if ret_type == Type::Implicit {
+        infer_implicit_return_type(fn_name, symbol_table, error_list)
 
-      val resolved_fn_decl = symbol_table[fn_name]
+        val resolved_fn_decl = symbol_table[fn_name]
 
-      if resolved_fn_decl is Type::Function(resolved_param_list, resolved_ret_type) {
-        resolved_ret_type = resolved_ret_type
-        resolved_param_list = resolved_param_list
-      } else {
-        panic("Function '$clean_fn_name' is not a function.")
-      }
-    }
-
-    for arg in arg_list {
-      if arg is Argument::Label(label_name, expr) {
-        error_list:push("Function '$clean_fn_name' has no parameter named '$label_name' or was placed incorrectly.")
-      }
-    }
-
-    if resolved_param_list:len != arg_list:len {
-      error_list:push("Incorrect number of arguments passed to function '$clean_fn_name'. Expected '$(resolved_param_list:len)' but got '$(arg_list:len)'.")
-    }
-
-    val arg_list_type = []Type
-
-    for arg_index, arg in arg_list {
-      match arg {
-        when Argument::Expression(inner_expr) {
-          arg_list_type:push(
-            type_check_call_arg_expr(inner_expr, resolved_param_list, arg_index, symbol_table, error_list)
-          )
-        }
-        when Argument::Label(label_name, inner_expr) {
-          arg_list_type:push(
-            type_check_call_arg_expr(inner_expr, resolved_param_list, arg_index, symbol_table, error_list)
-          )
+        if resolved_fn_decl is Type::Function(final_param_list, final_ret_type) {
+          resolved_param_list = final_param_list
+          resolved_ret_type = final_ret_type
+        } else {
+          panic("Function '$clean_fn_name' is not a function.")
         }
       }
-    }
 
-    for index, param in resolved_param_list {
-      val clean_param_name = demangle_name(param:name)
-
-      if index >= arg_list:len {
-        error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_fn_name'.")
-        continue
+      for arg in arg_list {
+        if arg is Argument::Label(label_name, expr) {
+          error_list:push("Function '$clean_fn_name' has no parameter named '$label_name' or was placed incorrectly.")
+        }
       }
 
-      val arg_type = arg_list_type[index]
+      if resolved_param_list:len != arg_list:len {
+        error_list:push("Incorrect number of arguments passed to function '$clean_fn_name'. Expected '$(resolved_param_list:len)' but got '$(arg_list:len)'.")
+      }
 
-      type_check_type_compatibility(param:type, arg_type, "for parameter '$clean_param_name' of function '$clean_fn_name'", error_list)
+      val arg_list_type = []Type
+
+      for arg_index, arg in arg_list {
+        match arg {
+          when Argument::Expression(inner_expr) {
+            arg_list_type:push(
+              type_check_call_arg_expr(inner_expr, resolved_param_list, arg_index, symbol_table, error_list)
+            )
+          }
+          when Argument::Label(label_name, inner_expr) {
+            arg_list_type:push(
+              type_check_call_arg_expr(inner_expr, resolved_param_list, arg_index, symbol_table, error_list)
+            )
+          }
+        }
+      }
+
+      for index, param in resolved_param_list {
+        val clean_param_name = demangle_name(param:name)
+
+        if index >= arg_list:len {
+          error_list:push("Missing argument for parameter '$clean_param_name' of function '$clean_fn_name'.")
+          continue
+        }
+
+        val arg_type = arg_list_type[index]
+
+        type_check_type_compatibility(param:type, arg_type, "for parameter '$clean_param_name' of function '$clean_fn_name'", error_list)
+      }
+
+      return resolved_ret_type
     }
-
-    return resolved_ret_type
+    else {
+      error_list:push("Entity '$clean_fn_name' is not a function.")
+      return Type::Invalid
+    }
   }
-
-  error_list:push("Entity '$clean_fn_name' is not a function.")
-  return Type::Invalid
 }
 
 fn type_check_fn_call_expr(name string, arg_list []Argument, symbol_table map[string, Type], error_list []string) Type {
