@@ -1,0 +1,8 @@
+# covers: STR-6
+println("a" + "b")
+val first = "Pino"
+val second = "Lang"
+println(first + " " + second)
+var greeting = "hello"
+greeting = greeting + " world"
+println(greeting)

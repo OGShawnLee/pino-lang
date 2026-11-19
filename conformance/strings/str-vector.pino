@@ -1,0 +1,2 @@
+# covers: STR-5
+println(str([1, 2, 3]))

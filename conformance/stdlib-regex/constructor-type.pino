@@ -1,0 +1,3 @@
+# covers: RGX-1
+val r = regex("[0-9]+")
+println(type(r))

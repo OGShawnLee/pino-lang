@@ -1,0 +1,5 @@
+# covers: STRLIB-6
+val parts = "a,b,c":split(",")
+println(parts)
+println(parts:len)
+println("Hello Pino Lang":split(" "))

@@ -1,0 +1,4 @@
+# covers: VAR-E1
+val name = "Shawn Lee"
+name = "Vincent"
+println(name)

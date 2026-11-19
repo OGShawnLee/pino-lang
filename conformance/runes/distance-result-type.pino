@@ -1,0 +1,2 @@
+# covers: RUNE-3
+println(type('c' - 'a'))

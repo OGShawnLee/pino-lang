@@ -1,0 +1,6 @@
+# covers: EQ-3,EQ-9
+val a = [[1, 2], [3]]
+val b = [[1, 2], [3]]
+val c = [[1, 2], [4]]
+println(a == b)
+println(a == c)

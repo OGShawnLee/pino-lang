@@ -1,0 +1,10 @@
+# covers: LEX-11,LEX-15
+struct Player {
+  name string
+  hp int
+}
+val hero_name = "Hero"
+val hero = Player { name: hero_name hp: 80 }
+val villain = Player { name: "Villain", hp: 40 }
+println("$(hero:name) $(hero:hp)")
+println("$(villain:name) $(villain:hp)")

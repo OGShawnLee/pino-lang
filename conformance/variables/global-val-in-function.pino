@@ -1,0 +1,14 @@
+# covers: VAR-7
+val GLOBAL_LIMIT = 100
+val global_val = 123
+fn check_limit() int {
+  return GLOBAL_LIMIT
+}
+struct S {
+  fn get_global() int {
+    return global_val
+  }
+}
+println(check_limit())
+val s = S {}
+println(s:get_global())

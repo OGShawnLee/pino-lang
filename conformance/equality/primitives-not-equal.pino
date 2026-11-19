@@ -1,0 +1,6 @@
+# covers: EQ-2
+println(1 != 2)
+println(1 != 1)
+println("a" != "b")
+println("a" != "a")
+println('a' != 'b')

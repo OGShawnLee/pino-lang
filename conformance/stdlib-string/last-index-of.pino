@@ -1,0 +1,4 @@
+# covers: STRLIB-14
+println("_pino_foo_123":last_index_of("_"))
+println("pino":last_index_of("zz"))
+println("abcabc":last_index_of("abc"))

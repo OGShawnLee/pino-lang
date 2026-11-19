@@ -1,0 +1,5 @@
+# covers: RUNE-5
+val from_int = rune(97)
+println(str(from_int))
+println(from_int == 'a')
+println(rune(127794) == '🌲')

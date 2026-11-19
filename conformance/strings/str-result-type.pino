@@ -1,0 +1,2 @@
+# covers: STR-5
+println(type(str(12)))

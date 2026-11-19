@@ -1,0 +1,21 @@
+# covers: LEX-2
+var count = 0
+fn noop() {
+  return
+}
+for 2 {
+  if count < 5 {
+    count = count + 1
+  } else {
+    break
+  }
+  continue
+}
+match count {
+  when 2 { println("ok") }
+  else { println("other") }
+}
+struct Marker { id int }
+enum Color { Red }
+val done = true
+println(if done then "ok" else "no")

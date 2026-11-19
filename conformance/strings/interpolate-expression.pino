@@ -1,0 +1,7 @@
+# covers: STR-3
+val x = 10
+val y = 20
+println("The sum is: $(x + y)")
+println("$(x - 2)")
+val name = "Pino"
+println("$(name:upper())")

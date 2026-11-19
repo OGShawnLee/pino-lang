@@ -1,0 +1,35 @@
+# D-025: `+` and `<` on strings with other operands
+
+Status: open
+Raised by: 005
+Feature: spec/features/strings.md
+
+## Question
+What do `"n=" + 1`, `1 + "n"` and `"a" < "b"` mean: implicit conversion to text, a type error, or a lexicographic comparison?
+
+## Evidence
+- Reference: §3 documents only `rune + rune` producing a string and string interpolation as the way to insert values into text (`LANGUAGE_REFERENCE.md:102-140`). Operators between strings and other types, and string ordering, are not documented.
+- Tests: no test asserts them. `ArithmeticTests.TestRuneSurrogatesAndEmojiIndexing` only joins strings (`ArithmeticTests.cs:80-92`).
+- Implementation: the checker types any `+` with a string operand as `string` (`Checker.Expression.cs:1036-1040`); the evaluator converts the other operand to text. Relational operators go through numeric conversion (`Evaluator.Expression.cs:1039`), which fails on text.
+
+Minimal snippet:
+
+```pino
+println("n=" + 1)
+println(1 + "n")
+println("a" < "b")
+```
+
+| Engine | Actual output |
+| :--- | :--- |
+| tree-walk | `n=1`, `1n`, then `System.FormatException: The input string 'a' was not in a correct format.` |
+| VM | `n=1`, `1n`, then the same `System.FormatException` |
+| C | `n=1`, `1n`, `True` |
+
+## Options
+1. Make `"n=" + 1` a checker error and require `str(1)` or interpolation; add lexicographic `<`, `<=`, `>`, `>=` for strings (by code point): strict and predictable.
+2. Keep the implicit conversion in `+` and add string ordering: convenient; hides type mistakes.
+3. Keep `+` as is and reject string ordering with a checker error instead of a .NET exception.
+
+## Decision
+_Pending: owner decides._

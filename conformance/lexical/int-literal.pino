@@ -1,0 +1,5 @@
+# covers: LEX-4
+println(42)
+println(1_000_000)
+println(3_000_000_000 * 3)
+println(0)

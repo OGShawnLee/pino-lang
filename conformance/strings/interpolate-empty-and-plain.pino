@@ -1,0 +1,3 @@
+# covers: STR-4
+println("plain text")
+println("")

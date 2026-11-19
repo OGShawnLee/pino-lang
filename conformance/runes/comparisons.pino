@@ -1,0 +1,11 @@
+# covers: RUNE-4
+val a = 'a'
+val b = 'b'
+println(a == 'a')
+println(a != b)
+println(a < b)
+println(b < a)
+println(a <= a)
+println(b > a)
+println(a >= b)
+println('🌲' > 'z')

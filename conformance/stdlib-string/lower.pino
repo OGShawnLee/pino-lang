@@ -1,0 +1,3 @@
+# covers: STRLIB-2
+println("PINO":lower())
+println("Hello":lower())

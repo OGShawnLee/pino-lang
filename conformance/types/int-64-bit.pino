@@ -1,0 +1,5 @@
+# covers: TYPE-2
+val big = 4_000_000_000
+println(big + big)
+println(0 - big - big)
+println(big * 2 + 1)

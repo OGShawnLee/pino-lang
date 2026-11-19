@@ -1,0 +1,9 @@
+# covers: EQ-6
+union Foo {
+  A
+  B
+}
+println(Foo::A == Foo::A)
+println(Foo::A != Foo::B)
+println(Foo::A == Foo::B)
+println(Foo::A != Foo::A)

@@ -1,0 +1,4 @@
+# covers: LEX-7
+println("Pino Lang")
+println("")
+println("single 'quote' inside")

@@ -1,0 +1,6 @@
+# covers: RGX-6
+val r = regex("[0-9]+")
+val matches = r:find_all("12abc34def56")
+println(matches)
+println(matches:len)
+println(r:find_all("no digits here"))

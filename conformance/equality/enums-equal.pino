@@ -1,0 +1,9 @@
+# covers: EQ-7
+enum Zap {
+  A
+  B
+}
+println(Zap::A == Zap::A)
+println(Zap::A != Zap::B)
+println(Zap::A == Zap::B)
+println(Zap::A != Zap::A)

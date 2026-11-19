@@ -1,0 +1,4 @@
+# covers: RUNE-6
+println(str(rune("z")))
+println(rune("🌲Pino") == '🌲')
+println(rune("Pino") == 'P')

@@ -1,0 +1,4 @@
+# covers: STRLIB-8,STRLIB-9
+val large_buffer = "hello world, this is a large buffer"
+val token = large_buffer:substring(0, 5):to_owned()
+println(token)

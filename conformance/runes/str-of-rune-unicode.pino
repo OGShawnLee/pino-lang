@@ -1,0 +1,2 @@
+# covers: RUNE-7
+println(str('🌲'))

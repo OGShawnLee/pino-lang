@@ -1,0 +1,4 @@
+# covers: VAR-4
+var text = "a"
+text += "b"
+println(text)

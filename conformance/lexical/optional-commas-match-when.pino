@@ -1,0 +1,11 @@
+# covers: LEX-13,LEX-15
+fn react(command string) {
+  match command {
+    when "start" "run" { println("running") }
+    when "stop" { println("stopping") }
+    else { println("other") }
+  }
+}
+react("start")
+react("run")
+react("stop")

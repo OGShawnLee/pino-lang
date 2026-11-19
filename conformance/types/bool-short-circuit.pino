@@ -1,0 +1,9 @@
+# covers: TYPE-6
+var called = false
+fn should_not_be_called() bool {
+  called = true
+  return true
+}
+println(false and should_not_be_called())
+println(true or should_not_be_called())
+println(called)

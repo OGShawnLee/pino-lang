@@ -1,0 +1,5 @@
+# covers: VAR-1
+val name = "Shawn Lee"
+val answer = 40 + 2
+println(name)
+println(answer)

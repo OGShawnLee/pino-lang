@@ -1,0 +1,6 @@
+# covers: STRLIB-1
+val s = "Hello"
+println(s:len)
+println(s:length)
+println("Pino Lang":len)
+println("":len)

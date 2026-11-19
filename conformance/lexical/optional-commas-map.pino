@@ -1,0 +1,10 @@
+# covers: LEX-10,LEX-15
+val m = map[string, int] { "x": 10 "y": 20 }
+println(m["x"])
+println(m["y"])
+val n = map[string, int] {
+  "a": 1
+  "b": 2
+}
+println(n["a"])
+println(n["b"])

@@ -1,0 +1,4 @@
+# covers: STRLIB-17
+val text = "Pino Language"
+println("Pino" in text)
+println("Java" in text)

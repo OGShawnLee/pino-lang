@@ -1,0 +1,6 @@
+# covers: TYPE-1
+println(type(42))
+println(type(3.14))
+println(type(true))
+println(type("Pino Lang"))
+println(type('a'))

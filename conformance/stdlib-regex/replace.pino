@@ -1,0 +1,4 @@
+# covers: RGX-7
+val r = regex("[0-9]+")
+println(r:replace("a12b34c", "X"))
+println(r:replace("no digits", "X"))

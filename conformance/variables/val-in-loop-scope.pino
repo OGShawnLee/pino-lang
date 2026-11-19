@@ -1,0 +1,7 @@
+# covers: VAR-5
+val it_value = 99
+for 3 {
+  val it_value = it
+  println(it_value)
+}
+println(it_value)

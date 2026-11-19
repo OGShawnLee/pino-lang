@@ -1,0 +1,9 @@
+# covers: EQ-6
+union Data {
+  Int(int)
+  String(string)
+}
+println(Data::Int(1) == Data::Int(1))
+println(Data::Int(1) == Data::Int(2))
+println(Data::Int(1) == Data::String("not-an-int"))
+println(Data::String("x") != Data::String("y"))

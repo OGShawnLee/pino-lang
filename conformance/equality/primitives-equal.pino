@@ -1,0 +1,10 @@
+# covers: EQ-1
+println(42 == 42)
+println(3.5 == 3.5)
+println(true == true)
+println('a' == 'a')
+println("Pino" == "Pino")
+println(42 == 43)
+println(true == false)
+println('a' == 'b')
+println("Pino" == "Lang")

@@ -1,0 +1,6 @@
+# covers: RGX-5
+val r = regex("[0-9]+")
+println(r:find("abc456def"))
+val none = r:find("abcdef")
+println(if none == "" then "<empty>" else none)
+println(r:find("12abc34"))

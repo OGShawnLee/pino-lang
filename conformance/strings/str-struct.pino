@@ -1,0 +1,3 @@
+# covers: STR-5
+struct User { name string }
+println(str(User { name: "Test" }))

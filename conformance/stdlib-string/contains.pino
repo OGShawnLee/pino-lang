@@ -1,0 +1,4 @@
+# covers: STRLIB-5
+println("Pino":contains("in"))
+println("Pino":contains("xyz"))
+println("Hello Pino":contains("Pino"))

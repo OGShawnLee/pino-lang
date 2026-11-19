@@ -1,0 +1,5 @@
+# covers: RGX-3
+val r = regex("[0-9]+")
+println(r:has_match("abc"))
+println(r:has_match("abc123def"))
+println(r:has_match("7"))

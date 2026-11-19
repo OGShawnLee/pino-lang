@@ -1,0 +1,9 @@
+# covers: EQ-4
+val m1 = map[string, int] { "a": 1 "b": 2 }
+val m2 = map[string, int] { "b": 2 "a": 1 }
+val m3 = map[string, int] { "a": 1 "b": 3 }
+val m4 = map[string, int] { "a": 1 }
+println(m1 == m2)
+println(m1 == m3)
+println(m1 == m4)
+println(m1 != m3)

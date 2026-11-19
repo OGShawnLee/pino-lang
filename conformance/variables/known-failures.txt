@@ -1,0 +1,17 @@
+# Known failures for conformance/variables/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM and C: reassigning a `val` is not detected (D-017); only the tree-walk interpreter raises an error at run time
+VM val-reassign-rejected.pino  # D-017: run succeeds and prints "Vincent"
+C val-reassign-rejected.pino  # D-017: run succeeds and prints "Vincent"
+VM val-compound-assign-rejected.pino  # D-017: run succeeds and prints "6"
+C val-compound-assign-rejected.pino  # D-017: run succeeds and prints "6"
+
+# --- C backend
+C compound-assign-string.pino  # `+=` on strings is not supported: TCC error "operation on a struct"
+
+# --- VM (experimental)
+VM compound-assign.pino  # `%=` is evaluated wrongly: prints 7 instead of 3 for `n %= 4` with n = 7
+VM global-val-in-function.pino  # VM has no struct support: RUNTIME ERROR "Value is not callable"
+VM lambda-captures-scope.pino  # VM cannot call the lambda: RUNTIME ERROR "Value is not callable"

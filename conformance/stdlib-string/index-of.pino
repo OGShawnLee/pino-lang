@@ -1,0 +1,4 @@
+# covers: STRLIB-13
+println("pino":index_of("in"))
+println("hello":index_of("ll"))
+println("pino":index_of("zz"))

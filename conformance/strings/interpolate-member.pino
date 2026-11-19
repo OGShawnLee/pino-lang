@@ -1,0 +1,6 @@
+# covers: STR-3
+struct Player {
+  attack int
+}
+val player = Player { attack: 12 }
+println("Base Attack: $(player:attack)")

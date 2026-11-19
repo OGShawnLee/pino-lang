@@ -1,0 +1,4 @@
+# covers: STRLIB-7
+println("hello world":replace("world", "Pino"))
+println("Hello Pino":replace("Hello", "Goodbye"))
+println("a-a-a":replace("a", "b"))

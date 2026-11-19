@@ -1,0 +1,3 @@
+# covers: STR-5
+println(str(12))
+println(str(-7))

@@ -1,0 +1,10 @@
+# covers: EQ-5,EQ-9
+struct Team {
+  name string
+  scores []int
+}
+val a = Team { name: "A" scores: [1, 2] }
+val b = Team { name: "A" scores: [1, 2] }
+val c = Team { name: "A" scores: [1, 9] }
+println(a == b)
+println(a == c)

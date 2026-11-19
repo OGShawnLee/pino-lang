@@ -1,0 +1,3 @@
+# covers: LEX-1
+val x = 3 # trailing comment: val x = 99
+println(x) # prints the value

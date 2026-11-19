@@ -1,0 +1,8 @@
+# covers: STRLIB-9
+val s = "hello world"
+val sub = s:substring(0, 5)
+val owned = sub:to_owned()
+val cloned = sub:clone()
+println(owned)
+println(cloned)
+println(owned == cloned)

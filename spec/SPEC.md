@@ -17,12 +17,12 @@ Decisions live in [`decisions/`](decisions/README.md) and are made only by the p
 
 | Feature | File | Rule prefix | Owner ticket | State |
 | :--- | :--- | :--- | :--- | :--- |
-| Lexical structure (comments, identifiers, naming, literals, optional commas) | `features/lexical.md` | `LEX` | 005 | pending |
-| Variables and constants | `features/variables.md` | `VAR` | 005 | pending |
-| Primitive types and conversions | `features/types.md` | `TYPE` | 005 | pending |
-| Runes | `features/runes.md` | `RUNE` | 005 | pending |
-| Strings and interpolation | `features/strings.md` | `STR` | 005 | pending |
-| Equality and identity | `features/equality.md` | `EQ` | 005 | pending |
+| Lexical structure (comments, identifiers, naming, literals, optional commas) | `features/lexical.md` | `LEX` | 005 | migrated |
+| Variables and constants | `features/variables.md` | `VAR` | 005 | migrated |
+| Primitive types and conversions | `features/types.md` | `TYPE` | 005 | migrated |
+| Runes | `features/runes.md` | `RUNE` | 005 | migrated |
+| Strings and interpolation | `features/strings.md` | `STR` | 005 | migrated |
+| Equality and identity | `features/equality.md` | `EQ` | 005 | migrated |
 | Conditionals | `features/conditionals.md` | `IF` | 006 | pending |
 | Loops | `features/loops.md` | `LOOP` | 004 | migrated |
 | Match | `features/match.md` | `MATCH` | 006 | pending |
@@ -45,8 +45,8 @@ Stdlib files have a `## Signatures` table (`Member | Signature | Returns`) follo
 
 | File | Rule prefix | Owner ticket | State |
 | :--- | :--- | :--- | :--- |
-| `stdlib/string.md` | `STRLIB` | 005 | pending |
-| `stdlib/regex.md` | `RGX` | 005 | pending |
+| `stdlib/string.md` | `STRLIB` | 005 | migrated |
+| `stdlib/regex.md` | `RGX` | 005 | migrated |
 | `stdlib/builtins.md` | `BUILTIN` | 006 | pending |
 | `stdlib/vector.md` | `VECLIB` | 007 | pending |
 | `stdlib/map.md` | `MAPLIB` | 007 | pending |

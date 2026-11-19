@@ -1,0 +1,5 @@
+# covers: LEX-6
+val yes = true
+val no = false
+println(yes)
+println(no)

@@ -1,0 +1,4 @@
+# covers: STRLIB-1
+println("🌲":len)
+println("🌲Pino":len)
+println("añb":len)

@@ -1,0 +1,8 @@
+# covers: STRLIB-10
+val s = "hello world"
+val sub = s:substring(6, 5)
+val cstr1 = sub:to_cstring()
+val cstr2 = sub:cstr()
+println(cstr1)
+println(cstr2)
+println(cstr1 == cstr2)

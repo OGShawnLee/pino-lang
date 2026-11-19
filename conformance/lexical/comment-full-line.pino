@@ -1,0 +1,4 @@
+# covers: LEX-1
+println("before")
+# println("this line is a comment and never runs")
+println("after")

@@ -1,0 +1,4 @@
+# covers: RGX-2
+val r = regex("[0-9]+")
+println(r:pattern)
+println(regex("[a-z]+"):pattern)

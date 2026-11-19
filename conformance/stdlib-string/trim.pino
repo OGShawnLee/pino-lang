@@ -1,0 +1,4 @@
+# covers: STRLIB-4
+println("  hello  ":trim())
+println("hello":trim())
+println("   hello world   ":trim())

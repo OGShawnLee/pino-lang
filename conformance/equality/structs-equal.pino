@@ -1,0 +1,11 @@
+# covers: EQ-5
+struct Point {
+  x int
+  y int
+}
+val a = Point { x: 1 y: 2 }
+val b = Point { x: 1 y: 2 }
+val c = Point { x: 1 y: 3 }
+println(a == b)
+println(a == c)
+println(a != c)

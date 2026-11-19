@@ -1,0 +1,5 @@
+# covers: STR-1
+val s = "abc"
+val t = s:upper()
+println(s)
+println(t)

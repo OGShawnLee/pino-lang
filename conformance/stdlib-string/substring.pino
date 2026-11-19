@@ -1,0 +1,5 @@
+# covers: STRLIB-8
+println("hello world":substring(6, 5))
+println("hello world":substring(0, 5))
+val s = "Pino Lang"
+println(s:substring(0, 4))

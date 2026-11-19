@@ -1,0 +1,4 @@
+# covers: STR-E1
+var s = "abc"
+s[0] = 'x'
+println(s)

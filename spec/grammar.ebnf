@@ -15,22 +15,97 @@
    LANGUAGE_REFERENCE.md, the reference is followed and a comment points to the decision file. *)
 
 (* === section: lex (owner 005) === *)
-(* pending *)
+(* Tokens. Whitespace and newlines separate tokens and are otherwise insignificant. *)
+comment         = "#" , { any_char_except_newline } ;      (* runs to the end of the line *)
+
+IDENT           = ident_start , { ident_start | digit } ;
+ident_start     = letter | "_" ;                          (* D-021: the lexer also accepts "$" in identifiers *)
+keyword         = "var" | "val" | "fn" | "if" | "else" | "match" | "when" | "for"
+                | "struct" | "enum" | "break" | "continue" | "return" ;
+                  (* the lexer reserves more words (import, from, module, pub, static, union, yield, is, as, in,
+                     then, test, assert, interface); only the ones asserted by LexerTests are normative here *)
+
+INT             = digit , { digit | "_" , digit , digit , digit } ;   (* 42, 1_000_000 *)
+FLOAT           = INT , "." , digit , { digit } ;                     (* 3.14159; a leading "-" is the unary operator *)
+BOOL            = "true" | "false" ;
+STRING          = '"' , { string_char | interpolation } , '"' ;       (* see section str *)
+RUNE            = "'" , ( rune_char | "\n" | "\'" ) , "'" ;           (* one Unicode code point *)
+
+(* Optional commas (reference section 1). In every list below a separator is "," or nothing:
+   D-010: when the separator is omitted, "a -b" is read as the subtraction "a - b". *)
+list_sep        = [ "," ] ;
+vector_literal  = "[" , [ expression , { list_sep , expression } ] , "]" ;
+map_literal     = "map" , "[" , type_expr , "," , type_expr , "]" , "{" , [ map_entry , { list_sep , map_entry } ] , "}" ;
+map_entry       = expression , ":" , expression ;
+struct_init     = IDENT , "{" , [ field_init , { list_sep , field_init } ] , "}" ;
+field_init      = IDENT , ":" , expression ;
+import_stmt     = "from" , IDENT , "import" , IDENT , { list_sep , IDENT } ;
+when_values     = "when" , expression , { list_sep , expression } ;
+param_list      = "(" , [ param , { list_sep , param } ] , ")" ;
+param           = IDENT , type_expr ;
+arg_list        = "(" , [ expression , { list_sep , expression } ] , ")" ;
 
 (* === section: var (owner 005) === *)
-(* pending *)
+(* D-012: the reference gives no syntax for an explicit type annotation, and neither `val x: int = 10`
+   nor `val x int = 10` parses today, so none is listed. D-018: the parser accepts a second declaration of the
+   same name in one scope. *)
+variable_decl   = ( "val" | "var" ) , IDENT , "=" , expression ;
+
+assignment      = assign_target , assign_op , expression ;
+assign_target   = IDENT | index_expr | member_expr ;       (* x, v[i], m["k"], obj:field *)
+assign_op       = "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
+                  (* assigning to a val is an error (D-017); the checker rejects a value of another type.
+                     `block` (a braced statement list that opens a nested scope) is defined with the statements. *)
 
 (* === section: type (owner 005) === *)
-(* pending *)
+(* D-012: no explicit annotation syntax is accepted for variables. Type names appear after a parameter name
+   (`a int`) and as return types; compound type forms (vectors, maps, functions, generics) belong to later sections. *)
+primitive_type  = "bool" | "int" | "float" | "rune" | "string" ;
+type_expr       = primitive_type
+                | IDENT ;                                (* struct, interface, enum or union name; other forms: later sections *)
+
+(* Operators on primitive values, from loosest to tightest binding. Only the orderings asserted by
+   ArithmeticTests are normative: `*` `/` before `+` `-`, unary operators before binary ones, `not` before `and`. *)
+or_expr         = and_expr , { "or" , and_expr } ;        (* right operand evaluated only when needed *)
+and_expr        = eq_expr , { "and" , eq_expr } ;
+eq_expr         = cmp_expr , { ( "==" | "!=" | "===" | "!==" ) , cmp_expr } ;   (* equality: see section eq *)
+cmp_expr        = add_expr , { ( "<" | "<=" | ">" | ">=" ) , add_expr } ;
+add_expr        = mul_expr , { ( "+" | "-" ) , mul_expr } ;
+mul_expr        = unary_expr , { ( "*" | "/" | "%" ) , unary_expr } ;
+unary_expr      = ( "-" | "not" ) , unary_expr
+                | primary_expr ;
+primary_expr    = INT | FLOAT | BOOL | STRING | RUNE | IDENT | "(" , expression , ")" | call_expr ;
+call_expr       = IDENT , arg_list ;                      (* includes the builtins type(v), int(v), float(v), rune(v), str(v) *)
 
 (* === section: rune (owner 005) === *)
-(* pending *)
+(* Rune literals are the RUNE token (see section lex). Runes use the operators of section type; the result type
+   depends on the operand types (RUNE-2, RUNE-3). D-011: `rune + rune` is not specified here. *)
+rune_shift      = rune_expr , ( "+" | "-" ) , int_expr ;      (* rune: 'A' + 1 *)
+rune_distance   = rune_expr , "-" , rune_expr ;               (* int:  'c' - 'a' *)
+rune_compare    = rune_expr , ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) , rune_expr ;
+rune_expr       = expression ;                                (* any expression of type rune *)
+int_expr        = expression ;                                (* any expression of type int *)
+
+rune_call       = "rune" , "(" , expression , ")" ;           (* int or string argument; first character of a string *)
+str_call        = "str" , "(" , expression , ")" ;            (* see section str *)
 
 (* === section: str (owner 005) === *)
-(* pending *)
+(* A string literal is lexed into text pieces and interpolations. D-020: escape sequences are undocumented;
+   D-021: `$` is also accepted inside identifiers. A string literal does not span lines. *)
+string_literal  = '"' , { string_piece } , '"' ;
+string_piece    = string_text
+                | "$" , IDENT                             (* $name: variable interpolation *)
+                | "$(" , expression , ")" ;               (* $(expr): expression interpolation *)
+string_text     = { any_char_except_quote_and_dollar } ;  (* `\"` `\\` `\$` `\n` `\t` `\r`: see D-020 *)
+
+string_concat   = expression , "+" , expression ;         (* both operands strings: concatenation *)
+str_conversion  = "str" , "(" , expression , ")" ;        (* textual representation of any value *)
 
 (* === section: eq (owner 005) === *)
-(* pending *)
+(* The four operators are the equality level `eq_expr` of section type; this section states their operand types
+   and meaning. Tuples (`@(a, b)`) take no part in equality (reference section 3, "Tuple Constraint"). *)
+structural_eq   = expression , ( "==" | "!=" ) , expression ;      (* primitives, vectors, maps, structs, unions, enums, regex *)
+identity_eq     = expression , ( "===" | "!==" ) , expression ;    (* scalars by value, heap objects by reference *)
 
 (* === section: if (owner 006) === *)
 (* pending *)

@@ -1,0 +1,31 @@
+# Known failures for conformance/stdlib-string/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- Tree-walk and C: `:len` does not count runes (reference section 10 says "🌲":len is 1)
+TreeWalk len-unicode.pino  # counts UTF-16 code units: prints 2, 6, 3 instead of 1, 5, 3
+C len-unicode.pino  # counts UTF-8 bytes: prints 4, 8, 4 instead of 1, 5, 3
+
+# --- C backend
+C to-cstring.pino  # `:to_cstring()` / `:cstr()` yield `const char *`, which TCC cannot cast to the string struct
+
+# --- VM (experimental): string methods and properties are not supported
+VM contains.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM ends-with.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM index-of.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM in-operator.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM last-index-of.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM len-ascii.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM len-unicode.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM lower.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM replace.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM split.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM starts-with.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM substring.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM substring-chain.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM to-owned.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM trim.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM trim-end.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM trim-start.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM upper.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
+VM to-cstring.pino  # VM cannot call string methods: RUNTIME ERROR "Value is not callable"

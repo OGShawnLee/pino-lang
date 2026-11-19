@@ -1,0 +1,9 @@
+# covers: LEX-3
+val identifier_name = "a"
+val hero_name2 = "b"
+val _hidden = "c"
+val GLOBAL_LIMIT = "d"
+println(identifier_name)
+println(hero_name2)
+println(_hidden)
+println(GLOBAL_LIMIT)

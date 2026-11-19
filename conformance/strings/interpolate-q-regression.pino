@@ -1,0 +1,3 @@
+# covers: STR-2
+val q = 3
+println("q = $q")

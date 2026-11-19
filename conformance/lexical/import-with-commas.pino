@@ -1,0 +1,4 @@
+# covers: LEX-12,LEX-15
+from Utils import calculate_distance, logger
+println(calculate_distance(1, 6))
+logger("again")

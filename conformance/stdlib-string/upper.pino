@@ -1,0 +1,3 @@
+# covers: STRLIB-3
+println("pino":upper())
+println("hello":upper())

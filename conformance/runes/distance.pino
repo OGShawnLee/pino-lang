@@ -1,0 +1,5 @@
+# covers: RUNE-3
+val dist = 'c' - 'a'
+println(dist)
+println('b' - 'a')
+println('a' - 'c')

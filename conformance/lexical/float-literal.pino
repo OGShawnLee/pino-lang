@@ -1,0 +1,4 @@
+# covers: LEX-5
+println(3.14159)
+println(-0.005)
+println(2.50)

@@ -1,0 +1,11 @@
+# covers: TYPE-4
+val neg_int = -42
+val neg_float = -3.14
+val prec_mul = -2 * 3
+val prec_add = -2 + 3
+val group_neg = -(2 + 3)
+println(neg_int)
+println(neg_float)
+println(prec_mul)
+println(prec_add)
+println(group_neg)

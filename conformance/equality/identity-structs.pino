@@ -1,0 +1,12 @@
+# covers: EQ-11,EQ-12,EQ-13
+struct Box {
+  value int
+}
+val a = Box { value: 1 }
+val b = Box { value: 1 }
+val c = a
+println(a == b)
+println(a === c)
+println(a !== b)
+println(a === b)
+println(a == c)

@@ -1,0 +1,9 @@
+# covers: TYPE-5
+val t = true
+val f = false
+println(t and t)
+println(t and f)
+println(t or f)
+println(f or f)
+println(t == f)
+println(t != f)

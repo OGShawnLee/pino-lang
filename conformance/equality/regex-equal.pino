@@ -1,0 +1,7 @@
+# covers: EQ-8
+val r1 = regex("[0-9]+")
+val r2 = regex("[0-9]+")
+val r3 = regex("[a-z]+")
+println(r1 == r2)
+println(r1 == r3)
+println(r1 != r3)

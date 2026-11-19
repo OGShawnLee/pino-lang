@@ -1,0 +1,3 @@
+# covers: STRLIB-16
+println("pino  ":trim_end())
+println("  hello  ":trim_end())

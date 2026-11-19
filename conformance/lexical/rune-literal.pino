@@ -1,0 +1,5 @@
+# covers: LEX-8
+println('a' - 'a')
+println('🌲' - 'a')
+println('\n' - 'a')
+println('\'' - 'a')

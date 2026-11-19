@@ -1,0 +1,6 @@
+# covers: RGX-4
+val r = regex("[0-9]+")
+println(r:match_prefix("123abc456"))
+val none = r:match_prefix("abc123")
+println(if none == "" then "<empty>" else none)
+println(r:match_prefix("123"))

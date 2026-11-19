@@ -1,0 +1,17 @@
+# Known failures for conformance/equality/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM (experimental): `==`/`!=` compare vectors, maps and structs by reference, and the VM has no enum, union, struct or `===` support
+VM vectors-equal.pino  # VM compares vectors by reference: [1, 2, 3] == [1, 2, 4] prints True
+VM vectors-nested-equal.pino  # VM compares vectors by reference: prints True for unequal nested vectors
+VM maps-equal.pino  # VM compares maps by reference: prints True for unequal maps
+VM structs-equal.pino  # VM compares structs by reference: prints True for unequal structs
+VM structs-nested-equal.pino  # VM compares structs by reference: prints True for unequal structs
+VM unions-equal.pino  # VM has no union support: RUNTIME ERROR "Value is not callable"
+VM unions-unit-variants-equal.pino  # VM has no union support: RUNTIME ERROR "Value is not callable"
+VM enums-equal.pino  # VM has no enum support: RUNTIME ERROR "Value is not callable"
+VM identity-primitives.pino  # VM has no enum support: RUNTIME ERROR "Value is not callable"
+VM identity-vectors.pino  # VM has no `===`/`!==` support: RUNTIME ERROR "Value is not callable"
+VM identity-structs.pino  # VM has no struct support: RUNTIME ERROR "Value is not callable"
+VM identity-maps.pino  # VM has no map support: RUNTIME ERROR "Value is not callable"

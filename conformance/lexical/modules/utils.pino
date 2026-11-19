@@ -1,0 +1,9 @@
+module Utils
+
+pub fn calculate_distance(a int, b int) int {
+  return b - a
+}
+
+pub fn logger(message string) {
+  println("log: $message")
+}

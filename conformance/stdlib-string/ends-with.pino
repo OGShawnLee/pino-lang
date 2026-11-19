@@ -1,0 +1,4 @@
+# covers: STRLIB-12
+println("pino":ends_with("no"))
+println("pino":ends_with("pi"))
+println("hello":ends_with("lo"))

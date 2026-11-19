@@ -1,0 +1,8 @@
+# covers: RUNE-2
+val next = 'A' + 1
+println(str(next))
+val prev = 'z' - 2
+println(str(prev))
+val b = 'a'
+val after = b + 1
+println(str(after))

@@ -1,0 +1,13 @@
+# covers: VAR-5,VAR-6
+var result = ""
+fn foo() string {
+  val local_main = "not an int"
+  return local_main
+}
+fn run_test() {
+  val local_main = 12
+  result = foo()
+  println(result)
+  println(local_main)
+}
+run_test()

@@ -1,0 +1,3 @@
+# covers: RUNE-2
+println(type('A' + 1))
+println(type('z' - 2))

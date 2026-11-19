@@ -1,0 +1,5 @@
+# covers: TYPE-7
+println(not true)
+println(not false)
+println(not true and false)
+println(not (true and false))

@@ -1,0 +1,9 @@
+# covers: EQ-10
+enum Severity {
+  Low
+  Medium
+}
+println(42 === 42)
+println(Severity::Medium === Severity::Medium)
+println(42 !== 42)
+println(42 !== 43)

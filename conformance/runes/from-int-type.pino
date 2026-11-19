@@ -1,0 +1,2 @@
+# covers: RUNE-5
+println(type(rune(97)))

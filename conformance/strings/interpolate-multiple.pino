@@ -1,0 +1,8 @@
+# covers: STR-4
+val name = "Pino"
+val room = "room"
+println("hello $name inside $room")
+val x = 10
+val y = 20
+println("$x $y")
+println("[$x]-[$y]")

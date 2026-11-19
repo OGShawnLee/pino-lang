@@ -1,0 +1,7 @@
+# covers: VAR-2
+var attempts = 0
+println(attempts)
+attempts = attempts + 1
+println(attempts)
+attempts = 5
+println(attempts)

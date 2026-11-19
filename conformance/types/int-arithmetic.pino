@@ -1,0 +1,7 @@
+# covers: TYPE-3
+val x = 2 + 3 * 4
+val y = (2 + 3) * 4
+val z = 10 / 2 - 1
+println(x)
+println(y)
+println(z)

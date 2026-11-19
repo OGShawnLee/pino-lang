@@ -1,0 +1,6 @@
+# covers: STR-2
+val age = 24
+val msg = "Hello, my age is $age"
+println(msg)
+val q = 3
+println("q = $q")

@@ -1,0 +1,7 @@
+# covers: TYPE-1
+val count = 3
+val label = "three"
+val flag = count == 3
+println(type(count))
+println(type(label))
+println(type(flag))

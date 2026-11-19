@@ -1,0 +1,20 @@
+# Known failures for conformance/lexical/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- All engines: the parser reads only the first name of a comma-less import list (LEX-12)
+TreeWalk optional-commas-import.pino  # parser ends the import after `calculate_distance`; `logger` then fails with "Variable 'logger' is not declared"
+VM optional-commas-import.pino  # VM has no module support ("Value is not callable"); the comma-less import is also cut after the first name
+C optional-commas-import.pino  # parser ends the import after the first name; TCC error "'logger' undeclared"
+
+# --- C backend
+C int-literal.pino  # `int` is emitted as a 32-bit C int: 3_000_000_000 * 3 prints 410065408 instead of 9000000000
+
+# --- VM (experimental; no module, vector, map, struct or match support)
+VM import-with-commas.pino  # VM has no module support: RUNTIME ERROR "Value is not callable"
+VM optional-commas-vector.pino  # VM prints "null" for vector literals
+VM optional-commas-map.pino  # VM prints "null" for map lookups
+VM optional-commas-struct-init.pino  # VM has no struct support: RUNTIME ERROR "Value is not callable"
+VM optional-commas-match-when.pino  # VM compiles `match` to nothing: prints no output
+VM optional-commas-match-when-comma.pino  # VM compiles `match` to nothing: prints no output
+VM keywords-as-keywords.pino  # VM compiles `match` to nothing: only the final line prints

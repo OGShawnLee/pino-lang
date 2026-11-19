@@ -1,0 +1,7 @@
+# covers: VAR-5
+val x = 10
+if true {
+  val x = "hello"
+  println(x)
+}
+println(x)

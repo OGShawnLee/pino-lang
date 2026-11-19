@@ -1,0 +1,3 @@
+# covers: RUNE-7
+println(str('a'))
+println(str('z'))

@@ -1,0 +1,5 @@
+# covers: RUNE-1
+val letter = 'a'
+println(type(letter))
+println(type('🌲'))
+println(type('\n'))
