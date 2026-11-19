@@ -1,0 +1,5 @@
+# covers: LEX-17
+val a = 5
+val b = 2
+println([a - b])
+println([a-b])

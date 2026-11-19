@@ -106,3 +106,26 @@ Both files still contain regex-style escape sequences (such as `\s`, `\d`, `\w`)
 ## Blockers
 
 None.
+
+## Follow-up: D-010
+
+- **Decision recorded:** `spec/decisions/D-010-optional-commas-vs-unary-minus.md` updated to `Status: accepted` with Option 3 ("ambiguous form is an error"), decided by the owner on 2026-11-19.
+- **Spec rules added (`spec/features/lexical.md`):**
+  - `LEX-17`: subtraction vs. comma-separated elements vs. leading unary minus in comma-optional element lists (vector literals, map entries, call argument lists, `when` value lists) and unchanged outside-list behavior (`val x = a -b`).
+  - `LEX-E2`: asymmetric spacing around `-` (`a -b` or `a- b`) in comma-optional element lists is rejected with `"ambiguous '-'"` suggesting `"write 'a - b' to subtract or 'a, -b' for two elements"`.
+  - Removed resolved `D-010` from `## Open questions`.
+- **Grammar updated (`spec/grammar.ebnf`):** Updated the `D-010` comment on `list_sep` inside the `lex` section only.
+- **Conformance cases added (`conformance/lexical/`):**
+  - `minus-spaced-subtraction.pino` / `.out` (`[3]`, `[3]`; covers `LEX-17`)
+  - `minus-comma-two-elements.pino` / `.out` (`[5, -2]`; covers `LEX-15,LEX-17`)
+  - `minus-leading-unary.pino` / `.out` (`[-2]`; covers `LEX-5,LEX-17`)
+  - `minus-ambiguous-vector.pino` / `.err` (`ambiguous '-'`; covers `LEX-E2`)
+  - `minus-ambiguous-trailing.pino` / `.err` (`ambiguous '-'`; covers `LEX-E2`)
+  - `minus-ambiguous-call.pino` / `.err` (`ambiguous '-'`; covers `LEX-E2`)
+- **Known failures (`conformance/lexical/known-failures.txt`):** Added 12 entries: `TreeWalk`/`C`/`VM` for `minus-ambiguous-vector.pino`, `minus-ambiguous-trailing.pino`, `minus-ambiguous-call.pino` (`legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser`), plus `VM` for `minus-spaced-subtraction.pino`, `minus-comma-two-elements.pino`, `minus-leading-unary.pino` (`VM prints "null" for vector literals`).
+- **`pino-csharp-re` test (`pino-csharp-re/Pino.Compiler.Tests/Lexing/LexerCoreTests.cs`):** Added `TokenFlagsExposeAsymmetricMinusSpacingForD010` (`// D-010`).
+- **Verification:**
+  - `cd pino-csharp.tests; dotnet test`: 1511 passed, 0 failed, 0 skipped, 1511 total.
+  - `dotnet test pino-csharp-re/Pino.sln`: 1153 passed, 0 failed, 0 skipped, 1153 total (0 build warnings/errors).
+  - `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`: exited 0.
+

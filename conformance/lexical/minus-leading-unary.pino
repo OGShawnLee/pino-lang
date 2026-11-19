@@ -1,0 +1,3 @@
+# covers: LEX-5,LEX-17
+val b = 2
+println([-b])

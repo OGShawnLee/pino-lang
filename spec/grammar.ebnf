@@ -33,7 +33,9 @@ STRING          = '"' , { string_char | interpolation } , '"'
 RUNE            = "'" , ( rune_char | "\n" | "\t" | "\r" | "\'" | "\\" ) , "'" ; (* one Unicode code point *)
 
 (* Optional commas (reference section 1). In every list below a separator is "," or nothing:
-   D-010: when the separator is omitted, "a -b" is read as the subtraction "a - b". *)
+   D-010: in comma-optional element lists (vector_literal, map_literal, arg_list, when_values),
+   a `-` with whitespace on exactly one side (`a -b` or `a- b`) is an error; `a - b` and `a-b`
+   subtract, `a, -b` is two elements, and leading `[-b]` or `f(-1)` is unary minus. *)
 list_sep        = [ "," ] ;
 vector_literal  = "[" , [ expression , { list_sep , expression } ] , "]" ;
 map_literal     = "map" , "[" , type_expr , "," , type_expr , "]" , "{" , [ map_entry , { list_sep , map_entry } ] , "}" ;

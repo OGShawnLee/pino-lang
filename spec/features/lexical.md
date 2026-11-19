@@ -23,14 +23,15 @@ A program is a sequence of tokens: keywords, identifiers, literals (integer, flo
 - LEX-14: Commas between the parameters of a function declaration and between the arguments of a function call are optional when they are separated by whitespace. [src: LANGUAGE_REFERENCE.md §1 "Syntax Guidelines"]
 - LEX-15: The comma-separated forms of LEX-9 to LEX-14 remain valid and mean the same as the comma-less forms. [src: LANGUAGE_REFERENCE.md §1 "Syntax Guidelines"; LANGUAGE_REFERENCE.md §6 "Modules and Imports"]
 - LEX-16: Adjacent simple interpolations in a string such as `"$x$y"` interpolate `x` and `y` in order because `$` is not an identifier character. [src: spec/decisions/D-021]
+- LEX-17: Where commas are optional and whitespace separates elements (vector literals, map literal entries, call argument lists, and `when` value lists), `a - b` and `a-b` subtract, `a, -b` is two elements, and a leading `-` such as `[-b]` or `f(-1)` is unary minus; outside those contexts `val x = a -b` remains subtraction. [src: spec/decisions/D-010-optional-commas-vs-unary-minus.md]
 
 ## Errors
 - LEX-E1: Using a keyword such as `match` as a variable name is rejected with a message containing "Expected Identifier". [src: LexerTests.TestIdentifiersAndKeywords]
+- LEX-E2: In comma-optional element lists (vector literals, map literal entries, call argument lists, and `when` value lists), a `-` with whitespace on exactly one side (`a -b` or `a- b`) is rejected with a message containing "ambiguous '-'" and suggesting "write 'a - b' to subtract or 'a, -b' for two elements". [src: spec/decisions/D-010-optional-commas-vs-unary-minus.md]
 
 ## Examples
 Conformance cases: `conformance/lexical/`.
 
 ## Open questions
-- D-010: Optional commas conflict with unary minus: `[a -b]` is parsed as the subtraction `a - b`, not as the two elements `a` and `-b`.
 - D-014: The reference says `snake_case` and `PascalCase` naming is "strictly" adopted, but no engine rejects other spellings.
 - D-092: Whether underscore separators in integer and float literals must occur in 3-digit groups (`_[0-9]{3}`) or anywhere between two digits.

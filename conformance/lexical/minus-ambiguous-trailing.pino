@@ -1,0 +1,4 @@
+# covers: LEX-E2
+val a = 5
+val b = 2
+println([a- b])

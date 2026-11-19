@@ -10,6 +10,14 @@ C optional-commas-import.pino  # parser ends the import after the first name; TC
 # --- C backend
 C int-literal.pino  # `int` is emitted as a 32-bit C int: 3_000_000_000 * 3 prints 410065408 instead of 9000000000
 
+# --- All engines: legacy parser has no D-010 check (LEX-E2)
+TreeWalk minus-ambiguous-vector.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+TreeWalk minus-ambiguous-trailing.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+TreeWalk minus-ambiguous-call.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+C minus-ambiguous-vector.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+C minus-ambiguous-trailing.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+C minus-ambiguous-call.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+
 # --- VM (experimental; no module, vector, map, struct or match support)
 VM import-with-commas.pino  # VM has no module support: RUNTIME ERROR "Value is not callable"
 VM optional-commas-vector.pino  # VM prints "null" for vector literals
@@ -18,3 +26,9 @@ VM optional-commas-struct-init.pino  # VM has no struct support: RUNTIME ERROR "
 VM optional-commas-match-when.pino  # VM compiles `match` to nothing: prints no output
 VM optional-commas-match-when-comma.pino  # VM compiles `match` to nothing: prints no output
 VM keywords-as-keywords.pino  # VM compiles `match` to nothing: only the final line prints
+VM minus-spaced-subtraction.pino  # VM prints "null" for vector literals
+VM minus-comma-two-elements.pino  # VM prints "null" for vector literals
+VM minus-leading-unary.pino  # VM prints "null" for vector literals
+VM minus-ambiguous-vector.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+VM minus-ambiguous-trailing.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+VM minus-ambiguous-call.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser

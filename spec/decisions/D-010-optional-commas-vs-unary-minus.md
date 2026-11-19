@@ -1,6 +1,6 @@
 # D-010: Optional commas versus unary minus
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/lexical.md
 
@@ -32,4 +32,9 @@ println([a -b])
 3. Make commas required before a negative element and report an error for `[a -b]`: removes the ambiguity at the cost of rejecting a legal-looking program.
 
 ## Decision
-_Pending: owner decides._
+Option 3, decided by the owner on 2026-11-19 ("ambiguous form is an error"):
+- Contexts: only where commas are optional and whitespace separates elements — vector literals, map literal entries, call argument lists, and `when` value lists.
+- In those contexts, a `-` with whitespace on exactly one side (`a -b` or `a- b`) is a compile error whose message must contain `"ambiguous '-'"` and suggest `"write 'a - b' to subtract or 'a, -b' for two elements"`.
+- `a - b` and `a-b` subtract; `a, -b` is two elements; a leading element such as `[-b]` or `f(-1)` is a plain unary minus and is not ambiguous.
+- Outside those contexts nothing changes: `val x = a -b` is still subtraction.
+- Consequence: parsers must inspect token leading-whitespace flags around `-` in comma-optional element lists to reject asymmetric spacing while leaving subtraction and explicit-comma forms intact.

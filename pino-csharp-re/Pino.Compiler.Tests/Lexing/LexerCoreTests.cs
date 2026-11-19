@@ -325,6 +325,31 @@ public sealed class LexerCoreTests {
     Assert.Equal(TokenFlags.LeadingComment | TokenFlags.LeadingNewline, commentBeforeToken.Tokens[0].Flags);
   }
 
+  // D-010
+  [Fact]
+  public void TokenFlagsExposeAsymmetricMinusSpacingForD010() {
+    LexResult leadingSpace = Lex("[a -b]");
+    Assert.Equal(TokenKind.Minus, leadingSpace.Tokens[2].Kind);
+    Assert.Equal(TokenFlags.LeadingWhitespace, leadingSpace.Tokens[2].Flags);
+    Assert.Equal(TokenFlags.None, leadingSpace.Tokens[3].Flags);
+    Assert.True(leadingSpace.GetLeadingTrivia(3).IsEmpty);
+
+    LexResult trailingSpace = Lex("[a- b]");
+    Assert.Equal(TokenKind.Minus, trailingSpace.Tokens[2].Kind);
+    Assert.Equal(TokenFlags.None, trailingSpace.Tokens[2].Flags);
+    Assert.True(trailingSpace.GetLeadingTrivia(2).IsEmpty);
+    Assert.Equal(TokenFlags.LeadingWhitespace, trailingSpace.Tokens[3].Flags);
+    Assert.False(trailingSpace.GetLeadingTrivia(3).IsEmpty);
+
+    LexResult bothSpaced = Lex("[a - b]");
+    Assert.Equal(TokenFlags.LeadingWhitespace, bothSpaced.Tokens[2].Flags);
+    Assert.Equal(TokenFlags.LeadingWhitespace, bothSpaced.Tokens[3].Flags);
+
+    LexResult tight = Lex("[a-b]");
+    Assert.Equal(TokenFlags.None, tight.Tokens[2].Flags);
+    Assert.Equal(TokenFlags.None, tight.Tokens[3].Flags);
+  }
+
   [Fact]
   public void GetLeadingTriviaReturnsExactSliceViaBinarySearch() {
     const string Text = "  # lead\nval  x\n# mid\n  y # tail";
