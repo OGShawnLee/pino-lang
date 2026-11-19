@@ -11,7 +11,7 @@ Commas between function parameters and between call arguments are optional (refe
 - Reference: §1 "Syntax Guidelines" lists "Function/method arguments and parameters" among the lists whose commas are "completely optional" (`LANGUAGE_REFERENCE.md:57`). The README repeats it: "parameters do not require commas" (`README.md:181`).
 - Tests: none asserts a comma-less parameter or argument list. Every test call uses commas.
 - Implementation: `ConsumeParameters` and `ConsumeArguments` consume a comma only if one is present (`pino-csharp/Parser/Parser.cs:251-275`, `:277-307`). Each argument is parsed with `ParseExpression`, so `x -y` is read as the binary expression `x - y`.
-- Related decision: ticket 005 owns the general question "optional commas vs. unary minus" (`val a = 5`, `val b = 2`, `println([a -b])` prints `[3]`, not `[5, -2]`; its decision file is in the D-010 to D-029 range). This file does not duplicate it: the answer to that decision decides what function calls do too. FN-5 and FN-6 only cover argument lists whose elements are not minus-prefixed.
+- Related decision: ticket 005 owns the general question "optional commas vs. unary minus" (`val a = 5`, `val b = 2`, `println([a -b])` prints `[3]`, not `[5, -2]`; see [D-010](D-010-optional-commas-vs-unary-minus.md)). This file does not duplicate it: the answer to that decision decides what function calls do too. FN-5 and FN-6 only cover argument lists whose elements are not minus-prefixed.
 
 Snippet:
 

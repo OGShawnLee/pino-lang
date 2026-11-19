@@ -44,9 +44,10 @@ public static class ConformanceRunner {
 
   public static string ConformanceDir => Path.Combine(RepoRoot, "conformance");
 
+  /// <summary>True when a directory segment named "modules" appears below the feature directory (depth 2 or more).</summary>
   private static bool IsInModulesDir(string relativePath) {
     var parts = relativePath.Split('/');
-    for (int i = 0; i < parts.Length - 1; i++) {
+    for (int i = 1; i < parts.Length - 1; i++) {
       if (parts[i] == "modules") return true;
     }
     return false;

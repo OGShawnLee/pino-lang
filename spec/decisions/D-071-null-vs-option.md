@@ -7,7 +7,7 @@ Feature: spec/features/structs.md, spec/features/errors.md, spec/features/unions
 ## Question
 Should "no value" be expressed with `null` or with `Option[T]`, and should `null` keep existing at all?
 
-Cross-reference: ticket 005 opens the decision on `null` as a primitive type (its ID is in the reserved range D-010 to D-029; see `spec/features/types.md` once that ticket lands). This decision covers the other half: what the language should use for absence, given that `Option[T]` exists (`spec/features/errors.md`).
+Cross-reference: ticket 005 opens the decision on `null` as a primitive type (see [D-013](D-013-null-primitive-versus-option.md) and `spec/features/types.md`). This decision covers the other half: what the language should use for absence, given that `Option[T]` exists (`spec/features/errors.md`).
 
 ## Evidence
 - Reference: `null` is listed as a primitive that "represents the absence of value or null reference" (`LANGUAGE_REFERENCE.md:91`); `pop` on an empty vector, `find` without a match and `remove` of a missing map key return `null` (`LANGUAGE_REFERENCE.md:1167`, `:1201`, `:1268`). Section 8 introduces `Option[T]` for the same job (`LANGUAGE_REFERENCE.md:778`, `:808`).

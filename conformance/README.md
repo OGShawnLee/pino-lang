@@ -30,7 +30,7 @@ conformance/
 
 ### Helper modules
 
-Files inside a directory named `modules/` are helper modules for import cases, not cases themselves: they are skipped by case discovery and by the `.out`/`.err` lint. `ModuleResolver` finds `modules/<Name>.pino` by walking up from the case file's directory, so a case `conformance/<feature>/x.pino` can import `modules/<Name>.pino` placed in `conformance/<feature>/modules/`.
+Files inside a directory named `modules/` at depth two or more below `conformance/` (inside a feature directory, such as `conformance/<feature>/modules/` or `conformance/modules/modules/`) are helper modules for import cases, not cases themselves: they are skipped by case discovery and by the `.out`/`.err` lint. The top-level `conformance/modules/` directory is the feature directory for module tests and its `.pino` files are discovered as cases. `ModuleResolver` finds `modules/<Name>.pino` by walking up from the case file's directory, so a case `conformance/<feature>/x.pino` can import `modules/<Name>.pino` placed in `conformance/<feature>/modules/`.
 
 ## `known-failures.txt`
 

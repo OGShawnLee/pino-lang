@@ -1,11 +1,6 @@
 # Known failures for conformance/modules/.
 # Format: <Engine> <case-file-name.pino>  # <reason>
 # A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
-#
-# NOTE (ticket 007): ConformanceRunner.IsInModulesDir skips every file below a directory named `modules/`, which
-# includes this feature directory itself (conformance/modules/*.pino), so none of these cases is discovered or run by
-# the suite today, and the MOD rules carry [no-case] markers. The lines below record what the three engines do when the
-# cases are run by hand (CLI `run`, `run --vm`, and `compile` + TCC); they start being enforced once the runner is fixed.
 
 # --- TreeWalk
 TreeWalk from-import-no-commas.pino  # MOD-4: the parser reads only the first name of `from M import a b c`, so `add` is "not declared" at run time
@@ -18,4 +13,3 @@ VM err-from-import-unlisted-name.pino  # VM: RUNTIME ERROR 'Value is not callabl
 
 # --- C backend
 C from-import-no-commas.pino  # MOD-4: same parser limitation; TCC error: 'add' undeclared
-C err-from-import-unlisted-name.pino  # the unlisted name is only caught by TCC (implicit declaration of 'greet'), and a TCC failure never satisfies a .err case
