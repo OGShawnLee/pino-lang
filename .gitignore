@@ -71,3 +71,8 @@ issue.md
 # C Compiler
 /projects/c-compiler/*.s
 /projects/c-compiler/*.c
+
+# ==========================================
+# Project Context & Design Assets (Ignored)
+# ==========================================
+.context/
