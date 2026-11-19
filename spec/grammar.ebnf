@@ -1,0 +1,93 @@
+(* Pino Lang grammar. Normative companion to spec/SPEC.md.
+
+   Notation: ISO-style EBNF.
+     =            definition             ;   end of production
+     ,            concatenation          |   alternation
+     [ x ]        optional               { x }  zero or more repetitions
+     ( x )        grouping               open-paren-star ... star-close-paren  comment
+     "text"       quoted terminal (keyword, operator or marker)
+     UPPERCASE    token class produced by the lexer: IDENT, INT, FLOAT, STRING, RUNE
+
+   One delimited section per feature-table row of spec/SPEC.md, in table order:
+     a marker comment: section, colon, lower-case rule prefix, then (owner <ticket>), between === rules
+   Sections containing only the word pending are filled in by their owner ticket.
+   Productions describe what the parser accepts today; where that differs from
+   LANGUAGE_REFERENCE.md, the reference is followed and a comment points to the decision file. *)
+
+(* === section: lex (owner 005) === *)
+(* pending *)
+
+(* === section: var (owner 005) === *)
+(* pending *)
+
+(* === section: type (owner 005) === *)
+(* pending *)
+
+(* === section: rune (owner 005) === *)
+(* pending *)
+
+(* === section: str (owner 005) === *)
+(* pending *)
+
+(* === section: eq (owner 005) === *)
+(* pending *)
+
+(* === section: if (owner 006) === *)
+(* pending *)
+
+(* === section: loop (owner 004) === *)
+(* Productions below reference `block`, `statement` and `expression`, which belong to later sections. *)
+loop_statement  = "for" , loop_head , block ;
+
+loop_head       = (* empty: infinite loop, `for { ... }` *)
+                | expression                  (* `for N { ... }` count form, or `for cond { ... }` condition form *)
+                | loop_binding , "in" , expression ;   (* `for x in coll { ... }`, `for i, x in coll { ... }` *)
+
+(* The parser always reads a bare `for <expression> {` as the count form; the checker
+   re-classifies it as the condition form when the expression has type bool. *)
+
+loop_binding    = IDENT
+                | IDENT , "," , IDENT ;       (* key/index first, then value. D-001: the reference says commas are
+                                                 optional in lists, but the parser requires the comma here. *)
+
+break_statement    = "break" ;
+continue_statement = "continue" ;
+
+(* === section: match (owner 006) === *)
+(* pending *)
+
+(* === section: main (owner 006) === *)
+(* pending *)
+
+(* === section: fn (owner 007) === *)
+(* pending *)
+
+(* === section: tup (owner 007) === *)
+(* pending *)
+
+(* === section: vec (owner 007) === *)
+(* pending *)
+
+(* === section: map (owner 007) === *)
+(* pending *)
+
+(* === section: mod (owner 007) === *)
+(* pending *)
+
+(* === section: struct (owner 008) === *)
+(* pending *)
+
+(* === section: iface (owner 008) === *)
+(* pending *)
+
+(* === section: enum (owner 008) === *)
+(* pending *)
+
+(* === section: union (owner 008) === *)
+(* pending *)
+
+(* === section: gen (owner 008) === *)
+(* pending *)
+
+(* === section: err (owner 008) === *)
+(* pending *)

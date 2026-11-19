@@ -1,0 +1,22 @@
+# Known failures for conformance/loops/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- All engines: `it` inside a call argument is parsed as an implicit lambda (D-002)
+TreeWalk times-it-call-argument.pino  # D-002: prints "Pino.PinoLambda" instead of "Implicit iteration: N"
+VM times-it-call-argument.pino  # D-002: prints "null" instead of "Implicit iteration: N"
+C times-it-call-argument.pino  # D-002: TCC error "cannot cast 'struct <anonymous>' to 'struct <anonymous>'"
+
+# --- C backend
+C in-string-char-keyword.pino  # D-005: `char` is emitted unmangled; TCC error "too many basic types"
+C in-string-rune-type.pino  # type() builtin is not supported by the C backend (implicit declaration of 'type')
+C in-string-unicode.pino  # C backend iterates string bytes, not code points: 8 iterations for "🌲Pino" instead of 5
+
+# --- VM (experimental; no vector/map support, no break/continue compilation)
+VM in-vector.pino  # VM: NullReferenceException iterating a vector literal
+VM indexed-vector.pino  # VM: NullReferenceException iterating a vector literal
+VM break-in-vector.pino  # VM: NullReferenceException iterating a vector literal
+VM in-map-keys.pino  # VM: map loop body never runs (prints 0)
+VM in-map-pairs.pino  # VM: map loop body never runs (prints 0)
+VM continue-times.pino  # VM compiler has no `continue`: skipped iterations still run (prints 15 instead of 9)
+VM infinite-break.pino  # VM compiler has no `break`: loop never ends (timeout)

@@ -1,0 +1,10 @@
+# covers: LOOP-13
+var active = true
+var count = 0
+for active {
+  count = count + 1
+  if count == 5 {
+    active = false
+  }
+}
+println(count)

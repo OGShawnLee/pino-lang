@@ -1,0 +1,10 @@
+# covers: LOOP-7, LOOP-12
+val text = "val n = 12"
+var last_idx = 0
+for i, ch in text {
+  if ch == 'a' or ch == 'l' {
+    continue
+  }
+  last_idx = i
+}
+println(last_idx)

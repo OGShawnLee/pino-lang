@@ -1,0 +1,9 @@
+# covers: LOOP-13
+var i = 1
+var sum = 0
+for i <= 10 {
+  sum = sum + i
+  i = i + 1
+}
+println(sum)
+println(i)

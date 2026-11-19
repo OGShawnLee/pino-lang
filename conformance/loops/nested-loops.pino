@@ -1,0 +1,19 @@
+# covers: LOOP-14
+var x = 1
+var total = 0
+for x <= 3 {
+  var y = 1
+  for y <= 3 {
+    total = total + x * y
+    y = y + 1
+  }
+  x = x + 1
+}
+println(total)
+var pairs = 0
+for i in 3 {
+  for j in 4 {
+    pairs = pairs + 1
+  }
+}
+println(pairs)

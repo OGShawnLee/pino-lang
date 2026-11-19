@@ -1,0 +1,9 @@
+# covers: LOOP-8
+var sum_idx = 0
+var sum_val = 0
+for idx, v in 3 {
+  sum_idx = sum_idx + idx
+  sum_val = sum_val + v
+}
+println(sum_idx)
+println(sum_val)

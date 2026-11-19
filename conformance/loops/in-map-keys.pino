@@ -1,0 +1,10 @@
+# covers: LOOP-9
+val m = map[string, int] { "a": 1, "bb": 2 }
+var total_len = 0
+var count = 0
+for k in m {
+  total_len = total_len + k:len
+  count = count + 1
+}
+println(total_len)
+println(count)

@@ -1,0 +1,10 @@
+# covers: LOOP-7
+val name = "Shawn"
+var chars = ""
+var index_sum = 0
+for index, ch in name {
+  index_sum = index_sum + index
+  chars = chars + ch
+}
+println(chars)
+println(index_sum)

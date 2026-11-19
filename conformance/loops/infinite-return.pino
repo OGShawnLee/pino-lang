@@ -1,0 +1,13 @@
+# covers: LOOP-2
+fn first_multiple_of_seven() int {
+  var n = 1
+  for {
+    if n % 7 == 0 {
+      return n
+    }
+    n = n + 1
+  }
+  return 0
+}
+
+println(first_multiple_of_seven())

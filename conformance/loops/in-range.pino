@@ -1,0 +1,9 @@
+# covers: LOOP-4
+for i in 5 {
+  println(i)
+}
+var sum = 0
+for i in 3 {
+  sum = sum + i
+}
+println(sum)

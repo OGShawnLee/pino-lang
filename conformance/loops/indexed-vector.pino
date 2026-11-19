@@ -1,0 +1,14 @@
+# covers: LOOP-7
+val fruits = ["apple", "pear", "grape"]
+for index, fruit in fruits {
+  println("Fruit at index $index is $fruit")
+}
+val items = [10, 20, 30]
+var sum_idx = 0
+var sum_item = 0
+for idx, item in items {
+  sum_idx = sum_idx + idx
+  sum_item = sum_item + item
+}
+println(sum_idx)
+println(sum_item)

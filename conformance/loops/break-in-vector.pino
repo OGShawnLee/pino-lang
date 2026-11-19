@@ -1,0 +1,10 @@
+# covers: LOOP-11
+val numbers = [1, 2, 3, 4, 5]
+var sum = 0
+for n in numbers {
+  if n == 4 {
+    break
+  }
+  sum = sum + n
+}
+println(sum)

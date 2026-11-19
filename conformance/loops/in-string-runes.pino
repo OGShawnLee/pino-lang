@@ -1,0 +1,7 @@
+# covers: LOOP-6
+val name = "Shawn"
+var chars = ""
+for ch in name {
+  chars = chars + ch
+}
+println(chars)

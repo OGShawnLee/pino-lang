@@ -1,0 +1,11 @@
+# covers: LOOP-5
+val items = ["coffee", "pino", "code"]
+for item in items {
+  println("Item: $item")
+}
+val numbers = [10, 20, 30]
+var sum = 0
+for n in numbers {
+  sum = sum + n
+}
+println(sum)

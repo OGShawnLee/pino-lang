@@ -1,0 +1,9 @@
+# covers: LOOP-12
+var odd_sum = 0
+for 6 {
+  if it % 2 == 0 {
+    continue
+  }
+  odd_sum = odd_sum + it
+}
+println(odd_sum)

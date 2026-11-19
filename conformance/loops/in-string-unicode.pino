@@ -1,0 +1,6 @@
+# covers: LOOP-6
+var count = 0
+for ch in "🌲Pino" {
+  count = count + 1
+}
+println(count)

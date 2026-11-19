@@ -1,0 +1,4 @@
+# covers: LOOP-6
+for ch in "Pi" {
+  println(type(ch))
+}

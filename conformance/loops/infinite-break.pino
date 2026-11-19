@@ -1,0 +1,9 @@
+# covers: LOOP-1, LOOP-11
+var count = 0
+for {
+  count = count + 1
+  if count >= 5 {
+    break
+  }
+}
+println(count)
