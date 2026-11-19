@@ -23,7 +23,7 @@ test "Union Is Operator: Should return true if same variant and expose vector pa
   assert vec_data is Data::Vector(list) and list == [1, 2, 3]
 }
 
-Ñtest "Union Is Operator: Should work with bool vector instance methods" {
+test "Union Is Operator: Should work with bool vector instance methods" {
   val vec_data = Data::Vector([1, 2, 3])
   assert vec_data is Data::Vector(list) and list:all(it > 0)
   assert vec_data is Data::Vector(list) and list:any(it > 2)
