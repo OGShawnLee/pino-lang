@@ -5,6 +5,14 @@
 # --- C backend
 C str-result-type.pino  # the type() builtin is not supported by the C backend (implicit declaration of 'type')
 C immutable-index-assign-rejected.pino  # the failure is a TCC error ("lvalue expected"), which never satisfies an .err case
+C escape-unknown.pino  # legacy keeps unknown escapes literally; frozen per AD-001 (D-020)
+C interpolate-adjacent.pino  # legacy treats '$' as an identifier char so "$x$y" reads x$y; frozen per AD-001 (D-021)
+C multiline.pino  # legacy lexer has no triple-quoted multi-line string syntax; frozen per AD-001
+
+# --- TreeWalk (frozen legacy behavior per AD-001)
+TreeWalk escape-unknown.pino  # legacy keeps unknown escapes literally; frozen per AD-001 (D-020)
+TreeWalk interpolate-adjacent.pino  # legacy treats '$' as an identifier char so "$x$y" reads x$y; frozen per AD-001 (D-021)
+TreeWalk multiline.pino  # legacy lexer has no triple-quoted multi-line string syntax; frozen per AD-001
 
 # --- VM (experimental; no struct, vector or method-call support)
 VM immutable-methods.pino  # VM cannot call string methods: RUNTIME ERROR "Value is not callable"
@@ -13,3 +21,6 @@ VM interpolate-expression.pino  # `$(name:upper())` needs a method call: RUNTIME
 VM interpolate-member.pino  # VM has no struct support: RUNTIME ERROR "Value is not callable"
 VM str-vector.pino  # VM prints "null" for str() of a vector
 VM str-struct.pino  # VM prints "null" for str() of a struct
+VM escape-unknown.pino  # legacy keeps unknown escapes literally; frozen per AD-001 (D-020)
+VM interpolate-adjacent.pino  # legacy treats '$' as an identifier char so "$x$y" reads x$y; frozen per AD-001 (D-021)
+VM multiline.pino  # legacy lexer has no triple-quoted multi-line string syntax; frozen per AD-001

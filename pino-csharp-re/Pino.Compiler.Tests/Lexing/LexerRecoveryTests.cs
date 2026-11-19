@@ -26,7 +26,7 @@ public sealed class LexerRecoveryTests {
 
     Assert.Equal([kind, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(0, text.Length), result.Tokens[0].Span);
-    AssertSingleError(result, Lexer.InvalidNumericSeparatorCode, new SourceSpan(diagStart, diagLength));
+    AssertSingleError(result, DiagnosticCodes.InvalidNumericSeparator, new SourceSpan(diagStart, diagLength));
   }
 
   [Fact]
@@ -37,7 +37,7 @@ public sealed class LexerRecoveryTests {
         [TokenKind.Error, TokenKind.Plus, TokenKind.IntLiteral, TokenKind.EOF],
         result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(0, 6), result.Tokens[0].Span);
-    AssertSingleError(result, Lexer.InvalidNumberSuffixCode, new SourceSpan(0, 6));
+    AssertSingleError(result, DiagnosticCodes.InvalidNumberSuffix, new SourceSpan(0, 6));
   }
 
   [Fact]
@@ -45,7 +45,7 @@ public sealed class LexerRecoveryTests {
     LexResult result = Lex("''");
 
     Assert.Equal([new Token(TokenKind.Error, new SourceSpan(0, 2)), new Token(TokenKind.EOF, new SourceSpan(2, 0))], result.Tokens.AsEnumerable());
-    AssertSingleError(result, Lexer.EmptyRuneCode, new SourceSpan(0, 2));
+    AssertSingleError(result, DiagnosticCodes.EmptyRune, new SourceSpan(0, 2));
   }
 
   [Fact]
@@ -56,7 +56,7 @@ public sealed class LexerRecoveryTests {
         [TokenKind.Error, TokenKind.Identifier, TokenKind.EOF],
         result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(0, 5), result.Tokens[0].Span);
-    AssertSingleError(result, Lexer.MultiRuneLiteralCode, new SourceSpan(0, 5));
+    AssertSingleError(result, DiagnosticCodes.MultiRuneLiteral, new SourceSpan(0, 5));
   }
 
   [Fact]
@@ -65,7 +65,7 @@ public sealed class LexerRecoveryTests {
 
     Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(0, 4), result.Tokens[0].Span);
-    AssertSingleError(result, Lexer.InvalidRuneEscapeCode, new SourceSpan(1, 2));
+    AssertSingleError(result, DiagnosticCodes.InvalidRuneEscape, new SourceSpan(1, 2));
   }
 
   [Fact]
@@ -74,7 +74,7 @@ public sealed class LexerRecoveryTests {
 
     Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(0, 2), result.Tokens[0].Span);
-    AssertSingleError(result, Lexer.UnterminatedRuneCode, new SourceSpan(0, 2));
+    AssertSingleError(result, DiagnosticCodes.UnterminatedRune, new SourceSpan(0, 2));
   }
 
   [Fact]
@@ -87,7 +87,7 @@ public sealed class LexerRecoveryTests {
     Assert.Equal(new SourceSpan(0, 2), result.Tokens[0].Span);
     Assert.Equal(new SourceSpan(3, 1), result.Tokens[1].Span);
     Assert.Equal(new Trivia(TriviaKind.Newline, new SourceSpan(2, 1)), Assert.Single(result.Trivia));
-    AssertSingleError(result, Lexer.UnterminatedRuneCode, new SourceSpan(0, 2));
+    AssertSingleError(result, DiagnosticCodes.UnterminatedRune, new SourceSpan(0, 2));
   }
 
   [Theory]
@@ -100,7 +100,7 @@ public sealed class LexerRecoveryTests {
     Assert.Equal(TokenKind.Error, result.Tokens[0].Kind);
     Assert.Equal(new SourceSpan(0, errorLength), result.Tokens[0].Span);
     Assert.Equal(TokenKind.EOF, result.Tokens[^1].Kind);
-    AssertSingleError(result, Lexer.UnterminatedRuneCode, new SourceSpan(0, errorLength));
+    AssertSingleError(result, DiagnosticCodes.UnterminatedRune, new SourceSpan(0, errorLength));
   }
 
   [Theory]
@@ -116,7 +116,7 @@ public sealed class LexerRecoveryTests {
 
     Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(0, length), result.Tokens[0].Span);
-    AssertSingleError(result, Lexer.UnexpectedCharacterCode, new SourceSpan(0, length));
+    AssertSingleError(result, DiagnosticCodes.UnexpectedCharacter, new SourceSpan(0, length));
   }
 
   [Fact]
@@ -133,11 +133,11 @@ public sealed class LexerRecoveryTests {
 
     Assert.Equal(
         [
-            Lexer.InvalidNumericSeparatorCode,
-                Lexer.UnexpectedCharacterCode,
-                Lexer.EmptyRuneCode,
-                Lexer.MultiRuneLiteralCode,
-                Lexer.InvalidNumberSuffixCode,
+            DiagnosticCodes.InvalidNumericSeparator,
+                DiagnosticCodes.UnexpectedCharacter,
+                DiagnosticCodes.EmptyRune,
+                DiagnosticCodes.MultiRuneLiteral,
+                DiagnosticCodes.InvalidNumberSuffix,
             ],
         result.Diagnostics.Select(static d => d.Code));
     Assert.Equal(
@@ -147,6 +147,80 @@ public sealed class LexerRecoveryTests {
             ],
         result.Diagnostics.Select(static d => d.Span));
     Assert.Equal(new SourceSpan(Text.Length, 0), result.Tokens[^1].Span);
+  }
+
+  [Theory]
+  [InlineData("1._", 2, 1)]
+  [InlineData("1_._", 0, 2)]
+  public void FloatWithoutFractionalDigitsIsErrorTokenWithSingleDiagnostic(string text, int diagStart, int diagLength) {
+    LexResult result = Lex(text);
+
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(0, text.Length), result.Tokens[0].Span);
+    AssertSingleError(result, DiagnosticCodes.InvalidNumericSeparator, new SourceSpan(diagStart, diagLength));
+  }
+
+  [Theory]
+  [InlineData("123_abc")]
+  [InlineData("1._foo")]
+  public void MalformedNumberWithTrailingLettersReportsOnlySuffixDiagnostic(string text) {
+    LexResult result = Lex(text);
+
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(0, text.Length), result.Tokens[0].Span);
+    AssertSingleError(result, DiagnosticCodes.InvalidNumberSuffix, new SourceSpan(0, text.Length));
+  }
+
+  [Fact]
+  public void UnpairedSurrogateInRuneIsErrorTokenWithDiagnostic() {
+    foreach ((string text, string expectedHex) in new[] { ("'\uD83D'", "U+D83D"), ("'\uDC00'", "U+DC00") }) {
+      LexResult result = Lex(text);
+
+      Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+      Assert.Equal(new SourceSpan(0, text.Length), result.Tokens[0].Span);
+      AssertSingleError(result, DiagnosticCodes.InvalidRuneSurrogate, new SourceSpan(1, 1));
+      Assert.Contains(expectedHex, result.Diagnostics[0].Message, StringComparison.Ordinal);
+    }
+  }
+
+  [Fact]
+  public void UnpairedSurrogateFollowedByExtraRuneCharsDoesNotCascadeMultiRune() {
+    LexResult result = Lex("'\uD83Dx'");
+
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(0, 4), result.Tokens[0].Span);
+    AssertSingleError(result, DiagnosticCodes.InvalidRuneSurrogate, new SourceSpan(1, 1));
+  }
+
+  [Theory]
+  [InlineData("'a b'")]
+  [InlineData("'  '")]
+  [InlineData("'a\\''")]
+  public void MultiRuneWithSpacesOrEscapedQuoteReportsSingleDiagnostic(string text) {
+    LexResult result = Lex(text);
+
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(0, text.Length), result.Tokens[0].Span);
+    AssertSingleError(result, DiagnosticCodes.MultiRuneLiteral, new SourceSpan(0, text.Length));
+  }
+
+  [Fact]
+  public void ControlCharactersAreEscapedInDiagnosticMessages() {
+    LexResult nul = Lex("a\0b");
+    Assert.Equal([TokenKind.Identifier, TokenKind.Error, TokenKind.Identifier, TokenKind.EOF], nul.Tokens.Select(static t => t.Kind));
+    AssertSingleError(nul, DiagnosticCodes.UnexpectedCharacter, new SourceSpan(1, 1));
+    Assert.Contains("U+0000", nul.Diagnostics[0].Message, StringComparison.Ordinal);
+    Assert.DoesNotContain("\0", nul.Diagnostics[0].Message, StringComparison.Ordinal);
+
+    LexResult esc = Lex("a\u001Bb");
+    AssertSingleError(esc, DiagnosticCodes.UnexpectedCharacter, new SourceSpan(1, 1));
+    Assert.Contains("U+001B", esc.Diagnostics[0].Message, StringComparison.Ordinal);
+    Assert.DoesNotContain("\u001B", esc.Diagnostics[0].Message, StringComparison.Ordinal);
+
+    LexResult stringEscNul = Lex("\"\\\0\"");
+    AssertSingleError(stringEscNul, DiagnosticCodes.InvalidStringEscape, new SourceSpan(1, 2));
+    Assert.Contains("U+0000", stringEscNul.Diagnostics[0].Message, StringComparison.Ordinal);
+    Assert.DoesNotContain("\0", stringEscNul.Diagnostics[0].Message, StringComparison.Ordinal);
   }
 
   [Fact]

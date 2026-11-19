@@ -1,0 +1,2 @@
+# covers: STR-E2
+println("x\qy")

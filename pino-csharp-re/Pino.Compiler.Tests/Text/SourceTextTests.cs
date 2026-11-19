@@ -163,4 +163,45 @@ public sealed class SourceTextTests {
     Assert.Throws<ArgumentOutOfRangeException>(() => SourceSpan.FromBounds(-1, 2));
     Assert.Throws<ArgumentOutOfRangeException>(() => SourceSpan.FromBounds(5, 3));
   }
+
+  [Theory]
+  [InlineData("")]
+  [InlineData("abc")]
+  [InlineData("ab\ncd\ne")]
+  [InlineData("ab\r\ncd\r\n")]
+  [InlineData("ab\rcd\r")]
+  [InlineData("a\r\nb\nc\rd\n\re")]
+  [InlineData("\U0001F332a\r\nb\U0001F332c")]
+  public void GetOffsetAndTryGetOffsetRoundTripEveryOffsetWithGetLineColumn(string text) {
+    var source = new SourceText(text);
+
+    for (int offset = 0; offset <= source.Length; offset++) {
+      LinePosition pos = source.GetLineColumn(offset);
+      Assert.Equal(offset, source.GetOffset(pos));
+      Assert.True(source.TryGetOffset(pos, out int tryOffset));
+      Assert.Equal(offset, tryOffset);
+    }
+  }
+
+  [Fact]
+  public void GetOffsetClampsOutOfRangePositionsWithoutThrowing() {
+    var source = new SourceText("ab\r\ncd");
+
+    Assert.Equal(0, source.GetOffset(new LinePosition(0, 1)));
+    Assert.Equal(0, source.GetOffset(new LinePosition(-5, 10)));
+    Assert.Equal(0, source.GetOffset(new LinePosition(1, 0)));
+    Assert.Equal(0, source.GetOffset(new LinePosition(1, -3)));
+    Assert.Equal(3, source.GetOffset(new LinePosition(1, 100)));
+    Assert.Equal(4, source.GetOffset(new LinePosition(2, 0)));
+    Assert.Equal(source.Length, source.GetOffset(new LinePosition(2, int.MaxValue)));
+    Assert.Equal(source.Length, source.GetOffset(new LinePosition(3, 1)));
+    Assert.Equal(source.Length, source.GetOffset(new LinePosition(int.MaxValue, 1)));
+
+    Assert.False(source.TryGetOffset(new LinePosition(0, 1), out int off1));
+    Assert.Equal(0, off1);
+    Assert.False(source.TryGetOffset(new LinePosition(1, 5), out int off2));
+    Assert.Equal(3, off2);
+    Assert.False(source.TryGetOffset(new LinePosition(3, 1), out int off3));
+    Assert.Equal(source.Length, off3);
+  }
 }

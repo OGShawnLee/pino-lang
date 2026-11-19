@@ -19,4 +19,38 @@ public sealed record LexResult(
   public ReadOnlySpan<char> GetText(Token token) => Source.AsSpan(token.Span);
 
   public ReadOnlySpan<char> GetText(Trivia trivia) => Source.AsSpan(trivia.Span);
+
+  /// <summary>
+  /// Returns the slice of <see cref="Trivia"/> immediately preceding <see cref="Tokens"/>[<paramref name="tokenIndex"/>]
+  /// (between the previous token's end and this token's start) using binary search.
+  /// </summary>
+  public ReadOnlySpan<Trivia> GetLeadingTrivia(int tokenIndex) {
+    ArgumentOutOfRangeException.ThrowIfNegative(tokenIndex);
+    ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(tokenIndex, Tokens.Length);
+
+    int startOffset = tokenIndex == 0 ? 0 : Tokens[tokenIndex - 1].Span.End;
+    int endOffset = Tokens[tokenIndex].Span.Start;
+    if (Trivia.IsEmpty || startOffset >= endOffset) {
+      return ReadOnlySpan<Trivia>.Empty;
+    }
+
+    int first = LowerBound(Trivia, startOffset);
+    int after = LowerBound(Trivia, endOffset);
+    return Trivia.AsSpan(first, after - first);
+  }
+
+  private static int LowerBound(ImmutableArray<Trivia> trivia, int offset) {
+    int lo = 0;
+    int hi = trivia.Length;
+    while (lo < hi) {
+      int mid = lo + ((hi - lo) / 2);
+      if (trivia[mid].Span.Start < offset) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+
+    return lo;
+  }
 }

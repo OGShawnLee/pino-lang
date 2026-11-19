@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Lexing;
@@ -72,13 +73,37 @@ public sealed class LexerCoreTests {
   [InlineData("Val")]
   [InlineData("iff")]
   [InlineData("_x")]
-  [InlineData("$y")]
-  [InlineData("a1_$")]
   public void NonKeywordWordsLexAsIdentifier(string text) {
     LexResult result = Lex(text);
 
     Assert.Equal([TokenKind.Identifier, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
     Assert.Empty(result.Diagnostics);
+  }
+
+  // D-021
+  [Fact]
+  public void DollarOutsideStringIsUnexpectedCharacter() {
+    LexResult lone = Lex("$");
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], lone.Tokens.Select(static t => t.Kind));
+    Assert.Equal(DiagnosticCodes.UnexpectedCharacter, Assert.Single(lone.Diagnostics).Code);
+
+    LexResult prefix = Lex("$y");
+    Assert.Equal([TokenKind.Error, TokenKind.Identifier, TokenKind.EOF], prefix.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(0, 1), prefix.Tokens[0].Span);
+    Assert.Equal(new SourceSpan(1, 1), prefix.Tokens[1].Span);
+    Assert.Equal(DiagnosticCodes.UnexpectedCharacter, Assert.Single(prefix.Diagnostics).Code);
+
+    LexResult middle = Lex("a$b");
+    Assert.Equal([TokenKind.Identifier, TokenKind.Error, TokenKind.Identifier, TokenKind.EOF], middle.Tokens.Select(static t => t.Kind));
+    Assert.Equal(DiagnosticCodes.UnexpectedCharacter, Assert.Single(middle.Diagnostics).Code);
+
+    LexResult suffix = Lex("a1_$");
+    Assert.Equal([TokenKind.Identifier, TokenKind.Error, TokenKind.EOF], suffix.Tokens.Select(static t => t.Kind));
+    Assert.Equal(DiagnosticCodes.UnexpectedCharacter, Assert.Single(suffix.Diagnostics).Code);
+
+    LexResult afterNumber = Lex("123$a");
+    Assert.Equal([TokenKind.IntLiteral, TokenKind.Error, TokenKind.Identifier, TokenKind.EOF], afterNumber.Tokens.Select(static t => t.Kind));
+    Assert.Equal(DiagnosticCodes.UnexpectedCharacter, Assert.Single(afterNumber.Diagnostics).Code);
   }
 
   public static TheoryData<string, TokenKind> OperatorCases => new()
@@ -156,8 +181,10 @@ public sealed class LexerCoreTests {
   [InlineData("42", TokenKind.IntLiteral)]
   [InlineData("1_000", TokenKind.IntLiteral)]
   [InlineData("1_000_000", TokenKind.IntLiteral)]
+  [InlineData("12345678901234567890", TokenKind.IntLiteral)]
   [InlineData("3.14", TokenKind.FloatLiteral)]
   [InlineData("1_000.000_1", TokenKind.FloatLiteral)]
+  [InlineData("1000000000.0", TokenKind.FloatLiteral)]
   [InlineData("0.5", TokenKind.FloatLiteral)]
   public void ValidNumbersLexWithoutDiagnostics(string text, TokenKind expected) {
     LexResult result = Lex(text);
@@ -224,12 +251,108 @@ public sealed class LexerCoreTests {
   }
 
   [Fact]
+  public void LoneCarriageReturnActsAsNewlineTriviaAndSetsLeadingNewline() {
+    LexResult result = Lex("a\rb");
+
+    Assert.Equal([TokenKind.Identifier, TokenKind.Identifier, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new Trivia(TriviaKind.Newline, new SourceSpan(1, 1)), Assert.Single(result.Trivia));
+    Assert.Equal(TokenFlags.LeadingNewline, result.Tokens[1].Flags);
+    Assert.Empty(result.Diagnostics);
+  }
+
+  [Fact]
   public void CommentStopsBeforeNewlineAndHashInsideCommentIsText() {
     LexResult result = Lex("# a # b\nx");
 
     Assert.Equal(new Trivia(TriviaKind.Comment, new SourceSpan(0, 7)), result.Trivia[0]);
     Assert.Equal(new Trivia(TriviaKind.Newline, new SourceSpan(7, 1)), result.Trivia[1]);
-    Assert.Equal(new Token(TokenKind.Identifier, new SourceSpan(8, 1)), result.Tokens[0]);
+    Assert.Equal(
+        new Token(TokenKind.Identifier, new SourceSpan(8, 1), TokenFlags.LeadingComment | TokenFlags.LeadingNewline),
+        result.Tokens[0]);
+  }
+
+  [Fact]
+  public void LeadingByteOrderMarkBecomesTriviaWithoutDiagnostics() {
+    LexResult result = Lex("\uFEFFval x = 1");
+
+    Assert.Empty(result.Diagnostics);
+    Assert.Equal([new Trivia(TriviaKind.ByteOrderMark, new SourceSpan(0, 1)), new Trivia(TriviaKind.Whitespace, new SourceSpan(4, 1)), new Trivia(TriviaKind.Whitespace, new SourceSpan(6, 1)), new Trivia(TriviaKind.Whitespace, new SourceSpan(8, 1))], result.Trivia.AsEnumerable());
+    Assert.Equal(
+        [TokenKind.ValKeyword, TokenKind.Identifier, TokenKind.Assign, TokenKind.IntLiteral, TokenKind.EOF],
+        result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(1, 3), result.Tokens[0].Span);
+    Assert.Equal(TokenFlags.None, result.Tokens[0].Flags);
+    Assert.Equal(TriviaKind.ByteOrderMark, result.GetLeadingTrivia(0)[0].Kind);
+  }
+
+  [Fact]
+  public void NonLeadingByteOrderMarkRemainsUnexpectedCharacter() {
+    LexResult result = Lex(" \uFEFF");
+
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(DiagnosticCodes.UnexpectedCharacter, Assert.Single(result.Diagnostics).Code);
+  }
+
+  [Fact]
+  public void TokenSizeRemainsTwelveBytes() {
+    Assert.Equal(12, Unsafe.SizeOf<Token>());
+  }
+
+  [Fact]
+  public void TokenFlagsTrackLeadingWhitespaceNewlineAndComment() {
+    LexResult tight = Lex("[a -b]");
+    // [ (0), a (1), - (2), b (3), ] (4), EOF (5)
+    Assert.Equal(TokenFlags.None, tight.Tokens[0].Flags);
+    Assert.Equal(TokenFlags.None, tight.Tokens[1].Flags);
+    Assert.Equal(TokenFlags.LeadingWhitespace, tight.Tokens[2].Flags);
+    Assert.Equal(TokenFlags.None, tight.Tokens[3].Flags);
+    Assert.Equal(TokenFlags.None, tight.Tokens[4].Flags);
+
+    LexResult spaced = Lex("[a - b]");
+    Assert.Equal(TokenFlags.LeadingWhitespace, spaced.Tokens[2].Flags);
+    Assert.Equal(TokenFlags.LeadingWhitespace, spaced.Tokens[3].Flags);
+
+    LexResult newlineBracket = Lex("a\n[b]");
+    Assert.Equal(TokenKind.OpenBracket, newlineBracket.Tokens[1].Kind);
+    Assert.True(newlineBracket.Tokens[1].Flags.HasFlag(TokenFlags.LeadingNewline));
+    Assert.False(newlineBracket.Tokens[1].Flags.HasFlag(TokenFlags.LeadingWhitespace));
+
+    LexResult indentedNewlineBracket = Lex("a\n  [b]");
+    Assert.Equal(TokenFlags.LeadingNewline | TokenFlags.LeadingWhitespace, indentedNewlineBracket.Tokens[1].Flags);
+
+    LexResult commentBeforeToken = Lex("# header\nval x = 1");
+    Assert.Equal(TokenKind.ValKeyword, commentBeforeToken.Tokens[0].Kind);
+    Assert.Equal(TokenFlags.LeadingComment | TokenFlags.LeadingNewline, commentBeforeToken.Tokens[0].Flags);
+  }
+
+  [Fact]
+  public void GetLeadingTriviaReturnsExactSliceViaBinarySearch() {
+    const string Text = "  # lead\nval  x\n# mid\n  y # tail";
+    LexResult result = Lex(Text);
+    // Tokens: val(0), x(1), y(2), EOF(3)
+    Assert.Equal(4, result.Tokens.Length);
+
+    ReadOnlySpan<Trivia> beforeVal = result.GetLeadingTrivia(0);
+    Assert.Equal(3, beforeVal.Length);
+    Assert.Equal([TriviaKind.Whitespace, TriviaKind.Comment, TriviaKind.Newline], [beforeVal[0].Kind, beforeVal[1].Kind, beforeVal[2].Kind]);
+
+    ReadOnlySpan<Trivia> beforeX = result.GetLeadingTrivia(1);
+    Assert.Equal(1, beforeX.Length);
+    Assert.Equal(TriviaKind.Whitespace, beforeX[0].Kind);
+
+    ReadOnlySpan<Trivia> beforeY = result.GetLeadingTrivia(2);
+    Assert.Equal(4, beforeY.Length);
+    Assert.Equal(
+        [TriviaKind.Newline, TriviaKind.Comment, TriviaKind.Newline, TriviaKind.Whitespace],
+        [beforeY[0].Kind, beforeY[1].Kind, beforeY[2].Kind, beforeY[3].Kind]);
+
+    ReadOnlySpan<Trivia> beforeEOF = result.GetLeadingTrivia(3);
+    Assert.Equal(2, beforeEOF.Length);
+    Assert.Equal([TriviaKind.Whitespace, TriviaKind.Comment], [beforeEOF[0].Kind, beforeEOF[1].Kind]);
+
+    Assert.True(Lex("a+b").GetLeadingTrivia(1).IsEmpty);
+    Assert.Throws<ArgumentOutOfRangeException>(() => result.GetLeadingTrivia(-1));
+    Assert.Throws<ArgumentOutOfRangeException>(() => result.GetLeadingTrivia(result.Tokens.Length));
   }
 
   [Theory]

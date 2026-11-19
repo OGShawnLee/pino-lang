@@ -4,4 +4,5 @@ public enum TriviaKind {
   Whitespace,
   Newline,
   Comment,
+  ByteOrderMark,
 }

@@ -1,0 +1,4 @@
+# covers: LEX-16
+val x = 10
+val y = 20
+println("$x$y")

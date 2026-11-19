@@ -1,0 +1,6 @@
+# covers: STR-8
+val who = "Pino"
+val s = """line1
+line2 $who $(1 + 2)
+q"q"""
+println(s)

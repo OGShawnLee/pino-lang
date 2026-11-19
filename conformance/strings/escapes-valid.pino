@@ -1,0 +1,7 @@
+# covers: STR-7
+println("a\nb")
+println("a\tb")
+if "a\rb" != "arb" and "a\rb" != "ab" { println("cr-ok") } else { println("cr-fail") }
+println("q\"q")
+println("back\\slash")
+println("cost: \$5")

@@ -1,5 +1,8 @@
+using System.Buffers;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
+using System.Text;
 
 using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Text;
@@ -27,21 +30,6 @@ namespace Pino.Compiler.Lexing;
 /// recovery point (end of line for <c>"..."</c>, EOF otherwise) plus a diagnostic.
 /// </remarks>
 public static class Lexer {
-  public const string UnexpectedCharacterCode = "PN1001";
-  public const string InvalidNumericSeparatorCode = "PN1002";
-  public const string InvalidNumberSuffixCode = "PN1003";
-  public const string EmptyRuneCode = "PN1004";
-  public const string InvalidRuneEscapeCode = "PN1005";
-  public const string MultiRuneLiteralCode = "PN1006";
-  public const string UnterminatedRuneCode = "PN1007";
-
-  // PN1008 was the temporary "strings not supported" stub from Ticket 002; it is retired.
-  public const string UnterminatedStringCode = "PN1009";
-  public const string UnterminatedMultilineStringCode = "PN1010";
-  public const string InvalidStringEscapeCode = "PN1011";
-  public const string UnterminatedStringEscapeCode = "PN1012";
-  public const string UnterminatedInterpolationCode = "PN1013";
-
   private static readonly FrozenDictionary<string, TokenKind> s_words = new Dictionary<string, TokenKind> {
     ["as"] = TokenKind.AsKeyword,
     ["break"] = TokenKind.BreakKeyword,
@@ -84,13 +72,62 @@ public static class Lexer {
     ArgumentNullException.ThrowIfNull(source);
 
     var scanner = new Scanner(source.AsSpan());
-    scanner.ScanAll();
+    try {
+      scanner.ScanAll();
 
-    return new LexResult(
-      source,
-      scanner.Tokens.ToImmutable(),
-      scanner.Trivia.ToImmutable(),
-      scanner.Diagnostics.ToImmutableSorted());
+      return new LexResult(
+        source,
+        scanner.Tokens.ToImmutableArrayAndReturn(),
+        scanner.Trivia.ToImmutableArrayAndReturn(),
+        scanner.Diagnostics.ToImmutableSorted());
+    } finally {
+      scanner.Dispose();
+    }
+  }
+
+  private ref struct PooledList<T> where T : unmanaged {
+    private T[] _buffer;
+    private int _count;
+
+    public PooledList(int initialCapacity) {
+      _buffer = ArrayPool<T>.Shared.Rent(Math.Max(16, initialCapacity));
+      _count = 0;
+    }
+
+    public void Add(T item) {
+      if (_count == _buffer.Length) {
+        Grow();
+      }
+
+      _buffer[_count++] = item;
+    }
+
+    public ImmutableArray<T> ToImmutableArrayAndReturn() {
+      if (_count == 0) {
+        ReturnBuffer();
+        return [];
+      }
+
+      var exact = new T[_count];
+      _buffer.AsSpan(0, _count).CopyTo(exact);
+      ReturnBuffer();
+      return ImmutableCollectionsMarshal.AsImmutableArray(exact);
+    }
+
+    public void ReturnBuffer() {
+      T[] buffer = _buffer;
+      if (buffer.Length > 0) {
+        _buffer = [];
+        ArrayPool<T>.Shared.Return(buffer);
+      }
+    }
+
+    private void Grow() {
+      T[] next = ArrayPool<T>.Shared.Rent(_buffer.Length * 2);
+      _buffer.AsSpan(0, _count).CopyTo(next);
+      ArrayPool<T>.Shared.Return(_buffer);
+      _buffer = next;
+    }
   }
 
   private enum FrameKind {
@@ -122,18 +159,25 @@ public static class Lexer {
     private readonly ReadOnlySpan<char> _text;
     private readonly List<Frame> _frames;
     private int _pos;
+    private TokenFlags _pendingFlags;
 
-    public readonly ImmutableArray<Token>.Builder Tokens;
-    public readonly ImmutableArray<Trivia>.Builder Trivia;
+    public PooledList<Token> Tokens;
+    public PooledList<Trivia> Trivia;
     public readonly DiagnosticBag Diagnostics;
 
     public Scanner(ReadOnlySpan<char> text) {
       _text = text;
       _pos = 0;
+      _pendingFlags = TokenFlags.None;
       _frames = [];
-      Tokens = ImmutableArray.CreateBuilder<Token>();
-      Trivia = ImmutableArray.CreateBuilder<Trivia>();
+      Tokens = new PooledList<Token>(text.Length / 5);
+      Trivia = new PooledList<Trivia>(text.Length / 8);
       Diagnostics = new DiagnosticBag();
+    }
+
+    public void Dispose() {
+      Tokens.ReturnBuffer();
+      Trivia.ReturnBuffer();
     }
 
     private readonly bool IsAtEnd => _pos >= _text.Length;
@@ -148,6 +192,11 @@ public static class Lexer {
     }
 
     public void ScanAll() {
+      if (!IsAtEnd && _text[_pos] == '\uFEFF') {
+        _pos++;
+        AddTrivia(TriviaKind.ByteOrderMark, 0);
+      }
+
       while (!IsAtEnd) {
         if (_frames.Count > 0 && _frames[^1].Kind != FrameKind.Interpolation) {
           ScanStringContent();
@@ -158,7 +207,8 @@ public static class Lexer {
 
       // EOF closes every construct that is still open (innermost first).
       Unwind(0);
-      Tokens.Add(new Token(TokenKind.EOF, new SourceSpan(_text.Length, 0)));
+      Tokens.Add(new Token(TokenKind.EOF, new SourceSpan(_text.Length, 0), _pendingFlags));
+      _pendingFlags = TokenFlags.None;
     }
 
     private void ScanNext() {
@@ -296,14 +346,25 @@ public static class Lexer {
       }
     }
 
-    private void AddToken(TokenKind kind, int start) =>
-      Tokens.Add(new Token(kind, new SourceSpan(start, _pos - start)));
+    private void AddToken(TokenKind kind, int start) {
+      Tokens.Add(new Token(kind, new SourceSpan(start, _pos - start), _pendingFlags));
+      _pendingFlags = TokenFlags.None;
+    }
 
-    private void AddMissingToken(TokenKind kind) =>
-      Tokens.Add(new Token(kind, new SourceSpan(_pos, 0)));
+    private void AddMissingToken(TokenKind kind) {
+      Tokens.Add(new Token(kind, new SourceSpan(_pos, 0), _pendingFlags | TokenFlags.Missing));
+      _pendingFlags = TokenFlags.None;
+    }
 
-    private void AddTrivia(TriviaKind kind, int start) =>
+    private void AddTrivia(TriviaKind kind, int start) {
       Trivia.Add(new Trivia(kind, new SourceSpan(start, _pos - start)));
+      _pendingFlags |= kind switch {
+        TriviaKind.Newline => TokenFlags.LeadingNewline,
+        TriviaKind.Whitespace => TokenFlags.LeadingWhitespace,
+        TriviaKind.Comment => TokenFlags.LeadingComment,
+        _ => TokenFlags.None,
+      };
+    }
 
     // ---------------------------------------------------------------------------------------
     // Strings and interpolation
@@ -313,6 +374,13 @@ public static class Lexer {
       int start = _pos;
       bool multiline = Peek(1) == '"' && Peek(2) == '"';
       _pos += multiline ? 3 : 1;
+      if (multiline && FindInnermostSingleLineStringIndex() >= 0) {
+        Diagnostics.ReportError(
+          DiagnosticCodes.MultilineStringInSingleLineInterpolation,
+          new SourceSpan(start, 3),
+          "Multi-line string literal is not allowed inside a single-line string interpolation.");
+      }
+
       AddToken(TokenKind.StringStart, start);
       _frames.Add(new Frame {
         Kind = multiline ? FrameKind.MultilineString : FrameKind.SingleString,
@@ -338,6 +406,15 @@ public static class Lexer {
             Multi(3, TokenKind.StringEnd);
             _frames.RemoveAt(_frames.Count - 1);
             return;
+          }
+
+          if (c is '\n' or '\r') {
+            int singleIndex = FindInnermostSingleLineStringIndex();
+            if (singleIndex >= 0) {
+              FlushPart(partStart);
+              Unwind(singleIndex);
+              return;
+            }
           }
         } else if (c == '"') {
           FlushPart(partStart);
@@ -399,7 +476,7 @@ public static class Lexer {
       }
 
       AddToken(TokenKind.Identifier, identStart);
-      AddMissingToken(TokenKind.InterpEnd);
+      AddToken(TokenKind.InterpEnd, _pos);
     }
 
     private void ScanEscape() {
@@ -409,7 +486,7 @@ public static class Lexer {
       if (IsAtLineEnd) {
         // Do not consume the line break: it stays available for recovery / content.
         Diagnostics.ReportError(
-          UnterminatedStringEscapeCode,
+          DiagnosticCodes.UnterminatedStringEscape,
           new SourceSpan(escapeStart, 1),
           "Unterminated escape sequence in string literal.");
         return;
@@ -422,9 +499,9 @@ public static class Lexer {
 
       AdvanceCodePoint();
       Diagnostics.ReportError(
-        InvalidStringEscapeCode,
+        DiagnosticCodes.InvalidStringEscape,
         new SourceSpan(escapeStart, _pos - escapeStart),
-        $"Invalid escape sequence '{_text.Slice(escapeStart, _pos - escapeStart)}' in string literal.");
+        $"Invalid escape sequence '{FormatForMessage(_text.Slice(escapeStart, _pos - escapeStart))}' in string literal.");
     }
 
     /// <summary>
@@ -438,7 +515,30 @@ public static class Lexer {
             Unwind(i);
             return true;
           case FrameKind.MultilineString:
-            return false;
+            if (!HasSingleLineStringBelow(i)) {
+              return false;
+            }
+            break;
+        }
+      }
+
+      return false;
+    }
+
+    private readonly int FindInnermostSingleLineStringIndex() {
+      for (int i = _frames.Count - 1; i >= 0; i--) {
+        if (_frames[i].Kind == FrameKind.SingleString) {
+          return i;
+        }
+      }
+
+      return -1;
+    }
+
+    private readonly bool HasSingleLineStringBelow(int index) {
+      for (int i = index - 1; i >= 0; i--) {
+        if (_frames[i].Kind == FrameKind.SingleString) {
+          return true;
         }
       }
 
@@ -457,21 +557,21 @@ public static class Lexer {
         switch (frame.Kind) {
           case FrameKind.Interpolation:
             Diagnostics.ReportError(
-              UnterminatedInterpolationCode,
+              DiagnosticCodes.UnterminatedInterpolation,
               new SourceSpan(frame.Start, 2),
               "Unterminated string interpolation: missing ')'.");
             AddMissingToken(TokenKind.InterpEnd);
             break;
           case FrameKind.SingleString:
             Diagnostics.ReportError(
-              UnterminatedStringCode,
+              DiagnosticCodes.UnterminatedString,
               new SourceSpan(frame.Start, _pos - frame.Start),
               "Unterminated string literal: missing closing '\"'.");
             AddMissingToken(TokenKind.StringEnd);
             break;
           case FrameKind.MultilineString:
             Diagnostics.ReportError(
-              UnterminatedMultilineStringCode,
+              DiagnosticCodes.UnterminatedMultilineString,
               new SourceSpan(frame.Start, 3),
               "Unterminated multi-line string literal: missing closing '\"\"\"'.");
             AddMissingToken(TokenKind.StringEnd);
@@ -489,9 +589,9 @@ public static class Lexer {
       AdvanceCodePoint();
       var span = new SourceSpan(start, _pos - start);
       Diagnostics.ReportError(
-        UnexpectedCharacterCode,
+        DiagnosticCodes.UnexpectedCharacter,
         span,
-        $"Unexpected character '{_text.Slice(span.Start, span.Length)}'.");
+        $"Unexpected character '{FormatForMessage(_text.Slice(span.Start, span.Length))}'.");
       AddToken(TokenKind.Error, start);
     }
 
@@ -519,24 +619,34 @@ public static class Lexer {
       bool isFloat = false;
       bool failed = false;
 
-      ScanDigitRun();
+      (_, SourceSpan? intInvalidSep) = ScanDigitRun();
+      SourceSpan? fracInvalidSep = null;
 
       if (Current == '.' && (IsAsciiDigit(Peek(1)) || Peek(1) == '_')) {
         isFloat = true;
         _pos++;
-        ScanDigitRun();
+        bool fracHasDigit;
+        (fracHasDigit, fracInvalidSep) = ScanDigitRun();
+        if (!fracHasDigit) {
+          failed = true;
+        }
       }
 
-      if (!IsAtEnd && (IsAsciiLetter(_text[_pos]) || _text[_pos] == '$')) {
+      if (!IsAtEnd && IsAsciiLetter(_text[_pos])) {
         while (!IsAtEnd && IsIdentifierPart(_text[_pos])) {
           _pos++;
         }
 
         Diagnostics.ReportError(
-          InvalidNumberSuffixCode,
+          DiagnosticCodes.InvalidNumberSuffix,
           new SourceSpan(start, _pos - start),
-          $"Invalid number literal '{_text.Slice(start, _pos - start)}': unexpected letters after digits.");
+          $"Invalid number literal '{FormatForMessage(_text.Slice(start, _pos - start))}': unexpected letters after digits.");
         failed = true;
+      } else if ((intInvalidSep ?? fracInvalidSep) is SourceSpan invalidSep) {
+        Diagnostics.ReportError(
+          DiagnosticCodes.InvalidNumericSeparator,
+          invalidSep,
+          $"Invalid '_' separator in number '{FormatForMessage(_text.Slice(invalidSep.Start, invalidSep.Length))}': separators must sit between digits.");
       }
 
       AddToken(
@@ -544,19 +654,22 @@ public static class Lexer {
         start);
     }
 
-    private void ScanDigitRun() {
+    private (bool HasDigit, SourceSpan? InvalidSeparatorSpan) ScanDigitRun() {
       int start = _pos;
+      bool hasDigit = false;
       while (!IsAtEnd && (IsAsciiDigit(_text[_pos]) || _text[_pos] == '_')) {
+        if (IsAsciiDigit(_text[_pos])) {
+          hasDigit = true;
+        }
+
         _pos++;
       }
 
       ReadOnlySpan<char> run = _text.Slice(start, _pos - start);
-      if (run.Length > 0 && (run[0] == '_' || run[^1] == '_' || run.Contains("__".AsSpan(), StringComparison.Ordinal))) {
-        Diagnostics.ReportError(
-          InvalidNumericSeparatorCode,
-          new SourceSpan(start, run.Length),
-          $"Invalid '_' separator in number '{run}': separators must sit between digits.");
-      }
+      SourceSpan? invalidSpan = run.Length > 0 && (run[0] == '_' || run[^1] == '_' || run.Contains("__".AsSpan(), StringComparison.Ordinal))
+        ? new SourceSpan(start, run.Length)
+        : null;
+      return (hasDigit, invalidSpan);
     }
 
     private void ScanRune() {
@@ -565,14 +678,14 @@ public static class Lexer {
       bool valid = true;
 
       if (IsAtLineEnd) {
-        Diagnostics.ReportError(UnterminatedRuneCode, new SourceSpan(start, 1), "Unterminated rune literal.");
+        Diagnostics.ReportError(DiagnosticCodes.UnterminatedRune, new SourceSpan(start, 1), "Unterminated rune literal.");
         AddToken(TokenKind.Error, start);
         return;
       }
 
       if (Current == '\'') {
         _pos++;
-        Diagnostics.ReportError(EmptyRuneCode, new SourceSpan(start, 2), "Empty rune literal.");
+        Diagnostics.ReportError(DiagnosticCodes.EmptyRune, new SourceSpan(start, 2), "Empty rune literal.");
         AddToken(TokenKind.Error, start);
         return;
       }
@@ -583,7 +696,7 @@ public static class Lexer {
 
         if (IsAtLineEnd) {
           Diagnostics.ReportError(
-            UnterminatedRuneCode,
+            DiagnosticCodes.UnterminatedRune,
             new SourceSpan(start, _pos - start),
             "Unterminated escape sequence in rune literal.");
           AddToken(TokenKind.Error, start);
@@ -596,12 +709,20 @@ public static class Lexer {
           AdvanceCodePoint();
           valid = false;
           Diagnostics.ReportError(
-            InvalidRuneEscapeCode,
+            DiagnosticCodes.InvalidRuneEscape,
             new SourceSpan(escapeStart, _pos - escapeStart),
-            $"Invalid escape sequence '{_text.Slice(escapeStart, _pos - escapeStart)}' in rune literal.");
+            $"Invalid escape sequence '{FormatForMessage(_text.Slice(escapeStart, _pos - escapeStart))}' in rune literal.");
         }
       } else {
+        int runeStart = _pos;
         AdvanceCodePoint();
+        if (_pos - runeStart == 1 && char.IsSurrogate(_text[runeStart])) {
+          valid = false;
+          Diagnostics.ReportError(
+            DiagnosticCodes.InvalidRuneSurrogate,
+            new SourceSpan(runeStart, 1),
+            $"Invalid unpaired UTF-16 surrogate '{FormatForMessage(_text.Slice(runeStart, 1))}' in rune literal.");
+        }
       }
 
       if (!IsAtEnd && Current == '\'') {
@@ -611,15 +732,19 @@ public static class Lexer {
       }
 
       int probe = _pos;
-      while (probe < _text.Length && _text[probe] != '\'' && !IsWhitespaceOrNewline(_text[probe])) {
-        probe++;
+      while (probe < _text.Length && _text[probe] != '\'' && _text[probe] is not ('\n' or '\r')) {
+        if (_text[probe] == '\\' && probe + 1 < _text.Length && _text[probe + 1] is not ('\n' or '\r')) {
+          probe += 2;
+        } else {
+          probe++;
+        }
       }
 
       if (probe < _text.Length && _text[probe] == '\'') {
         _pos = probe + 1;
         if (valid) {
           Diagnostics.ReportError(
-            MultiRuneLiteralCode,
+            DiagnosticCodes.MultiRuneLiteral,
             new SourceSpan(start, _pos - start),
             "Rune literal must contain exactly one rune.");
         }
@@ -629,13 +754,50 @@ public static class Lexer {
       }
 
       Diagnostics.ReportError(
-        UnterminatedRuneCode,
+        DiagnosticCodes.UnterminatedRune,
         new SourceSpan(start, _pos - start),
         "Unterminated rune literal.");
       AddToken(TokenKind.Error, start);
     }
 
-    private static bool IsWhitespaceOrNewline(char c) => c is '\n' or '\r' || char.IsWhiteSpace(c);
+    private static string FormatForMessage(ReadOnlySpan<char> text) {
+      bool needsEscape = false;
+      for (int i = 0; i < text.Length; i++) {
+        if (char.IsControl(text[i]) || IsUnpairedSurrogate(text, i)) {
+          needsEscape = true;
+          break;
+        }
+      }
+
+      if (!needsEscape) {
+        return text.ToString();
+      }
+
+      var sb = new StringBuilder(text.Length + 8);
+      for (int i = 0; i < text.Length; i++) {
+        char c = text[i];
+        if (char.IsControl(c) || IsUnpairedSurrogate(text, i)) {
+          sb.Append($"U+{(int) c:X4}");
+        } else {
+          sb.Append(c);
+        }
+      }
+
+      return sb.ToString();
+    }
+
+    private static bool IsUnpairedSurrogate(ReadOnlySpan<char> text, int index) {
+      char c = text[index];
+      if (char.IsHighSurrogate(c)) {
+        return index + 1 >= text.Length || !char.IsLowSurrogate(text[index + 1]);
+      }
+
+      if (char.IsLowSurrogate(c)) {
+        return index == 0 || !char.IsHighSurrogate(text[index - 1]);
+      }
+
+      return false;
+    }
 
     private static bool IsWhitespace(char c) => c is not ('\n' or '\r') && char.IsWhiteSpace(c);
 
@@ -643,7 +805,7 @@ public static class Lexer {
 
     private static bool IsAsciiLetter(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z');
 
-    private static bool IsIdentifierStart(char c) => IsAsciiLetter(c) || c is '_' or '$';
+    private static bool IsIdentifierStart(char c) => IsAsciiLetter(c) || c == '_';
 
     private static bool IsIdentifierPart(char c) => IsIdentifierStart(c) || IsAsciiDigit(c);
   }

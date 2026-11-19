@@ -6,7 +6,22 @@ namespace Pino.Compiler.Tests.Lexing;
 
 /// <summary>Lexes the repository's real <c>.pino</c> programs end to end.</summary>
 public sealed class LexerCorpusTests {
-  private const string LegacyRegexModule = "projects/pino-compiler/modules/Lexer.pino";
+  // D-020: compiler modules with unescaped regex backslashes (need owner edits) and negative D-020 conformance case.
+  private static readonly HashSet<string> s_expectedInvalidEscapeFiles = new(StringComparer.Ordinal) {
+    "projects/pino-compiler/modules/Lexer.pino",
+    "projects/c-compiler/modules/lexer.pino",
+    "conformance/strings/escape-unknown.pino",
+  };
+
+  private static readonly HashSet<string> s_errorTokenDiagnosticCodes = new(StringComparer.Ordinal) {
+    DiagnosticCodes.UnexpectedCharacter,
+    DiagnosticCodes.InvalidNumberSuffix,
+    DiagnosticCodes.EmptyRune,
+    DiagnosticCodes.InvalidRuneEscape,
+    DiagnosticCodes.MultiRuneLiteral,
+    DiagnosticCodes.UnterminatedRune,
+    DiagnosticCodes.InvalidRuneSurrogate,
+  };
 
   private static readonly string s_repositoryRoot = FindRepositoryRoot();
 
@@ -37,11 +52,18 @@ public sealed class LexerCorpusTests {
   private static IEnumerable<string> EnumerateCorpusFiles() {
     yield return "main.pino";
 
-    string compilerDirectory = Path.Combine(s_repositoryRoot, "projects", "pino-compiler");
-    foreach (string file in Directory.EnumerateFiles(compilerDirectory, "*.pino", SearchOption.AllDirectories)
-      .Select(path => Path.GetRelativePath(s_repositoryRoot, path).Replace('\\', '/'))
-      .Order(StringComparer.Ordinal)) {
-      yield return file;
+    string[] directories = ["projects", "conformance", "pino.games"];
+    foreach (string relativeDir in directories) {
+      string fullDir = Path.Combine(s_repositoryRoot, relativeDir);
+      if (!Directory.Exists(fullDir)) {
+        continue;
+      }
+
+      foreach (string file in Directory.EnumerateFiles(fullDir, "*.pino", SearchOption.AllDirectories)
+        .Select(path => Path.GetRelativePath(s_repositoryRoot, path).Replace('\\', '/'))
+        .Order(StringComparer.Ordinal)) {
+        yield return file;
+      }
     }
   }
 
@@ -51,13 +73,16 @@ public sealed class LexerCorpusTests {
   }
 
   [Fact]
-  public void CorpusContainsMainAndTheSelfHostedCompiler() {
+  public void CorpusContainsMainProjectsConformanceAndGames() {
     string[] files = [.. EnumerateCorpusFiles()];
 
     Assert.Contains("main.pino", files);
-    Assert.Contains(LegacyRegexModule, files);
+    Assert.Contains("projects/pino-compiler/modules/Lexer.pino", files);
+    Assert.Contains("projects/c-compiler/modules/lexer.pino", files);
     Assert.Contains("projects/pino-compiler/main.pino", files);
-    Assert.True(files.Length > 20, $"Expected the full self-host corpus, found {files.Length} files.");
+    Assert.Contains(files, static f => f.StartsWith("conformance/", StringComparison.Ordinal));
+    Assert.Contains(files, static f => f.StartsWith("pino.games/", StringComparison.Ordinal));
+    Assert.True(files.Length > 200, $"Expected full repo corpus, found {files.Length} files.");
   }
 
   [Theory]
@@ -89,38 +114,42 @@ public sealed class LexerCorpusTests {
 
     // Error tokens only ever come from reported diagnostics (no silent error tokens).
     Assert.Equal(
-      result.Diagnostics.Count(static d => d.Code == Lexer.UnexpectedCharacterCode),
+      result.Diagnostics.Count(static d => s_errorTokenDiagnosticCodes.Contains(d.Code)),
       result.Tokens.Count(static t => t.Kind == TokenKind.Error));
   }
 
   [Theory]
   [MemberData(nameof(CorpusFiles))]
-  public void EveryFileLexesWithoutDiagnosticsExceptTheKnownLegacyRegexEscapes(string relativePath) {
-    (string text, LexResult result) = LexFile(relativePath);
-
-    if (relativePath == LegacyRegexModule) {
-      return; // Covered precisely by LegacyRegexModuleReportsOnlyUnknownEscapeErrors.
+  public void EveryFileLexesWithoutDiagnosticsExceptTheKnownD020EscapeFiles(string relativePath) {
+    // D-020: skip the two compiler modules (pending owner edits) and the intentional STR-E2 negative case.
+    if (s_expectedInvalidEscapeFiles.Contains(relativePath)) {
+      return;
     }
+
+    (_, LexResult result) = LexFile(relativePath);
 
     Assert.True(
       result.Diagnostics.IsEmpty,
       $"{relativePath}: {string.Join("; ", result.Diagnostics.Select(d => $"{d.Code}@{d.Span.Start}+{d.Span.Length}: {d.Message}"))}");
   }
 
-  [Fact]
-  public void LegacyRegexModuleReportsOnlyUnknownEscapeErrors() {
-    (string text, LexResult result) = LexFile(LegacyRegexModule);
+  // D-020
+  [Theory]
+  [InlineData("projects/pino-compiler/modules/Lexer.pino")]
+  [InlineData("projects/c-compiler/modules/lexer.pino")]
+  public void LegacyRegexModulesReportOnlyUnknownEscapeErrors(string relativePath) {
+    (string text, LexResult result) = LexFile(relativePath);
 
     Assert.NotEmpty(result.Diagnostics);
     Assert.All(result.Diagnostics, static d => {
-      Assert.Equal(Lexer.InvalidStringEscapeCode, d.Code);
+      Assert.Equal(DiagnosticCodes.InvalidStringEscape, d.Code);
       Assert.Equal(DiagnosticSeverity.Error, d.Severity);
       Assert.Equal(2, d.Span.Length);
     });
 
     // Every diagnostic is a '\' plus one regex metacharacter that Pino strings do not escape.
     HashSet<string> escapes = [.. result.Diagnostics.Select(d => text.Substring(d.Span.Start, d.Span.Length))];
-    Assert.Superset(new HashSet<string> { "\\+", "\\*", "\\[", "\\]", "\\s" }, escapes);
+    Assert.Superset(new HashSet<string> { "\\+", "\\*", "\\s" }, escapes);
     Assert.All(escapes, static e => Assert.Equal('\\', e[0]));
     Assert.DoesNotContain(escapes, static e => e is "\\n" or "\\t" or "\\r" or "\\\"" or "\\\\" or "\\$");
 
@@ -128,6 +157,15 @@ public sealed class LexerCorpusTests {
     Assert.DoesNotContain(result.Tokens, static t => t.Kind == TokenKind.Error);
     Assert.Equal(TokenKind.EOF, result.Tokens[^1].Kind);
     Assert.Contains(result.Tokens, static t => t.Kind == TokenKind.FnKeyword);
+  }
+
+  // D-020
+  [Fact]
+  public void UnknownEscapeConformanceCaseReportsOnlyInvalidStringEscape() {
+    (_, LexResult result) = LexFile("conformance/strings/escape-unknown.pino");
+
+    Diagnostic diagnostic = Assert.Single(result.Diagnostics);
+    Assert.Equal(DiagnosticCodes.InvalidStringEscape, diagnostic.Code);
   }
 
   [Fact]

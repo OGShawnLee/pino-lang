@@ -139,7 +139,10 @@ public sealed class LexerParityTests {
     LexResult result = Lex(Text);
 
     Assert.Equal(
-      [new Token(TokenKind.VarKeyword, new SourceSpan(3, 3)), new Token(TokenKind.EOF, new SourceSpan(Text.Length, 0))],
+      [
+        new Token(TokenKind.VarKeyword, new SourceSpan(3, 3), TokenFlags.LeadingWhitespace),
+        new Token(TokenKind.EOF, new SourceSpan(Text.Length, 0), TokenFlags.LeadingWhitespace | TokenFlags.LeadingComment),
+      ],
       result.Tokens.AsEnumerable());
     Assert.Equal(
       [

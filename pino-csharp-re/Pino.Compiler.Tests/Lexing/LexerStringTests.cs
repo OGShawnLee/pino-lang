@@ -23,9 +23,10 @@ public sealed class LexerStringTests {
     LexResult result = Lex(text);
 
     Assert.Equal(
-      expected.Select(static e => new Token(e.Kind, new SourceSpan(e.Start, e.Length))),
-      result.Tokens.Where(static t => t.Kind != TokenKind.EOF));
-    Assert.Equal(new Token(TokenKind.EOF, new SourceSpan(text.Length, 0)), result.Tokens[^1]);
+      expected.Select(static e => (e.Kind, new SourceSpan(e.Start, e.Length))),
+      result.Tokens.Where(static t => t.Kind != TokenKind.EOF).Select(static t => (t.Kind, t.Span)));
+    Assert.Equal(TokenKind.EOF, result.Tokens[^1].Kind);
+    Assert.Equal(new SourceSpan(text.Length, 0), result.Tokens[^1].Span);
     Assert.Empty(result.Diagnostics);
   }
 
@@ -194,6 +195,7 @@ public sealed class LexerStringTests {
       (TokenKind.StringEnd, 13, 1));
   }
 
+  // D-021
   [Fact]
   public void AdjacentSimpleInterpolationsHaveNoPartBetween() {
     const string Text = "\"$a$b\"";
@@ -239,9 +241,13 @@ public sealed class LexerStringTests {
       Pieces("\"$if\""));
   }
 
+  // D-021
   [Fact]
-  public void InterpolationInsideCodeContextIsOrdinaryDollarIdentifier() {
-    Assert.Equal([TokenKind.Identifier, TokenKind.EOF], LexerCoreTests.Kinds("$x"));
+  public void DollarOutsideStringReportsUnexpectedCharacterBeforeIdentifier() {
+    LexResult result = Lex("$x");
+
+    Assert.Equal([TokenKind.Error, TokenKind.Identifier, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    AssertDiagnostics(result, (DiagnosticCodes.UnexpectedCharacter, 0, 1));
   }
 
   // ------------------------------------------------------------------------------------------
@@ -470,6 +476,7 @@ public sealed class LexerStringTests {
   // Malformed escapes
   // ------------------------------------------------------------------------------------------
 
+  // D-020
   [Theory]
   [InlineData("\"\\q\"", 'q')]
   [InlineData("\"\\s\"", 's')]
@@ -482,7 +489,7 @@ public sealed class LexerStringTests {
     Assert.Equal(
       [TokenKind.StringStart, TokenKind.StringPart, TokenKind.StringEnd, TokenKind.EOF],
       result.Tokens.Select(static t => t.Kind));
-    AssertDiagnostics(result, (Lexer.InvalidStringEscapeCode, 1, 2));
+    AssertDiagnostics(result, (DiagnosticCodes.InvalidStringEscape, 1, 2));
     Assert.Contains($"\\{escaped}", result.Diagnostics[0].Message);
   }
 
@@ -493,7 +500,7 @@ public sealed class LexerStringTests {
     Assert.Equal(
       [TokenKind.StringStart, TokenKind.StringPart, TokenKind.StringEnd, TokenKind.Identifier, TokenKind.EOF],
       result.Tokens.Select(static t => t.Kind));
-    AssertDiagnostics(result, (Lexer.InvalidStringEscapeCode, 1, 2), (Lexer.InvalidStringEscapeCode, 10, 2));
+    AssertDiagnostics(result, (DiagnosticCodes.InvalidStringEscape, 1, 2), (DiagnosticCodes.InvalidStringEscape, 10, 2));
   }
 
   [Fact]
@@ -503,7 +510,7 @@ public sealed class LexerStringTests {
     Assert.Equal(
       [TokenKind.StringStart, TokenKind.StringPart, TokenKind.StringEnd, TokenKind.EOF],
       result.Tokens.Select(static t => t.Kind));
-    AssertDiagnostics(result, (Lexer.InvalidStringEscapeCode, 4, 2));
+    AssertDiagnostics(result, (DiagnosticCodes.InvalidStringEscape, 4, 2));
   }
 
   [Fact]
@@ -514,7 +521,7 @@ public sealed class LexerStringTests {
     Assert.Equal(
       [TokenKind.StringStart, TokenKind.StringPart, TokenKind.StringEnd, TokenKind.EOF],
       result.Tokens.Select(static t => t.Kind));
-    AssertDiagnostics(result, (Lexer.InvalidStringEscapeCode, 1, 3));
+    AssertDiagnostics(result, (DiagnosticCodes.InvalidStringEscape, 1, 3));
   }
 
   [Fact]
@@ -526,8 +533,8 @@ public sealed class LexerStringTests {
       Pieces(result));
     AssertDiagnostics(
       result,
-      (Lexer.UnterminatedStringCode, 0, 5),
-      (Lexer.UnterminatedStringEscapeCode, 4, 1));
+      (DiagnosticCodes.UnterminatedString, 0, 5),
+      (DiagnosticCodes.UnterminatedStringEscape, 4, 1));
   }
 
   [Fact]
@@ -541,8 +548,8 @@ public sealed class LexerStringTests {
     Assert.Equal(new Trivia(TriviaKind.Newline, new SourceSpan(4, 1)), Assert.Single(result.Trivia));
     AssertDiagnostics(
       result,
-      (Lexer.UnterminatedStringCode, 0, 4),
-      (Lexer.UnterminatedStringEscapeCode, 3, 1));
+      (DiagnosticCodes.UnterminatedString, 0, 4),
+      (DiagnosticCodes.UnterminatedStringEscape, 3, 1));
   }
 
   [Fact]
@@ -552,7 +559,7 @@ public sealed class LexerStringTests {
     Assert.Equal(
       [$"StringStart|{TripleQuote}", "StringPart|a\\\nb", $"StringEnd|{TripleQuote}"],
       Pieces(result));
-    AssertDiagnostics(result, (Lexer.UnterminatedStringEscapeCode, 4, 1));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedStringEscape, 4, 1));
   }
 
   // ------------------------------------------------------------------------------------------
@@ -571,7 +578,7 @@ public sealed class LexerStringTests {
       ],
       result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(13, 0), result.Tokens[5].Span);
-    AssertDiagnostics(result, (Lexer.UnterminatedStringCode, 8, 5));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedString, 8, 5));
     AssertWellFormed("var s = \"oops\nval x = 1", result);
   }
 
@@ -584,7 +591,7 @@ public sealed class LexerStringTests {
       result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(4, 0), result.Tokens[2].Span);
     Assert.Equal(new Trivia(TriviaKind.Newline, new SourceSpan(4, 2)), Assert.Single(result.Trivia));
-    AssertDiagnostics(result, (Lexer.UnterminatedStringCode, 0, 4));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedString, 0, 4));
   }
 
   [Fact]
@@ -593,7 +600,7 @@ public sealed class LexerStringTests {
 
     Assert.Equal([$"StringStart|{Quote}", "StringPart|abc", "StringEnd|"], Pieces(result));
     Assert.Equal(new SourceSpan(4, 0), result.Tokens[2].Span);
-    AssertDiagnostics(result, (Lexer.UnterminatedStringCode, 0, 4));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedString, 0, 4));
   }
 
   [Fact]
@@ -601,7 +608,7 @@ public sealed class LexerStringTests {
     LexResult result = Lex("\"");
 
     Assert.Equal([TokenKind.StringStart, TokenKind.StringEnd, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
-    AssertDiagnostics(result, (Lexer.UnterminatedStringCode, 0, 1));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedString, 0, 1));
   }
 
   [Fact]
@@ -613,7 +620,7 @@ public sealed class LexerStringTests {
       [$"StringStart|{TripleQuote}", "StringPart|abc\nval x = 1", "StringEnd|"],
       Pieces(result));
     Assert.Equal(new SourceSpan(Text.Length, 0), result.Tokens[2].Span);
-    AssertDiagnostics(result, (Lexer.UnterminatedMultilineStringCode, 0, 3));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedMultilineString, 0, 3));
     AssertWellFormed(Text, result);
   }
 
@@ -640,8 +647,8 @@ public sealed class LexerStringTests {
     Assert.Equal(new SourceSpan(9, 0), result.Tokens[6].Span);
     AssertDiagnostics(
       result,
-      (Lexer.UnterminatedStringCode, 0, 9),
-      (Lexer.UnterminatedInterpolationCode, 3, 2));
+      (DiagnosticCodes.UnterminatedString, 0, 9),
+      (DiagnosticCodes.UnterminatedInterpolation, 3, 2));
     AssertWellFormed(Text, result);
   }
 
@@ -662,8 +669,8 @@ public sealed class LexerStringTests {
       Pieces(result));
     AssertDiagnostics(
       result,
-      (Lexer.UnterminatedMultilineStringCode, 0, 3),
-      (Lexer.UnterminatedInterpolationCode, 7, 2));
+      (DiagnosticCodes.UnterminatedMultilineString, 0, 3),
+      (DiagnosticCodes.UnterminatedInterpolation, 7, 2));
     AssertWellFormed(Text, result);
   }
 
@@ -699,9 +706,9 @@ public sealed class LexerStringTests {
       Pieces(result));
     AssertDiagnostics(
       result,
-      (Lexer.UnterminatedStringCode, 0, 11),
-      (Lexer.UnterminatedInterpolationCode, 3, 2),
-      (Lexer.UnterminatedStringCode, 9, 2));
+      (DiagnosticCodes.UnterminatedString, 0, 11),
+      (DiagnosticCodes.UnterminatedInterpolation, 3, 2),
+      (DiagnosticCodes.UnterminatedString, 9, 2));
     AssertWellFormed(Text, result);
   }
 
@@ -726,7 +733,7 @@ public sealed class LexerStringTests {
         $"StringEnd|{TripleQuote}",
       ],
       Pieces(result));
-    AssertDiagnostics(result, (Lexer.UnterminatedStringCode, 11, 2));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedString, 11, 2));
     AssertWellFormed(Text, result);
   }
 
@@ -755,6 +762,129 @@ public sealed class LexerStringTests {
     Assert.Equal(2, kinds.Count(static k => k == TokenKind.CloseBrace));
     Assert.Contains(TokenKind.IntLiteral, kinds);
     AssertWellFormed(Text, result);
+  }
+
+  [Fact]
+  public void MissingFlagMarksRecoverySynthesizedTokensOnly() {
+    LexResult valid = Lex("\"$x\"");
+    Assert.All(valid.Tokens, static t => Assert.False(t.Flags.HasFlag(TokenFlags.Missing)));
+
+    LexResult unclosed = Lex("\"a $(b");
+    Token interpEnd = unclosed.Tokens.Single(static t => t.Kind == TokenKind.InterpEnd);
+    Token stringEnd = unclosed.Tokens.Single(static t => t.Kind == TokenKind.StringEnd);
+    Assert.True(interpEnd.Flags.HasFlag(TokenFlags.Missing));
+    Assert.True(stringEnd.Flags.HasFlag(TokenFlags.Missing));
+    Assert.False(unclosed.Tokens[0].Flags.HasFlag(TokenFlags.Missing));
+    Assert.False(unclosed.Tokens[^1].Flags.HasFlag(TokenFlags.Missing));
+  }
+
+  [Fact]
+  public void MultilineStringInsideSingleLineInterpolationIsRejectedOnOneLine() {
+    const string Text = "\"a $( \"\"\"hi\"\"\" ) b\"";
+    LexResult result = Lex(Text);
+
+    AssertDiagnostics(result, (DiagnosticCodes.MultilineStringInSingleLineInterpolation, 6, 3));
+    AssertWellFormed(Text, result);
+  }
+
+  [Theory]
+  [InlineData("\"a $( \"\"\"line1\nline2\"\"\" ) b\"", false)]
+  [InlineData("\"a $( \"\"\"line1\nline2\nval x = 1\n", true)]
+  [InlineData("\"a $( \"\"\"x $(1 +\n 2) y\"\"\" ) b\"", false)]
+  public void MultilineStringInsideSingleLineInterpolationStillRecoversAtLineEnd(string text, bool expectValKeyword) {
+    LexResult result = Lex(text);
+
+    Assert.Contains(result.Diagnostics, static d => d.Code == DiagnosticCodes.MultilineStringInSingleLineInterpolation);
+    Assert.Contains(result.Diagnostics, static d => d.Code == DiagnosticCodes.UnterminatedString);
+    Assert.All(result.Diagnostics, d => {
+      int startLine = result.Source.GetLineColumn(d.Span.Start).Line;
+      int lastOffset = d.Span.Length == 0 ? d.Span.Start : d.Span.End - 1;
+      int endLine = result.Source.GetLineColumn(lastOffset).Line;
+      if (startLine == 1) {
+        Assert.Equal(1, endLine);
+      }
+    });
+    if (expectValKeyword) {
+      Assert.All(result.Diagnostics, d => Assert.Equal(1, result.Source.GetLineColumn(d.Span.Start).Line));
+      Assert.Contains(result.Tokens, static t => t.Kind == TokenKind.ValKeyword);
+    }
+
+    Assert.Contains(result.Trivia, static t => t.Kind == TriviaKind.Newline);
+    AssertWellFormed(text, result);
+  }
+
+  // D-090
+  [Fact]
+  public void MultilineStringClosingAtFirstTripleQuotePinsTrailingQuoteBehavior() {
+    LexResult four = Lex("\"\"\"a\"\"\"\"");
+    Assert.Equal(
+      [$"StringStart|{TripleQuote}", "StringPart|a", $"StringEnd|{TripleQuote}", $"StringStart|{Quote}", "StringEnd|"],
+      Pieces(four));
+    AssertDiagnostics(four, (DiagnosticCodes.UnterminatedString, 7, 1));
+
+    LexResult five = Lex("\"\"\"a\"\"\"\"\"");
+    Assert.Equal(
+      [$"StringStart|{TripleQuote}", "StringPart|a", $"StringEnd|{TripleQuote}", $"StringStart|{Quote}", $"StringEnd|{Quote}"],
+      Pieces(five));
+    Assert.Empty(five.Diagnostics);
+
+    LexResult escaped = Lex("\"\"\"a\\\"\"\"\"");
+    Assert.Equal(
+      [$"StringStart|{TripleQuote}", "StringPart|a\\\"", $"StringEnd|{TripleQuote}"],
+      Pieces(escaped));
+    Assert.Empty(escaped.Diagnostics);
+  }
+
+  [Fact]
+  public void SurrogatePairsSurroundingInterpolationPreserveExactUTF16Spans() {
+    const string Text = "\"🌲$x🌲\"";
+    LexResult result = Lex(Text);
+
+    AssertTokens(
+      Text,
+      (TokenKind.StringStart, 0, 1),
+      (TokenKind.StringPart, 1, 2),
+      (TokenKind.InterpStart, 3, 1),
+      (TokenKind.Identifier, 4, 1),
+      (TokenKind.InterpEnd, 5, 0),
+      (TokenKind.StringPart, 5, 2),
+      (TokenKind.StringEnd, 7, 1));
+    AssertWellFormed(Text, result);
+  }
+
+  [Fact]
+  public void UnclosedQuoteRecoversAtLoneCarriageReturn() {
+    LexResult result = Lex("\"abc\rx");
+
+    Assert.Equal(
+      [TokenKind.StringStart, TokenKind.StringPart, TokenKind.StringEnd, TokenKind.Identifier, TokenKind.EOF],
+      result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(4, 0), result.Tokens[2].Span);
+    Assert.Equal(new Trivia(TriviaKind.Newline, new SourceSpan(4, 1)), Assert.Single(result.Trivia));
+    AssertDiagnostics(result, (DiagnosticCodes.UnterminatedString, 0, 4));
+    AssertWellFormed("\"abc\rx", result);
+  }
+
+  [Fact]
+  public void DeeplyNestedInterpolationsTenThousandLevelsAreStackSafeAndBalanced() {
+    const int Depth = 10_000;
+    var sb = new System.Text.StringBuilder((Depth * 5) + 1);
+    for (int i = 0; i < Depth; i++) {
+      sb.Append("\"$(");
+    }
+
+    sb.Append('1');
+    for (int i = 0; i < Depth; i++) {
+      sb.Append(")\"");
+    }
+
+    string text = sb.ToString();
+    LexResult result = Lex(text);
+
+    Assert.Empty(result.Diagnostics);
+    Assert.Equal(Depth, result.Tokens.Count(static t => t.Kind == TokenKind.StringStart));
+    Assert.Equal(Depth, result.Tokens.Count(static t => t.Kind == TokenKind.InterpStart));
+    AssertWellFormed(text, result);
   }
 
   // ------------------------------------------------------------------------------------------

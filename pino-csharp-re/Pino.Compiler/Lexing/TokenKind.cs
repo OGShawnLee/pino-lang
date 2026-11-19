@@ -1,6 +1,6 @@
 namespace Pino.Compiler.Lexing;
 
-public enum TokenKind {
+public enum TokenKind : ushort {
   // End / recovery
   EOF,
   Error,

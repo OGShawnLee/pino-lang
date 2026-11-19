@@ -11,28 +11,62 @@ public sealed class DiagnosticBag {
 
   public bool HasErrors { get; private set; }
 
-  public void ReportError(string code, SourceSpan span, string message) {
-    AddDiagnostic(new Diagnostic(
-        code ?? string.Empty,
-        DiagnosticSeverity.Error,
-        span,
-        message ?? string.Empty));
+  public void ReportError(
+      string code,
+      SourceSpan span,
+      string message,
+      ImmutableArray<RelatedLocation> related = default,
+      DiagnosticTags tags = DiagnosticTags.None,
+      string? help = null) {
+    Report(DiagnosticSeverity.Error, code, span, message, related, tags, help);
   }
 
-  public void ReportWarning(string code, SourceSpan span, string message) {
-    AddDiagnostic(new Diagnostic(
-        code ?? string.Empty,
-        DiagnosticSeverity.Warning,
-        span,
-        message ?? string.Empty));
+  public void ReportWarning(
+      string code,
+      SourceSpan span,
+      string message,
+      ImmutableArray<RelatedLocation> related = default,
+      DiagnosticTags tags = DiagnosticTags.None,
+      string? help = null) {
+    Report(DiagnosticSeverity.Warning, code, span, message, related, tags, help);
   }
 
-  public void ReportInfo(string code, SourceSpan span, string message) {
+  public void ReportInfo(
+      string code,
+      SourceSpan span,
+      string message,
+      ImmutableArray<RelatedLocation> related = default,
+      DiagnosticTags tags = DiagnosticTags.None,
+      string? help = null) {
+    Report(DiagnosticSeverity.Info, code, span, message, related, tags, help);
+  }
+
+  public void ReportHint(
+      string code,
+      SourceSpan span,
+      string message,
+      ImmutableArray<RelatedLocation> related = default,
+      DiagnosticTags tags = DiagnosticTags.None,
+      string? help = null) {
+    Report(DiagnosticSeverity.Hint, code, span, message, related, tags, help);
+  }
+
+  public void Report(
+      DiagnosticSeverity severity,
+      string code,
+      SourceSpan span,
+      string message,
+      ImmutableArray<RelatedLocation> related = default,
+      DiagnosticTags tags = DiagnosticTags.None,
+      string? help = null) {
     AddDiagnostic(new Diagnostic(
         code ?? string.Empty,
-        DiagnosticSeverity.Info,
+        severity,
         span,
-        message ?? string.Empty));
+        message ?? string.Empty,
+        related,
+        tags,
+        help));
   }
 
   public void AddRange(IEnumerable<Diagnostic> diagnostics) {

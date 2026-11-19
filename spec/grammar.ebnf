@@ -19,7 +19,7 @@
 comment         = "#" , { any_char_except_newline } ;      (* runs to the end of the line *)
 
 IDENT           = ident_start , { ident_start | digit } ;
-ident_start     = letter | "_" ;                          (* D-021: the lexer also accepts "$" in identifiers *)
+ident_start     = letter | "_" ;                          (* D-021: "$" is not an identifier character *)
 keyword         = "var" | "val" | "fn" | "if" | "else" | "match" | "when" | "for"
                 | "struct" | "enum" | "break" | "continue" | "return" ;
                   (* the lexer reserves more words (import, from, module, pub, static, union, yield, is, as, in,
@@ -28,8 +28,9 @@ keyword         = "var" | "val" | "fn" | "if" | "else" | "match" | "when" | "for
 INT             = digit , { digit | "_" , digit , digit , digit } ;   (* 42, 1_000_000 *)
 FLOAT           = INT , "." , digit , { digit } ;                     (* 3.14159; a leading "-" is the unary operator *)
 BOOL            = "true" | "false" ;
-STRING          = '"' , { string_char | interpolation } , '"' ;       (* see section str *)
-RUNE            = "'" , ( rune_char | "\n" | "\'" ) , "'" ;           (* one Unicode code point *)
+STRING          = '"' , { string_char | interpolation } , '"'
+                | '"""' , { string_char | interpolation } , '"""' ; (* see section str *)
+RUNE            = "'" , ( rune_char | "\n" | "\t" | "\r" | "\'" | "\\" ) , "'" ; (* one Unicode code point *)
 
 (* Optional commas (reference section 1). In every list below a separator is "," or nothing:
    D-010: when the separator is omitted, "a -b" is read as the subtraction "a - b". *)
@@ -90,9 +91,11 @@ rune_call       = "rune" , "(" , expression , ")" ;           (* int or string a
 str_call        = "str" , "(" , expression , ")" ;            (* see section str *)
 
 (* === section: str (owner 005) === *)
-(* A string literal is lexed into text pieces and interpolations. D-020: escape sequences are undocumented;
-   D-021: `$` is also accepted inside identifiers. A string literal does not span lines. *)
-string_literal  = '"' , { string_piece } , '"' ;
+(* A string literal is lexed into text pieces and interpolations. Single-line `"..."` literals
+   do not span lines; triple-quoted `"""..."""` literals may span lines (`LexerStringTests.MultilineStringSpansLines`).
+   D-020: escape sequences are `\n`, `\t`, `\r`, `\"`, `\\`, `\$`. D-021: `$` is not an identifier char. *)
+string_literal  = '"' , { string_piece } , '"'
+                | '"""' , { string_piece } , '"""' ;
 string_piece    = string_text
                 | "$" , IDENT                             (* $name: variable interpolation *)
                 | "$(" , expression , ")" ;               (* $(expr): expression interpolation *)

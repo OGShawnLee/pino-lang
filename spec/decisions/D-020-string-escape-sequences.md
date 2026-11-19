@@ -1,6 +1,6 @@
 # D-020: String escape sequences
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/strings.md
 
@@ -34,4 +34,4 @@ println("back\\slash")
 3. Add more escapes (`\0`, `\u{...}`, `\'`) before documenting: larger change; `\'` is currently valid for runes only.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: string literals support `\n`, `\t`, `\r`, `\"`, `\\` and `\$`, and any other escape sequence is a compile error.

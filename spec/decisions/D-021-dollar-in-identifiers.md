@@ -1,6 +1,6 @@
 # D-021: `$` as an identifier character
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/lexical.md
 
@@ -32,4 +32,4 @@ println("$x$y")
 3. Stop a simple interpolation name at a `$`: keeps `$` legal in declarations but not inside a string.
 
 ## Decision
-_Pending: owner decides._ LEX-3 therefore lists only letters, digits and underscores.
+Option 1, decided by the owner on 2026-11-19: `$` is not an identifier character (identifiers use ASCII letters, digits and `_` only), so `"$x$y"` interpolates `x` then `y`.
