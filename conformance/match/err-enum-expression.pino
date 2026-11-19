@@ -1,0 +1,10 @@
+# covers: MATCH-E1
+enum Planet { Mercury, Venus, Earth }
+
+fn gravity(p Planet) int {
+  return match p {
+    when Planet::Mercury => 4
+    when Planet::Venus => 9
+  }
+}
+println(gravity(Planet::Earth))

@@ -1,0 +1,21 @@
+# covers: MAIN-2, MAIN-3, MAIN-4
+val greeting = "hello"
+val answer = 40 + 2
+
+enum Mode { Fast, Slow }
+struct Point { x int }
+interface Named {
+  fn name() string
+}
+
+fn helper() string {
+  return "from helper"
+}
+
+fn main() {
+  println("main start")
+  println(greeting)
+  println(answer)
+  println(helper())
+  println("main end")
+}

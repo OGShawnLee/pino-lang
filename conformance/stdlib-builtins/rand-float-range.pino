@@ -1,0 +1,9 @@
+# covers: BUILTIN-5
+var outside = 0
+for 1000 {
+  val f = rand()
+  if f < 0.0 or f >= 1.0 {
+    outside = outside + 1
+  }
+}
+println(outside)

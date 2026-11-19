@@ -1,0 +1,18 @@
+# covers: MATCH-1, MATCH-2, MATCH-4
+fn execute(command string) {
+  match command {
+    when "start", "run" {
+      println("Running program...")
+    }
+    when "stop" {
+      println("Stopping...")
+    }
+    else {
+      println("Unknown command")
+    }
+  }
+}
+execute("start")
+execute("run")
+execute("stop")
+execute("reboot")

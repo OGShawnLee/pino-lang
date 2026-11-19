@@ -1,0 +1,7 @@
+# covers: BUILTIN-1
+# No import is needed to call any of these built-ins.
+val f = rand()
+val n = rand(5)
+val t = time()
+val r = regex("a+")
+println("all available")

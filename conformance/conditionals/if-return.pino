@@ -1,0 +1,22 @@
+# covers: IF-4
+fn sign(n int) string {
+  if n < 0 {
+    return "negative"
+  }
+  if n == 0 {
+    return "zero"
+  }
+  return "positive"
+}
+
+fn fib(n int) int {
+  if n <= 1 {
+    return n
+  }
+  return fib(n - 1) + fib(n - 2)
+}
+
+println(sign(-3))
+println(sign(0))
+println(sign(7))
+println(fib(6))

@@ -1,0 +1,6 @@
+# covers: MAIN-E2
+for 3 {
+}
+fn main() {
+  println("hi")
+}

@@ -1,0 +1,3 @@
+# covers: BUILTIN-5, BUILTIN-6
+println(type(rand()))
+println(type(rand(100)))

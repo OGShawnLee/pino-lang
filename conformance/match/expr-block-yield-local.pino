@@ -1,0 +1,12 @@
+# covers: MATCH-8
+val picked = match 1 {
+  when 1 {
+    val factor = 10
+    yield factor * 2
+  }
+  else {
+    println("not reached")
+    yield 0
+  }
+}
+println(picked)

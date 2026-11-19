@@ -1,0 +1,18 @@
+# covers: MATCH-3
+fn execute(command string) {
+  match command {
+    when "start" "run" {
+      println("Running")
+    }
+    when "stop" {
+      println("Stopping")
+    }
+    else {
+      println("Unknown")
+    }
+  }
+}
+execute("start")
+execute("run")
+execute("stop")
+execute("other")

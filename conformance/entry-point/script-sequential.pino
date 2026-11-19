@@ -1,0 +1,19 @@
+# covers: MAIN-1
+println("one")
+var n = 2
+println(n)
+n = n + 1
+println(n)
+
+fn twice(x int) int {
+  return x * 2
+}
+println(twice(n))
+
+for 2 {
+  println("loop")
+}
+if n == 3 {
+  println("three")
+}
+println("end")

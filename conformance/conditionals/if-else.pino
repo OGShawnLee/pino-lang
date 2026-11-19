@@ -1,0 +1,13 @@
+# covers: IF-2
+val a = 5
+if a > 3 {
+  println("a: then")
+} else {
+  println("a: else")
+}
+val b = 1
+if b > 3 {
+  println("b: then")
+} else {
+  println("b: else")
+}

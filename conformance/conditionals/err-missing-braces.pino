@@ -1,0 +1,3 @@
+# covers: IF-E1
+val x = 5
+if x > 1 println("no braces")

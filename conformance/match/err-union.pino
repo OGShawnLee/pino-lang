@@ -1,0 +1,9 @@
+# covers: MATCH-E2
+union Shape { Circle(float), Square(float) }
+
+fn describe(s Shape) {
+  match s {
+    when Shape::Circle(r) { println("circle") }
+  }
+}
+describe(Shape::Square(1.0))

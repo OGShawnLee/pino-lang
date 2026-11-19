@@ -23,10 +23,10 @@ Decisions live in [`decisions/`](decisions/README.md) and are made only by the p
 | Runes | `features/runes.md` | `RUNE` | 005 | migrated |
 | Strings and interpolation | `features/strings.md` | `STR` | 005 | migrated |
 | Equality and identity | `features/equality.md` | `EQ` | 005 | migrated |
-| Conditionals | `features/conditionals.md` | `IF` | 006 | pending |
+| Conditionals | `features/conditionals.md` | `IF` | 006 | migrated |
 | Loops | `features/loops.md` | `LOOP` | 004 | migrated |
-| Match | `features/match.md` | `MATCH` | 006 | pending |
-| Program entry point | `features/entry-point.md` | `MAIN` | 006 | pending |
+| Match | `features/match.md` | `MATCH` | 006 | migrated |
+| Program entry point | `features/entry-point.md` | `MAIN` | 006 | migrated |
 | Functions, lambdas, closures | `features/functions.md` | `FN` | 007 | pending |
 | Labeled tuples | `features/tuples.md` | `TUP` | 007 | pending |
 | Vectors | `features/vectors.md` | `VEC` | 007 | pending |
@@ -47,7 +47,7 @@ Stdlib files have a `## Signatures` table (`Member | Signature | Returns`) follo
 | :--- | :--- | :--- | :--- |
 | `stdlib/string.md` | `STRLIB` | 005 | migrated |
 | `stdlib/regex.md` | `RGX` | 005 | migrated |
-| `stdlib/builtins.md` | `BUILTIN` | 006 | pending |
+| `stdlib/builtins.md` | `BUILTIN` | 006 | migrated |
 | `stdlib/vector.md` | `VECLIB` | 007 | pending |
 | `stdlib/map.md` | `MAPLIB` | 007 | pending |
 

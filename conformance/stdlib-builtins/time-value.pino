@@ -1,0 +1,13 @@
+# covers: BUILTIN-7
+# time() is milliseconds since the Unix epoch: well after 2001-09-09 (1e12 ms) and before year 5138 (1e14 ms).
+val t = time()
+if t > 1000000000000 {
+  println("after 2001")
+} else {
+  println("too small")
+}
+if t < 100000000000000 {
+  println("before year 5138")
+} else {
+  println("too large")
+}

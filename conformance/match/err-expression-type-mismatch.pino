@@ -1,0 +1,10 @@
+# covers: MATCH-E3
+enum Planet { Mercury, Venus }
+
+fn gravity(p Planet) float {
+  return match p {
+    when Planet::Mercury => 3.7
+    when Planet::Venus => "not a float"
+  }
+}
+println(gravity(Planet::Venus))

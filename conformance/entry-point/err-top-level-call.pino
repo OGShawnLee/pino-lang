@@ -1,0 +1,5 @@
+# covers: MAIN-E2
+println("loose call")
+fn main() {
+  println("hi")
+}

@@ -1,0 +1,10 @@
+# covers: MATCH-4
+fn describe(n int) {
+  match n {
+    when 1 { println("one") }
+    else { println("not one") }
+  }
+}
+describe(1)
+describe(2)
+describe(100)

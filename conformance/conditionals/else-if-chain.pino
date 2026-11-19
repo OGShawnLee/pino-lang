@@ -1,0 +1,40 @@
+# covers: IF-3
+val high = 95
+if high >= 90 {
+  println("Excellent")
+} else if high >= 70 {
+  println("Pass")
+} else {
+  println("Fail")
+}
+val mid = 85
+if mid >= 90 {
+  println("Excellent")
+} else if mid >= 70 {
+  println("Pass")
+} else {
+  println("Fail")
+}
+val low = 40
+if low >= 90 {
+  println("Excellent")
+} else if low >= 70 {
+  println("Pass")
+} else {
+  println("Fail")
+}
+# Several conditions are true: only the first matching branch runs.
+val both = 95
+if both >= 70 {
+  println("first")
+} else if both >= 90 {
+  println("second")
+}
+# No condition is true and there is no else: nothing runs.
+val none = 10
+if none >= 70 {
+  println("never 1")
+} else if none >= 50 {
+  println("never 2")
+}
+println("end")

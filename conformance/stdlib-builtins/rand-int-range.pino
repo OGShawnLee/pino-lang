@@ -1,0 +1,17 @@
+# covers: BUILTIN-6
+var outside = 0
+for 1000 {
+  val n = rand(10)
+  if n < 0 or n >= 10 {
+    outside = outside + 1
+  }
+}
+println(outside)
+# A limit of 1 leaves only 0 in [0, 1).
+var nonzero = 0
+for 100 {
+  if rand(1) != 0 {
+    nonzero = nonzero + 1
+  }
+}
+println(nonzero)

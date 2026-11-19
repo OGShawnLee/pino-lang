@@ -1,0 +1,6 @@
+# covers: MAIN-E2
+val counter = 0
+counter = 1
+fn main() {
+  println("hi")
+}

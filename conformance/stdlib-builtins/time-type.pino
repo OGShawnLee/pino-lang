@@ -1,0 +1,2 @@
+# covers: BUILTIN-7
+println(type(time()))

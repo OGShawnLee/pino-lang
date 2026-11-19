@@ -1,0 +1,5 @@
+# covers: MAIN-E1
+fn main() {
+  println("hi")
+}
+main()

@@ -1,0 +1,7 @@
+# covers: MATCH-E5
+val level = 3
+val label = match level {
+  when 1 => "Beginner"
+  when 2 => "Intermediate"
+}
+println(label)

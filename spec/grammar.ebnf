@@ -108,7 +108,14 @@ structural_eq   = expression , ( "==" | "!=" ) , expression ;      (* primitives
 identity_eq     = expression , ( "===" | "!==" ) , expression ;    (* scalars by value, heap objects by reference *)
 
 (* === section: if (owner 006) === *)
-(* pending *)
+if_statement  = "if" , expression , block , [ "else" , ( if_statement | else_body ) ] ;
+else_body     = block
+              | "=>" , expression ;           (* D-035: the parser also accepts `else => expr` after an `if` block;
+                                                 the reference documents only `else { ... }` *)
+
+if_expression = "if" , expression , "then" , expression , "else" , expression ;
+                                              (* value-producing form; the `else` part is mandatory (IF-E2).
+                                                 The condition is not required to be of type bool (D-032). *)
 
 (* === section: loop (owner 004) === *)
 (* Productions below reference `block`, `statement` and `expression`, which belong to later sections. *)
@@ -129,10 +136,42 @@ break_statement    = "break" ;
 continue_statement = "continue" ;
 
 (* === section: match (owner 006) === *)
-(* pending *)
+(* `match` is both a statement and an expression: the same production is used wherever the parser expects
+   a statement or an expression. In expression position the arms yield the value of the match. *)
+match_expression = "match" , expression , "{" , { when_arm } , [ else_arm ] , "}" ;
+
+when_arm         = "when" , pattern , { [ "," ] , pattern } , arm_body ;
+                                              (* the commas between patterns are optional (MATCH-3) *)
+else_arm         = "else" , arm_body ;
+arm_body         = block                      (* block arm; in expression position it ends with `yield expr` *)
+                 | "=>" , expression ;        (* single-expression arm; `=>` before a block is a parse error (MATCH-E4) *)
+
+pattern          = variant_pattern
+                 | IDENT                      (* D-034: parsed as a binding that matches any value *)
+                 | "true" | "false"
+                 | expression ;               (* literal value, for example `1`, `"start"` *)
+
+variant_pattern  = IDENT , [ "[" , type_list , "]" ] , "::" , IDENT , [ "(" , { pattern , [ "," ] } , ")" ] ;
+                                              (* `Enum::Member`, or `Union::Variant(sub-patterns)` *)
+type_list        = type_name , { "," , type_name } ;
+type_name        = IDENT ;                    (* simplified; full type syntax belongs to the type section *)
 
 (* === section: main (owner 006) === *)
-(* pending *)
+(* The entry point is an ordinary function named `main`; no dedicated syntax exists.
+   Productions for functions belong to section `fn` (owner 007). *)
+main_declaration = "fn" , "main" , [ "(" , [ parameter_list ] , ")" ] , [ type_name ] , block ;
+                                              (* `fn main() { ... }` or `fn main { ... }`. Parameters are parsed
+                                                 but the automatic call is skipped for them (D-036). *)
+
+(* Script mode: the file contains no `main_declaration`; every top-level item runs in order (MAIN-1). *)
+script_file      = { statement } ;
+
+(* Program mode: the root file contains a `main_declaration`. The checker then restricts the top level
+   (MAIN-3, MAIN-4, MAIN-E1..E3). `main` runs automatically after the file has been loaded (MAIN-2). *)
+program_file     = { program_item } ;
+program_item     = struct_declaration | interface_declaration | enum_declaration | union_declaration
+                 | function_declaration | import_statement | module_declaration | test_declaration
+                 | "val" , IDENT , [ type_name ] , "=" , expression ;
 
 (* === section: fn (owner 007) === *)
 (* pending *)

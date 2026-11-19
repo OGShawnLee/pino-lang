@@ -1,0 +1,18 @@
+# covers: MATCH-5
+enum State { Active, Closed }
+
+fn describe(s State) {
+  match s {
+    when State::Active { println("Online") }
+    when State::Closed { println("Offline") }
+  }
+}
+describe(State::Active)
+describe(State::Closed)
+
+enum Light { Red, Yellow, Green }
+val light = Light::Yellow
+match light {
+  when Light::Red { println("stop") }
+  when Light::Yellow, Light::Green { println("go") }
+}

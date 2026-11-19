@@ -1,0 +1,15 @@
+# covers: MATCH-2
+fn grade(score int) string {
+  var result = ""
+  match score {
+    when 9, 10 { result = "A" }
+    when 7, 8 { result = "B" }
+    else { result = "C" }
+  }
+  return result
+}
+println(grade(10))
+println(grade(9))
+println(grade(8))
+println(grade(7))
+println(grade(3))

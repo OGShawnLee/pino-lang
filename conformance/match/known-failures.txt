@@ -1,0 +1,19 @@
+# Known failures for conformance/match/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM (experimental): the bytecode compiler has no `match` support. Statement arms never run
+# --- and expression matches evaluate to null. Cases that only expect a compile error pass.
+VM stmt-first-match.pino  # VM compiles `match` statements to nothing: no arm runs (prints only "done")
+VM stmt-reference-example.pino  # VM compiles `match` statements to nothing: prints nothing
+VM stmt-multiple-values.pino  # VM compiles `match` statements to nothing: prints nothing
+VM stmt-optional-commas.pino  # VM compiles `match` statements to nothing: prints nothing
+VM stmt-else.pino  # VM compiles `match` statements to nothing: prints nothing
+VM enum-statement.pino  # VM: RUNTIME ERROR "Value is not callable" evaluating `State::Active` (enum member access)
+VM expr-arrow.pino  # VM evaluates a `match` expression to null (prints "null")
+VM expr-block-yield.pino  # VM evaluates a `match` expression to null (prints "null")
+VM expr-block-yield-local.pino  # VM evaluates a `match` expression to null (prints "null")
+VM expr-return-and-init.pino  # VM: RUNTIME ERROR "Value is not callable" evaluating `Planet::Earth` (enum member access)
+
+# --- C backend
+C expr-block-yield-local.pino  # C backend emits `factor = 10;` without declaring `factor` for a `val` inside a yield block of a top-level match expression (TCC: 'factor' undeclared)

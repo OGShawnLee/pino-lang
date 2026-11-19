@@ -1,0 +1,15 @@
+# covers: MATCH-1
+val x = 2
+match x {
+  when 1 { println("one") }
+  when 2 { println("two") }
+  when 3 { println("three") }
+  else { println("other") }
+}
+# When two arms match, only the first one runs.
+match 1 {
+  when 1 { println("first arm") }
+  when 1 { println("second arm") }
+  else { println("else arm") }
+}
+println("done")

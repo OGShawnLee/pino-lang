@@ -1,0 +1,9 @@
+# covers: IF-1
+val score = 85
+if score >= 70 {
+  println("pass")
+}
+if score >= 90 {
+  println("excellent")
+}
+println("done")

@@ -1,0 +1,6 @@
+# covers: MATCH-E1
+enum State { Active, Closed }
+val s = State::Closed
+match s {
+  when State::Active { println("on") }
+}

@@ -1,0 +1,4 @@
+# covers: BUILTIN-3
+println("before")
+println()
+println("after")

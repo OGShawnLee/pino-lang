@@ -1,0 +1,11 @@
+# covers: IF-5, IF-6
+val level = 5
+var difficulty = if level > 10 then "Hard" else "Easy"
+println(difficulty)
+
+fn level_check(l int) {
+  val label = if l > 10 then "Hard" else "Easy"
+  println(label)
+}
+level_check(20)
+println(if level == 5 then "five" else "other")
