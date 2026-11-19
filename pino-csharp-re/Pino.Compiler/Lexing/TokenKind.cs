@@ -1,0 +1,91 @@
+namespace Pino.Compiler.Lexing;
+
+public enum TokenKind {
+  // End / recovery
+  EOF,
+  Error,
+
+  // Identifiers and literals
+  Identifier,
+  IntLiteral,
+  FloatLiteral,
+  RuneLiteral,
+  TrueLiteral,
+  FalseLiteral,
+
+  // Keywords
+  AsKeyword,
+  BreakKeyword,
+  ValKeyword,
+  ContinueKeyword,
+  ElseKeyword,
+  EnumKeyword,
+  FromKeyword,
+  FnKeyword,
+  IfKeyword,
+  ImportKeyword,
+  InKeyword,
+  InterfaceKeyword,
+  IsKeyword,
+  ForKeyword,
+  MatchKeyword,
+  ModuleKeyword,
+  PubKeyword,
+  ReturnKeyword,
+  StaticKeyword,
+  StructKeyword,
+  ThenKeyword,
+  VarKeyword,
+  WhenKeyword,
+  UnionKeyword,
+  YieldKeyword,
+  TestKeyword,
+  AssertKeyword,
+
+  // Word operators
+  And,
+  Or,
+  Not,
+
+  // Punctuation / markers
+  At,
+  OpenBrace,
+  CloseBrace,
+  OpenBracket,
+  CloseBracket,
+  OpenParen,
+  CloseParen,
+  Comma,
+
+  // Operators
+  Assign,
+  Plus,
+  PlusAssign,
+  Minus,
+  MinusAssign,
+  Star,
+  StarAssign,
+  Slash,
+  SlashAssign,
+  Percent,
+  PercentAssign,
+  Less,
+  LessEqual,
+  Greater,
+  GreaterEqual,
+  EqualEqual,
+  BangEqual,
+  EqualEqualEqual,
+  BangEqualEqual,
+  Colon,
+  ColonColon,
+  Arrow,
+  Question,
+
+  // String / interpolation (mode-stack scanned; see Lexer remarks)
+  StringStart,
+  StringPart,
+  StringEnd,
+  InterpStart,
+  InterpEnd,
+}

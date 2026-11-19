@@ -16,7 +16,7 @@ Central routing directory for all agents. Read this first.
 - **Self-Hosting:** [`projects/pino-compiler/`](../projects/pino-compiler/) is Pino's hand-written compiler in Pino.
 
 ## Repo Map
-- **Active compiler & runtime:** [`pino-csharp/`](../pino-csharp/) (canonical C# compiler/CLI), [`pino-csharp.tests/`](../pino-csharp.tests/) (xUnit suite), [`runtime/`](../runtime/) (`runtime.c`/`runtime.h`/`re.c`), [`tooling/tcc/`](../tooling/tcc/) (bundled TCC).
+- **Active compiler & runtime:** [`pino-csharp/`](../pino-csharp/) (legacy C# compiler/CLI), [`pino-csharp-re/`](../pino-csharp-re/) (clean LSP-ready C# rewrite), [`pino-csharp.tests/`](../pino-csharp.tests/) (xUnit suite), [`runtime/`](../runtime/) (`runtime.c`/`runtime.h`/`re.c`), [`tooling/tcc/`](../tooling/tcc/) (bundled TCC).
 - **Active self-host:** [`projects/pino-compiler/`](../projects/pino-compiler/).
 - **Editor tooling:** [`vscode-pino/`](../vscode-pino/), [`zed-pino/`](../zed-pino/).
 - **Off-scope unless asked:** [`pino-site-next/`](../pino-site-next/), [`pino.site-legacy/`](../pino.site-legacy/), [`pino.games/`](../pino.games/), [`projects/c-compiler/`](../projects/c-compiler/), [`benchmarks/`](../benchmarks/).
@@ -38,6 +38,8 @@ Central routing directory for all agents. Read this first.
   - Error handling uses suffix `?` and `or { yield fallback }`.
   - No type-cast variable syntax (`val x int = 12`); never name identifiers `val`.
 - **Windows / PowerShell:** Chain commands with `;` (not `&&`). If `pino-csharp.exe` is locked, run `Stop-Process -Name pino-csharp -Force`.
+- **C# Rewrite (`pino-csharp-re/`):** Use uppercase acronyms in C# symbols (e.g. `EOF`, `LSP`, `AST`, `IR`, `UTF16`), `net10.0`, `<Nullable>enable</Nullable>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`, error-tolerant diagnostics (never throw on invalid user code), and follow [`.editorconfig`](../.editorconfig) (2-space indent, same-line `{`, LF; checked via `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`).
+- **Multi-line Strings:** Use triple double-quotes (`"""..."""`), keeping single `"..."` strings single-line for LSP error recovery.
 - **Commits:** English, Conventional Commits (`feat`, `fix`, `refactor`, `test`, `docs`, `progress`), with detailed bodies.
 
 ## Agent roles
