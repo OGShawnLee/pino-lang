@@ -1,6 +1,6 @@
 # Functions, lambdas, closures
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 18/18 | VM 11/18 | C 11/18   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `fn`.

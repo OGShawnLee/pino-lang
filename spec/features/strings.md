@@ -1,6 +1,6 @@
 # Strings and interpolation
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 14/14 | VM 8/14 | C 12/14   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `str`.

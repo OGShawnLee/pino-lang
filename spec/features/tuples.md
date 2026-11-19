@@ -1,6 +1,6 @@
 # Labeled tuples
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 16/16 | VM 16/16 | C 14/16   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `tup`.

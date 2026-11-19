@@ -1,6 +1,6 @@
 # Equality and identity
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 15/15 | VM 3/15 | C 15/15   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `eq`.

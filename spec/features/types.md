@@ -1,6 +1,6 @@
 # Primitive types and conversions
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 8/8 | VM 8/8 | C 5/8   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `type`.

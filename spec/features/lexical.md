@@ -1,6 +1,6 @@
 # Lexical structure
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 17/18 | VM 10/18 | C 16/18   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `lex`.

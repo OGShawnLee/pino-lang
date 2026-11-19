@@ -1,5 +1,8 @@
 # Official Pino Lang Reference Manual 🌲
 
+> [!NOTE]
+> This is the human-friendly guide to Pino. The normative specification (rules, grammar, and open design decisions) lives in [spec/SPEC.md](./spec/SPEC.md) and is verified by [conformance/](./conformance/). When the two disagree, the spec wins.
+
 Pino is a modern, clean, and aesthetically premium programming language designed under the philosophy that writing code should be a pleasant and joyful experience. It fuses the best features of languages like **Vlang**, **Go**, **Kotlin**, and **Ruby**, providing static type inference, structural composition, and a set of high-performance ergonomic tools.
 
 This document serves as the definitive reference guide for the syntax, type system, built-in functions, and instance methods available in Pino.

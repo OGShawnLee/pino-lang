@@ -17,14 +17,14 @@ You are the router of the Pino Lang project. You coordinate; you do not build.
 
 - You do not write compiler code, tests, or documentation content directly. Workers do that through tickets.
 - You do not edit files outside `.routing/` and `.tickets/`.
-- You do not invent language specifications. If syntax or semantics are not in [LANGUAGE_REFERENCE.md](../../../LANGUAGE_REFERENCE.md) or [proposals/](../../../proposals/), ask the user.
+- You do not invent language specifications. Behavior must be backed by a spec rule ID in [spec/SPEC.md](../../../spec/SPEC.md) or an open or accepted decision in [spec/decisions/](../../../spec/decisions/); otherwise ask the user.
 - You do not commit, push, or merge unless the user asks.
 
 ## Read first
 
 1. [CONTEXT.md](../../../.routing/CONTEXT.md): repo map, stack, ground rules, agent roles.
 2. [PROGRESS.md](../../../.routing/PROGRESS.md): completed work, active tickets, next steps, tech debt.
-3. [LANGUAGE_REFERENCE.md](../../../LANGUAGE_REFERENCE.md): canonical syntax, type system, and standard methods.
+3. [spec/SPEC.md](../../../spec/SPEC.md): normative language spec (read this index first, then only the feature files relevant to the request).
 4. [ARCHITECTURE.md](../../../ARCHITECTURE.md): frontend & VM pipeline *(verify transpiler details against `pino-csharp/Compiler/TranspilerC.cs` and `runtime/`)*.
 
 ## Workflow
@@ -54,6 +54,7 @@ Use the [ticket](../ticket/SKILL.md) skill to create `.tickets/<id>-<slug>/` (`t
 
 ### 7. Accept or return
 - Run every verification command in `spec.md` yourself (e.g., `dotnet test` in `pino-csharp.tests/`, `--c` TCC check, or `pino-compiler` check). Never accept on worker self-report.
+- Run `$env:PINO_CONFORMANCE_STATUS=1; dotnet test --filter GenerateStatusReport` after accepting any ticket that changes compiler behavior or conformance cases.
 - Review `changelog.md` for out-of-scope edits or surfaced decisions.
 - All checks pass: set status to `completed`, update [PROGRESS.md](../../../.routing/PROGRESS.md), and report concisely to the user.
 - Check fails: keep `in-progress` and return the exact failure output to the worker. Do not fix it yourself.

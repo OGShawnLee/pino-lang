@@ -1,111 +1,17 @@
-# Pino Project Rules & Guidelines
+# Pino Lang — Agent Guide
 
-Welcome to the Pino Lang project workspace. This file acts as persistent memory for agents working on the compiler and runtime.
+Pino is a statically typed, expression-oriented systems and data-science language implemented in C# (.NET 10.0) with a tree-walk evaluator, bytecode VM, C99 transpiler (TCC + Boehm GC), and a clean LSP-ready rewrite (`pino-csharp-re/`), alongside a hand-written self-hosting compiler (`projects/pino-compiler/`).
 
-## Project Structure & Architecture
+## Read First
+- **[.routing/CONTEXT.md](../.routing/CONTEXT.md)** *(read first)*: repo map, ground rules, stack, and agent roles.
+- **[spec/SPEC.md](../spec/SPEC.md)**: normative language specification, rule IDs, grammar, and decisions (backed by `conformance/`).
 
-Pino is implemented in C# (.NET 10.0) and is structured as follows:
-- **Parser (`pino-csharp/Parser/`)**: Modular recursive-descent parser. Handles desugaring (e.g. arrow lambdas) and precedence climbing.
-- **Checker (`pino-csharp/Checker/`)**: Static type checking and generic monomorphization.
-- **Evaluator (`pino-csharp/Evaluator/`)**: AST Tree-walk execution engine.
-- **VM (`pino-csharp/VM/`)**: Bytecode compiler and stack-based virtual machine runtime.
-- **Tests (`pino-csharp.tests/`)**: xUnit test suite containing atomic tests for all components.
+## Ticket Workflow
+1. Router tracks state in `.routing/PROGRESS.md` and writes approved tickets in `.tickets/<id>-<slug>/` (`task.md` + `spec.md`) citing spec rule IDs.
+2. Workers execute one ticket at a time strictly within `task.md` scope, verify every `spec.md` check, write `changelog.md`, and make one Conventional Commit.
+3. Router re-verifies all `spec.md` checks, updates `.routing/PROGRESS.md`, and regenerates `conformance/STATUS.md` when compiler behavior or conformance cases change.
 
----
-
-## Pino Syntax & Grammar Reference
-
-To avoid compiler parsing errors when writing Pino test code, always follow these grammar rules:
-
-### 1. Loops
-- **Keyword**: Always use **`for`**, not `loop`. (The parser maps the `"for"` keyword to `KeywordType.Loop`).
-- **Syntax**: `for variable in collection { ... }` or `for limit { ... }`.
-- **Example**:
-  ```pino
-  for x in list {
-      println(x)
-  }
-  ```
-
-### 2. Vectors
-- **Declaration**: Declare empty vectors as `[]Type` (e.g. `[]int`, `[]string`, `[]T`).
-- **Do not use brackets** like `[]int {}` for empty vectors; use `[]int`.
-- **Member Methods**: Vectors support `.push(element)`, `.add(element)`, `.map(callback)`, `.filter(callback)`, `.any(callback)`, `.all(callback)`, `.each(callback)`, and `.find(callback)`.
-- **Do not cast variables**: Do not use the following sintax: `val x int = 12` as it is not supported.
-- **Do not name variables as val***: Even though `val` is a convenient short alias for "value", it should never be used as it is a reserved keyword in the Pino syntax for creating mutable variables as oposed to `val`.
-
-### 3. Shorthand Lambdas (`it`)
-- Shorthand lambdas (e.g. `it:len <= 4`) wrap arguments using the implicit parameter `it`.
-- The Parser assigns `it` type as `"implicit"`, which the Static Checker contextually resolves during call argument validation.
-
----
-
-## Development & Troubleshooting Guidelines
-
-### 1. Running Unit Tests
-Always run unit tests from the `pino-csharp.tests/` folder:
-```powershell
-dotnet test
-```
-
-### 2. Locked Compiler Process (`pino-csharp.exe`)
-If `dotnet test` or `dotnet run` fails with a file lock error on `pino-csharp.exe` because the compiler apphost is in use, terminate the locked process using PowerShell:
-```powershell
-Stop-Process -Name pino-csharp -Force
-```
-Then re-run the tests.
-
-### 3. PowerShell Commands Chaining
-In Windows PowerShell, chaining commands with `&&` fails. Always use semicolon `;` to chain commands instead.
-
-# 4. Git Commits (Conventional Commits)
-Always write commit messages following the Conventional Commits specification. Key prefixes to use:
-* `feat(scope)`: A new feature (e.g., `feat(vm): add boolean and/or logic support`).
-* `fix(scope)`: A bug fix (e.g., `fix(parser): resolve escape character scanning`).
-* `docs(scope)`: Documentation-only changes (e.g., `docs(README): update vision statement`).
-* `test(scope)`: Adding or modifying test suites (e.g., `test(execution): atomize arithmetic tests`).
-* `refactor(scope)`: Code changes that neither fix bugs nor add features.
-* `chore(scope)`: Changes to the build process or auxiliary tools and libraries (e.g., `chore(agents): update AGENTS.md`).
-* `perf(scope)`: Performance improvements (e.g., `perf(vm): optimize arithmetic operations`).
-* `style(scope)`: Code style changes (e.g., `style(parser): format AST output`).
-* `i18n(scope)`: Internationalization and localization changes.
-* `ci(scope)`: Changes to the CI/CD pipeline (e.g., `ci(github-actions): update workflow`).
-
----
-
-## 📋 Issue & Proposal Documentation Workflow
-* **Issue Redaction**: When the user encounters bugs, the agent must draft the bug report in [issue.md](../issue.md) (which is kept local/untracked) following this template:
-  ````markdown
-  # bug: [Short, descriptive title of the issue]
-
-  ### 📋 Environment Information
-  * **Pino CLI Version**: `vX.Y.Z (commit hash)`
-  * **Operating System**: Windows 11 / macOS / Linux
-  * **Execution Engine**: Tree-Walk / VM
-
-  ---
-
-  ### 📝 Description of the Bug
-  [Clear description of the bug]
-
-  ---
-
-  ### 🚀 Steps to Reproduce
-  ```pino
-  // Minimal reproducible example code
-  ```
-
-  ---
-
-  ### 📉 Expected vs. Actual Behavior
-  * **Actual Behavior**: [What actually happened]
-  * **Expected Behavior**: [What should have happened]
-
-  ---
-
-  ### 💡 Proposed Solution / Theory
-  * [Proposed solution or theory about the root cause]
-  ````
-* **Proposals**: The same collaborative protocol applies to drafting language design improvements or new features in the `proposals/` directory.
-
-
+## Windows / PowerShell
+- Chain commands with `;` (never `&&`).
+- If `pino-csharp.exe` is locked during build or test runs, run `Stop-Process -Name pino-csharp -Force`.
+- Run the test suite (including conformance and spec-lint tests) with `dotnet test` from `pino-csharp.tests/`.

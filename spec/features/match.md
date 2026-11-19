@@ -1,6 +1,6 @@
 # Match
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 16/16 | VM 6/16 | C 15/16   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `match`.

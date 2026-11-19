@@ -1,6 +1,6 @@
 # Generics
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 26/26 | VM 14/26 | C 21/26   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `gen`.

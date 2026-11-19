@@ -1,6 +1,6 @@
 # Vectors
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 13/15 | VM 3/15 | C 12/15   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `vec`.

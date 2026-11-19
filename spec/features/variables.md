@@ -1,6 +1,6 @@
 # Variables and constants
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 14/14 | VM 9/14 | C 11/14   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `var`.

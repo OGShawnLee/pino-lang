@@ -1,6 +1,6 @@
 # Conditionals
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 7/7 | VM 7/7 | C 7/7   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `if`.

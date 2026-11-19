@@ -1,6 +1,6 @@
 # Runes
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 11/11 | VM 11/11 | C 4/11   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `rune`.

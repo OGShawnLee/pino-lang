@@ -1,6 +1,6 @@
 # Interfaces
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 10/10 | VM 5/10 | C 5/10   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `iface`.

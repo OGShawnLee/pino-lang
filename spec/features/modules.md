@@ -1,6 +1,6 @@
 # Modules and imports
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 8/9 | VM 5/9 | C 8/9   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `mod`.

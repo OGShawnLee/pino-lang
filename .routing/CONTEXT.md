@@ -3,8 +3,10 @@
 Central routing directory for all agents. Read this first.
 
 ## Files
+- [spec/SPEC.md](../spec/SPEC.md): normative language spec: features, rule IDs, grammar, decisions.
+- [conformance/](../conformance/): executable proof of the spec across engines.
 - [PROGRESS.md](PROGRESS.md): completed work, active tickets, next steps, and tech debt.
-- [LANGUAGE_REFERENCE.md](../LANGUAGE_REFERENCE.md): canonical syntax, grammar, types, and standard methods.
+- [LANGUAGE_REFERENCE.md](../LANGUAGE_REFERENCE.md): human-facing guide; defer to `spec/` on conflicts.
 - [ARCHITECTURE.md](../ARCHITECTURE.md): compiler frontend & VM overview *(outdated on transpiler target — [TranspilerC.cs](../pino-csharp/Compiler/TranspilerC.cs) and [runtime/](../runtime/) are authoritative)*.
 - [proposals/](../proposals/): RFCs and design proposals (FFI, zero-copy strings, tagged unions).
 
@@ -27,7 +29,9 @@ Central routing directory for all agents. Read this first.
 - **Web Playground:** C# compiled to WebAssembly (`WASMBridge.cs`).
 
 ## Ground rules
-- **Quality Gate:** Compiler/runtime tickets must pass `dotnet test` in `pino-csharp.tests/` with 0 failures.
+- **Quality Gate:** Compiler/runtime tickets must pass conformance and spec-lint tests (`dotnet test` in `pino-csharp.tests/` covers both) with 0 failures.
+- **Spec & Rule IDs:** Tickets that change language behavior cite rule IDs (e.g. `LOOP-2`). Behavior with no rule ID requires a decision file first.
+- **Decisions:** Only the owner changes a decision's `Status`.
 - **TCC Constraint:** Transpiled C must compile cleanly with TCC (`--c` flag) using only `runtime/` and Boehm GC.
 - **Self-Host Rule:** Never rewrite or bulk-generate `projects/pino-compiler/` unasked; the user writes it by hand. Assist only with scoped fixes, tests, or explicitly requested tasks.
 - **Grammar Invariants:**
@@ -40,7 +44,7 @@ Central routing directory for all agents. Read this first.
 - **Windows / PowerShell:** Chain commands with `;` (not `&&`). If `pino-csharp.exe` is locked, run `Stop-Process -Name pino-csharp -Force`.
 - **C# Rewrite (`pino-csharp-re/`):** Use uppercase acronyms in C# symbols (e.g. `EOF`, `LSP`, `AST`, `IR`, `UTF16`), `net10.0`, `<Nullable>enable</Nullable>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`, error-tolerant diagnostics (never throw on invalid user code), and follow [`.editorconfig`](../.editorconfig) (2-space indent, same-line `{`, LF; checked via `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`).
 - **Multi-line Strings:** Use triple double-quotes (`"""..."""`), keeping single `"..."` strings single-line for LSP error recovery.
-- **Commits:** English, Conventional Commits (`feat`, `fix`, `refactor`, `test`, `docs`, `progress`), with detailed bodies.
+- **Commits:** English, Conventional Commits (`feat`, `fix`, `refactor`, `test`, `docs`, `progress`), with detailed bodies. One commit per ticket; integrate worker branches by rebase + fast-forward (no merge commits), resolving `spec/SPEC.md` row conflicts per ticket.
 
 ## Agent roles
 - **Router:** Gemini 4 Carbon / Argon / Neon or Claude Opus 5.5. Tracks state in [PROGRESS.md](PROGRESS.md), answers architecture questions, writes tickets in `.tickets/`, and verifies deliverables. Never writes compiler code directly. Instructions: [router skill](../.claude/skills/router/SKILL.md).

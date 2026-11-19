@@ -1,6 +1,6 @@
 # Unions and `is`
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 25/25 | VM 7/25 | C 23/25   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `union`.

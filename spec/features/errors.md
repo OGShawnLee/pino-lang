@@ -1,6 +1,6 @@
 # Error handling
 
-Status: pending regeneration (ticket 009)
+Status: tree-walk 28/29 | VM 11/29 | C 23/29   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `err`.
