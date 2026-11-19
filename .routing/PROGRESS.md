@@ -16,28 +16,20 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - [x] **`001-re-solution-and-diagnostics`:** Scaffolded `pino-csharp-re/Pino.sln` with `SourceSpan`, `LinePosition`, `SourceText`, `DiagnosticBag`, and 15 passing tests.
 - [x] **`002-re-token-and-lexer-core`:** Implemented `TokenKind`, `Trivia`, `Token`, `LexResult`, and span-based `Lexer` core (`PN1001`–`PN1008`, 144 passing tests).
 - [x] **`003-re-lexer-strings-and-suite`:** Mode-stack string & `"""..."""` interpolation (`PN1009`–`PN1013`), strict escape errors, legacy parity suite, real-corpus smoke tests, and `.editorconfig` formatting (`270` passing tests).
+- [x] **Batch "Normative spec + conformance" (`004`–`010`, `c69edfe`..`0e5a7f3`):** `spec/` (26 feature/stdlib files with rule IDs, `grammar.ebnf`), `conformance/` runner over TreeWalk/VM/C (1481 tests pass), spec lint, 60 open decisions in `spec/decisions/`, and agent docs pointing at `spec/SPEC.md`. Workers: Sonnet 5.5 High (004–008), Gemini 4 Hydrogen Medium (009, 010). Status per feature: `conformance/STATUS.md`.
+- [x] **`011-audit-pino-csharp-re` (Gemini 4 Neon Medium, read-only):** Verdict "solid with fixes": 0 critical, 7 major, 8 minor, 1 note (`.tickets/011-audit-pino-csharp-re/audit.md`). Router reproduced all 7 majors. Fuzzer: 64,425 inputs, 0 crashes/gaps; corpus 441 files OK; `-re` lexer 11.5x faster than legacy.
+- [x] **`012-re-audit-fixes` (`f7b2db5`, Gemini 4 Hydrogen Medium):** All 011 findings resolved: `TokenFlags` (Token stays 12 B), `DiagnosticCodes` catalog `PN1001`–`PN1015` + Hint/Related/Tags/Help, UTF-16 docs + `GetOffset`, D-020/D-021 applied (accepted), robustness fixes, allocations 23.7 MB → 6.0 MB. `-re` 1140 tests, legacy 1493 tests pass. Opened D-090–D-093. **Owner TODO:** double-escape regex strings in `projects/pino-compiler/modules/Lexer.pino` and `projects/c-compiler/modules/lexer.pino` (D-020).
+- [x] **D-010 accepted (option 3, `a8b5ea3`, follow-up in the 012 thread):** asymmetric `-` spacing in comma-optional lists is an error (LEX-17, LEX-E2). Legacy engines listed as known failures; enforced by the future `-re` parser.
 
 ## In progress
 *(None)*
-
-## Active batch
-Batch "Normative spec + conformance" (worker: Claude Sonnet 5.5 High). Approved by owner on 2026-11-19. 005–008 rebased onto `main` as linear commits (`d9d2578`): 1454 tests pass, 0 failed. Paused for owner review before 010 and 009.
-- [x] **(completed, `c69edfe`)** `004-spec-skeleton-and-conformance-runner`: `spec/` skeleton, `grammar.ebnf` sections, decision template, xUnit conformance runner (TreeWalk/VM/C), spec lint, loops pilot. **Blocks 005–009.** Loops: TreeWalk 20/21, VM 13/21, C 17/21; D-001–D-005 open.
-- [x] **(completed, `1c2e102`)** `005-spec-migrate-values`: lexical, variables, types, runes, strings, equality, stdlib string/regex (D-010–D-029). 677 tests pass; D-010–D-029 open (D-016, D-024, D-027 unused).
-- [x] **(completed, `fc12681`)** `006-spec-migrate-control-flow`: conditionals, match, entry point, stdlib builtins (D-030–D-049). 482 tests pass; D-030–D-038 open.
-- [x] **(completed, `1dd8bbc`)** `007-spec-migrate-functions-and-data`: functions, tuples, vectors, maps, modules, stdlib vector/map (D-050–D-069). 644 tests pass; D-050–D-065 open. MOD rules temporarily `[no-case]` (runner bug → 010).
-- [x] **(completed, `d9d2578`)** `008-spec-migrate-types-and-errors`: structs, interfaces, enums, unions, generics, errors (D-070–D-089). 728 tests pass; D-070–D-081, D-083 open. D-071 must be cross-linked to 005's `null` decision after merge.
-- [x] **(completed, `2acbabc`, Gemini 4 Hydrogen)** `010-fix-conformance-modules-discovery`: runner skips `conformance/modules/` itself; fix and restore MOD coverage. **After merge, before 009.** 1481 tests pass; MOD coverage restored; D-051→D-010, D-071→D-013 linked.
-- [ ] **(in-progress, Gemini 4 Hydrogen)** `009-routing-point-to-spec`: CONTEXT/router/ticket/AGENTS point to `spec/SPEC.md`, reference note, regenerate STATUS. **After 005–008.**
-
-Known bugs to be captured as conformance known-failures in this batch: `for idx char in` rejected by parser (004, D-001); curried lambda passed to `map` fails TCC (007); `readline` at EOF loops forever (006 decision).
 
 ## Architecture decisions
 - **AD-001 — Single IR, two consumers (accepted by owner, 2026-11-19).** `pino-csharp-re` lowers the checked AST once into a Pino IR (TACKY-style, like `projects/pino-compiler/`). Two consumers read that IR: an IR interpreter/VM (dev loop, REPL, WASM playground, platforms without TCC) and a C emitter (TCC for dev builds, GCC/Clang for release). No engine re-implements semantics from the AST. Legacy `pino-csharp/` (Tree-Walk, VM, `TranspilerC`) stays as the reference oracle and is retired once `-re` matches Tree-Walk on the conformance suite. Legacy VM is frozen: no new investment.
 
 ## Next steps
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
-- [ ] **Sync `.agents/AGENTS.md`:** Replace outdated syntax/workflow notes with a concise pointer to `.routing/CONTEXT.md`.
+- [ ] **Decision batch (owner):** Settle the open decisions in `spec/decisions/` by topic (commas/unary minus, rune arithmetic, type annotations, `null` vs `Option`, struct semantics, generics syntax, closures, entry point, builtins). Then ticket the engine fixes they imply.
 - [ ] **Modularize `TranspilerC.cs`** *(deprioritized by AD-001: legacy is replaced, not refactored)*: Split 235 KB single file into partial classes and resolve CS8604 nullable warnings.
 - [ ] **Update `ARCHITECTURE.md`:** Replace stale "transpiles to C#" references with the actual C99 + TCC + Boehm GC pipeline.
 - [ ] **Self-Host (`projects/pino-compiler/`):** Update stale test fixtures (`checker_test.pino`, `parser_test.pino`) for `Constant` union schema, and advance TACKY -> C codegen when requested.

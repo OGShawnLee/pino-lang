@@ -48,5 +48,5 @@ Central routing directory for all agents. Read this first.
 
 ## Agent roles
 - **Router:** Gemini 4 Carbon / Argon / Neon or Claude Opus 5.5. Tracks state in [PROGRESS.md](PROGRESS.md), answers architecture questions, writes tickets in `.tickets/`, and verifies deliverables. Never writes compiler code directly. Instructions: [router skill](../.claude/skills/router/SKILL.md).
-- **Implementer Workers:** Gemini 4 Hydrogen (Medium) or Claude Sonnet 5.5 (High). Execute one ticket at a time within strict `task.md` scope. Ticket format: [ticket skill](../.claude/skills/ticket/SKILL.md).
+- **Implementer Workers:** Gemini 4 Hydrogen (Medium) by default (owner: on par with Sonnet 5.5 High, faster and cheaper; clean results on 009/010), or Claude Sonnet 5.5 (High). Execute one ticket at a time within strict `task.md` scope. Ticket format: [ticket skill](../.claude/skills/ticket/SKILL.md).
 - **Reviewer:** The user. Approves plans, reviews diffs, and owns architectural decisions.
