@@ -1,0 +1,23 @@
+# covers: UNION-13, UNION-14
+union Data {
+  Int(int)
+  Text(string)
+}
+
+union Wrap {
+  Box(Data)
+}
+
+fn yn(b bool) string {
+  if b {
+    return "yes"
+  }
+  return "no"
+}
+
+println(yn(Data::Int(1) == Data::Int(1)))
+println(yn(Data::Int(1) == Data::Int(2)))
+println(yn(Data::Int(1) == Data::Text("hi")))
+println(yn(Data::Int(1) != Data::Int(2)))
+println(yn(Wrap::Box(Data::Int(1)) == Wrap::Box(Data::Int(1))))
+println(yn(Wrap::Box(Data::Int(1)) == Wrap::Box(Data::Int(2))))

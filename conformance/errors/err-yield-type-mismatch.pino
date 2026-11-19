@@ -1,0 +1,11 @@
+# covers: ERR-E6
+fn get_res() Result[int, string] {
+  return Result::Success(10)
+}
+
+fn process() int {
+  val v = get_res() or {
+    yield "not an int"
+  }
+  return v
+}

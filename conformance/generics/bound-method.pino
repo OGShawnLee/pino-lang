@@ -1,0 +1,18 @@
+# covers: GEN-8
+interface DocumentShape {
+  name string
+}
+
+struct Printer {
+  @generic[Doc is DocumentShape]
+  fn print_doc(d Doc) string {
+    return d:name
+  }
+}
+
+struct Book {
+  name string
+}
+
+val p = Printer {}
+println(p:print_doc[Book](Book { name: "Don Quixote" }))

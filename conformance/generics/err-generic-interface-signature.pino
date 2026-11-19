@@ -1,0 +1,24 @@
+# covers: GEN-E6
+@generic[T]
+interface Repository {
+  fn find_by_id(id string) T
+  fn save(entity T)
+}
+
+struct Person {
+  id string
+  name string
+}
+
+struct SQLPersonRepository {
+  fn find_by_id(id string) string {
+    return "Not a Person"
+  }
+
+  fn save(entity Person) {}
+}
+
+fn check_repo(repo Repository[Person]) {}
+
+val r = SQLPersonRepository {}
+check_repo(r)

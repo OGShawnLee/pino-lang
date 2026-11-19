@@ -1,0 +1,7 @@
+# covers: UNION-16
+val name_opt = Option::Some("Shawn Lee")
+
+if name_opt is Option::Some(name) {
+  val message = "$name is cool"
+  println(message)
+}

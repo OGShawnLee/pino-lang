@@ -1,0 +1,13 @@
+# covers: IFACE-E1
+interface Greeter {
+  fn greet(name string)
+}
+
+struct User {
+  fn other() {}
+}
+
+fn run_greet(g Greeter) {}
+
+val u = User {}
+run_greet(u)

@@ -1,0 +1,10 @@
+# covers: ERR-3, ERR-4
+fn first() {
+  second()
+}
+
+fn second() {
+  panic("crash message")
+}
+
+first()

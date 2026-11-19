@@ -1,0 +1,17 @@
+# covers: ERR-11
+fn divide(a int, b int) Result[int, string] {
+  if b == 0 {
+    return Result::Failure("Zero division")
+  }
+  return Result::Success(a / b)
+}
+
+val result = divide(10, 0) or {
+  println("Captured error: $err")
+  yield -1
+}
+println(result)
+val good = divide(10, 2) or {
+  yield -1
+}
+println(good)

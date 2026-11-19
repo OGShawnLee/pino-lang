@@ -1,0 +1,7 @@
+# covers: STRUCT-E7
+struct Incrementer {
+  increment fn(int) int
+}
+
+val increment = fn(n string) => n + 1
+val i = Incrementer { increment: increment }

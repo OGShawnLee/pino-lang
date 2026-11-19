@@ -1,0 +1,16 @@
+# covers: GEN-E5
+interface DocumentShape {
+  name string
+}
+
+@generic[Doc is DocumentShape]
+fn print_doc(d Doc) string {
+  return d:name
+}
+
+struct User {
+  age int
+}
+
+val u = User { age: 25 }
+print_doc[User](u)

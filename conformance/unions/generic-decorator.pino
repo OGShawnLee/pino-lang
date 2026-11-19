@@ -1,0 +1,18 @@
+# covers: UNION-6, UNION-8
+@generic[T]
+union Option {
+  Some(T)
+  None
+}
+
+val o1 = Option::Some(42)
+val o2 = Option::None
+
+match o1 {
+  when Option::Some(v) { println("Some:" + str(v)) }
+  else { println("none") }
+}
+match o2 {
+  when Option::Some(v) { println("Some:" + str(v)) }
+  when Option::None { println("None") }
+}

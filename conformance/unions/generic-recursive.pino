@@ -1,0 +1,12 @@
+# covers: UNION-11
+@generic[T]
+union List {
+  Cons(T, List[T])
+  Nil
+}
+
+val l = List::Cons(42, List::Nil)
+match l {
+  when List::Cons(v, next) { println(v) }
+  else { println(0) }
+}

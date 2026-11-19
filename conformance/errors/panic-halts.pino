@@ -1,0 +1,4 @@
+# covers: ERR-3
+println("before")
+panic("crash message")
+println("after")

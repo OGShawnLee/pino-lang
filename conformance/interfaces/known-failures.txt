@@ -1,0 +1,17 @@
+# Known failures for conformance/interfaces/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM
+VM interface-typed-field.pino  # VM has no interface/struct support (RUNTIME ERROR: Value is not callable)
+VM map-of-interface.pino  # VM has no interface/struct support (RUNTIME ERROR: Value is not callable)
+VM method-with-params.pino  # VM has no interface/struct support (RUNTIME ERROR: Value is not callable)
+VM properties.pino  # VM has no interface/struct support (RUNTIME ERROR: Value is not callable)
+VM structural-dispatch.pino  # VM has no interface/struct support (RUNTIME ERROR: Value is not callable)
+
+# --- C
+C interface-typed-field.pino  # C backend: TCC error "';' expected (got "State")"
+C map-of-interface.pino  # C backend: TCC error "';' expected (got "Greeter")"
+C method-with-params.pino  # C backend: TCC error "',' expected (got "g")"
+C properties.pino  # C backend: TCC error "',' expected (got "h")"
+C structural-dispatch.pino  # C backend: TCC error "',' expected (got "s")"

@@ -1,0 +1,9 @@
+# covers: ERR-E3
+fn get_str_err() Result[int, string] {
+  return Result::Failure("error")
+}
+
+fn process() Result[int, int] {
+  val x = get_str_err()?
+  return Result::Success(x)
+}

@@ -1,0 +1,16 @@
+# covers: GEN-9
+interface DocumentShape {
+  name string
+}
+
+@generic[D is DocumentShape]
+fn reading(doc D) {
+  println(doc:name)
+}
+
+struct Page {
+  name string
+  number int
+}
+
+reading(Page { name: "intro", number: 1 })

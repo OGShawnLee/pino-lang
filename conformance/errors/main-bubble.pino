@@ -1,0 +1,10 @@
+# covers: ERR-18
+fn lex(program string) Result[int, string] {
+  return Result::Failure("lex failed")
+}
+
+fn main() Result[int, string] {
+  val tokens = lex("x")?
+  println("unreachable")
+  return Result::Success(0)
+}

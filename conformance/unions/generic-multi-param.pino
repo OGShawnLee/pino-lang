@@ -1,0 +1,30 @@
+# covers: UNION-10
+@generic[A, B, C, D]
+union Tuple4 {
+  First(A)
+  Second(B)
+  Third(C)
+  Fourth(D)
+}
+
+fn get_val(kind int) Tuple4[int, string, bool, float] {
+  if kind == 1 {
+    return Tuple4::First(42)
+  }
+  if kind == 2 {
+    return Tuple4::Second("hello")
+  }
+  if kind == 3 {
+    return Tuple4::Third(true)
+  }
+  return Tuple4::Fourth(3.5)
+}
+
+for k in 4 {
+  match get_val(k + 1) {
+    when Tuple4::First(v) { println("First:" + str(v)) }
+    when Tuple4::Second(v) { println("Second:" + v) }
+    when Tuple4::Third(v) { println("Third") }
+    when Tuple4::Fourth(v) { println("Fourth:" + str(v)) }
+  }
+}

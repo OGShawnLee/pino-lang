@@ -1,0 +1,1 @@
+Argument 1 for function 'print_details' expected type 'HasDetails', but got 'Person'

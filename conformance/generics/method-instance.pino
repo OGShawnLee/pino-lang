@@ -1,0 +1,11 @@
+# covers: GEN-7
+struct Printer {
+  @generic[T]
+  fn show(v T) string {
+    return "<" + str(v) + ">"
+  }
+}
+
+val p = Printer {}
+println(p:show[int](5))
+println(p:show("x"))

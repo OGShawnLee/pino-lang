@@ -1,0 +1,13 @@
+# covers: STRUCT-13
+struct Calculator {
+  static fn multiply(a int, b int) int {
+    return a * b
+  }
+}
+
+struct Client {
+  op fn(int, int) int
+}
+
+val client = Client { op: Calculator::multiply }
+println(client:op(6, 7))

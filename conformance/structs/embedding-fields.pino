@@ -1,0 +1,15 @@
+# covers: STRUCT-8
+struct Shape {
+  x int
+  y int
+}
+
+struct Circle {
+  Shape
+  radius int
+}
+
+val c = Circle { x: 10, y: 20, radius: 5 }
+println(c:x)
+println(c:y)
+println(c:radius)

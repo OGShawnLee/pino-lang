@@ -1,0 +1,16 @@
+# covers: ERR-13
+fn get_db_status() Result[string, int] {
+  return Result::Failure(500)
+}
+
+fn initialize() Result[string, string] {
+  val status = get_db_status() or {
+    return Result::Failure("Database error occurred with status: $err")
+  }
+  return Result::Success(status)
+}
+
+match initialize() {
+  when Result::Success(s) { println("ok $s") }
+  when Result::Failure(e) { println(e) }
+}

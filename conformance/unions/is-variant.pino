@@ -1,0 +1,18 @@
+# covers: UNION-15
+val name_opt = Option::Some("Shawn Lee")
+
+if name_opt is Option::Some {
+  println("It has some value!")
+}
+
+if name_opt is not Option::None {
+  println("It is not empty!")
+}
+
+if name_opt is Option::None {
+  println("unreachable")
+}
+
+if name_opt is not Option::Some {
+  println("unreachable")
+}

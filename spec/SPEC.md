@@ -32,12 +32,12 @@ Decisions live in [`decisions/`](decisions/README.md) and are made only by the p
 | Vectors | `features/vectors.md` | `VEC` | 007 | migrated |
 | Maps | `features/maps.md` | `MAP` | 007 | migrated |
 | Modules and imports | `features/modules.md` | `MOD` | 007 | migrated |
-| Structs and embedding | `features/structs.md` | `STRUCT` | 008 | pending |
-| Interfaces | `features/interfaces.md` | `IFACE` | 008 | pending |
-| Enums | `features/enums.md` | `ENUM` | 008 | pending |
-| Unions and `is` | `features/unions.md` | `UNION` | 008 | pending |
-| Generics | `features/generics.md` | `GEN` | 008 | pending |
-| Error handling (`panic`, `Result`, `Option`, `?`, `or`/`yield`, `main` failure handler) | `features/errors.md` | `ERR` | 008 | pending |
+| Structs and embedding | `features/structs.md` | `STRUCT` | 008 | migrated |
+| Interfaces | `features/interfaces.md` | `IFACE` | 008 | migrated |
+| Enums | `features/enums.md` | `ENUM` | 008 | migrated |
+| Unions and `is` | `features/unions.md` | `UNION` | 008 | migrated |
+| Generics | `features/generics.md` | `GEN` | 008 | migrated |
+| Error handling (`panic`, `Result`, `Option`, `?`, `or`/`yield`, `main` failure handler) | `features/errors.md` | `ERR` | 008 | migrated |
 
 ## Standard library
 

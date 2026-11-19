@@ -1,0 +1,13 @@
+# covers: ENUM-8
+enum Direction { North, South, East }
+
+fn label(d Direction) string {
+  match d {
+    when Direction::North { return "N" }
+    when Direction::South { return "S" }
+    when Direction::East { return "E" }
+  }
+}
+
+println(label(Direction::North))
+println(label(Direction::East))

@@ -1,0 +1,8 @@
+# covers: STRUCT-E3
+struct BadStruct {
+  x int
+
+  static fn bad() int {
+    return this:x
+  }
+}

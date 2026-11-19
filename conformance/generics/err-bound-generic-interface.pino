@@ -1,0 +1,25 @@
+# covers: GEN-E7
+@generic[T]
+interface Repository {
+  fn find_by_id(id string) T
+  fn save(entity T)
+}
+
+struct Person {
+  id string
+  name string
+}
+
+struct IncompatibleRepository {
+  fn find_by_id(id string) string {
+    return "Not a Person"
+  }
+}
+
+@generic[Repo is Repository[Person]]
+fn process(r Repo) Person {
+  return r:find_by_id("123")
+}
+
+val repo = IncompatibleRepository {}
+process[IncompatibleRepository](repo)

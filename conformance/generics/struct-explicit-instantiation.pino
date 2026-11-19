@@ -1,0 +1,20 @@
+# covers: GEN-1, GEN-2
+struct Pair[Key Value] {
+  key Key
+  value Value
+}
+
+val p1 = Pair[string, int] { key: "Hello", value: 42 }
+val p2 = Pair[int, bool] { key: 100, value: true }
+
+fn expect_string(s string) {
+  println("string: " + s)
+}
+
+fn expect_int(i int) {
+  println("int: " + str(i))
+}
+
+expect_string(p1:key)
+expect_int(p1:value)
+expect_int(p2:key)

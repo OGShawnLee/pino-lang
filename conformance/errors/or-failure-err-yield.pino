@@ -1,0 +1,10 @@
+# covers: ERR-11
+fn check_fail() string {
+  val v = Result::Failure("error_val") or {
+    println("Captured error: $err")
+    yield "fallback_val"
+  }
+  return v
+}
+
+println(check_fail())

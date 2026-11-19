@@ -1,0 +1,27 @@
+# Known failures for conformance/unions/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM
+VM declare-and-match.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM equality-payload.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM equality-plain.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM generic-context-inference.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM generic-decorator.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM generic-inferred-type.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM generic-inline.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM generic-multi-param.pino  # VM prints wrong output (stdout mismatch:)
+VM generic-recursive.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM is-as-value.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM is-binding.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM is-generic-explicit.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM is-in-generic-fn.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM is-variant.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM is-with-and.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM match-else.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM payload-binding-statement.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+VM pub-union.pino  # VM has no union support (RUNTIME ERROR: Value is not callable)
+
+# --- C
+C generic-decorator.pino  # C backend: TCC error "struct or union expected"
+C is-in-generic-fn.pino  # C backend: TCC error "identifier expected"

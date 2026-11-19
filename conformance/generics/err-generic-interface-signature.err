@@ -1,0 +1,1 @@
+Argument 1 for function 'check_repo' expected type 'Repository[Person]', but got 'SQLPersonRepository'

@@ -1,0 +1,5 @@
+# covers: ENUM-5, ENUM-6
+enum Direction { North, South }
+
+println(str(Direction::North))
+println(type(Direction::North))

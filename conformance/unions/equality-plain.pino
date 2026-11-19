@@ -1,0 +1,16 @@
+# covers: UNION-12
+union Foo {
+  A
+  B
+}
+
+fn yn(b bool) string {
+  if b {
+    return "yes"
+  }
+  return "no"
+}
+
+println(yn(Foo::A == Foo::A))
+println(yn(Foo::A == Foo::B))
+println(yn(Foo::A != Foo::B))

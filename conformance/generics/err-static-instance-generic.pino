@@ -1,0 +1,4 @@
+# covers: GEN-E9
+struct Library[Doc] {
+  static fn read(d Doc) {}
+}

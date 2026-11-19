@@ -1,0 +1,1 @@
+Cannot assign type 'map[string, string]' to field 'catalog' of type 'map[string, Document]' in struct 'Library'

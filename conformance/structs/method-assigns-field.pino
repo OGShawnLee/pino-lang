@@ -1,0 +1,18 @@
+# covers: STRUCT-4
+struct Counter {
+  value int
+
+  fn increment() {
+    value = value + 1
+  }
+
+  fn get() int {
+    return value
+  }
+}
+
+val c = Counter { value: 10 }
+c:increment()
+c:increment()
+println(c:get())
+println(c:value)

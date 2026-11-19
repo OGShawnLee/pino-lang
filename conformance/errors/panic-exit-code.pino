@@ -1,0 +1,8 @@
+# covers: ERR-5
+fn load_config(path string) {
+  if path == "" {
+    panic("Database configuration path cannot be empty!")
+  }
+}
+
+load_config("")

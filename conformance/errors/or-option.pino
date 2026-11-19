@@ -1,0 +1,17 @@
+# covers: ERR-12
+fn get_val(flag bool) Option[int] {
+  if flag {
+    return Option::Some(10)
+  }
+  return Option::None
+}
+
+val a = get_val(true) or {
+  yield 0
+}
+val b = get_val(false) or {
+  println("err is $err")
+  yield 0
+}
+println(a)
+println(b)

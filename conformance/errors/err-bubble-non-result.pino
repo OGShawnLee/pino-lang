@@ -1,0 +1,9 @@
+# covers: ERR-E7
+fn plain() int {
+  return 1
+}
+
+fn process() Result[int, string] {
+  val x = plain()?
+  return Result::Success(x)
+}

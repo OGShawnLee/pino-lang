@@ -1,0 +1,13 @@
+# covers: ENUM-4
+enum LogLevel { Info, Warning, Error }
+
+fn yn(b bool) string {
+  if b {
+    return "yes"
+  }
+  return "no"
+}
+
+println(yn(LogLevel::Info == LogLevel::Info))
+println(yn(LogLevel::Info == LogLevel::Warning))
+println(yn(LogLevel::Info != LogLevel::Error))

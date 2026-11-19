@@ -1,0 +1,3 @@
+# covers: UNION-E6
+val x = 12
+val check = x is Option::Some

@@ -1,0 +1,18 @@
+# covers: UNION-18
+fn check_name(name Option[string]) bool {
+  if name is Option::Some(n) and n == "Shawn" {
+    return true
+  }
+  return false
+}
+
+fn yn(b bool) string {
+  if b {
+    return "yes"
+  }
+  return "no"
+}
+
+println(yn(check_name(Option::Some("Shawn"))))
+println(yn(check_name(Option::Some("Other"))))
+println(yn(check_name(Option::None)))

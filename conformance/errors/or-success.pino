@@ -1,0 +1,9 @@
+# covers: ERR-10
+fn check_ok() string {
+  val v = Result::Success("success_val") or {
+    yield "fallback_val"
+  }
+  return v
+}
+
+println(check_ok())

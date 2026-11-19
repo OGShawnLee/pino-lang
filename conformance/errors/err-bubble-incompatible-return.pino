@@ -1,0 +1,7 @@
+# covers: ERR-E2
+fn test_func() int {
+  val v = Result::Success(100)?
+  return v
+}
+
+test_func()

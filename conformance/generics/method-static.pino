@@ -1,0 +1,10 @@
+# covers: GEN-7
+struct Reader {
+  @generic[T]
+  static fn read(v T) T {
+    return v
+  }
+}
+
+println(Reader::read[int](42))
+println(Reader::read("text"))

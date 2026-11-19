@@ -1,0 +1,23 @@
+# covers: UNION-15
+@generic[T]
+union RemoteData {
+  Loading
+  Success(T)
+  Failure(string)
+}
+
+val state = RemoteData::Success(42)
+val a = state is RemoteData::Loading
+val b = state is not RemoteData::Loading
+val c = state is RemoteData[int]::Success
+
+fn yn(x bool) string {
+  if x {
+    return "yes"
+  }
+  return "no"
+}
+
+println(yn(a))
+println(yn(b))
+println(yn(c))

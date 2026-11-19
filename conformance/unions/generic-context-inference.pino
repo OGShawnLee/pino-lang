@@ -1,0 +1,22 @@
+# covers: UNION-9
+fn process(r Result[int, string]) string {
+  match r {
+    when Result::Success(v) { return "Val:" + str(v) }
+    when Result::Failure(e) { return "Err:" + e }
+  }
+}
+
+println(process(Result::Success(100)))
+println(process(Result::Failure("error_msg")))
+
+fn pick(flag bool) Option[int] {
+  if flag {
+    return Option::Some(1)
+  }
+  return Option::None
+}
+
+match pick(false) {
+  when Option::Some(v) { println("some") }
+  when Option::None { println("none") }
+}

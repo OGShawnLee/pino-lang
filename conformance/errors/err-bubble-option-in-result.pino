@@ -1,0 +1,9 @@
+# covers: ERR-E4
+fn get_res() Result[int, string] {
+  return Result::Success(10)
+}
+
+fn process() Option[int] {
+  val x = get_res()?
+  return Option::Some(x)
+}

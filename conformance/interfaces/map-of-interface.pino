@@ -1,0 +1,23 @@
+# covers: IFACE-5
+interface Greeter {
+  fn greet(name string)
+}
+
+struct User {
+  fn greet(name string) {
+    println("Hello, " + name)
+  }
+}
+
+struct Registry {
+  clients map[string, Greeter]
+}
+
+val u = User {}
+val reg = Registry {
+  clients: map[string, User] {
+    "client1": u
+  }
+}
+val clients = reg:clients
+clients["client1"]:greet("Ana")

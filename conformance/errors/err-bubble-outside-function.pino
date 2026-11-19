@@ -1,0 +1,2 @@
+# covers: ERR-E1
+val val1 = Result::Success(100)?

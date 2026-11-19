@@ -1,0 +1,10 @@
+# covers: ENUM-9
+enum Direction { North, South }
+
+val d = Direction::North
+if d is Direction::North {
+  println("north")
+}
+if d is not Direction::South {
+  println("not south")
+}

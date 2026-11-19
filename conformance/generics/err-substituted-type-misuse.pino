@@ -1,0 +1,10 @@
+# covers: GEN-E3
+struct Pair[Key Value] {
+  key Key
+  value Value
+}
+
+val p = Pair[string, int] { key: "Hello", value: 42 }
+
+fn expect_string(s string) {}
+expect_string(p:value)

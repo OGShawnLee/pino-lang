@@ -1,0 +1,23 @@
+# covers: IFACE-4
+interface HasDetails {
+  name string
+  age int
+  fn summary() string
+}
+
+struct Person {
+  name string
+  age int
+
+  fn summary() string {
+    return "$name $age"
+  }
+}
+
+fn print_details(h HasDetails) {
+  println(h:name)
+  println(h:age)
+  println(h:summary())
+}
+
+print_details(Person { name: "Shawn", age: 25 })

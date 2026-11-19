@@ -1,0 +1,5 @@
+# covers: ERR-19
+fn main() Option[int] {
+  println("start")
+  return Option::None
+}

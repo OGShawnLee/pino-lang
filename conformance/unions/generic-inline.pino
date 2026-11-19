@@ -1,0 +1,11 @@
+# covers: UNION-7
+union Maybe[T] {
+  Just(T)
+  Nothing
+}
+
+val m = Maybe::Just("hi")
+match m {
+  when Maybe::Just(v) { println("Just " + v) }
+  when Maybe::Nothing { println("Nothing") }
+}

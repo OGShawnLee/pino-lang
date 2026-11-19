@@ -1,0 +1,5 @@
+# covers: ENUM-1, ENUM-3
+enum LogLevel { Info, Warning, Error }
+
+val level = LogLevel::Warning
+println(str(level))

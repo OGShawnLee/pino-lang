@@ -1,0 +1,12 @@
+# covers: STRUCT-3
+struct Vector2 {
+  x int
+  y int
+
+  fn print_coords() {
+    println("X: $x, Y: $y")
+  }
+}
+
+val pos = Vector2 { x: 10, y: 20 }
+pos:print_coords()

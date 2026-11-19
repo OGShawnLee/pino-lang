@@ -1,0 +1,17 @@
+# covers: ENUM-7
+enum Direction { North, South }
+
+struct Ship {
+  heading Direction
+}
+
+fn describe(d Direction) string {
+  if d == Direction::North {
+    return "going north"
+  }
+  return "going elsewhere"
+}
+
+val s = Ship { heading: Direction::South }
+println(describe(Direction::North))
+println(describe(s:heading))

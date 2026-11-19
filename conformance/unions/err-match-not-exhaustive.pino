@@ -1,0 +1,11 @@
+# covers: UNION-E2
+union Entity {
+  Person(string)
+  Ghost
+}
+
+fn check(hero Entity) {
+  match hero {
+    when Entity::Person(name) {}
+  }
+}

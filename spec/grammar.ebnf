@@ -244,19 +244,82 @@ from_import_statement = "from" , IDENT , "import" , IDENT , { [ "," ] , IDENT } 
 scope_access    = IDENT , "::" , IDENT ;      (* `Module::member`, also `Module::Type { ... }` *)
 
 (* === section: struct (owner 008) === *)
-(* pending *)
+(* Productions below reference `type`, `expression`, `block` and `param_list`, which belong to other sections. *)
+struct_declaration = [ generic_decorator ] , [ "pub" ] , "struct" , IDENT , [ generic_params ] ,
+                     "{" , { struct_member } , "}" ;
+
+struct_member      = field_declaration
+                   | embedded_struct
+                   | method_declaration ;
+
+field_declaration  = IDENT , type ;               (* `name string`, `increment fn(int) int` *)
+embedded_struct    = IDENT ;                      (* a bare struct name embeds that struct *)
+method_declaration = [ generic_decorator ] , [ "static" ] , "fn" , IDENT ,
+                     [ "(" , [ param_list ] , ")" ] , [ type ] , block ;
+                                                  (* the reference also shows `fn f() T => expr`; the parser rejects it. D-074 *)
+
+struct_literal     = IDENT , [ "[" , type_arg_list , "]" ] , "{" , [ field_init , { [ "," ] , field_init } ] , "}" ;
+field_init         = IDENT , ":" , expression ;
+
+member_access      = expression , ":" , IDENT ;   (* field read, bound method value *)
+method_call        = expression , ":" , IDENT , "(" , [ argument_list ] , ")" ;
+static_access      = IDENT , "::" , IDENT ;       (* `Struct::static_fn(args)`, `Struct::static_fn` as a value *)
+self_reference     = "self" | "this" ;            (* both usable as `self:field`; D-076: `obj:field[i]` is a parse error *)
 
 (* === section: iface (owner 008) === *)
-(* pending *)
+interface_declaration = [ generic_decorator ] , [ "pub" ] , "interface" , IDENT ,
+                        "{" , { interface_member } , "}" ;
+
+interface_member      = interface_property
+                      | interface_method ;
+
+interface_property    = IDENT , type ;            (* `name string` *)
+interface_method      = "fn" , IDENT , [ "(" , [ param_list ] , ")" ] , [ type ] ;   (* signature only, no body *)
+
+(* There is no `implements` clause: a struct satisfies an interface structurally. D-083: whether method
+   signatures must match exactly is not defined by the sources. *)
 
 (* === section: enum (owner 008) === *)
-(* pending *)
+enum_declaration = [ "pub" ] , "enum" , IDENT , "{" , [ IDENT , { [ "," ] , IDENT } ] , "}" ;
+
+enum_member_ref  = IDENT , "::" , IDENT ;          (* `Direction::North` *)
 
 (* === section: union (owner 008) === *)
-(* pending *)
+union_declaration = [ generic_decorator ] , [ "pub" ] , "union" , IDENT , [ generic_params ] ,
+                    "{" , { union_variant } , "}" ;
+
+union_variant     = IDENT , [ "(" , type , { [ "," ] , type } , ")" ] ;   (* `Some(T)`, `Animal(string, string)`, `None` *)
+
+variant_value     = IDENT , [ "[" , type_arg_list , "]" ] , "::" , IDENT , [ "(" , [ argument_list ] , ")" ] ;
+                                                  (* `Option::Some(42)`, `Option::None`, `Option[int]::Some(1)` *)
+
+variant_pattern   = IDENT , [ "[" , type_arg_list , "]" ] , "::" , IDENT , [ "(" , pattern , { [ "," ] , pattern } , ")" ] ;
+pattern           = IDENT | variant_pattern ;      (* an IDENT binds the payload value *)
+
+when_branch       = "when" , variant_pattern , block ;    (* inside `match`; `else` block is the fallback *)
+
+is_expression     = expression , "is" , [ "not" ] , variant_pattern ;   (* also usable as a condition; bindings are scoped to the `if` block *)
 
 (* === section: gen (owner 008) === *)
-(* pending *)
+generic_decorator = "@generic" , "[" , generic_param , { [ "," ] , generic_param } , "]" ;
+generic_params    = "[" , generic_param , { [ "," ] , generic_param } , "]" ;   (* inline form, accepted on struct and union only. D-072 *)
+generic_param     = IDENT , [ "is" , type ] ;      (* `T`, `Doc is DocumentShape`, `Repo is Repository[Person]` *)
+
+type_arg_list     = type , { [ "," ] , type } ;
+generic_call      = IDENT , "[" , type_arg_list , "]" , "(" , [ argument_list ] , ")" ;   (* `map[int, string](xs, f)` *)
+generic_method_call = expression , ":" , IDENT , "[" , type_arg_list , "]" , "(" , [ argument_list ] , ")" ;
+generic_static_call = IDENT , "::" , IDENT , "[" , type_arg_list , "]" , "(" , [ argument_list ] , ")" ;
+
+(* `@generic[...]` may precede `fn`, `struct`, `interface`, `union` and a method inside a struct.
+   Type arguments are optional at a call or literal: they are inferred when omitted. *)
 
 (* === section: err (owner 008) === *)
-(* pending *)
+(* `Option[T]` and `Result[T, E]` are predeclared generic unions with the variants
+   Option::Some(T), Option::None, Result::Success(T) and Result::Failure(E); see section `union`. *)
+bubble_expression = expression , "?" ;            (* postfix; only valid inside a function returning Result or Option *)
+
+recovery_expression = expression , "or" , recovery_block ;
+recovery_block    = "{" , { statement } , "}" ;   (* declares `err` in a child scope; ends with `yield expression`, `return` or `panic(...)` *)
+yield_statement   = "yield" , expression ;        (* valid only inside a recovery block (or a `match` expression block) *)
+
+panic_call        = "panic" , "(" , expression , ")" ;   (* ordinary call of the global built-in; returns `any` *)

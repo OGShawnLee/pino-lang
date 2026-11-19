@@ -1,0 +1,11 @@
+# covers: ENUM-1, ENUM-2
+enum Direction {
+  North
+  South
+  East
+  West
+}
+
+val heading = Direction::North
+println(str(heading))
+println(str(Direction::West))

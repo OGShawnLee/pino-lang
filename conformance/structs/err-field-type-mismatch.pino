@@ -1,0 +1,15 @@
+# covers: STRUCT-E11
+struct Document {
+  name string
+  page_count int
+}
+
+struct Library {
+  catalog map[string, Document]
+}
+
+val library_invalid = Library {
+  catalog: map[string, string] {
+    "001": "What"
+  }
+}

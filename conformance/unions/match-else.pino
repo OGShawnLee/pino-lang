@@ -1,0 +1,15 @@
+# covers: UNION-5
+union Entity {
+  Person(string)
+  Ghost
+}
+
+fn label(e Entity) string {
+  match e {
+    when Entity::Person(name) { return "Person:" + name }
+    else { return "ElseFallback" }
+  }
+}
+
+println(label(Entity::Person("Ana")))
+println(label(Entity::Ghost))

@@ -1,0 +1,1 @@
+Cannot use '?' operator in a function without a declared Result or Option return type

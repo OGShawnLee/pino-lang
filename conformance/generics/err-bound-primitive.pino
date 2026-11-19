@@ -1,0 +1,13 @@
+# covers: GEN-E5
+interface DocumentShape {
+  name string
+}
+
+@generic[Doc is DocumentShape]
+struct Library {
+  catalog map[string, Doc]
+}
+
+val lib = Library[int] {
+  catalog: map[string, int] {}
+}

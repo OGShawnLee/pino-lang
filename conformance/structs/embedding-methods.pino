@@ -1,0 +1,25 @@
+# covers: STRUCT-9
+struct Character {
+  name string
+  hp   int
+
+  fn take_damage(dmg int) {
+    self:hp -= dmg
+    println("$name took $dmg damage.")
+  }
+}
+
+struct Hero {
+  Character
+  mana int
+}
+
+val warrior = Hero {
+  name: "Guts",
+  hp: 150,
+  mana: 20
+}
+
+warrior:take_damage(30)
+println(warrior:hp)
+println(warrior:mana)

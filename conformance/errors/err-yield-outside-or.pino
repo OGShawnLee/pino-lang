@@ -1,0 +1,7 @@
+# covers: ERR-E5
+fn test_func() int {
+  yield 100
+  return 100
+}
+
+test_func()

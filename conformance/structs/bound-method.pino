@@ -1,0 +1,26 @@
+# covers: STRUCT-14
+struct Worker {
+  factor int
+
+  fn add(n int) int {
+    return n + factor
+  }
+}
+
+struct Mutator {
+  value int
+
+  fn increment() {
+    value = value + 1
+  }
+}
+
+val w = Worker { factor: 10 }
+val bound = w:add
+println(bound(5))
+
+val m = Mutator { value: 42 }
+val inc = m:increment
+inc()
+inc()
+println(m:value)

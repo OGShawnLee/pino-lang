@@ -1,0 +1,14 @@
+# covers: IFACE-E2
+interface HasDetails {
+  name string
+  age int
+}
+
+struct Person {
+  name string
+}
+
+fn print_details(h HasDetails) {}
+
+val p = Person { name: "Shawn" }
+print_details(p)

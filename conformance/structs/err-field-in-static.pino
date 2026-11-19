@@ -1,0 +1,8 @@
+# covers: STRUCT-E4
+struct BadStruct {
+  x int
+
+  static fn bad() int {
+    return x
+  }
+}

@@ -1,0 +1,21 @@
+# covers: ERR-7, ERR-9, ERR-17
+fn get_val(flag bool) Option[int] {
+  if flag {
+    return Option::Some(10)
+  }
+  return Option::None
+}
+
+fn process(flag bool) Option[int] {
+  val x = get_val(flag)?
+  return Option::Some(x + 5)
+}
+
+match process(true) {
+  when Option::Some(v) { println("some $v") }
+  when Option::None { println("none") }
+}
+match process(false) {
+  when Option::Some(v) { println("some $v") }
+  when Option::None { println("none") }
+}

@@ -1,0 +1,10 @@
+# covers: ERR-6
+fn pick(flag bool) int {
+  if flag {
+    return 1
+  }
+  return panic("no value")
+}
+
+println(pick(true))
+println(pick(false))

@@ -1,0 +1,9 @@
+# covers: ERR-14
+fn must(r Result[int, string]) int {
+  return r or {
+    panic("unrecoverable: " + err)
+  }
+}
+
+println(must(Result::Success(3)))
+println(must(Result::Failure("bad")))

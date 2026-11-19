@@ -1,0 +1,19 @@
+# covers: UNION-8
+@generic[T]
+union Option {
+  Some(T)
+  None
+}
+
+fn expect_int(opt Option[int]) {
+  println("int option")
+}
+
+fn expect_str(opt Option[string]) {
+  println("string option")
+}
+
+val x = Option::Some(42)
+val y = Option::Some("hello")
+expect_int(x)
+expect_str(y)

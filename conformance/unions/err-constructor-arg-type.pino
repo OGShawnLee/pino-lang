@@ -1,0 +1,6 @@
+# covers: UNION-E1
+union Entity {
+  Person(string)
+}
+
+val x = Entity::Person(12)

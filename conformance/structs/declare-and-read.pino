@@ -1,0 +1,10 @@
+# covers: STRUCT-1
+struct Person {
+  name string
+  age int
+}
+
+val p = Person { name: "Ana", age: 31 }
+println(p:name)
+println(p:age)
+println(p:age + 1)

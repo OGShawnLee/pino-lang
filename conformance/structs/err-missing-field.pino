@@ -1,0 +1,7 @@
+# covers: STRUCT-E1
+struct Person {
+  age int
+}
+
+val p = Person { age: 12 }
+println(p:name)

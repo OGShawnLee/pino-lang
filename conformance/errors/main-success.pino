@@ -1,0 +1,5 @@
+# covers: ERR-18
+fn main() Result[int, string] {
+  println("start")
+  return Result::Success(0)
+}

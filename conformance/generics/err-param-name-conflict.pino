@@ -1,0 +1,8 @@
+# covers: GEN-E4
+struct Document {
+  name string
+}
+
+struct Library[Document] {
+  catalog map[string, Document]
+}

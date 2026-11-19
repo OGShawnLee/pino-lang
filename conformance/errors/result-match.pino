@@ -1,0 +1,21 @@
+# covers: ERR-2
+fn divide(a int, b int) Result[int, string] {
+  if b == 0 {
+    return Result::Failure("Cannot divide by zero")
+  }
+  return Result::Success(a / b)
+}
+
+fn show(r Result[int, string]) {
+  match r {
+    when Result::Success(value) {
+      println("Result: $value")
+    }
+    when Result::Failure(err) {
+      println("Error: $err")
+    }
+  }
+}
+
+show(divide(10, 2))
+show(divide(1, 0))

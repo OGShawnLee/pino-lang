@@ -1,0 +1,1 @@
+Static method 'read' cannot use instance-bound generic parameter 'Doc' of struct 'Library'

@@ -1,0 +1,7 @@
+# covers: GEN-E1
+struct Quad[T] {
+  a T
+  b T
+}
+
+val q = Quad { a: "Hello", b: 42 }

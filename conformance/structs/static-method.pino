@@ -1,0 +1,16 @@
+# covers: STRUCT-11
+struct MathUtils {
+  factor int
+
+  static fn multiply(a int, b int) int {
+    return a * b
+  }
+
+  fn get_factor() int {
+    return factor
+  }
+}
+
+println(MathUtils::multiply(6, 7))
+val m = MathUtils { factor: 3 }
+println(m:get_factor())

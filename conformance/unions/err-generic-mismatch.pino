@@ -1,0 +1,11 @@
+# covers: UNION-E3
+@generic[T]
+union Option {
+  Some(T)
+  None
+}
+
+val x = Option::Some("hello")
+
+fn expect_int(opt Option[int]) {}
+expect_int(x)

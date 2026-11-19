@@ -1,0 +1,17 @@
+# covers: ERR-E3
+fn divide(a int, b int) Result[int, string] {
+  if b == 0 {
+    return Result::Failure("Division by zero")
+  }
+  return Result::Success(a / b)
+}
+
+fn another_result() Result[string, int] {
+  return Result::Failure(12)
+}
+
+fn use_divide(a int, b int) Result[int, string] {
+  val res = divide(a, b)?
+  another_result()?
+  return Result::Success(res)
+}

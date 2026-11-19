@@ -1,0 +1,9 @@
+# covers: STRUCT-E5
+struct Helper {
+  static fn helper_fn() int {
+    return 1
+  }
+}
+
+val h = Helper {}
+println(h:helper_fn())

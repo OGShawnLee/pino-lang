@@ -1,0 +1,27 @@
+# covers: GEN-11
+@generic[T]
+interface Repository {
+  fn find_by_id(id string) T
+  fn save(entity T)
+}
+
+struct Person {
+  id string
+  name string
+}
+
+struct SQLPersonRepository {
+  fn find_by_id(id string) Person {
+    return Person { id: id, name: "John" }
+  }
+
+  fn save(entity Person) {}
+}
+
+@generic[Repo is Repository[Person]]
+fn process(r Repo) Person {
+  return r:find_by_id("123")
+}
+
+val p = process[SQLPersonRepository](SQLPersonRepository {})
+println(p:name)

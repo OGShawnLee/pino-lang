@@ -1,0 +1,15 @@
+# covers: UNION-3
+union Result2 {
+  Ok(int)
+  Err(string)
+}
+
+val r = Result2::Ok(7)
+match r {
+  when Result2::Ok(v) {
+    println("ok " + str(v + 1))
+  }
+  when Result2::Err(m) {
+    println("err " + m)
+  }
+}

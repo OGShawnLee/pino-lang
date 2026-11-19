@@ -1,0 +1,18 @@
+# covers: GEN-3
+struct Pair[Key Value] {
+  key Key
+  value Value
+}
+
+val p = Pair { key: "Hello", value: 42 }
+
+fn expect_string(s string) {
+  println("string: " + s)
+}
+
+fn expect_int(i int) {
+  println("int: " + str(i))
+}
+
+expect_string(p:key)
+expect_int(p:value)

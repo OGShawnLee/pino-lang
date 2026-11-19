@@ -1,0 +1,26 @@
+# covers: ERR-1
+fn check_option(opt Option[int]) bool {
+  match opt {
+    when Option::Some(value) { return true }
+    when Option::None { return false }
+  }
+}
+
+fn check_result(res Result[string, int]) string {
+  match res {
+    when Result::Success(value) { return value }
+    when Result::Failure(err) { return "Error" }
+  }
+}
+
+fn yn(b bool) string {
+  if b {
+    return "yes"
+  }
+  return "no"
+}
+
+println(yn(check_option(Option::Some(42))))
+println(yn(check_option(Option::None)))
+println(check_result(Result::Success("OK")))
+println(check_result(Result::Failure(7)))

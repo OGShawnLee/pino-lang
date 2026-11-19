@@ -1,0 +1,8 @@
+# covers: IFACE-E5
+interface Person {
+  name string
+}
+
+fn print_person(p Person) {
+  p:print()
+}

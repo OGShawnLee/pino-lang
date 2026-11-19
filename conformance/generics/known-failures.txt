@@ -1,0 +1,24 @@
+# Known failures for conformance/generics/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM
+VM bound-function.pino  # VM prints "null" for both calls of the bounded generic function instead of the struct field
+VM bound-generic-interface.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM bound-method.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM bound-struct.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM constrained-member-access.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM function-higher-order.pino  # VM: NullReferenceException (vector construction and push inside the generic function are not supported by the VM)
+VM generic-interface.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM method-instance.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM method-static.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM struct-decorator.pino  # VM has no struct support (NullReferenceException)
+VM struct-explicit-instantiation.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+VM struct-implicit-instantiation.pino  # VM has no generic/struct support (RUNTIME ERROR: Value is not callable)
+
+# --- C
+C bound-method.pino  # C backend: TCC error "invalid type"
+C function-higher-order.pino  # C backend: TCC error "cannot cast 'struct <anonymous>' to 'int'"
+C generic-interface.pino  # C backend: TCC error "',' expected (got "*")"
+C method-instance.pino  # C backend: TCC error "invalid type"
+C method-static.pino  # C backend: TCC error "';' expected (got "Reader_read")"

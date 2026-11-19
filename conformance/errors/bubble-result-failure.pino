@@ -1,0 +1,19 @@
+# covers: ERR-8
+fn divide(a int, b int) Result[int, string] {
+  if b == 0 {
+    return Result::Failure("Zero division")
+  }
+  return Result::Success(a / b)
+}
+
+fn compute(a int, b int) Result[int, string] {
+  println("computing")
+  val num = divide(a, b)?
+  println("not reached on failure")
+  return Result::Success(num * 10)
+}
+
+match compute(20, 0) {
+  when Result::Success(v) { println("ok $v") }
+  when Result::Failure(e) { println("err $e") }
+}

@@ -1,0 +1,1 @@
+Argument 1 for function 'run_greet' expected type 'Greeter', but got 'User'

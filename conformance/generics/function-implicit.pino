@@ -1,0 +1,14 @@
+# covers: GEN-6
+@generic[T]
+fn identity(v T) T {
+  return v
+}
+
+@generic[T, U]
+fn first_of(a T, b U) T {
+  return a
+}
+
+println(identity(7))
+println(identity("seven"))
+println(first_of(1, "x"))

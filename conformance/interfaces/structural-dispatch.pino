@@ -1,0 +1,23 @@
+# covers: IFACE-1, IFACE-2, IFACE-3
+interface SoundMaker {
+  fn make_sound() string
+}
+
+struct Dog {
+  fn make_sound() string {
+    return "Woof"
+  }
+}
+
+struct Cat {
+  fn make_sound() string {
+    return "Meow"
+  }
+}
+
+fn output_sound(s SoundMaker) {
+  println("Sound: " + s:make_sound())
+}
+
+output_sound(Dog {})
+output_sound(Cat {})

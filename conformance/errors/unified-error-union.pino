@@ -1,0 +1,51 @@
+# covers: ERR-15
+union AppError {
+  DatabaseError(int)
+  NetworkError(string)
+}
+
+fn query_db(ok bool) Result[string, AppError] {
+  if ok {
+    return Result::Success("db")
+  }
+  return Result::Failure(AppError::DatabaseError(500))
+}
+
+fn fetch_network(ok bool) Result[string, AppError] {
+  if ok {
+    return Result::Success("net")
+  }
+  return Result::Failure(AppError::NetworkError("timeout"))
+}
+
+fn execute(db_ok bool, net_ok bool) Result[string, AppError] {
+  val db = query_db(db_ok)?
+  val net = fetch_network(net_ok)?
+  return Result::Success("Success: $db and $net")
+}
+
+fn handle_app_error(app_error AppError) {
+  match app_error {
+    when AppError::DatabaseError(code) {
+      println("Database error: $code")
+    }
+    when AppError::NetworkError(msg) {
+      println("Network error: $msg")
+    }
+  }
+}
+
+fn report(res Result[string, AppError]) {
+  match res {
+    when Result::Success(message) {
+      println(message)
+    }
+    when Result::Failure(app_error) {
+      handle_app_error(app_error)
+    }
+  }
+}
+
+report(execute(true, true))
+report(execute(false, true))
+report(execute(true, false))

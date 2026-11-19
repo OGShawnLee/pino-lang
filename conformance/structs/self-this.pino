@@ -1,0 +1,25 @@
+# covers: STRUCT-5
+struct Vector2 {
+  x int
+  y int
+
+  fn distance_to(other Vector2) int {
+    val dx = self:x - other:x
+    val dy = this:y - other:y
+    return dx * dx + dy * dy
+  }
+
+  fn get_x() int {
+    return self:x
+  }
+
+  fn get_y() int {
+    return this:y
+  }
+}
+
+val a = Vector2 { x: 10, y: 20 }
+val b = Vector2 { x: 7, y: 16 }
+println(a:distance_to(b))
+println(a:get_x())
+println(a:get_y())

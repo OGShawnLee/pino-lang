@@ -1,0 +1,10 @@
+# covers: GEN-4
+@generic[T]
+struct Box {
+  item T
+}
+
+val b = Box[int] { item: 5 }
+val s = Box { item: "text" }
+println(b:item + 1)
+println(s:item)

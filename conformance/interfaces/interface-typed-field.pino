@@ -1,0 +1,25 @@
+# covers: IFACE-5
+interface State {
+  fn name() string
+}
+
+struct OffState {
+  fn name() string {
+    return "off"
+  }
+}
+
+struct OnState {
+  fn name() string {
+    return "on"
+  }
+}
+
+struct Machine {
+  state State
+}
+
+val m = Machine { state: OffState {} }
+println(m:state:name())
+m:state = OnState {}
+println(m:state:name())

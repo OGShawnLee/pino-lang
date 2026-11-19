@@ -1,0 +1,18 @@
+# covers: UNION-1, UNION-2, UNION-3, UNION-4
+union Entity {
+  Person(string)
+  Animal(string, string)
+  Ghost
+}
+
+fn describe(e Entity) string {
+  match e {
+    when Entity::Person(name) { return "Person:" + name }
+    when Entity::Animal(name, species) { return "Animal:" + name + ":" + species }
+    when Entity::Ghost { return "Ghost" }
+  }
+}
+
+println(describe(Entity::Person("Ana")))
+println(describe(Entity::Animal("Togo", "Boxer")))
+println(describe(Entity::Ghost))

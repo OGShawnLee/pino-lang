@@ -1,0 +1,34 @@
+# Known failures for conformance/errors/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- TreeWalk
+TreeWalk panic-exit-code.pino  # runner limitation, not an engine bug: in-process engines report only the panic message (the CLI exits 101 but the code is not observable here); the case is checked on the C engine only
+
+# --- VM
+VM bubble-chain.pino  # VM compiler does not support the '?' operator ("not supported in bytecode compilation yet")
+VM bubble-option.pino  # VM compiler does not support the '?' operator ("not supported in bytecode compilation yet")
+VM bubble-result-failure.pino  # VM compiler does not support the '?' operator ("not supported in bytecode compilation yet")
+VM bubble-result-success.pino  # VM compiler does not support the '?' operator ("not supported in bytecode compilation yet")
+VM main-bubble.pino  # VM compiler does not support the '?' operator ("not supported in bytecode compilation yet")
+VM main-failure.pino  # VM has no union (Result/Option) support (RUNTIME ERROR: Value is not callable)
+VM main-none.pino  # VM run ignores a None returned by main and succeeds (the failure handler is not applied)
+VM main-success.pino  # VM has no union (Result/Option) support (RUNTIME ERROR: Value is not callable)
+VM or-call-result.pino  # VM compiler does not support 'or { ... }' recovery blocks ("not supported in bytecode compilation yet")
+VM or-failure-err-yield.pino  # VM compiler does not support 'or { ... }' recovery blocks ("not supported in bytecode compilation yet")
+VM or-option.pino  # VM compiler does not support 'or { ... }' recovery blocks ("not supported in bytecode compilation yet")
+VM or-panic.pino  # VM compiler does not support 'or { ... }' recovery blocks ("not supported in bytecode compilation yet")
+VM or-return.pino  # VM compiler does not support 'or { ... }' recovery blocks ("not supported in bytecode compilation yet")
+VM or-success.pino  # VM compiler does not support 'or { ... }' recovery blocks ("not supported in bytecode compilation yet")
+VM panic-exit-code.pino  # runner limitation, not an engine bug: in-process engines report only the panic message (the CLI exits 101 but the code is not observable here); the case is checked on the C engine only
+VM prelude-result-option.pino  # VM has no union (Result/Option) support (RUNTIME ERROR: Value is not callable)
+VM result-match.pino  # VM has no union (Result/Option) support (RUNTIME ERROR: Value is not callable)
+VM unified-error-union.pino  # VM compiler does not support the '?' operator ("not supported in bytecode compilation yet")
+
+# --- C
+C main-bubble.pino  # C backend does not support the ? operator on Result: TCC "undefined symbol _Failure_construct"
+C main-failure.pino  # C backend: 'main' returning Result/Option leaves a garbage process exit code instead of 0/1, and writes no stderr message
+C main-none.pino  # C backend: 'main' returning Result/Option leaves a garbage process exit code instead of 0/1, and writes no stderr message
+C main-success.pino  # C backend: 'main' returning Result/Option leaves a garbage process exit code instead of 0/1, and writes no stderr message
+C or-failure-err-yield.pino  # C backend: TCC error "cannot cast 'struct <anonymous>' to 'void *'"
+C panic-as-value.pino  # C backend: TCC error "cannot cast from/to void"

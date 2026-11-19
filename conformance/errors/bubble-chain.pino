@@ -1,0 +1,27 @@
+# covers: ERR-7, ERR-8
+fn step1(n int) Result[int, string] {
+  if n < 0 {
+    return Result::Failure("negative")
+  }
+  return Result::Success(n + 1)
+}
+
+fn step2(n int) Result[int, string] {
+  val a = step1(n)?
+  val b = step1(a)?
+  return Result::Success(b)
+}
+
+fn top(n int) Result[int, string] {
+  val r = step2(n)?
+  return Result::Success(r * 2)
+}
+
+match top(1) {
+  when Result::Success(v) { println("ok $v") }
+  when Result::Failure(e) { println("err $e") }
+}
+match top(-5) {
+  when Result::Success(v) { println("ok $v") }
+  when Result::Failure(e) { println("err $e") }
+}

@@ -1,0 +1,7 @@
+# covers: STRUCT-E10
+struct Calculator {
+  count int
+}
+
+val c = Calculator { count: 0 }
+println(c:count(10))

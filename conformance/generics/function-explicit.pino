@@ -1,0 +1,8 @@
+# covers: GEN-5
+@generic[T]
+fn identity(v T) T {
+  return v
+}
+
+println(identity[int](42))
+println(identity[string]("hi"))

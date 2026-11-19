@@ -1,0 +1,3 @@
+# covers: UNION-E7
+val state = Option::Some("hello")
+val check = state is Option[int]::Some

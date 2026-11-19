@@ -1,0 +1,7 @@
+# covers: STRUCT-E8
+struct Incrementer {
+  increment fn(int) int
+}
+
+val i = Incrementer { increment: fn(n int) => n + 1 }
+println(i:increment("not an int"))

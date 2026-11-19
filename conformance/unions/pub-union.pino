@@ -1,0 +1,13 @@
+# covers: UNION-1
+pub union Tokens {
+  Word(string)
+  Count(int)
+  Pending
+}
+
+val t = Tokens::Count(3)
+match t {
+  when Tokens::Word(w) { println("word " + w) }
+  when Tokens::Count(n) { println("count " + str(n)) }
+  when Tokens::Pending { println("pending") }
+}

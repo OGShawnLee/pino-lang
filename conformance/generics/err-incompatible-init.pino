@@ -1,0 +1,7 @@
+# covers: GEN-E2
+struct Pair[Key Value] {
+  key Key
+  value Value
+}
+
+val p = Pair[string, int] { key: "Hello", value: "World" }

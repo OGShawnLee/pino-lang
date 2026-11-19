@@ -1,0 +1,27 @@
+# Known failures for conformance/structs/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM
+VM bound-method.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM declare-and-read.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM embedding-fields.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM embedding-methods.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM embedding-override.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM field-assign-outside.pino  # VM does not compile field assignment 'obj:f = v' (RUNTIME ERROR: Stack underflow)
+VM fn-field-call.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM instance-method.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM method-assigns-field.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM method-bare-fields.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM self-compound-assign.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM self-this.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM static-as-value.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+VM static-method.pino  # VM has no struct support (RUNTIME ERROR: Value is not callable)
+
+# --- C
+C bound-method.pino  # C backend: TCC error "field not found: add"
+C embedding-methods.pino  # C backend: TCC error "'self' undeclared"
+C fn-field-call.pino  # C backend: TCC error "operation on a struct"
+C self-compound-assign.pino  # C backend: TCC error "'self' undeclared"
+C self-this.pino  # C backend: TCC error "'self' undeclared"
+C static-as-value.pino  # C backend: TCC error "operation on a struct"

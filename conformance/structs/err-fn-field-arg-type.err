@@ -1,0 +1,1 @@
+Argument 1 for callable field 'increment' expected type 'int', but got 'string'
