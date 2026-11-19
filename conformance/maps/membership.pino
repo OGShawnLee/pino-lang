@@ -1,0 +1,18 @@
+# covers: MAP-7
+val m = map[string, int] { "a": 1, "b": 2 }
+if "a" in m {
+  println("a in")
+}
+if "c" in m {
+  println("c in")
+} else {
+  println("c out")
+}
+if "c" not in m {
+  println("c not in")
+}
+if "a" not in m {
+  println("a not in")
+} else {
+  println("a present")
+}

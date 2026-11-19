@@ -1,0 +1,4 @@
+# covers: VECLIB-9
+val v = []int
+val x = v:pop()
+println(x)

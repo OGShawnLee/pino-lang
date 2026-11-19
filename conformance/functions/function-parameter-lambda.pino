@@ -1,0 +1,5 @@
+# covers: FN-11, FN-12
+fn apply(f fn(int) int, x int) int {
+  return f(x)
+}
+println(apply(fn (n int) => n * 2, 10))

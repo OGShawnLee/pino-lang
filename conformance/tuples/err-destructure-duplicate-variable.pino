@@ -1,0 +1,5 @@
+# covers: TUP-E6
+fn get_coords() @(x int, y int) {
+  return @(x: 10, y: 20)
+}
+val @(x: a, y: a) = get_coords()

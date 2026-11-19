@@ -1,0 +1,9 @@
+# covers: FN-9
+val quad = fn (n int) {
+  return n * 4
+}
+println(quad(5))
+val greet = fn (name string) {
+  return "hi $name"
+}
+println(greet("Bo"))

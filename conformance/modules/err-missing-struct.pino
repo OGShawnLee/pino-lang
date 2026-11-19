@@ -1,0 +1,3 @@
+# covers: MOD-E3
+import Geometry
+val r = Geometry::MissingStruct {}

@@ -1,0 +1,2 @@
+# covers: VECLIB-15
+println([10, 20, 30, 40]:filter(fn(x int, i int) => i >= 2))

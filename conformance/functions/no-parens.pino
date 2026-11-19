@@ -1,0 +1,5 @@
+# covers: FN-4
+fn greet {
+  println("hi")
+}
+greet()

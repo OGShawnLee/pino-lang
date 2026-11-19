@@ -1,0 +1,8 @@
+# covers: FN-11
+fn inc(n int) int {
+  return n + 1
+}
+var f = inc
+println(f(1))
+f = fn (n int) => n * 10
+println(f(1))

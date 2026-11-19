@@ -1,0 +1,24 @@
+# Known failures for conformance/vectors/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- TreeWalk
+TreeWalk clamp-minimum-capacity.pino  # TreeWalk: the clamping [WARNING] goes to stdout instead of stderr (VEC-15); actual stdout starts with "[WARNING] Invalid vector parameters"
+TreeWalk clamp-negative-len.pino  # TreeWalk: the clamping [WARNING] goes to stdout instead of stderr (VEC-15); actual stdout starts with "[WARNING] Invalid vector parameters"
+# --- VM
+VM capacity.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM clamp-capacity-below-len.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM clamp-minimum-capacity.pino  # VM: NullReferenceException
+VM clamp-negative-len.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM empty.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM index-assign.pino  # VM: RUNTIME ERROR 'Stack underflow.' (no vector/map index assignment)
+VM len-init-cap.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM len-init.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM literal-no-commas.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM literal.pino  # VM: wrong output, actual stdout "null | null | null"
+VM membership.pino  # VM: wrong output, actual stdout "4 out | 2 present"
+VM nested-types.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+# --- C
+C clamp-minimum-capacity.pino  # C: the clamping [WARNING] goes to stdout instead of stderr (VEC-15); actual stdout starts with "[WARNING] Invalid vector parameters"
+C clamp-negative-len.pino  # C: the clamping [WARNING] goes to stdout instead of stderr (VEC-15); actual stdout starts with "[WARNING] Invalid vector parameters"
+C nested-types.pino  # C: TCC error: operation on a struct

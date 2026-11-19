@@ -1,0 +1,17 @@
+# covers: VEC-6
+val matrix = [][]int
+val row = []int
+matrix:push(row)
+if row in matrix {
+  println("row in matrix")
+}
+val map_list = []map[string, int]
+val one = map[string, int] { "one": 1 }
+map_list:push(one)
+println(map_list[0]["one"])
+val fn_list = []fn (int) int
+val int_fn = fn (n int) => n
+fn_list:push(int_fn)
+if int_fn in fn_list {
+  println("fn in list")
+}

@@ -1,0 +1,3 @@
+# covers: MAP-9
+val m = map[string, int] { "a": 5 }
+println(str(m))

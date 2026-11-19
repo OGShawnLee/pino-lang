@@ -1,0 +1,14 @@
+# covers: FN-19
+var x_outer = 0
+var x_inner = ""
+fn run_test {
+  val x = 10
+  if true {
+    val x = "hello"
+    x_inner = x
+  }
+  x_outer = x
+}
+run_test()
+println(x_inner)
+println(x_outer)

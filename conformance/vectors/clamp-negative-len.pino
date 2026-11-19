@@ -1,0 +1,5 @@
+# covers: VEC-11, VEC-14, VEC-15
+var l = -20
+var c = -12
+val arr = []int { len: l, init: it + 12, cap: c }
+println(arr:len)

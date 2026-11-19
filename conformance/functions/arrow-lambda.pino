@@ -1,0 +1,5 @@
+# covers: FN-8, FN-10
+val triple = fn (n int) => n * 3
+println(triple(4))
+val seven = fn () => 7
+println(seven())

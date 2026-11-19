@@ -1,0 +1,21 @@
+# D-064: Meaning of `@pub_testing`
+
+Status: open
+Raised by: 007
+Feature: spec/features/modules.md
+
+## Question
+Should the spec define what `@pub_testing` does (make a declaration importable by test code only), or only the parse rule that it cannot be combined with `pub`?
+
+## Evidence
+- Reference: not mentioned.
+- Tests: `ParserTests.TestParseModuleAndImports` (`ParserTests.cs:206-220`) asserts that `@pub_testing fn sub(a int) {}` sets `IsPubTesting` and not `IsPublic`, and that `pub @pub_testing` and `@pub_testing pub` are rejected (MOD-E5). No test imports a `@pub_testing` symbol.
+- Proposal: `proposals/012-test-scoped-visibility-pub-testing.md` has `Status: Proposed`, so by the source-of-truth rule it is evidence only. It describes the decorator as keeping declarations private to normal importers but importable by test suites.
+- Implementation: `ModuleResolver.IsTestingFile` treats `*_test.pino` as a testing file (`pino-csharp/ModuleResolver.cs:36-41`).
+
+## Options
+1. Accept proposal 012 (mark it `Implemented` once the behavior is verified) and add rules and cases for test-only imports.
+2. Keep only the parse-level rule MOD-E5 until the feature is implemented and tested.
+
+## Decision
+_Pending: owner decides._

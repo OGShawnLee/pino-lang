@@ -1,0 +1,2 @@
+# covers: VECLIB-2
+println([10, 20]:length)

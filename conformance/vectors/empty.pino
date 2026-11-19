@@ -1,0 +1,6 @@
+# covers: VEC-5
+var names = []string
+println(names:len)
+names:push("Vincent")
+println(names:len)
+println(names[0])

@@ -1,0 +1,7 @@
+# covers: FN-16
+val names = ["John", "Alice", "Bob", "Alexander"]
+val short = names:filter(it:len <= 4)
+println(short:len)
+println(short[0])
+println(short[1])
+println([1, 2, 3]:map(it * 3))

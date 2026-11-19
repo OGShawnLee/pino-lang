@@ -1,0 +1,12 @@
+# covers: FN-18
+var result = ""
+fn foo() string {
+  val local_main = "not an int"
+  return local_main
+}
+fn run_test {
+  val local_main = 12
+  result = foo()
+}
+run_test()
+println(result)

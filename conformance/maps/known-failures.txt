@@ -1,0 +1,19 @@
+# Known failures for conformance/maps/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM
+VM assign-insert-update.pino  # VM: RUNTIME ERROR 'Stack underflow.' (no vector/map index assignment)
+VM compound-assign.pino  # VM: wrong output, actual stdout "null"
+VM empty.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM err-missing-key.pino  # VM: the run succeeds (prints null) instead of failing
+VM format.pino  # VM: wrong output, actual stdout "null"
+VM literal-lookup.pino  # VM: wrong output, actual stdout "null | null"
+VM literal-no-commas.pino  # VM: wrong output, actual stdout "null | null | null"
+VM membership.pino  # VM: wrong output, actual stdout "c out | a present"
+VM type-name.pino  # VM: wrong output, actual stdout "null"
+VM vector-values.pino  # VM: wrong output, actual stdout "null"
+# --- C
+C compound-assign.pino  # C: TCC error: lvalue expected
+C type-name.pino  # C: TCC error: cannot cast 'int' to 'struct <anonymous>'
+C vector-values.pino  # C: TCC error: identifier expected

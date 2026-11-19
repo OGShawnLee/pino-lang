@@ -1,0 +1,5 @@
+# covers: VECLIB-7
+var v = []int
+v:add(1)
+v:add(2):add(3)
+println(v)

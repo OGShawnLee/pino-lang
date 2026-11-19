@@ -27,11 +27,11 @@ Decisions live in [`decisions/`](decisions/README.md) and are made only by the p
 | Loops | `features/loops.md` | `LOOP` | 004 | migrated |
 | Match | `features/match.md` | `MATCH` | 006 | migrated |
 | Program entry point | `features/entry-point.md` | `MAIN` | 006 | migrated |
-| Functions, lambdas, closures | `features/functions.md` | `FN` | 007 | pending |
-| Labeled tuples | `features/tuples.md` | `TUP` | 007 | pending |
-| Vectors | `features/vectors.md` | `VEC` | 007 | pending |
-| Maps | `features/maps.md` | `MAP` | 007 | pending |
-| Modules and imports | `features/modules.md` | `MOD` | 007 | pending |
+| Functions, lambdas, closures | `features/functions.md` | `FN` | 007 | migrated |
+| Labeled tuples | `features/tuples.md` | `TUP` | 007 | migrated |
+| Vectors | `features/vectors.md` | `VEC` | 007 | migrated |
+| Maps | `features/maps.md` | `MAP` | 007 | migrated |
+| Modules and imports | `features/modules.md` | `MOD` | 007 | migrated |
 | Structs and embedding | `features/structs.md` | `STRUCT` | 008 | pending |
 | Interfaces | `features/interfaces.md` | `IFACE` | 008 | pending |
 | Enums | `features/enums.md` | `ENUM` | 008 | pending |
@@ -48,8 +48,8 @@ Stdlib files have a `## Signatures` table (`Member | Signature | Returns`) follo
 | `stdlib/string.md` | `STRLIB` | 005 | migrated |
 | `stdlib/regex.md` | `RGX` | 005 | migrated |
 | `stdlib/builtins.md` | `BUILTIN` | 006 | migrated |
-| `stdlib/vector.md` | `VECLIB` | 007 | pending |
-| `stdlib/map.md` | `MAPLIB` | 007 | pending |
+| `stdlib/vector.md` | `VECLIB` | 007 | migrated |
+| `stdlib/map.md` | `MAPLIB` | 007 | migrated |
 
 ## Conventions
 

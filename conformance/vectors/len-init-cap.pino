@@ -1,0 +1,5 @@
+# covers: VEC-9
+val buffer = []int { len: 5, init: it, cap: 20 }
+println(buffer:len)
+println(buffer:cap)
+println(buffer)

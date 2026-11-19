@@ -1,0 +1,9 @@
+# covers: FN-3
+fn pick(a int, b int) int {
+  if a % 2 == 0 {
+    return a
+  }
+  return b
+}
+println(pick(4, 7))
+println(pick(3, 8))

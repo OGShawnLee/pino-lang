@@ -1,0 +1,7 @@
+# covers: TUP-E7
+fn get_factory_invalid() fn() @(x int, y int) {
+  fn generate() @(a int, b int) {
+    return @(a: 1, b: 2)
+  }
+  return generate
+}

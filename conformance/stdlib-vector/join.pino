@@ -1,0 +1,7 @@
+# covers: VECLIB-25
+val list = ["Pino", "is", "fast"]
+println(list:join(" "))
+println(list:join("-"))
+val empty_list = []string
+println(empty_list:join(","))
+println([1, 2, 3]:join(", "))

@@ -1,0 +1,9 @@
+module BadMain
+
+pub fn helper() int {
+  return 1
+}
+
+fn main() {
+  println("I am a module")
+}

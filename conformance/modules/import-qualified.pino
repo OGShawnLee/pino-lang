@@ -1,0 +1,6 @@
+# covers: MOD-1, MOD-2, MOD-5
+import Geometry
+val p = Geometry::Point { x: 10, y: 20 }
+println(Geometry::add_coords(p))
+println(Geometry::add(2, 3))
+println(Geometry::greet("Pino"))

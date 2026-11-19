@@ -1,0 +1,10 @@
+# covers: FN-5, FN-6
+fn sum3(a int b int c int) int {
+  return a + b + c
+}
+println(sum3(1 2 3))
+fn pair(name string city string) {
+  println("$name from $city")
+}
+pair("Ana" "Lima")
+pair("Bo", "Rome")

@@ -1,0 +1,8 @@
+# covers: FN-14
+fn outer(n int) int {
+  fn inner(m int) int {
+    return m * 2
+  }
+  return inner(n) + 1
+}
+println(outer(5))

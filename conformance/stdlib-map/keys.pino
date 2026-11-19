@@ -1,0 +1,9 @@
+# covers: MAPLIB-3
+val m = map[string, int] { "a": 1, "bb": 2 }
+val ks = m:keys()
+println(ks:len)
+var total = 0
+for k in ks {
+  total = total + k:len
+}
+println(total)

@@ -1,0 +1,4 @@
+# covers: VECLIB-11
+[10, 20]:each(fn(item int, idx int) {
+  println("Index $idx: $item")
+})

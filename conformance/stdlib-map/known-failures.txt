@@ -1,0 +1,14 @@
+# Known failures for conformance/stdlib-map/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM
+VM keys-values-aligned.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM keys.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM len.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM length.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM remove-missing.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM remove.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM values.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+# --- C
+C remove-missing.pino  # C: wrong output, actual stdout "0 | 1"

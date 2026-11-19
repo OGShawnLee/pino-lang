@@ -1,0 +1,9 @@
+# covers: FN-1, FN-2, FN-3, FN-7
+fn add(a int, b int) int {
+  return a + b
+}
+fn nothing() {
+  println("called")
+}
+println(add(2, 3))
+nothing()

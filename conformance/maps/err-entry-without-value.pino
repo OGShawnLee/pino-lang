@@ -1,0 +1,2 @@
+# covers: MAP-E4
+val m = map[string, int] { "key" }

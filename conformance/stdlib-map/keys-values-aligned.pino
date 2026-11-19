@@ -1,0 +1,11 @@
+# covers: MAPLIB-5
+val m = map[string, int] { "a": 1, "bb": 2, "ccc": 3 }
+val ks = m:keys()
+val vs = m:values()
+var aligned = 0
+for i, k in ks {
+  if m[k] == vs[i] {
+    aligned = aligned + 1
+  }
+}
+println(aligned)

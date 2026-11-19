@@ -1,0 +1,3 @@
+# covers: VECLIB-18
+val idx = [1, 3, 4, 5]:find_index(fn(x int) => x % 2 == 0)
+println(idx)

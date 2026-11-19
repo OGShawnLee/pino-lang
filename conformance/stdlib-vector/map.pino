@@ -1,0 +1,5 @@
+# covers: VECLIB-12
+val source = [1, 2, 3]
+val doubled = source:map(fn(v int) => v * 2)
+println(doubled)
+println(source)

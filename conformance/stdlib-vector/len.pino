@@ -1,0 +1,4 @@
+# covers: VECLIB-1
+println([10, 20]:len)
+val empty = []int
+println(empty:len)

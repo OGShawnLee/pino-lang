@@ -1,0 +1,4 @@
+# covers: MOD-3, MOD-5
+from Geometry import Point, add
+val p = Point { x: 5, y: 10 }
+println(add(p:x, p:y))

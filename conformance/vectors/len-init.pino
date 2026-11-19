@@ -1,0 +1,4 @@
+# covers: VEC-8
+val evens = []int { len: 5, init: it * 2 }
+println(evens:len)
+println(evens)

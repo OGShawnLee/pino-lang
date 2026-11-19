@@ -1,0 +1,10 @@
+# covers: VEC-2
+val spaced = [1 2 3]
+println(spaced)
+val multi = [
+  10
+  20
+  30
+]
+println(multi:len)
+println(multi[2])

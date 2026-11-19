@@ -1,0 +1,3 @@
+# covers: MOD-6
+from Geometry import add
+println(greet("x"))

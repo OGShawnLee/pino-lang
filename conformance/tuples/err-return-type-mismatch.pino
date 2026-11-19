@@ -1,0 +1,4 @@
+# covers: TUP-E3
+fn get_coords() @(x int, y int) {
+  return @(x: 10, y: "not-an-int")
+}

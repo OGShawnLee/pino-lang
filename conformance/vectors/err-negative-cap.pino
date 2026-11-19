@@ -1,0 +1,2 @@
+# covers: VEC-E2
+val items = []int { cap: -10 }

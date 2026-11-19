@@ -1,0 +1,5 @@
+# covers: FN-E1
+fn takes_int(n int) int {
+  return n
+}
+println(takes_int("x"))

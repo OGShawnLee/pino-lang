@@ -1,0 +1,3 @@
+# covers: MOD-E4
+import BadMain
+println(BadMain::helper())

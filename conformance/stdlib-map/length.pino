@@ -1,0 +1,3 @@
+# covers: MAPLIB-2
+val m = map[string, int] { "James": 20, "Julian": 32 }
+println(m:length)

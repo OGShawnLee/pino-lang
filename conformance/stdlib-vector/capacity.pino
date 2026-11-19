@@ -1,0 +1,3 @@
+# covers: VECLIB-4
+val v = []int { cap: 50 }
+println(v:capacity)

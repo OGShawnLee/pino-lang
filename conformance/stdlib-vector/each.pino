@@ -1,0 +1,4 @@
+# covers: VECLIB-10
+[10, 20, 30]:each(fn(item int) {
+  println(item)
+})

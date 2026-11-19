@@ -1,0 +1,6 @@
+# covers: VEC-4
+val numbers = [1, 2, 3]
+numbers[1] = 20
+println(numbers)
+numbers[0] = 7
+println(numbers[0])

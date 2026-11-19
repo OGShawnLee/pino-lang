@@ -1,0 +1,5 @@
+# covers: MOD-E2
+import Geometry
+fn show(h Geometry::Hidden) {
+}
+show(Geometry::Square { side: 2 })

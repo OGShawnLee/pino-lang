@@ -1,0 +1,7 @@
+# covers: MAP-5
+var scores = map[string, int] { "Shawn": 100 }
+scores["Vincent"] = 80
+println(scores["Vincent"])
+scores["Shawn"] = 101
+println(scores["Shawn"])
+println(scores:len)

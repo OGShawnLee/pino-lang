@@ -1,0 +1,2 @@
+# covers: VEC-E1
+val items = []int { len: -5, init: 0 }

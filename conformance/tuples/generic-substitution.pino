@@ -1,0 +1,11 @@
+# covers: TUP-9
+@generic[T]
+fn return_tuple(v T) @(value T, label string) {
+  return @(label: "generic", value: v)
+}
+val @(value: v1, label: l1) = return_tuple[int](42)
+val @(label: l2, value: v2) = return_tuple[string]("hello")
+println(v1)
+println(l1)
+println(v2)
+println(l2)

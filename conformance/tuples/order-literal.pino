@@ -1,0 +1,7 @@
+# covers: TUP-7
+fn get_coords() @(x int, y int) {
+  return @(y: 20, x: 10)
+}
+val @(x, y) = get_coords()
+println(x)
+println(y)

@@ -1,0 +1,3 @@
+# covers: MOD-E1
+import Geometry
+val s = Geometry::Secret { value: 1 }

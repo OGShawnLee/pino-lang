@@ -1,0 +1,2 @@
+# covers: TUP-E1
+val t = @(x: 1, y: 2)

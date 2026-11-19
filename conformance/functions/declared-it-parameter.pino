@@ -1,0 +1,8 @@
+# covers: FN-17
+fn double_it(it int) int {
+  return it * 2
+}
+fn apply_twice(it int) int {
+  return double_it(it)
+}
+println(apply_twice(3))

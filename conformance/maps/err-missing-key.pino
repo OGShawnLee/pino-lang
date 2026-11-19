@@ -1,0 +1,4 @@
+# covers: MAP-E1
+val m = map[string, int] { "a": 1 }
+val x = m["b"]
+println(x)

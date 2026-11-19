@@ -1,0 +1,3 @@
+# covers: VECLIB-3
+val v = []int { cap: 50 }
+println(v:cap)

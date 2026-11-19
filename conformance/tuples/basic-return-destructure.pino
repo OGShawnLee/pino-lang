@@ -1,0 +1,7 @@
+# covers: TUP-1, TUP-2, TUP-4
+fn divide(a int, b int) @(quotient int, remainder int) {
+  return @(quotient: a / b, remainder: a % b)
+}
+val @(quotient, remainder) = divide(10, 3)
+println(quotient)
+println(remainder)

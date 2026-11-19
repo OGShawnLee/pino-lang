@@ -1,0 +1,20 @@
+# Known failures for conformance/functions/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- VM
+VM arrow-lambda.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM block-lambda.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM closure-capture.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM curried-lambda-map.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM function-in-variable.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM function-parameter-lambda.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM implicit-it-argument.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+# --- C
+C arrow-lambda.pino  # C: TCC error: function pointer expected
+C block-lambda.pino  # C: TCC error: function pointer expected
+C curried-lambda-map.pino  # known bug (ticket 007 step 8): TCC error: cannot cast 'struct <anonymous>' to 'int'
+C function-in-variable.pino  # C: TCC error: cannot cast 'int(int)' to 'extern struct <anonymous>'
+C function-parameter-named.pino  # C: TCC error: cannot cast 'int(int)' to 'struct <anonymous>'
+C implicit-it-argument.pino  # C: TCC error: identifier expected
+C returns-function.pino  # C: TCC error: cannot cast 'extern int(int)' to 'struct <anonymous>'

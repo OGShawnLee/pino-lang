@@ -1,0 +1,18 @@
+# covers: VEC-10
+val vec = [1, 2, 3]
+if 2 in vec {
+  println("2 in")
+}
+if 4 in vec {
+  println("4 in")
+} else {
+  println("4 out")
+}
+if 4 not in vec {
+  println("4 not in")
+}
+if 2 not in vec {
+  println("2 not in")
+} else {
+  println("2 present")
+}

@@ -1,0 +1,10 @@
+# covers: VECLIB-23
+println([5, 6, 7]:find(fn(x int, i int) => i == 2))
+println([5, 6, 7]:find_index(fn(x int, i int) => i == 2))
+println([5, 6, 7]:count(fn(x int, i int) => i > 0))
+if [5, 6, 7]:any(fn(x int, i int) => i == 2) {
+  println("any at 2")
+}
+if [5, 6, 7]:all(fn(x int, i int) => i < 3) {
+  println("all below 3")
+}

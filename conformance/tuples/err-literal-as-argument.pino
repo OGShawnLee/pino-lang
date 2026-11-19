@@ -1,0 +1,4 @@
+# covers: TUP-E2
+fn take(t int) {
+}
+take(@(x: 1, y: 2))

@@ -1,0 +1,8 @@
+# covers: FN-11, FN-12
+fn apply(f fn(int) int, x int) int {
+  return f(x)
+}
+fn inc(n int) int {
+  return n + 1
+}
+println(apply(inc, 1))

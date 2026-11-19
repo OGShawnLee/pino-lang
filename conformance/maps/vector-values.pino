@@ -1,0 +1,3 @@
+# covers: MAP-8
+val nested = map[string, []int] { "a": [1, 2] }
+println(nested["a"])

@@ -1,0 +1,2 @@
+# covers: VECLIB-24
+println([1, 2, 4, 6, 8, 10]:count(it % 2 == 0))

@@ -1,0 +1,6 @@
+# covers: VECLIB-5
+var v = []int
+v:push(5)
+v:push(10)
+println(v)
+println(v:len)

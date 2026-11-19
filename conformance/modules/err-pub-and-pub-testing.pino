@@ -1,0 +1,3 @@
+# covers: MOD-E5
+pub @pub_testing fn foo() {
+}

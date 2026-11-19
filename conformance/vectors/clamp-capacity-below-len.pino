@@ -1,0 +1,9 @@
+# covers: VEC-12
+var l = 3
+var c = 1
+val arr = []int { len: l, init: it, cap: c }
+println(arr:len)
+if arr:cap >= 3 {
+  println("cap >= len")
+}
+println(arr)

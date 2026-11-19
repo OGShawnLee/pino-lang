@@ -1,0 +1,7 @@
+# Known failures for conformance/tuples/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- C
+C function-type-tuple-order.pino  # C: TCC error: cannot cast 'extern struct tupley_int_x_int()' to 'struct <anonymous>'
+C function-type-tuple.pino  # C: TCC error: cannot cast 'extern struct tuplex_int_y_int()' to 'struct <anonymous>'
