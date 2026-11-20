@@ -112,7 +112,8 @@ public sealed record FunctionTypeSyntax(
     Token? CloseParenToken,
     Token? ArrowToken,
     TypeSyntax? ReturnType,
-    ImmutableArray<Token> CommaTokens = default) : TypeSyntax(Id, Span) {
+    ImmutableArray<Token> CommaTokens = default,
+    Token? SecondaryArrowToken = null) : TypeSyntax(Id, Span) {
   public ImmutableArray<Token> CommaTokens { get; init; } = CommaTokens.IsDefault ? [] : CommaTokens;
 
   public override IEnumerable<SyntaxElement> GetChildren() {
@@ -128,6 +129,9 @@ public sealed record FunctionTypeSyntax(
     }
     if (ArrowToken is { } arrow) {
       yield return arrow;
+    }
+    if (SecondaryArrowToken is { } secondaryArrow) {
+      yield return secondaryArrow;
     }
     if (ReturnType is not null) {
       yield return ReturnType;

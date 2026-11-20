@@ -317,10 +317,14 @@ public sealed record MapEntrySyntax(
     ExpressionSyntax Key,
     Token ArrowToken,
     ExpressionSyntax Value,
-    Token? CommaToken = null) : SyntaxNode(Id, Span) {
+    Token? CommaToken = null,
+    Token? SecondaryArrowToken = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     yield return Key;
     yield return ArrowToken;
+    if (SecondaryArrowToken is { } secondaryArrow) {
+      yield return secondaryArrow;
+    }
     yield return Value;
     if (CommaToken is { } comma) {
       yield return comma;
@@ -458,7 +462,8 @@ public sealed record LambdaExpressionSyntax(
     Token CloseParenToken,
     Token? ArrowToken,
     ExpressionSyntax? BodyExpression,
-    BlockStatementSyntax? BodyBlock) : ExpressionSyntax(Id, Span) {
+    BlockStatementSyntax? BodyBlock,
+    Token? SecondaryArrowToken = null) : ExpressionSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     yield return FnKeyword;
     yield return OpenParenToken;
@@ -468,6 +473,9 @@ public sealed record LambdaExpressionSyntax(
     yield return CloseParenToken;
     if (ArrowToken is { } arrow) {
       yield return arrow;
+    }
+    if (SecondaryArrowToken is { } secondaryArrow) {
+      yield return secondaryArrow;
     }
     if (BodyExpression is not null) {
       yield return BodyExpression;
@@ -505,7 +513,8 @@ public sealed record WhenArmSyntax(
     Token? ArrowToken,
     ExpressionSyntax? ExpressionBody,
     BlockStatementSyntax? BlockBody,
-    ImmutableArray<Token> CommaTokens = default) : SyntaxNode(Id, Span) {
+    ImmutableArray<Token> CommaTokens = default,
+    Token? SecondaryArrowToken = null) : SyntaxNode(Id, Span) {
   public ImmutableArray<Token> CommaTokens { get; init; } = CommaTokens.IsDefault ? [] : CommaTokens;
 
   public override IEnumerable<SyntaxElement> GetChildren() {
@@ -515,6 +524,9 @@ public sealed record WhenArmSyntax(
     }
     if (ArrowToken is { } arrow) {
       yield return arrow;
+    }
+    if (SecondaryArrowToken is { } secondaryArrow) {
+      yield return secondaryArrow;
     }
     if (ExpressionBody is not null) {
       yield return ExpressionBody;
@@ -531,11 +543,15 @@ public sealed record ElseArmSyntax(
     Token ElseKeyword,
     Token? ArrowToken,
     ExpressionSyntax? ExpressionBody,
-    BlockStatementSyntax? BlockBody) : SyntaxNode(Id, Span) {
+    BlockStatementSyntax? BlockBody,
+    Token? SecondaryArrowToken = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     yield return ElseKeyword;
     if (ArrowToken is { } arrow) {
       yield return arrow;
+    }
+    if (SecondaryArrowToken is { } secondaryArrow) {
+      yield return secondaryArrow;
     }
     if (ExpressionBody is not null) {
       yield return ExpressionBody;
