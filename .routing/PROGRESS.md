@@ -30,9 +30,11 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - [x] **`013-scan-self-host-syntax` (Gemini 4 Hydrogen Medium, read-only):** 79 syntax forms inventoried across self-host, legacy and spec (`.tickets/013-scan-self-host-syntax/inventory.md`); router spot-checked. The owner settled most of its questions (see the decision batch below).
 
 ## Active tickets (owner away; router verifies and integrates by rebase + fast-forward, no push)
-- **Dispatched 2026-11-19** after the owner updated Antigravity: 014, 016, 017 and 018 are running (014, 017 and 018 in worktrees; 016 read-only in the main checkout). 015 is written after 014 is integrated.
-- [ ] **014-spec-record-syntax-decisions** (Hydrogen Medium, worktree): record the syntax decisions in `spec/`, rewrite the affected conformance cases, log legacy failures as known failures.
-- [ ] **015-spec-record-semantics-decisions** (Hydrogen Medium, worktree): same for semantics and the stdlib. Starts after 014 is integrated (both rewrite cases).
+- [x] **014-spec-record-syntax-decisions** (`d344e1b`, Hydrogen Medium): closed D-001, D-035, D-051, D-052/074, D-053, D-058, D-072, D-090–D-093, and created accepted D-100–D-108 (arrow, fn types, sets, union payloads, struct shorthand, `self`, braces, precedence, trailing commas). 101 cases rewritten (no `.out` changed), 22 new (10 `.out`, 12 `.err`), new `spec/features/sets.md`, 247 known-failure lines (TreeWalk 113, VM 49, C 85). Legacy suite: 1577/1577 pass in main. Owner review:
+  - the D-072 interpretation: `@@Generic` keeps every old decorator capability, including fns, unions, interfaces and `T is Shape` bounds
+  - some `.err` substrings are weak (for example `Expected`); the `-re` parser's `PN2xxx` messages should replace them
+- [ ] **015-spec-record-semantics-decisions** (Hydrogen Medium, worktree): dispatched after 014 landed.
+- [ ] **019-re-corpus-expected-error-cases** (Hydrogen Medium, worktree): the `-re` `LexerCorpusTests` fail on 014's intentional lexer-error cases (5 cases), and `PN1016` is missing from the error-token invariant (a real gap from 018). Main's `-re` suite stays red on these until 019 lands. Note: the parser tickets proposed by 016 move to 020+.
 - [x] **016-re-parser-design** (Neon Medium, read-only; router-verified): `.tickets/016-re-parser-design/design.md`. Proposes a typed immutable AST plus the lossless `LexResult` (no Roslyn green/red trees), recursive descent with a 9-level Pratt expression parser, `TokenFlags` predicates for D-010/D-058/D-001/trailing commas, sync-set recovery with `PN2001`–`PN2020`, no incremental parsing yet, and a 4-ticket split (019 AST + `->` token, 020 expressions/types, 021 statements/declarations, 022 corpus + fuzzer). **Awaiting owner approval and 8 owner questions (OQ-1..OQ-8):**
   - `or { }` precedence
   - `in`/`is`/`=` levels
