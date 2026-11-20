@@ -1,0 +1,6 @@
+# covers: FN-24
+struct M {
+  v int
+}
+val f = fn (n M) -> n:v + 1
+println(f(M { v: 9 }))

@@ -24,6 +24,8 @@ A `struct` declaration lists fields (`name type`), embedded structs (a bare stru
 - STRUCT-15: In a struct literal, a bare field name `Point { x }` is shorthand for `Point { x: x }`. [src: spec/decisions/D-104-struct-field-shorthand.md]
 - STRUCT-16: Structs have reference semantics: assignment and argument passing share the same instance, and mutation through any name is visible everywhere. [src: spec/decisions/D-070-struct-value-vs-reference.md]
 
+- STRUCT-17: Indexing a field directly, such as `r:items[1]`, parses as an index expression whenever `[...]` is not followed by `(`. [src: spec/decisions/D-076-index-after-field-access.md]
+
 ## Errors
 - STRUCT-E1: Reading a field that the struct does not declare is rejected with a message containing "does not have field or instance method". [src: CheckerTests.TestAccessOnMissingField]
 - STRUCT-E2: Calling a method that the struct does not declare is rejected with a message containing "does not have method". [src: CheckerTests.TestAccessOnMissingMethod]
@@ -43,5 +45,4 @@ Conformance cases: `conformance/structs/`.
 ## Open questions
 - D-073: Which name wins inside a method when a parameter or local has the same name as a field?
 - D-075: Can a method call a sibling method by its bare name, without `self:`?
-- D-076: Why is `instance:field[index]` a parse error?
 - D-078: What happens when a struct literal omits a field that is read later?

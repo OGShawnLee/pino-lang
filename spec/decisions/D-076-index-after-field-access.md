@@ -1,6 +1,6 @@
 # D-076: Indexing a struct field directly (`instance:field[index]`)
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/structs.md
 
@@ -33,4 +33,4 @@ Working form: `val items = r:items` followed by `items[1]`.
 2. Keep the parser and document the restriction.
 
 ## Decision
-_Pending: owner decides._
+Option 1: `r:items[1]` is indexing; a `[...]` not followed by `(` is always an index, decided by the owner on 2026-11-19 (ticket 016, OQ-8).

@@ -55,7 +55,7 @@ arg_list        = "(" , [ expression , { list_sep , expression } ] , ")" ;
    same name in one scope. *)
 variable_decl   = ( "val" | "var" ) , IDENT , "=" , expression ;
 
-assignment      = assign_target , assign_op , expression ;
+(* Assignment is a right-associative expression at the loosest precedence level (D-141); see assign_expr in section type. *)
 assign_target   = IDENT | index_expr | member_expr ;       (* x, v[i], m["k"], obj:field *)
 assign_op       = "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
                   (* assigning to a val is an error (D-017); the checker rejects a value of another type.
@@ -68,18 +68,39 @@ primitive_type  = "bool" | "int" | "float" | "rune" | "string" ;
 type_expr       = primitive_type
                 | IDENT ;                                (* struct, interface, enum or union name; other forms: later sections *)
 
-(* Operators on primitive values, from loosest to tightest binding. Only the orderings asserted by
-   ArithmeticTests are normative: `*` `/` before `+` `-`, unary operators before binary ones, `not` before `and`. *)
+(* Full operator precedence table, from loosest (level 1) to tightest (level 9):
+     Level 1 (right-assoc): =, +=, -=, *=, /=, %=  (assignment expression, D-141)
+     Level 2 (left-assoc):  or                      (logical or)
+     Level 3 (left-assoc):  and                     (logical and)
+     Level 4 (left-assoc):  ==, !=, ===, !==, is, is not   (equality and pattern test, D-141)
+     Level 5 (left-assoc):  <, <=, >, >=, in, not in       (relational and membership, D-141)
+     Level 6 (left-assoc):  +, -                    (additive)
+     Level 7 (left-assoc):  *, /, %                 (multiplicative)
+     Level 8 (right-assoc): - (negate), not         (prefix unary)
+     Level 9 (left-assoc):  [expr], :member, :m(args), ::member, (args), [T](args), ?, or { ... }
+                            (postfix, D-055, D-076, D-107, D-140; newline before [ or ( ends expr, D-058, D-144) *)
+expression      = assign_expr ;
+assign_expr     = or_expr , [ assign_op , assign_expr ] ; (* right-associative (D-141) *)
 or_expr         = and_expr , { "or" , and_expr } ;        (* right operand evaluated only when needed *)
 and_expr        = eq_expr , { "and" , eq_expr } ;
-eq_expr         = cmp_expr , { ( "==" | "!=" | "===" | "!==" ) , cmp_expr } ;   (* equality: see section eq *)
-cmp_expr        = add_expr , { ( "<" | "<=" | ">" | ">=" ) , add_expr } ;
+eq_expr         = cmp_expr , { ( "==" | "!=" | "===" | "!==" ) , cmp_expr
+                             | "is" , [ "not" ] , pattern } ;   (* D-141 *)
+cmp_expr        = add_expr , { ( "<" | "<=" | ">" | ">=" | "in" | "not" , "in" ) , add_expr } ;   (* D-141 *)
 add_expr        = mul_expr , { ( "+" | "-" ) , mul_expr } ;
 mul_expr        = unary_expr , { ( "*" | "/" | "%" ) , unary_expr } ;
 unary_expr      = ( "-" | "not" ) , unary_expr
-                | postfix_expr ;                          (* D-107: postfix [i], :, and calls bind tighter than unary - and not *)
-postfix_expr    = primary_expr , { "[" , expression , "]" | ":" , IDENT , [ arg_list ] } ;
-primary_expr    = INT | FLOAT | BOOL | STRING | RUNE | IDENT | "(" , expression , ")" | call_expr ;
+                | postfix_expr ;                          (* D-107: postfix binds tighter than unary - and not *)
+postfix_expr    = primary_expr , { "[" , expression , "]" (* same line as operand, D-058; index if not followed by (, D-076 *)
+                                 | ":" , IDENT , [ "[" , type_arg_list , "]" ] , [ arg_list ]
+                                 | "::" , IDENT , [ "[" , type_arg_list , "]" ] , [ arg_list ]
+                                 | [ "[" , type_arg_list , "]" ] , arg_list   (* ( on same line as callee, D-144; expr in [] is index+call, D-055 *)
+                                 | "?"                    (* bubble, section err *)
+                                 | "or" , recovery_block  (* postfix recovery at ? level, D-140 *)
+                                 } ;
+primary_expr    = INT | FLOAT | BOOL | STRING | RUNE | IDENT | "(" , expression , ")"
+                | vector_expression | map_expression | set_expression
+                | struct_literal | tuple_literal | lambda_expression
+                | if_expression | match_expression | call_expr ;
 call_expr       = IDENT , arg_list ;                      (* includes the builtins type(v), int(v), float(v), rune(v), str(v) *)
 
 (* === section: rune (owner 005) === *)
@@ -150,8 +171,8 @@ match_expression = "match" , expression , "{" , { when_arm } , [ else_arm ] , "}
 when_arm         = "when" , pattern , { [ "," ] , pattern } , arm_body ;
                                               (* the commas between patterns are optional (MATCH-3) *)
 else_arm         = "else" , arm_body ;
-arm_body         = block                      (* block arm; in expression position it ends with `yield expr` *)
-                 | "->" , expression ;        (* single-expression arm (D-100); `->` before a block is a parse error (MATCH-E4) *)
+arm_body         = block                      (* block arm; in expression position it ends with `yield expr`, `return` or `panic(...)` (D-143) *)
+                 | "->" , expression ;        (* single-expression arm (D-100); `when X -> return` is a parse error (MATCH-E6); `->` before a block is a parse error (MATCH-E4) *)
 
 pattern          = variant_pattern
                  | IDENT                      (* D-034: parsed as a binding that matches any value *)
@@ -193,18 +214,22 @@ parameter       = IDENT , type ;              (* a parameter named like a keywor
 
 return_type     = type | tuple_type ;         (* tuple_type: section tup *)
 
-lambda_expression = "fn" , parameters , ( "->" , expression | block ) ;
+lambda_expression = "fn" , lambda_parameters , ( "->" , expression | block ) ;
                                               (* D-052: `fn name(...) -> expr`, D-053: a lambda return type, and D-100: `=>` are not accepted *)
+lambda_parameters = "(" , [ lambda_param_list ] , ")" ;
+lambda_param_list = parameter , { [ "," ] , parameter }           (* typed params stay comma-optional *)
+                  | IDENT , { "," , IDENT } ;                     (* untyped params require commas (D-145); `fn (n m)` is 1 typed param *)
 
 function_type   = "fn" , [ "(" , [ type , { [ "," ] , type } ] , ")" ] , [ "->" , ( type | tuple_type ) ] ;
                                               (* D-101: `()` optional when empty; omitted return type means `void` *)
 
-call_expression = IDENT , [ "[" , type , { [ "," ] , type } , "]" ] , "(" , [ argument , { [ "," ] , argument } ] , ")" ;
+call_expression = postfix_expr , "(" , [ argument , { [ "," ] , argument } ] , ")" ;
+                                              (* `(` must be on same line as callee (D-144); `fns[0](9)` is index+call when `[...]` holds an expression (D-055) *)
 
 argument        = expression ;                (* an argument that uses an undeclared `it` becomes an implicit
                                                  one-parameter lambda `fn (it) -> <argument>`; D-002 *)
 
-return_statement = "return" , [ expression ] ;
+return_statement = "return" , [ expression ] ;   (* D-142: `return` at EOL continues onto the next line; bare only before `}` or EOF *)
 
 (* === section: tup (owner 007) === *)
 tuple_type      = "@" , "(" , tuple_field_type , { [ "," ] , tuple_field_type } , ")" ;   (* function return position only *)
@@ -229,7 +254,7 @@ vector_expression = "[" , [ expression , { [ "," ] , expression } ] , "]"    (* 
 vector_property = ( "len" | "length" | "init" | "cap" | "capacity" ) , ":" , expression ;
                                               (* valid combinations: `cap` alone, or `len` with `init`, optionally with `cap` *)
 
-index_expression = expression , "[" , expression , "]" ;   (* shared with maps; D-058: must be on same line as operand; newline before `[` ends the expression *)
+index_expression = expression , "[" , expression , "]" ;   (* shared with maps; D-058: must be on same line as operand; D-076: `[...]` not followed by `(` is always an index *)
 
 membership_expression = expression , ( "in" | "not" , "in" ) , expression ;   (* vectors, maps and strings *)
 
@@ -237,6 +262,7 @@ membership_expression = expression , ( "in" | "not" , "in" ) , expression ;   (*
 map_type        = "map" , "[" , type , "," , type , "]" ;
 
 map_expression  = map_type , [ "{" , [ map_entry , { [ "," ] , map_entry } ] , "}" ] ;
+                                              (* D-147: in expression position `map[...]` is always a map form; empty `map[K, V]` has no braces *)
 map_entry       = expression , "->" , expression ;
 
 (* Lookup and assignment use `index_expression` (section vec). *)
@@ -245,6 +271,7 @@ map_entry       = expression , "->" , expression ;
 set_type        = "set" , "[" , type , "]" ;
 
 set_expression  = set_type , [ "{" , [ expression , { [ "," ] , expression } ] , "}" ] ;
+                                              (* D-147: in expression position `set[...]` is always a set form *)
 
 (* === section: mod (owner 007) === *)
 module_declaration = "module" , IDENT ;       (* first statement of a module file *)
@@ -277,7 +304,7 @@ field_init         = IDENT , ":" , expression | IDENT ;
 member_access      = expression , ":" , IDENT ;   (* field read, bound method value *)
 method_call        = expression , ":" , IDENT , "(" , [ argument_list ] , ")" ;
 static_access      = IDENT , "::" , IDENT ;       (* `Struct::static_fn(args)`, `Struct::static_fn` as a value *)
-self_reference     = "self" ;                     (* D-105: `self` only, `this` is not a keyword or binding; D-076: `obj:field[i]` is a parse error *)
+self_reference     = "self" ;                     (* D-105: `self` only, `this` is not a keyword or binding; D-076: `obj:field[i]` is indexing *)
 
 (* === section: iface (owner 008) === *)
 interface_declaration = [ generic_decorator ] , [ "pub" ] , "interface" , IDENT ,
@@ -301,8 +328,8 @@ enum_member_ref  = IDENT , "::" , IDENT ;          (* `Direction::North` *)
 union_declaration = [ generic_decorator ] , [ "pub" ] , "union" , IDENT ,
                     "{" , { union_variant } , "}" ;
 
-union_variant     = IDENT , [ "(" , type , { [ "," ] , type } , ")" ]
-                  | IDENT , "(" , param , { [ "," ] , param } , ")" ;   (* positional `Some(T)` or named `Some(v T)`; mixing both in one union is a compile error (D-103) *)
+union_variant     = IDENT , [ "(" , type , { "," , type } , ")" ]
+                  | IDENT , "(" , param , { [ "," ] , param } , ")" ;   (* positional `Pair(int, string)` requires commas (D-146); named `Variant(a B)` is comma-optional; mixing both in one union is a compile error (D-103) *)
 
 variant_value     = IDENT , [ "[" , type_arg_list , "]" ] , "::" , IDENT , [ "(" , [ argument_list ] , ")" ] ;
                                                   (* `Option::Some(42)`, `Option::None`, `Option[int]::Some(1)` *)
@@ -332,8 +359,8 @@ generic_static_call = IDENT , "::" , IDENT , "[" , type_arg_list , "]" , "(" , [
    Option::Some(T), Option::None, Result::Success(T) and Result::Failure(E); see section `union`. *)
 bubble_expression = expression , "?" ;            (* postfix; only valid inside a function returning Result or Option *)
 
-recovery_expression = expression , "or" , recovery_block ;
+recovery_expression = postfix_expr , "or" , recovery_block ;   (* D-140: postfix at `?` level *)
 recovery_block    = "{" , { statement } , "}" ;   (* declares `err` in a child scope; ends with `yield expression`, `return` or `panic(...)` *)
-yield_statement   = "yield" , expression ;        (* valid only inside a recovery block (or a `match` expression block) *)
+yield_statement   = "yield" , expression ;        (* valid inside an `or` recovery block or a `match` expression block arm (D-143, ERR-E5) *)
 
 panic_call        = "panic" , "(" , expression , ")" ;   (* ordinary call of the global built-in; returns `any` *)

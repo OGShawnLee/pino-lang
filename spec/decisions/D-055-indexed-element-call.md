@@ -1,6 +1,6 @@
 # D-055: Calling an indexed element (`v[0](x)`)
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -33,4 +33,4 @@ println(fn_list[0](9))
 3. Use a different generic-call syntax.
 
 ## Decision
-_Pending: owner decides._
+Option 1: `fns[0](9)` calls the indexed element when the brackets contain an expression rather than type arguments, decided by the owner on 2026-11-19 (ticket 016, OQ-8).

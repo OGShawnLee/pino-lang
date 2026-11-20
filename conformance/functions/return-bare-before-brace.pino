@@ -1,0 +1,10 @@
+# covers: FN-22
+fn stop_early(flag bool) {
+  if flag {
+    println("early")
+    return
+  }
+  println("late")
+}
+stop_early(true)
+stop_early(false)

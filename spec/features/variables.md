@@ -16,6 +16,8 @@ A variable is declared with `val name = expression` (immutable) or `var name = e
 - VAR-7: Functions and struct methods can read top-level `val` declarations. [src: CheckerTests.TestScopeLeakageGlobalPreservation; ScopingExecutionTests.TestDeeplyNestedCallerScopesExecution]
 - VAR-8: A lambda reads the variables of its enclosing scopes, including variables declared in enclosing blocks. [src: ScopingExecutionTests.TestLambdaCaptureScopingExecution; CheckerTests.TestLambdaCaptureScoping]
 
+- VAR-9: Assignment (`=`, `+=`, `-=`, `*=`, `/=`, `%=`) is a right-associative expression at the loosest precedence level, so `a = b = 0` assigns `0` to `b` and then to `a`. [src: spec/decisions/D-141-assignment-and-relational-precedence.md]
+
 ## Errors
 - VAR-E1: Assigning to a `val` after its declaration (with `=` or a compound assignment) is rejected by the checker before execution. [src: LANGUAGE_REFERENCE.md §2 "Variables and Constants"; spec/decisions/D-017-val-reassignment-detection.md]
 - VAR-E2: Assigning a value of a different type, such as a string to an `int` variable, is rejected by the checker. [src: LANGUAGE_REFERENCE.md §2 "Variables and Constants"]

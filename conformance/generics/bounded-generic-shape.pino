@@ -1,0 +1,15 @@
+# covers: GEN-8
+interface Shape {
+  fn area() int
+}
+struct Square {
+  side int
+  fn area() int {
+    return self:side * self:side
+  }
+}
+@@Generic[T is Shape]
+fn print_area(s T) {
+  println(s:area())
+}
+print_area[Square](Square { side: 5 })

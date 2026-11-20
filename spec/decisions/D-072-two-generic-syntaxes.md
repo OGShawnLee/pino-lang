@@ -31,3 +31,5 @@ Snippets and results (the same on tree-walk and C unless noted; the VM crashes o
 
 ## Decision
 Decorator only, spelled `@@Generic[T]` (the self-host's spelling); the `@generic[...]` spelling and the inline form `struct Pair[A, B]` / `union Option[T]` are removed, decided by the owner on 2026-11-19. Interpretation: only the decorator's spelling changes, so everything the old decorator could do (generic functions, methods, structs, unions, interfaces, and bounds `T is Shape`) is written `@@Generic[...]` with the same structure. Consequence: all generic declarations use `@@Generic[...]` and legacy `@generic[...]` / inline `[T]` conformance cases are rewritten to `@@Generic[...]`.
+
+The owner confirmed on 2026-11-19 (ticket 016, OQ-8): `@@Generic[T]` applies to struct, union, interface, fn and methods; bounds are written `@@Generic[T is Shape]`.

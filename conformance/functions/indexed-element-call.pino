@@ -1,0 +1,3 @@
+# covers: FN-25
+val fns = [fn (n int) -> n + 1]
+println(fns[0](9))

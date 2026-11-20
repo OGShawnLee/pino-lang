@@ -1,0 +1,3 @@
+# covers: SET-E2
+val set = [10, 20]
+println(set[0])

@@ -5,3 +5,9 @@
 C basic-set.pino  # D-102: legacy compiler has no set[T] type or literal
 TreeWalk basic-set.pino  # D-102: legacy compiler has no set[T] type or literal
 VM basic-set.pino  # D-102: legacy compiler has no set[T] type or literal
+TreeWalk expression-form.pino  # D-147: legacy parser has no set[T] collection form
+VM expression-form.pino  # D-147: legacy parser has no set[T] collection form
+C expression-form.pino  # D-147: legacy parser has no set[T] collection form
+TreeWalk err-index-set-var.pino  # D-147: legacy parser allows indexing a variable named 'set'
+VM err-index-set-var.pino  # D-147: legacy parser allows indexing a variable named 'set'
+C err-index-set-var.pino  # D-147: legacy parser allows indexing a variable named 'set'

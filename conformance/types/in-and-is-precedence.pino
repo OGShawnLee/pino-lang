@@ -1,0 +1,9 @@
+# covers: TYPE-13
+union Box {
+  Num(int)
+  Empty
+}
+val xs = [1, 2, 3]
+println(1 + 1 in xs)
+val b = Box::Num(5)
+println(b is Box::Num(n) and n == 5)

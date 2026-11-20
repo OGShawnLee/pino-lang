@@ -1,0 +1,6 @@
+# covers: ERR-22
+fn fail() Result[int, string] {
+  return Result::Failure("boom")
+}
+val res = 10 + fail() or { yield 0 }
+println(res)

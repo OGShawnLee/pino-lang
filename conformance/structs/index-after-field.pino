@@ -1,0 +1,6 @@
+# covers: STRUCT-17
+struct Reg {
+  items []int
+}
+val r = Reg { items: [10, 20, 30] }
+println(r:items[1])

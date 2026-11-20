@@ -1,0 +1,11 @@
+# covers: UNION-20
+union Entry {
+  Pair(int, string)
+}
+union Named {
+  Pair(a int b string)
+}
+val e = Entry::Pair(7, "ok")
+match e {
+  when Entry::Pair(n, s) { println("$n:$s") }
+}

@@ -49,3 +49,5 @@ VM err-generic-arg-mismatch.pino  # D-072: legacy parser uses @generic[...] inst
 VM err-generic-mismatch.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
 VM err-mixed-payloads.pino  # D-103: legacy parser does not support named union payloads
 VM positional-payloads.pino  # D-103: VM has no union support
+VM positional-payload-commas.pino  # D-146: legacy VM does not support multi-payload positional union variants
+C positional-payload-commas.pino  # D-146: legacy C backend fails on multi-payload positional union variants

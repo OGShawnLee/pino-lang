@@ -1,0 +1,8 @@
+# covers: FN-23
+fn f() int {
+  return 1
+}
+val x = 42
+f
+(x)
+println(x)

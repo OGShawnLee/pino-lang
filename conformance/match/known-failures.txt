@@ -34,3 +34,6 @@ TreeWalk expr-return-and-init.pino  # D-100: legacy parser uses => instead of ->
 VM err-enum-expression.pino  # D-100: legacy parser uses => instead of ->
 VM err-expression-no-else.pino  # D-100: legacy parser uses => instead of ->
 VM err-expression-type-mismatch.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk expr-block-return.pino  # D-143: legacy parser uses '=>' arms and rejects return in match expression
+VM expr-block-return.pino  # D-143: legacy parser uses '=>' arms and rejects return in match expression
+C expr-block-return.pino  # D-143: legacy parser uses '=>' arms and rejects return in match expression

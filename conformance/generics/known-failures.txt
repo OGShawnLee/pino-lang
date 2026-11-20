@@ -88,3 +88,6 @@ VM err-substituted-type-misuse.pino  # D-072: legacy parser uses @generic[...] i
 VM err-unconstrained-member-access.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
 VM function-explicit.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
 VM function-implicit.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk bounded-generic-shape.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+VM bounded-generic-shape.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+C bounded-generic-shape.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]

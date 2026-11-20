@@ -29,6 +29,11 @@ A function is declared with `fn`, a name, a parameter list (`name Type` pairs, p
 - FN-20: In a function type, parentheses may be omitted when there are no parameters (`fn -> R`), and an omitted return type means `void`, so `fn` alone is `fn () -> void` and `fn (T)` is `fn (T) -> void`. [src: spec/decisions/D-101-function-type-syntax.md]
 - FN-21: Closures capture enclosing `var` bindings by reference per closure instance, so mutations persist across calls to that closure without affecting other instances. [src: spec/decisions/D-056-closure-mutable-capture.md]
 
+- FN-22: `return` at the end of a line continues onto the next line like a trailing binary operator, and is bare (returns `void`) only when the next token is `}` or end of file. [src: spec/decisions/D-142-return-newline-continuation.md]
+- FN-23: A line break before `(` ends the preceding expression, so a call's `(` must appear on the same line as its callee. [src: spec/decisions/D-144-newline-before-open-paren.md]
+- FN-24: Untyped lambda parameters must be separated by commas (`fn (n, m) -> n + m`), whereas typed parameters remain comma-optional, so `fn (n m)` declares one parameter `n` of type `m`. [src: spec/decisions/D-145-untyped-lambda-param-commas.md]
+- FN-25: Calling an indexed expression such as `fns[0](9)` calls the indexed element when the brackets contain an expression rather than type arguments. [src: spec/decisions/D-055-indexed-element-call.md]
+
 ## Errors
 - FN-E1: Calling a function with an argument of the wrong type is rejected with a type check error. [src: CheckerTests.TestEnumDefinitionAndTypeChecking; CheckerTests.TestRuneTypeChecker]
 - FN-E2: Named functions and methods must have block bodies (`{ ... }`); an arrow body on a named function or method (`fn f() int -> 1`) is rejected as a parse error. [src: spec/decisions/D-052-arrow-bodied-function-declarations.md]
@@ -40,6 +45,5 @@ Conformance cases: `conformance/functions/`.
 ## Open questions
 - D-050: Is the return type of a function without a declared return type inferred, and from what?
 - D-054: The reference's `each` example names a parameter `val`, a keyword the parser rejects.
-- D-055: `fn_list[0](9)` is parsed as a generic call, not as a call of an indexed element.
 - D-057: Should the argument-count and return-type errors be specified?
 - D-002: `it` inside a call argument turns the argument into a lambda even in a loop body (see loops).

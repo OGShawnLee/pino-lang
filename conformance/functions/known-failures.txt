@@ -39,3 +39,18 @@ VM returns-function.pino  # D-101: legacy parser uses fn(T) R instead of fn (T) 
 VM closure-mutable-capture.pino  # D-056: VM cannot call closures (RUNTIME ERROR: Value is not callable)
 C closure-mutable-capture.pino  # D-056: legacy parser uses fn() R instead of fn () -> R
 TreeWalk closure-mutable-capture.pino  # D-056: legacy parser uses fn() R instead of fn () -> R
+TreeWalk return-newline-continuation.pino  # D-142: legacy parser does not continue 'return' across newlines here
+VM return-newline-continuation.pino  # D-142: legacy parser does not continue 'return' across newlines here
+C return-newline-continuation.pino  # D-142: legacy parser does not continue 'return' across newlines here
+TreeWalk newline-before-open-paren.pino  # D-144: legacy parser continues call across newline before '('
+VM newline-before-open-paren.pino  # D-144: legacy parser continues call across newline before '('
+C newline-before-open-paren.pino  # D-144: legacy parser continues call across newline before '('
+TreeWalk untyped-lambda-commas.pino  # D-145: legacy parser rejects untyped lambda params and '->' function types
+VM untyped-lambda-commas.pino  # D-145: legacy parser rejects untyped lambda params and '->' function types
+C untyped-lambda-commas.pino  # D-145: legacy parser rejects untyped lambda params and '->' function types
+TreeWalk typed-lambda-no-comma.pino  # D-145: legacy parser uses '=>' instead of '->' for lambda bodies
+VM typed-lambda-no-comma.pino  # D-145: legacy parser uses '=>' instead of '->' for lambda bodies
+C typed-lambda-no-comma.pino  # D-145: legacy parser uses '=>' instead of '->' for lambda bodies
+TreeWalk indexed-element-call.pino  # D-055: legacy parser reads fns[0](9) as generic call
+VM indexed-element-call.pino  # D-055: legacy parser reads fns[0](9) as generic call
+C indexed-element-call.pino  # D-055: legacy parser reads fns[0](9) as generic call

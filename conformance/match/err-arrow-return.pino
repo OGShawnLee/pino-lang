@@ -1,0 +1,8 @@
+# covers: MATCH-E6
+fn pick(x int) int {
+  return match x {
+    when 1 -> return 10
+    else -> 0
+  }
+}
+println(pick(1))

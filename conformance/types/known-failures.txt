@@ -35,3 +35,6 @@ TreeWalk bool-not-precedence.pino  # D-022: TreeWalk prints True/False instead o
 TreeWalk bool-short-circuit.pino  # D-022: TreeWalk prints True/False instead of true/false
 VM bool-logic.pino  # D-022: VM prints True/False instead of true/false
 VM bool-short-circuit.pino  # D-022: VM prints True/False instead of true/false
+TreeWalk in-and-is-precedence.pino  # D-141: legacy engine fails on combined 'in'/'is' precedence case
+VM in-and-is-precedence.pino  # D-141: legacy engine fails on combined 'in'/'is' precedence case
+C in-and-is-precedence.pino  # D-141: legacy engine fails on combined 'in'/'is' precedence case

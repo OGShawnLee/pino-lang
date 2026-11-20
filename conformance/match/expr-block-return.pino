@@ -1,0 +1,13 @@
+# covers: MATCH-10
+fn pick(x int) int {
+  val v = match x {
+    when 1 -> 10
+    when 2 {
+      return 99
+    }
+    else -> 0
+  }
+  return v + 1
+}
+println(pick(1))
+println(pick(2))

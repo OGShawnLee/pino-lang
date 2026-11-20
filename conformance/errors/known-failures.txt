@@ -45,3 +45,6 @@ TreeWalk result-match.pino  # D-019: legacy checker rejects Result::Success(int)
 VM err-bubble-second-call-mismatch.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
 TreeWalk bubble-result-success.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
 TreeWalk err-bubble-second-call-mismatch.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
+TreeWalk or-postfix-precedence.pino  # D-140: legacy parser handles 'or { ... }' at level 2 instead of postfix level 9
+VM or-postfix-precedence.pino  # D-140: legacy parser handles 'or { ... }' at level 2 instead of postfix level 9
+C or-postfix-precedence.pino  # D-140: legacy parser handles 'or { ... }' at level 2 instead of postfix level 9

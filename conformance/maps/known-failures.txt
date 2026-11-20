@@ -42,3 +42,6 @@ TreeWalk type-name.pino  # D-100: legacy parser uses k: v instead of k -> v for 
 TreeWalk vector-values.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
 VM err-key-type.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
 VM err-value-type.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
+TreeWalk empty-no-braces-and-member.pino  # D-147: legacy parser requires '{}' for empty map[K, V] and '->' is unsupported in lambdas
+VM empty-no-braces-and-member.pino  # D-147: legacy parser requires '{}' for empty map[K, V] and '->' is unsupported in lambdas
+C empty-no-braces-and-member.pino  # D-147: legacy parser requires '{}' for empty map[K, V] and '->' is unsupported in lambdas

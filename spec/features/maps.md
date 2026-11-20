@@ -18,6 +18,8 @@ A map associates unique keys with values. It is created with `map[KeyType, Value
 - MAP-9: `str(m)` of a map with one entry has the form `map[K, V] { key: value }` with string keys and values shown in double quotes; with several entries the entries are separated by a comma and a space in an unspecified order. [src: StdlibTests.TestMapFormatting]
 - MAP-10: `type(m)` of a map is the string `map`. [src: StdlibTests.TestMapDeclarationAndAccess]
 
+- MAP-11: In expression position, `map[...]` is always parsed as a map form (including brace-less empty `map[K, V]`) rather than indexing a variable named `map`, while member calls such as `xs:map(f)` remain unaffected. [src: spec/decisions/D-147-set-map-expression-forms.md]
+
 ## Errors
 - MAP-E1: Reading a key that is not in the map with `m[key]` fails at run time; the engines share the wording "not found in map", which the conformance case checks. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior]
 - MAP-E2: A key in a map literal whose type is not the declared key type is rejected before execution with a type check error. [src: CheckerTests.TestMapTypeCheckerSemanticValidation]

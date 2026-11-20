@@ -47,3 +47,6 @@ VM field-shorthand.pino  # D-104: legacy parser does not support struct field sh
 
 # --- Semantics decisions (ticket 015)
 VM reference-semantics.pino  # D-070: VM has no struct support
+TreeWalk index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
+VM index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
+C index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call

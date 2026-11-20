@@ -1,0 +1,3 @@
+# covers: SET-4
+val s = set[int]
+println(s:len)

@@ -29,12 +29,14 @@ Pino has no exceptions. Unrecoverable failures call the global `panic(message)`.
 - ERR-20: When `main` ends the program because of a failure, the process exit code is 1 and the message is written to `stderr`. [src: LANGUAGE_REFERENCE.md §8 "The `main()` Entry Point Failure Handler"] [no-case: the exit code and stderr stream of the in-process engines are not observable by the conformance runner, and the C backend does not produce a valid exit code for main (D-080)]
 - ERR-21: A `panic` prints a stack backtrace of the calling frames to `stderr`. [src: LANGUAGE_REFERENCE.md §8 "The `panic` Mechanism"; ErrorHandlingTests.TestPanicHaltAndBacktrace] [no-case: the backtrace goes to stderr, which the conformance runner does not capture for the in-process engines; see D-081]
 
+- ERR-22: `or { ... }` is a postfix recovery operator binding at the same precedence level as `?`, so `a + b or { yield 0 }` recovers only `b`. [src: spec/decisions/D-140-or-recovery-precedence.md]
+
 ## Errors
 - ERR-E1: Using `?` outside a function body is rejected with a message containing "without a declared Result or Option return type". [src: LANGUAGE_REFERENCE.md §8 "The Bubble Operator (`?`)"; ErrorHandlingTests.TestCheckerEnforcesSafetyRules]
 - ERR-E2: Using `?` in a function whose declared return type is not `Result` or `Option` is rejected with a message containing "Enclosing function must return a Result". [src: LANGUAGE_REFERENCE.md §8 "The Bubble Operator (`?`)"; ErrorHandlingTests.TestCheckerEnforcesSafetyRules]
 - ERR-E3: Bubbling an error whose type differs from the enclosing function's declared error type is rejected with a message containing "Cannot bubble error of type". [src: LANGUAGE_REFERENCE.md §8 "The Bubble Operator (`?`)"; CheckerTests.TestUnionBubbleMismatchingErrorTypes; CheckerTests.TestUnionBubbleMismatchingErrorTypesComplex]
 - ERR-E4: Using `?` on a `Result` inside a function that returns `Option` is rejected with a message containing "Enclosing function must return a Result". [src: CheckerTests.TestUnionBubbleOptionResultMismatch]
-- ERR-E5: `yield` outside an `or` recovery block is rejected with a message containing "'yield' is only allowed inside a recovery block". [src: ErrorHandlingTests.TestCheckerEnforcesSafetyRules]
+- ERR-E5: `yield` outside an `or` recovery block or a `match` expression block arm is rejected as a compile error. [src: ErrorHandlingTests.TestCheckerEnforcesSafetyRules; spec/decisions/D-143-return-in-match-and-yield-scope.md]
 - ERR-E6: Yielding a value whose type differs from the success type of the recovered expression is rejected with a message containing "Yield statement expected type". [src: LANGUAGE_REFERENCE.md §8 "Suffix Recovery Blocks (`or`)"; CheckerTests.TestUnionYieldMismatchingType]
 - ERR-E7: Using `?` on an expression that is neither a `Result` nor an `Option` is rejected with a message containing "non-union type". [src: LANGUAGE_REFERENCE.md §8 "The Bubble Operator (`?`)"]
 

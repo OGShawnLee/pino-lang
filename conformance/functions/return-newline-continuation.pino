@@ -1,0 +1,8 @@
+# covers: FN-22
+fn check(a bool, b bool) bool {
+  return
+    a and
+    b
+}
+println(check(true, true))
+println(check(true, false))

@@ -1,0 +1,5 @@
+# covers: FN-24
+fn apply2(f fn (int, int) -> int, a int, b int) int {
+  return f(a, b)
+}
+println(apply2(fn (n, m) -> n + m, 3, 4))

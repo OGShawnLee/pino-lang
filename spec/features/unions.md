@@ -27,6 +27,8 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 - UNION-18: An `is` test with a binding can be combined with further conditions using `and`, and the binding can be used in those conditions. [src: UnionTests.TestUnionIsExpressionWithSubsequentCondition]
 - UNION-19: `is` works on a generic union whose type argument is a function's own type parameter. [src: UnionTests.TestGenericUnionIsExpressionExecution]
 
+- UNION-20: Multiple positional payload types in a union variant must be separated by commas (`Pair(int, string)`), whereas named fields remain comma-optional, so `Variant(a B)` declares one named field `a` of type `B`. [src: spec/decisions/D-146-positional-union-payload-commas.md]
+
 ## Errors
 - UNION-E1: Constructing a variant with an argument of the wrong payload type is rejected with a message containing "for variant constructor". [src: CheckerTests.TestUnionConstructorArgumentTypeMismatch]
 - UNION-E2: A `match` over a union that omits a variant and has no `else` is rejected with a message containing "is not exhaustive". [src: CheckerTests.TestUnionMatchMissingVariantThrows; proposals/005-tagged-unions-and-patterns-roadmap.md]
