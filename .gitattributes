@@ -1,0 +1,3 @@
+# C# sources always use LF, matching .editorconfig and `dotnet format --verify-no-changes`,
+# regardless of core.autocrlf on the machine that checks them out.
+*.cs text eol=lf
