@@ -251,4 +251,32 @@ public sealed class ParserRecoveryTests {
     Diagnostic diag = Assert.Single(result.Diagnostics);
     Assert.Equal(DiagnosticCodes.ExpectedStatement, diag.Code);
   }
+
+  [Theory]
+  [InlineData("[", "]", true)]
+  [InlineData("[", "]", false)]
+  [InlineData("{", "}", true)]
+  [InlineData("{", "}", false)]
+  [InlineData("fn () -> ", "", false)]
+  [InlineData("match x { when 1 { ", "}}", true)]
+  [InlineData("match x { when 1 { ", "}}", false)]
+  public void TenThousandNestedConstructs_EmitOnePN2020WithoutStackOverflow(
+      string open,
+      string close,
+      bool balanced) {
+    const int Depth = 10_000;
+    string source = string.Concat(Enumerable.Repeat(open, Depth))
+        + "1"
+        + (balanced ? string.Concat(Enumerable.Repeat(close, Depth)) : string.Empty);
+
+    var sw = Stopwatch.StartNew();
+    ParseResult result = Parser.Parse(new SourceText(source));
+    sw.Stop();
+
+    ParserTestHelpers.AssertFileInvariants(result, expectNoDiagnostics: false);
+    Diagnostic diag = Assert.Single(result.Diagnostics, static d => d.Code == DiagnosticCodes.MaxNestingDepthExceeded);
+    Assert.Equal(1, result.Diagnostics.Count(static d => d.Code == DiagnosticCodes.MaxNestingDepthExceeded));
+    Assert.True(diag.Span.Start > 0);
+    Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1), $"Took {sw.Elapsed.TotalMilliseconds:F1} ms.");
+  }
 }

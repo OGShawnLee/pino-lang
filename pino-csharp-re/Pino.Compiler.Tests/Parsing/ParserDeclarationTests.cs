@@ -266,4 +266,22 @@ public sealed class ParserDeclarationTests {
     Assert.Single(r2.Diagnostics);
     Assert.Contains(r2.Root.Items, static n => n is FunctionDeclarationSyntax);
   }
+
+  [Theory]
+  [InlineData("struct []int", DiagnosticCodes.ExpectedIdentifier)]
+  [InlineData("struct Foo[] {}", DiagnosticCodes.DeprecatedGenericSyntax)]
+  [InlineData("@generic[T] union map[K, V]", DiagnosticCodes.DeprecatedGenericSyntax)]
+  [InlineData("@@Generic[T] struct S[U] {}", DiagnosticCodes.ExpectedToken)]
+  public void MalformedOrDoubleGenericDeclarations_KeepDenseIdsTokenAccountingAndSingleDiagnosticPerPosition(
+      string source,
+      string expectedCode) {
+    ParseResult result = ParserTestHelpers.ParseFile(source, expectNoDiagnostics: false);
+    Assert.Contains(result.Diagnostics, d => d.Code == expectedCode);
+
+    // At most one parser diagnostic per token start position.
+    int[] parserDiagStarts = [.. result.Diagnostics
+        .Where(static d => d.Code.StartsWith("PN2", StringComparison.Ordinal))
+        .Select(static d => d.Span.Start)];
+    Assert.Equal(parserDiagStarts.Length, parserDiagStarts.Distinct().Count());
+  }
 }

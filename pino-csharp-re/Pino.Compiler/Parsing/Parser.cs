@@ -18,6 +18,7 @@ public sealed partial class Parser {
   private readonly DiagnosticBag _diagnostics = new();
   private readonly bool _enableColumn1Rule;
   private readonly List<Token> _openBraceStack = [];
+  private readonly HashSet<int> _reportedErrorOffsets = [];
 
   private int _pos;
   private int _nextId;
@@ -355,7 +356,7 @@ public sealed partial class Parser {
       return;
     }
 
-    if (tokenIndex == _lastErrorTokenIndex) {
+    if (tokenIndex == _lastErrorTokenIndex || !_reportedErrorOffsets.Add(span.Start)) {
       return;
     }
 
@@ -374,6 +375,10 @@ public sealed partial class Parser {
     }
 
     _depthExceeded = true;
+    if (_pos == _lastErrorTokenIndex || !_reportedErrorOffsets.Add(Current.Span.Start)) {
+      return;
+    }
+
     _lastErrorTokenIndex = _pos;
     _diagnostics.ReportError(
         DiagnosticCodes.MaxNestingDepthExceeded,

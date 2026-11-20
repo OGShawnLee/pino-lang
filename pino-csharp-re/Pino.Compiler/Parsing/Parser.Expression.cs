@@ -675,119 +675,11 @@ public sealed partial class Parser {
   }
 
   private ExpressionSyntax ParseVectorOrVectorInitializer(ExprContext context) {
-    Token openBracket = Consume();
-
-    if (Current.Kind == TokenKind.CloseBracket) {
+    if (Peek(1).Kind == TokenKind.CloseBracket) {
+      Token openBracket = Consume();
       Token closeBracket = Consume();
       if (!HasLeadingNewline(Current) && CanStartType(Current, disallowNewlineBeforeBracket: true)) {
-        TypeSyntax elementType = ParseType();
-        Token? openBrace = null;
-        Token? closeBrace = null;
-        var props = ImmutableArray.CreateBuilder<VectorPropertySyntax>();
-
-        if (context.HasFlag(ExprContext.AllowBraceLiteral) && Current.Kind == TokenKind.OpenBrace) {
-          openBrace = Consume();
-          bool pushed = PushOpenBrace(openBrace.Value);
-          try {
-            while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-              if (CheckColumn1Trigger()) {
-                break;
-              }
-
-              if (IsStatementSyncToken(Current.Kind) && Current.Kind != TokenKind.Identifier) {
-                break;
-              }
-
-              int startPos = _pos;
-              if (Current.Kind == TokenKind.Comma) {
-                int commaIndex = _pos;
-                Token leadingComma = Consume();
-                ReportErrorAt(
-                    commaIndex,
-                    DiagnosticCodes.UnexpectedComma,
-                    leadingComma.Span,
-                    "Unexpected ',' before vector property.");
-                var missingSpan = new SourceSpan(leadingComma.Span.Start, 0);
-                var missingName = new Token(TokenKind.Identifier, missingSpan, TokenFlags.Missing);
-                var missingColon = new Token(TokenKind.Colon, missingSpan, TokenFlags.Missing);
-                var missingVal = new MissingExpressionSyntax(NextId(), missingSpan);
-                props.Add(new VectorPropertySyntax(
-                    NextId(),
-                    leadingComma.Span,
-                    missingName,
-                    missingColon,
-                    missingVal,
-                    leadingComma));
-                continue;
-              }
-
-              if (Current.Kind != TokenKind.Identifier && Current.Kind != TokenKind.Colon) {
-                ReportError(
-                    DiagnosticCodes.ExpectedIdentifier,
-                    Current.Span,
-                    $"Expected vector property name, found {DescribeToken(Current)}.");
-                break;
-              }
-
-              Token propName = ExpectIdentifier();
-              Token colon = Expect(TokenKind.Colon);
-              ExpressionSyntax propValue = ParseExpression(0, ExprContext.AllowBraceLiteral);
-
-              Token? commaToken = null;
-              if (Current.Kind == TokenKind.Comma) {
-                int commaIndex = _pos;
-                Token comma = Consume();
-                commaToken = comma;
-                if (Current.Kind == TokenKind.CloseBrace) {
-                  ReportErrorAt(
-                      commaIndex,
-                      DiagnosticCodes.TrailingComma,
-                      comma.Span,
-                      "Trailing comma is not allowed.",
-                      help: "Remove the trailing ','.");
-                } else if (Current.Kind == TokenKind.Comma) {
-                  ReportErrorAt(
-                      _pos,
-                      DiagnosticCodes.UnexpectedComma,
-                      Current.Span,
-                      "Expected property before consecutive ','.");
-                }
-              }
-
-              int endOffset = commaToken is { } c ? c.Span.End : propValue.Span.End;
-              props.Add(new VectorPropertySyntax(
-                  NextId(),
-                  SourceSpan.FromBounds(propName.Span.Start, endOffset),
-                  propName,
-                  colon,
-                  propValue,
-                  commaToken));
-
-              if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
-                break;
-              }
-
-              if (_pos == startPos) {
-                break;
-              }
-            }
-          } finally {
-            PopOpenBrace(pushed);
-          }
-
-          closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace.Value);
-        }
-
-        int finalEnd = closeBrace is { } cb ? cb.Span.End : elementType.Span.End;
-        return new VectorInitializerExpressionSyntax(
-            NextId(),
-            SourceSpan.FromBounds(openBracket.Span.Start, finalEnd),
-            openBracket,
-            closeBracket,
-            elementType,
-            openBrace,
-            props.ToImmutable(),
-            closeBrace);
+        return ParseVectorInitializer(openBracket, closeBracket, context);
       }
 
       return new VectorLiteralExpressionSyntax(
@@ -799,6 +691,135 @@ public sealed partial class Parser {
           []);
     }
 
+    if (_depth >= MaxDepth) {
+      ReportDepthExceeded();
+      return DrainExpressionTokens();
+    }
+
+    _depth++;
+    try {
+      return ParseVectorLiteralElements();
+    } finally {
+      _depth--;
+    }
+  }
+
+  private VectorInitializerExpressionSyntax ParseVectorInitializer(
+      Token openBracket,
+      Token closeBracket,
+      ExprContext context) {
+    TypeSyntax elementType = ParseType();
+    Token? openBrace = null;
+    Token? closeBrace = null;
+    var props = ImmutableArray.CreateBuilder<VectorPropertySyntax>();
+
+    if (context.HasFlag(ExprContext.AllowBraceLiteral) && Current.Kind == TokenKind.OpenBrace) {
+      openBrace = Consume();
+      bool pushed = PushOpenBrace(openBrace.Value);
+      try {
+        while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+          if (CheckColumn1Trigger()) {
+            break;
+          }
+
+          if (IsStatementSyncToken(Current.Kind) && Current.Kind != TokenKind.Identifier) {
+            break;
+          }
+
+          int startPos = _pos;
+          if (Current.Kind == TokenKind.Comma) {
+            int commaIndex = _pos;
+            Token leadingComma = Consume();
+            ReportErrorAt(
+                commaIndex,
+                DiagnosticCodes.UnexpectedComma,
+                leadingComma.Span,
+                "Unexpected ',' before vector property.");
+            var missingSpan = new SourceSpan(leadingComma.Span.Start, 0);
+            var missingName = new Token(TokenKind.Identifier, missingSpan, TokenFlags.Missing);
+            var missingColon = new Token(TokenKind.Colon, missingSpan, TokenFlags.Missing);
+            var missingVal = new MissingExpressionSyntax(NextId(), missingSpan);
+            props.Add(new VectorPropertySyntax(
+                NextId(),
+                leadingComma.Span,
+                missingName,
+                missingColon,
+                missingVal,
+                leadingComma));
+            continue;
+          }
+
+          if (Current.Kind != TokenKind.Identifier && Current.Kind != TokenKind.Colon) {
+            ReportError(
+                DiagnosticCodes.ExpectedIdentifier,
+                Current.Span,
+                $"Expected vector property name, found {DescribeToken(Current)}.");
+            break;
+          }
+
+          Token propName = ExpectIdentifier();
+          Token colon = Expect(TokenKind.Colon);
+          ExpressionSyntax propValue = ParseExpression(0, ExprContext.AllowBraceLiteral);
+
+          Token? commaToken = null;
+          if (Current.Kind == TokenKind.Comma) {
+            int commaIndex = _pos;
+            Token comma = Consume();
+            commaToken = comma;
+            if (Current.Kind == TokenKind.CloseBrace) {
+              ReportErrorAt(
+                  commaIndex,
+                  DiagnosticCodes.TrailingComma,
+                  comma.Span,
+                  "Trailing comma is not allowed.",
+                  help: "Remove the trailing ','.");
+            } else if (Current.Kind == TokenKind.Comma) {
+              ReportErrorAt(
+                  _pos,
+                  DiagnosticCodes.UnexpectedComma,
+                  Current.Span,
+                  "Expected property before consecutive ','.");
+            }
+          }
+
+          int endOffset = commaToken is { } c ? c.Span.End : propValue.Span.End;
+          props.Add(new VectorPropertySyntax(
+              NextId(),
+              SourceSpan.FromBounds(propName.Span.Start, endOffset),
+              propName,
+              colon,
+              propValue,
+              commaToken));
+
+          if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
+            break;
+          }
+
+          if (_pos == startPos) {
+            break;
+          }
+        }
+      } finally {
+        PopOpenBrace(pushed);
+      }
+
+      closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace.Value);
+    }
+
+    int finalEnd = closeBrace is { } cb ? cb.Span.End : elementType.Span.End;
+    return new VectorInitializerExpressionSyntax(
+        NextId(),
+        SourceSpan.FromBounds(openBracket.Span.Start, finalEnd),
+        openBracket,
+        closeBracket,
+        elementType,
+        openBrace,
+        props.ToImmutable(),
+        closeBrace);
+  }
+
+  private VectorLiteralExpressionSyntax ParseVectorLiteralElements() {
+    Token openBracket = Consume();
     var elements = ImmutableArray.CreateBuilder<ExpressionSyntax>();
     var commas = ImmutableArray.CreateBuilder<Token>();
 
@@ -1281,8 +1302,54 @@ public sealed partial class Parser {
         closeParen);
   }
 
-  private LambdaExpressionSyntax ParseLambda(ExprContext context) {
-    Token fnKeyword = Consume();
+  private ExpressionSyntax ParseLambda(ExprContext context) {
+    if (_depth >= MaxDepth) {
+      ReportDepthExceeded();
+      return DrainExpressionTokens();
+    }
+
+    _depth++;
+    try {
+      Token fnKeyword = Consume();
+      (Token openParen, ImmutableArray<ParameterSyntax> parameters, Token closeParen) =
+          ParseLambdaParameters();
+
+      Token? arrowToken = null;
+      Token? secondaryArrow = null;
+      ExpressionSyntax? bodyExpr = null;
+      BlockStatementSyntax? bodyBlock = null;
+
+      if (TryConsumeArrow(out Token arrow, out Token? secondary)) {
+        arrowToken = arrow;
+        secondaryArrow = secondary;
+        ExprContext bodyContext = context & ~ExprContext.InCommaOptionalList;
+        bodyExpr = ParseExpression(0, bodyContext);
+      } else {
+        bodyBlock = ParseBlock();
+      }
+
+      int finalEnd = bodyBlock is not null
+          ? bodyBlock.Span.End
+          : bodyExpr is not null
+              ? bodyExpr.Span.End
+              : closeParen.Span.End;
+      return new LambdaExpressionSyntax(
+          NextId(),
+          SourceSpan.FromBounds(fnKeyword.Span.Start, finalEnd),
+          fnKeyword,
+          openParen,
+          parameters,
+          closeParen,
+          arrowToken,
+          bodyExpr,
+          bodyBlock,
+          secondaryArrow);
+    } finally {
+      _depth--;
+    }
+  }
+
+  private (Token OpenParen, ImmutableArray<ParameterSyntax> Parameters, Token CloseParen) ParseLambdaParameters() {
     Token openParen = Expect(TokenKind.OpenParen);
     var parameters = ImmutableArray.CreateBuilder<ParameterSyntax>();
 
@@ -1373,37 +1440,7 @@ public sealed partial class Parser {
     }
 
     Token closeParen = ExpectCloseWithRelated(TokenKind.CloseParen, openParen);
-
-    Token? arrowToken = null;
-    Token? secondaryArrow = null;
-    ExpressionSyntax? bodyExpr = null;
-    BlockStatementSyntax? bodyBlock = null;
-
-    if (TryConsumeArrow(out Token arrow, out Token? secondary)) {
-      arrowToken = arrow;
-      secondaryArrow = secondary;
-      ExprContext bodyContext = context & ~ExprContext.InCommaOptionalList;
-      bodyExpr = ParseExpression(0, bodyContext);
-    } else {
-      bodyBlock = ParseBlock();
-    }
-
-    int finalEnd = bodyBlock is not null
-        ? bodyBlock.Span.End
-        : bodyExpr is not null
-            ? bodyExpr.Span.End
-            : closeParen.Span.End;
-    return new LambdaExpressionSyntax(
-        NextId(),
-        SourceSpan.FromBounds(fnKeyword.Span.Start, finalEnd),
-        fnKeyword,
-        openParen,
-        parameters.ToImmutable(),
-        closeParen,
-        arrowToken,
-        bodyExpr,
-        bodyBlock,
-        secondaryArrow);
+    return (openParen, parameters.ToImmutable(), closeParen);
   }
 
   private IfExpressionSyntax ParseIfExpression(ExprContext context) {
@@ -1443,82 +1480,107 @@ public sealed partial class Parser {
   }
 
   private ImmutableArray<SyntaxNode> ParseMatchBody(Token openBrace, bool isStatement) {
-    var arms = ImmutableArray.CreateBuilder<SyntaxNode>();
-    bool sawElse = false;
-
-    if ((openBrace.Flags & TokenFlags.Missing) == 0
-        || Current.Kind is TokenKind.WhenKeyword or TokenKind.ElseKeyword) {
-      bool pushed = PushOpenBrace(openBrace);
-      try {
-        while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-          if (CheckColumn1Trigger()) {
-            break;
-          }
-
-          int startPos = _pos;
-          if (Current.Kind == TokenKind.WhenKeyword) {
-            arms.Add(ParseWhenArm(isStatement));
-          } else if (Current.Kind == TokenKind.ElseKeyword) {
-            Token elseKeyword = Consume();
-            if (sawElse) {
-              ReportErrorAt(
-                  _pos - 1,
-                  DiagnosticCodes.DuplicateElseArm,
-                  elseKeyword.Span,
-                  isStatement
-                      ? "Duplicate 'else' arm in match statement."
-                      : "Duplicate 'else' arm in match expression.");
-            }
-
-            sawElse = true;
-            (Token? arrow, Token? secondary, ExpressionSyntax? exprBody, BlockStatementSyntax? blockBody) =
-                ParseMatchArmBody(isStatement);
-            int endOffset = blockBody is not null
-                ? blockBody.Span.End
-                : exprBody is not null
-                    ? exprBody.Span.End
-                    : (secondary ?? arrow ?? elseKeyword).Span.End;
-            arms.Add(new ElseArmSyntax(
+    if (_depth >= MaxDepth) {
+      ReportDepthExceeded();
+      if ((openBrace.Flags & TokenFlags.Missing) == 0) {
+        ImmutableArray<Token> skipped = DrainUntilClosingBrace(
+            stopAtOuterCloseBrace: true,
+            consumeClosingBrace: false,
+            out _);
+        if (!skipped.IsEmpty) {
+          return [
+            new ErrorMatchArmSyntax(
                 NextId(),
-                SourceSpan.FromBounds(elseKeyword.Span.Start, endOffset),
-                elseKeyword,
-                arrow,
-                exprBody,
-                blockBody,
-                secondary));
-          } else {
-            ReportError(
-                DiagnosticCodes.ExpectedToken,
-                Current.Span,
-                $"Expected 'when', 'else', or '}}', found {DescribeToken(Current)}.");
-            var skipped = ImmutableArray.CreateBuilder<Token>();
-            while (Current.Kind is not (TokenKind.WhenKeyword or TokenKind.ElseKeyword or TokenKind.CloseBrace or TokenKind.EOF)) {
-              if (MatchesColumn1Trigger()) {
-                break;
-              }
-
-              skipped.Add(Consume());
-            }
-
-            if (skipped.Count > 0) {
-              arms.Add(new ErrorMatchArmSyntax(
-                  NextId(),
-                  SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
-                  skipped.ToImmutable()));
-            }
-          }
-
-          if (_pos == startPos && !IsAtEnd) {
-            Token skipped = Consume();
-            arms.Add(new ErrorMatchArmSyntax(NextId(), skipped.Span, [skipped]));
-          }
+                SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
+                skipped)
+          ];
         }
-      } finally {
-        PopOpenBrace(pushed);
       }
+
+      return [];
     }
 
-    return arms.ToImmutable();
+    _depth++;
+    try {
+      var arms = ImmutableArray.CreateBuilder<SyntaxNode>();
+      bool sawElse = false;
+
+      if ((openBrace.Flags & TokenFlags.Missing) == 0
+          || Current.Kind is TokenKind.WhenKeyword or TokenKind.ElseKeyword) {
+        bool pushed = PushOpenBrace(openBrace);
+        try {
+          while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+            if (CheckColumn1Trigger()) {
+              break;
+            }
+
+            int startPos = _pos;
+            if (Current.Kind == TokenKind.WhenKeyword) {
+              arms.Add(ParseWhenArm(isStatement));
+            } else if (Current.Kind == TokenKind.ElseKeyword) {
+              Token elseKeyword = Consume();
+              if (sawElse) {
+                ReportErrorAt(
+                    _pos - 1,
+                    DiagnosticCodes.DuplicateElseArm,
+                    elseKeyword.Span,
+                    isStatement
+                        ? "Duplicate 'else' arm in match statement."
+                        : "Duplicate 'else' arm in match expression.");
+              }
+
+              sawElse = true;
+              (Token? arrow, Token? secondary, ExpressionSyntax? exprBody, BlockStatementSyntax? blockBody) =
+                  ParseMatchArmBody(isStatement);
+              int endOffset = blockBody is not null
+                  ? blockBody.Span.End
+                  : exprBody is not null
+                      ? exprBody.Span.End
+                      : (secondary ?? arrow ?? elseKeyword).Span.End;
+              arms.Add(new ElseArmSyntax(
+                  NextId(),
+                  SourceSpan.FromBounds(elseKeyword.Span.Start, endOffset),
+                  elseKeyword,
+                  arrow,
+                  exprBody,
+                  blockBody,
+                  secondary));
+            } else {
+              ReportError(
+                  DiagnosticCodes.ExpectedToken,
+                  Current.Span,
+                  $"Expected 'when', 'else', or '}}', found {DescribeToken(Current)}.");
+              var skipped = ImmutableArray.CreateBuilder<Token>();
+              while (Current.Kind is not (TokenKind.WhenKeyword or TokenKind.ElseKeyword or TokenKind.CloseBrace or TokenKind.EOF)) {
+                if (MatchesColumn1Trigger()) {
+                  break;
+                }
+
+                skipped.Add(Consume());
+              }
+
+              if (skipped.Count > 0) {
+                arms.Add(new ErrorMatchArmSyntax(
+                    NextId(),
+                    SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
+                    skipped.ToImmutable()));
+              }
+            }
+
+            if (_pos == startPos && !IsAtEnd) {
+              Token skipped = Consume();
+              arms.Add(new ErrorMatchArmSyntax(NextId(), skipped.Span, [skipped]));
+            }
+          }
+        } finally {
+          PopOpenBrace(pushed);
+        }
+      }
+
+      return arms.ToImmutable();
+    } finally {
+      _depth--;
+    }
   }
 
   private WhenArmSyntax ParseWhenArm(bool isStatement) {

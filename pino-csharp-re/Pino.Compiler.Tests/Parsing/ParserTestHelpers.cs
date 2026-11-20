@@ -4,11 +4,30 @@ using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Lexing;
 using Pino.Compiler.Parsing;
 using Pino.Compiler.Syntax;
+using Pino.Compiler.Tests.Lexing;
 using Pino.Compiler.Text;
 
 namespace Pino.Compiler.Tests.Parsing;
 
 internal static class ParserTestHelpers {
+  public static string FindRepositoryRoot() {
+    for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+      if (File.Exists(Path.Combine(directory.FullName, "main.pino"))
+          && Directory.Exists(Path.Combine(directory.FullName, "projects", "pino-compiler"))) {
+        return directory.FullName;
+      }
+    }
+
+    throw new DirectoryNotFoundException(
+        $"Could not locate the repository root (main.pino + projects/pino-compiler) above '{AppContext.BaseDirectory}'.");
+  }
+
+  public static IEnumerable<string> GetCorpusFiles() {
+    foreach (string path in LexerCorpusTests.CorpusFiles) {
+      yield return path;
+    }
+  }
+
   public static ParseResult ParseFile(string source, bool expectNoDiagnostics = true) {
     ParseResult result = Parser.Parse(new SourceText(source));
     AssertFileInvariants(result, expectNoDiagnostics);
@@ -87,7 +106,21 @@ internal static class ParserTestHelpers {
         ? [.. lex.Tokens]
         : [.. lex.Tokens.Take(endTokenIndex)];
     Token[] actualTokens = [.. root.DescendantTokens()];
-    Token[] actualRealTokens = [.. actualTokens.Where(static t => (t.Flags & TokenFlags.Missing) == 0)];
+    var actualRealList = new List<Token>(expectedRealTokens.Length);
+    int realIdx = 0;
+    foreach (Token token in actualTokens) {
+      if ((token.Flags & TokenFlags.Missing) != 0) {
+        if (realIdx < expectedRealTokens.Length && token == expectedRealTokens[realIdx]) {
+          actualRealList.Add(token);
+          realIdx++;
+        }
+      } else {
+        actualRealList.Add(token);
+        realIdx++;
+      }
+    }
+
+    Token[] actualRealTokens = [.. actualRealList];
     Assert.Equal(expectedRealTokens, actualRealTokens);
 
     if (includesEOF) {

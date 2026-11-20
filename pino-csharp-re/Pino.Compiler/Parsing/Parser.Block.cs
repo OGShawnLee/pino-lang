@@ -242,85 +242,95 @@ public sealed partial class Parser {
   }
 
   private SyntaxNode ParseStatementOrDeclarationUnprefixed(bool insideBlock) {
-    switch (Current.Kind) {
-      case TokenKind.FnKeyword when Peek(1).Kind != TokenKind.OpenParen:
-        return ParseFunctionDeclaration(genericDecorator: null, visibility: null);
+    if (_depth >= MaxDepth) {
+      ReportDepthExceeded();
+      return DrainStatementTokens(insideBlock);
+    }
 
-      case TokenKind.StructKeyword:
-        return ParseStructDeclaration(genericDecorator: null, visibility: null);
+    _depth++;
+    try {
+      switch (Current.Kind) {
+        case TokenKind.FnKeyword when Peek(1).Kind != TokenKind.OpenParen:
+          return ParseFunctionDeclaration(genericDecorator: null, visibility: null);
 
-      case TokenKind.InterfaceKeyword:
-        return ParseInterfaceDeclaration(genericDecorator: null, visibility: null);
+        case TokenKind.StructKeyword:
+          return ParseStructDeclaration(genericDecorator: null, visibility: null);
 
-      case TokenKind.UnionKeyword:
-        return ParseUnionDeclaration(genericDecorator: null, visibility: null);
+        case TokenKind.InterfaceKeyword:
+          return ParseInterfaceDeclaration(genericDecorator: null, visibility: null);
 
-      case TokenKind.EnumKeyword:
-        return ParseEnumDeclaration(visibility: null);
+        case TokenKind.UnionKeyword:
+          return ParseUnionDeclaration(genericDecorator: null, visibility: null);
 
-      case TokenKind.ModuleKeyword:
-        return ParseModuleDeclaration();
+        case TokenKind.EnumKeyword:
+          return ParseEnumDeclaration(visibility: null);
 
-      case TokenKind.TestKeyword:
-        return ParseTestDeclaration();
+        case TokenKind.ModuleKeyword:
+          return ParseModuleDeclaration();
 
-      case TokenKind.ImportKeyword:
-        return ParseImportStatement();
+        case TokenKind.TestKeyword:
+          return ParseTestDeclaration();
 
-      case TokenKind.FromKeyword:
-        return ParseFromImportStatement();
+        case TokenKind.ImportKeyword:
+          return ParseImportStatement();
 
-      case TokenKind.ValKeyword or TokenKind.VarKeyword:
-        return Peek(1).Kind == TokenKind.At && Peek(2).Kind == TokenKind.OpenParen
-            ? ParseTupleDestructuringStatement()
-            : ParseVariableDeclaration(visibility: null);
+        case TokenKind.FromKeyword:
+          return ParseFromImportStatement();
 
-      case TokenKind.IfKeyword:
-        return ParseIfStatementOrExpression();
+        case TokenKind.ValKeyword or TokenKind.VarKeyword:
+          return Peek(1).Kind == TokenKind.At && Peek(2).Kind == TokenKind.OpenParen
+              ? ParseTupleDestructuringStatement()
+              : ParseVariableDeclaration(visibility: null);
 
-      case TokenKind.ForKeyword:
-        return ParseForStatement();
+        case TokenKind.IfKeyword:
+          return ParseIfStatementOrExpression();
 
-      case TokenKind.MatchKeyword:
-        return ParseMatchStatement();
+        case TokenKind.ForKeyword:
+          return ParseForStatement();
 
-      case TokenKind.ReturnKeyword:
-        return ParseReturnStatement();
+        case TokenKind.MatchKeyword:
+          return ParseMatchStatement();
 
-      case TokenKind.YieldKeyword:
-        return ParseYieldStatement();
+        case TokenKind.ReturnKeyword:
+          return ParseReturnStatement();
 
-      case TokenKind.AssertKeyword:
-        return ParseAssertStatement();
+        case TokenKind.YieldKeyword:
+          return ParseYieldStatement();
 
-      case TokenKind.BreakKeyword: {
-          Token breakKeyword = Consume();
-          return new BreakStatementSyntax(NextId(), breakKeyword.Span, breakKeyword);
-        }
+        case TokenKind.AssertKeyword:
+          return ParseAssertStatement();
 
-      case TokenKind.ContinueKeyword: {
-          Token continueKeyword = Consume();
-          return new ContinueStatementSyntax(NextId(), continueKeyword.Span, continueKeyword);
-        }
-
-      // open decision: standalone `{ ... }` at statement start parses as a BlockStatementSyntax.
-      case TokenKind.OpenBrace:
-        return ParseBlock();
-
-      default: {
-          if (!CanStartExpression(Current)) {
-            ReportError(
-                DiagnosticCodes.ExpectedStatement,
-                Current.Span,
-                insideBlock
-                    ? $"Unexpected token {DescribeToken(Current)} in block."
-                    : $"Unexpected token {DescribeToken(Current)}.");
-            return SkipToNextStatementStart(insideBlock);
+        case TokenKind.BreakKeyword: {
+            Token breakKeyword = Consume();
+            return new BreakStatementSyntax(NextId(), breakKeyword.Span, breakKeyword);
           }
 
-          ExpressionSyntax expr = ParseExpression(0, ExprContext.AllowBraceLiteral);
-          return new ExpressionStatementSyntax(NextId(), expr.Span, expr);
-        }
+        case TokenKind.ContinueKeyword: {
+            Token continueKeyword = Consume();
+            return new ContinueStatementSyntax(NextId(), continueKeyword.Span, continueKeyword);
+          }
+
+        // open decision: standalone `{ ... }` at statement start parses as a BlockStatementSyntax.
+        case TokenKind.OpenBrace:
+          return ParseBlock();
+
+        default: {
+            if (!CanStartExpression(Current)) {
+              ReportError(
+                  DiagnosticCodes.ExpectedStatement,
+                  Current.Span,
+                  insideBlock
+                      ? $"Unexpected token {DescribeToken(Current)} in block."
+                      : $"Unexpected token {DescribeToken(Current)}.");
+              return SkipToNextStatementStart(insideBlock);
+            }
+
+            ExpressionSyntax expr = ParseExpression(0, ExprContext.AllowBraceLiteral);
+            return new ExpressionStatementSyntax(NextId(), expr.Span, expr);
+          }
+      }
+    } finally {
+      _depth--;
     }
   }
 
@@ -394,18 +404,39 @@ public sealed partial class Parser {
         closeBrace);
   }
 
+  private StatementSyntax DrainStatementTokens(bool insideBlock) {
+    ImmutableArray<Token> skipped = DrainUntilClosingBrace(
+        stopAtOuterCloseBrace: insideBlock,
+        consumeClosingBrace: false,
+        out _);
+    return skipped.IsEmpty
+        ? new MissingStatementSyntax(NextId(), new SourceSpan(CurrentMissingOffset(), 0))
+        : MakeErrorStatementFromTokens(skipped);
+  }
+
   private ImmutableArray<SyntaxNode> DrainBlockBodyItems(out Token closeBrace) {
+    ImmutableArray<Token> skipped = DrainUntilClosingBrace(
+        stopAtOuterCloseBrace: true,
+        consumeClosingBrace: true,
+        out closeBrace);
+    if (skipped.IsEmpty) {
+      return [];
+    }
+
+    return [MakeErrorStatementFromTokens(skipped)];
+  }
+
+  private ImmutableArray<Token> DrainUntilClosingBrace(
+      bool stopAtOuterCloseBrace,
+      bool consumeClosingBrace,
+      out Token closeBrace) {
     var skipped = ImmutableArray.CreateBuilder<Token>();
     int braceDepth = 0;
 
     while (!IsAtEnd) {
-      if (Current.Kind == TokenKind.CloseBrace && braceDepth == 0) {
-        closeBrace = Consume();
-        if (skipped.Count == 0) {
-          return [];
-        }
-
-        return [MakeErrorStatementFromTokens(skipped.ToImmutable())];
+      if (stopAtOuterCloseBrace && Current.Kind == TokenKind.CloseBrace && braceDepth == 0) {
+        closeBrace = consumeClosingBrace ? Consume() : Current;
+        return skipped.ToImmutable();
       }
 
       Token tok = Consume();
@@ -418,10 +449,6 @@ public sealed partial class Parser {
     }
 
     closeBrace = MissingToken(TokenKind.CloseBrace);
-    if (skipped.Count == 0) {
-      return [];
-    }
-
-    return [MakeErrorStatementFromTokens(skipped.ToImmutable())];
+    return skipped.ToImmutable();
   }
 }

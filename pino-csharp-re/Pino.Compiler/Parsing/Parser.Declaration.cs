@@ -57,7 +57,7 @@ public sealed partial class Parser {
     Token secondAt = MissingTokenAt(TokenKind.At, start);
     Token genericKeyword = MissingTokenAt(TokenKind.Identifier, start);
 
-    GenericDecoratorSyntax decorator = ParseGenericParameterList(firstAt, secondAt, genericKeyword);
+    GenericDecoratorSyntax decorator = ParseGenericParameterList(firstAt, secondAt, genericKeyword, reportEmpty: false);
     ReportErrorAt(
         bracketIndex,
         DiagnosticCodes.DeprecatedGenericSyntax,
@@ -70,7 +70,8 @@ public sealed partial class Parser {
   private GenericDecoratorSyntax ParseGenericParameterList(
       Token firstAt,
       Token secondAt,
-      Token genericKeyword) {
+      Token genericKeyword,
+      bool reportEmpty = true) {
     Token openBracket = Expect(TokenKind.OpenBracket);
     var parameters = ImmutableArray.CreateBuilder<GenericParameterSyntax>();
 
@@ -165,7 +166,7 @@ public sealed partial class Parser {
         }
       }
 
-      if (parameters.Count == 0) {
+      if (reportEmpty && parameters.Count == 0) {
         ReportError(
             DiagnosticCodes.EmptyDeclarationBody,
             SourceSpan.FromBounds(openBracket.Span.Start, Current.Span.End),
@@ -411,9 +412,11 @@ public sealed partial class Parser {
     Token structKeyword = Consume();
     Token nameToken = ExpectIdentifier();
 
-    if (Current.Kind == TokenKind.OpenBracket && !HasLeadingNewline(Current)) {
-      GenericDecoratorSyntax inlineGeneric = ParseInlineGenericParameters("struct");
-      genericDecorator ??= inlineGeneric;
+    if (genericDecorator is null
+        && (nameToken.Flags & TokenFlags.Missing) == 0
+        && Current.Kind == TokenKind.OpenBracket
+        && !HasLeadingNewline(Current)) {
+      genericDecorator = ParseInlineGenericParameters("struct");
     }
 
     Token openBrace = Expect(TokenKind.OpenBrace);
@@ -822,9 +825,11 @@ public sealed partial class Parser {
     Token unionKeyword = Consume();
     Token nameToken = ExpectIdentifier();
 
-    if (Current.Kind == TokenKind.OpenBracket && !HasLeadingNewline(Current)) {
-      GenericDecoratorSyntax inlineGeneric = ParseInlineGenericParameters("union");
-      genericDecorator ??= inlineGeneric;
+    if (genericDecorator is null
+        && (nameToken.Flags & TokenFlags.Missing) == 0
+        && Current.Kind == TokenKind.OpenBracket
+        && !HasLeadingNewline(Current)) {
+      genericDecorator = ParseInlineGenericParameters("union");
     }
 
     Token openBrace = Expect(TokenKind.OpenBrace);
