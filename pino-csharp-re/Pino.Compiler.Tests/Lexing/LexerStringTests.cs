@@ -232,13 +232,40 @@ public sealed class LexerStringTests {
       Pieces("\"$a1_b-c.d\""));
   }
 
-  [Fact]
-  public void SimpleInterpolationNeverProducesKeywordTokens() {
+  // D-093
+  [Theory]
+  [InlineData("\"$if\"", "if")]
+  [InlineData("\"$for\"", "for")]
+  public void KeywordInSimpleInterpolationReportsErrorWithFixSuggestions(string text, string keyword) {
+    LexResult result = Lex(text);
+
     Assert.Equal(
-      [
-        $"StringStart|{Quote}", "InterpStart|$", "Identifier|if", "InterpEnd|", $"StringEnd|{Quote}",
-      ],
-      Pieces("\"$if\""));
+      [$"StringStart|{Quote}", "InterpStart|$", $"Error|{keyword}", "InterpEnd|", $"StringEnd|{Quote}"],
+      Pieces(result));
+    AssertDiagnostics(result, (DiagnosticCodes.KeywordInSimpleInterpolation, 1, 1 + keyword.Length));
+    string message = result.Diagnostics[0].Message;
+    Assert.Contains("\\$", message, StringComparison.Ordinal);
+    Assert.Contains("$(", message, StringComparison.Ordinal);
+    AssertWellFormed(text, result);
+  }
+
+  // D-093
+  [Fact]
+  public void IdentifierStartingWithKeywordEscapedDollarAndExprInterpolationRemainValid() {
+    Assert.Equal(
+      [$"StringStart|{Quote}", "InterpStart|$", "Identifier|iffy", "InterpEnd|", $"StringEnd|{Quote}"],
+      Pieces("\"$iffy\""));
+    Assert.Empty(Lex("\"$iffy\"").Diagnostics);
+
+    Assert.Equal(
+      [$"StringStart|{Quote}", "StringPart|\\$if", $"StringEnd|{Quote}"],
+      Pieces("\"\\$if\""));
+    Assert.Empty(Lex("\"\\$if\"").Diagnostics);
+
+    Assert.Equal(
+      [$"StringStart|{Quote}", "InterpStart|$(", "Identifier|x", "InterpEnd|)", $"StringEnd|{Quote}"],
+      Pieces("\"$(x)\""));
+    Assert.Empty(Lex("\"$(x)\"").Diagnostics);
   }
 
   // D-021
@@ -815,24 +842,111 @@ public sealed class LexerStringTests {
 
   // D-090
   [Fact]
-  public void MultilineStringClosingAtFirstTripleQuotePinsTrailingQuoteBehavior() {
-    LexResult four = Lex("\"\"\"a\"\"\"\"");
+  public void MultilineStringClosingKeepsLastThreeOfThreeToFiveTrailingQuotes() {
+    const string FourText = "\"\"\"a\"\"\"\"";
+    LexResult four = Lex(FourText);
     Assert.Equal(
-      [$"StringStart|{TripleQuote}", "StringPart|a", $"StringEnd|{TripleQuote}", $"StringStart|{Quote}", "StringEnd|"],
+      [$"StringStart|{TripleQuote}", "StringPart|a\"", $"StringEnd|{TripleQuote}"],
       Pieces(four));
-    AssertDiagnostics(four, (DiagnosticCodes.UnterminatedString, 7, 1));
+    Assert.Empty(four.Diagnostics);
+    AssertWellFormed(FourText, four);
 
-    LexResult five = Lex("\"\"\"a\"\"\"\"\"");
+    const string FiveText = "\"\"\"a\"\"\"\"\"";
+    LexResult five = Lex(FiveText);
     Assert.Equal(
-      [$"StringStart|{TripleQuote}", "StringPart|a", $"StringEnd|{TripleQuote}", $"StringStart|{Quote}", $"StringEnd|{Quote}"],
+      [$"StringStart|{TripleQuote}", "StringPart|a\"\"", $"StringEnd|{TripleQuote}"],
       Pieces(five));
     Assert.Empty(five.Diagnostics);
+    AssertWellFormed(FiveText, five);
 
-    LexResult escaped = Lex("\"\"\"a\\\"\"\"\"");
+    const string EscapedText = "\"\"\"a\\\"\"\"\"";
+    LexResult escaped = Lex(EscapedText);
     Assert.Equal(
       [$"StringStart|{TripleQuote}", "StringPart|a\\\"", $"StringEnd|{TripleQuote}"],
       Pieces(escaped));
     Assert.Empty(escaped.Diagnostics);
+    AssertWellFormed(EscapedText, escaped);
+  }
+
+  // D-090
+  [Fact]
+  public void MultilineStringWithSixOrMoreQuotesPinsUnspecifiedFirstThreeClosing() {
+    const string SixTrailing = "\"\"\"a\"\"\"\"\"\"";
+    LexResult trailing = Lex(SixTrailing);
+    Assert.Equal(
+      [$"StringStart|{TripleQuote}", "StringPart|a", $"StringEnd|{TripleQuote}", $"StringStart|{TripleQuote}", "StringEnd|"],
+      Pieces(trailing));
+    AssertDiagnostics(trailing, (DiagnosticCodes.UnterminatedMultilineString, 7, 3));
+    AssertWellFormed(SixTrailing, trailing);
+
+    const string SixEmpty = "\"\"\"\"\"\"";
+    LexResult empty = Lex(SixEmpty);
+    Assert.Equal(
+      [$"StringStart|{TripleQuote}", $"StringEnd|{TripleQuote}"],
+      Pieces(empty));
+    Assert.Empty(empty.Diagnostics);
+    AssertWellFormed(SixEmpty, empty);
+  }
+
+  // D-091
+  [Theory]
+  [InlineData("\"a\0b\"", 2, "U+0000")]
+  [InlineData("\"a\u0001b\"", 2, "U+0001")]
+  [InlineData("\"a\u001Fb\"", 2, "U+001F")]
+  [InlineData("\"\"\"a\0b\"\"\"", 4, "U+0000")]
+  [InlineData("\"\"\"a\u0001b\"\"\"", 4, "U+0001")]
+  [InlineData("\"\"\"a\u001Fb\"\"\"", 4, "U+001F")]
+  public void ControlCharactersInStringReportDiagnosticWithHexCode(string text, int offset, string expectedHex) {
+    LexResult result = Lex(text);
+
+    AssertDiagnostics(result, (DiagnosticCodes.ControlCharacterInLiteral, offset, 1));
+    Assert.Contains(expectedHex, result.Diagnostics[0].Message, StringComparison.Ordinal);
+    AssertWellFormed(text, result);
+  }
+
+  // D-091
+  [Fact]
+  public void TabIsAllowedInStringsAndCrLfIsAllowedOnlyInMultilineStrings() {
+    const string TabSingle = "\"a\tb\"";
+    LexResult tabSingleResult = Lex(TabSingle);
+    Assert.Empty(tabSingleResult.Diagnostics);
+    AssertWellFormed(TabSingle, tabSingleResult);
+
+    const string TabMulti = "\"\"\"a\tb\"\"\"";
+    LexResult tabMultiResult = Lex(TabMulti);
+    Assert.Empty(tabMultiResult.Diagnostics);
+    AssertWellFormed(TabMulti, tabMultiResult);
+
+    const string CrLfMulti = "\"\"\"a\r\nb\"\"\"";
+    LexResult crLfMultiResult = Lex(CrLfMulti);
+    Assert.Empty(crLfMultiResult.Diagnostics);
+    AssertWellFormed(CrLfMulti, crLfMultiResult);
+
+    const string LfSingle = "\"a\nb";
+    LexResult lfSingleResult = Lex(LfSingle);
+    AssertDiagnostics(lfSingleResult, (DiagnosticCodes.UnterminatedString, 0, 2));
+    Assert.Contains(lfSingleResult.Tokens, static t => t.Kind == TokenKind.Identifier);
+    AssertWellFormed(LfSingle, lfSingleResult);
+  }
+
+  // D-091
+  [Fact]
+  public void ControlCharactersInInterpolationPiecesAndNestedStringsReportDiagnostics() {
+    const string PiecesText = "\"a\0$(x)\u0001b\"";
+    LexResult piecesResult = Lex(PiecesText);
+    AssertDiagnostics(
+      piecesResult,
+      (DiagnosticCodes.ControlCharacterInLiteral, 2, 1),
+      (DiagnosticCodes.ControlCharacterInLiteral, 7, 1));
+    Assert.Contains("U+0000", piecesResult.Diagnostics[0].Message, StringComparison.Ordinal);
+    Assert.Contains("U+0001", piecesResult.Diagnostics[1].Message, StringComparison.Ordinal);
+    AssertWellFormed(PiecesText, piecesResult);
+
+    const string NestedText = "\"$(x + \"a\0b\")\"";
+    LexResult nestedResult = Lex(NestedText);
+    AssertDiagnostics(nestedResult, (DiagnosticCodes.ControlCharacterInLiteral, 9, 1));
+    Assert.Contains("U+0000", nestedResult.Diagnostics[0].Message, StringComparison.Ordinal);
+    AssertWellFormed(NestedText, nestedResult);
   }
 
   [Fact]

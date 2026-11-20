@@ -103,6 +103,32 @@ public sealed class LexerRecoveryTests {
     AssertSingleError(result, DiagnosticCodes.UnterminatedRune, new SourceSpan(0, errorLength));
   }
 
+  // D-091
+  [Theory]
+  [InlineData("'\0'", "U+0000")]
+  [InlineData("'\u0001'", "U+0001")]
+  [InlineData("'\u001F'", "U+001F")]
+  public void ControlCharactersInRuneReportDiagnosticAndErrorToken(string text, string expectedHex) {
+    LexResult result = Lex(text);
+
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(0, 3), result.Tokens[0].Span);
+    AssertSingleError(result, DiagnosticCodes.ControlCharacterInLiteral, new SourceSpan(1, 1));
+    Assert.Contains(expectedHex, result.Diagnostics[0].Message, StringComparison.Ordinal);
+  }
+
+  // D-091
+  [Fact]
+  public void TabInRuneIsAllowedAndControlCharInMultiRuneDoesNotCascade() {
+    LexResult tab = Lex("'\t'");
+    Assert.Equal([TokenKind.RuneLiteral, TokenKind.EOF], tab.Tokens.Select(static t => t.Kind));
+    Assert.Empty(tab.Diagnostics);
+
+    LexResult multi = Lex("'\0a'");
+    Assert.Equal([TokenKind.Error, TokenKind.EOF], multi.Tokens.Select(static t => t.Kind));
+    AssertSingleError(multi, DiagnosticCodes.ControlCharacterInLiteral, new SourceSpan(1, 1));
+  }
+
   [Theory]
   [InlineData("~", 1)]
   [InlineData("!", 1)]

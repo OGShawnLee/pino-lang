@@ -137,7 +137,7 @@ public sealed class LexerCoreTests {
         { "!==", TokenKind.BangEqualEqual },
         { ":", TokenKind.Colon },
         { "::", TokenKind.ColonColon },
-        { "=>", TokenKind.Arrow },
+        { "->", TokenKind.Arrow },
         { "?", TokenKind.Question },
     };
 
@@ -155,10 +155,23 @@ public sealed class LexerCoreTests {
   public void OperatorsUseMaximalMunch() {
     Assert.Equal(
         [TokenKind.EqualEqualEqual, TokenKind.Assign, TokenKind.EqualEqual, TokenKind.Arrow, TokenKind.ColonColon, TokenKind.Colon],
-        KindsWithoutEOF("=== = == => :: :"));
+        KindsWithoutEOF("=== = == -> :: :"));
     Assert.Equal([TokenKind.EqualEqualEqual, TokenKind.Assign], KindsWithoutEOF("===="));
     Assert.Equal([TokenKind.EqualEqual, TokenKind.Assign], KindsWithoutEOF("==\t="));
     Assert.Equal([TokenKind.BangEqualEqual, TokenKind.BangEqual], KindsWithoutEOF("!== !="));
+  }
+
+  [Fact]
+  public void FatArrowLexesAsAssignAndGreaterAndContinuesLexing() {
+    LexResult result = Lex("when x => 1");
+
+    Assert.Equal(
+        [TokenKind.WhenKeyword, TokenKind.Identifier, TokenKind.Assign, TokenKind.Greater, TokenKind.IntLiteral, TokenKind.EOF],
+        result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(new SourceSpan(7, 1), result.Tokens[2].Span);
+    Assert.Equal(new SourceSpan(8, 1), result.Tokens[3].Span);
+    Assert.Empty(result.Diagnostics);
+    Assert.Equal([TokenKind.Minus, TokenKind.Greater], KindsWithoutEOF("- >"));
   }
 
   [Fact]
@@ -176,13 +189,17 @@ public sealed class LexerCoreTests {
     Assert.Equal([TokenKind.Minus, TokenKind.FloatLiteral], KindsWithoutEOF("-5.5"));
   }
 
+  // D-092
   [Theory]
   [InlineData("0", TokenKind.IntLiteral)]
   [InlineData("42", TokenKind.IntLiteral)]
+  [InlineData("1_2", TokenKind.IntLiteral)]
   [InlineData("1_000", TokenKind.IntLiteral)]
   [InlineData("1_000_000", TokenKind.IntLiteral)]
+  [InlineData("1_2_3_4", TokenKind.IntLiteral)]
   [InlineData("12345678901234567890", TokenKind.IntLiteral)]
   [InlineData("3.14", TokenKind.FloatLiteral)]
+  [InlineData("1_2.3_4", TokenKind.FloatLiteral)]
   [InlineData("1_000.000_1", TokenKind.FloatLiteral)]
   [InlineData("1000000000.0", TokenKind.FloatLiteral)]
   [InlineData("0.5", TokenKind.FloatLiteral)]
@@ -417,7 +434,7 @@ public sealed class LexerCoreTests {
 
   [Fact]
   public void RealisticSnippetLexesToExpectedKinds() {
-    LexResult result = Lex("pub fn add(a int, b int) int => a + b");
+    LexResult result = Lex("pub fn add(a int, b int) int -> a + b");
 
     Assert.Equal(
         [

@@ -281,7 +281,14 @@ public static class Lexer {
         case ',': Single(TokenKind.Comma); return;
         case '?': Single(TokenKind.Question); return;
         case '+': WithOptionalEquals(TokenKind.Plus, TokenKind.PlusAssign); return;
-        case '-': WithOptionalEquals(TokenKind.Minus, TokenKind.MinusAssign); return;
+        case '-':
+          if (Peek(1) == '>') {
+            Multi(2, TokenKind.Arrow);
+          } else {
+            WithOptionalEquals(TokenKind.Minus, TokenKind.MinusAssign);
+          }
+
+          return;
         case '*': WithOptionalEquals(TokenKind.Star, TokenKind.StarAssign); return;
         case '/': WithOptionalEquals(TokenKind.Slash, TokenKind.SlashAssign); return;
         case '%': WithOptionalEquals(TokenKind.Percent, TokenKind.PercentAssign); return;
@@ -298,8 +305,6 @@ public static class Lexer {
         case '=':
           if (Peek(1) == '=') {
             Multi(Peek(2) == '=' ? 3 : 2, Peek(2) == '=' ? TokenKind.EqualEqualEqual : TokenKind.EqualEqual);
-          } else if (Peek(1) == '>') {
-            Multi(2, TokenKind.Arrow);
           } else {
             Single(TokenKind.Assign);
           }
@@ -402,6 +407,16 @@ public static class Lexer {
 
         if (multiline) {
           if (c == '"' && Peek(1) == '"' && Peek(2) == '"') {
+            int quoteCount = 3;
+            while (Peek(quoteCount) == '"') {
+              quoteCount++;
+            }
+
+            // D-090: in a run of 3..5 trailing quotes, the last 3 close the string.
+            if (quoteCount <= 5) {
+              _pos += quoteCount - 3;
+            }
+
             FlushPart(partStart);
             Multi(3, TokenKind.StringEnd);
             _frames.RemoveAt(_frames.Count - 1);
@@ -452,6 +467,15 @@ public static class Lexer {
           }
         }
 
+        if (IsDisallowedControlChar(c)) {
+          Diagnostics.ReportError(
+            DiagnosticCodes.ControlCharacterInLiteral,
+            new SourceSpan(_pos, 1),
+            $"Unescaped control character '{FormatForMessage(_text.Slice(_pos, 1))}' in string literal; remove it or use a valid escape sequence.");
+          _pos++;
+          continue;
+        }
+
         _pos++;
       }
 
@@ -475,7 +499,17 @@ public static class Lexer {
         _pos++;
       }
 
-      AddToken(TokenKind.Identifier, identStart);
+      ReadOnlySpan<char> word = _text.Slice(identStart, _pos - identStart);
+      if (s_wordLookup.TryGetValue(word, out _)) {
+        Diagnostics.ReportError(
+          DiagnosticCodes.KeywordInSimpleInterpolation,
+          new SourceSpan(start, _pos - start),
+          $"Keyword '{word.ToString()}' cannot be used in simple '$name' interpolation; use '\\$' for a literal dollar or '$({word.ToString()})' for an expression.");
+        AddToken(TokenKind.Error, identStart);
+      } else {
+        AddToken(TokenKind.Identifier, identStart);
+      }
+
       AddToken(TokenKind.InterpEnd, _pos);
     }
 
@@ -722,6 +756,12 @@ public static class Lexer {
             DiagnosticCodes.InvalidRuneSurrogate,
             new SourceSpan(runeStart, 1),
             $"Invalid unpaired UTF-16 surrogate '{FormatForMessage(_text.Slice(runeStart, 1))}' in rune literal.");
+        } else if (_pos - runeStart == 1 && IsDisallowedControlChar(_text[runeStart])) {
+          valid = false;
+          Diagnostics.ReportError(
+            DiagnosticCodes.ControlCharacterInLiteral,
+            new SourceSpan(runeStart, 1),
+            $"Unescaped control character '{FormatForMessage(_text.Slice(runeStart, 1))}' in rune literal; remove it or use a valid escape sequence.");
         }
       }
 
@@ -798,6 +838,8 @@ public static class Lexer {
 
       return false;
     }
+
+    private static bool IsDisallowedControlChar(char c) => c <= '\u001F' && c is not ('\t' or '\r' or '\n');
 
     private static bool IsWhitespace(char c) => c is not ('\n' or '\r') && char.IsWhiteSpace(c);
 

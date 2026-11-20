@@ -7,7 +7,7 @@ namespace Pino.Compiler.Tests.Lexing;
 /// <summary>Lexes the repository's real <c>.pino</c> programs end to end.</summary>
 public sealed class LexerCorpusTests {
   // D-020: compiler modules with unescaped regex backslashes (need owner edits) and negative D-020 conformance case.
-  private static readonly HashSet<string> s_expectedInvalidEscapeFiles = new(StringComparer.Ordinal) {
+  private static readonly HashSet<string> s_expectedInvalidEscapeFiles = new(StringComparer.OrdinalIgnoreCase) {
     "projects/pino-compiler/modules/Lexer.pino",
     "projects/c-compiler/modules/lexer.pino",
     "conformance/strings/escape-unknown.pino",
@@ -21,6 +21,7 @@ public sealed class LexerCorpusTests {
     DiagnosticCodes.MultiRuneLiteral,
     DiagnosticCodes.UnterminatedRune,
     DiagnosticCodes.InvalidRuneSurrogate,
+    DiagnosticCodes.KeywordInSimpleInterpolation,
   };
 
   private static readonly string s_repositoryRoot = FindRepositoryRoot();

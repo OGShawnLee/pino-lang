@@ -32,6 +32,8 @@ public static class DiagnosticCodes {
   public const string UnterminatedInterpolation = "PN1013";
   public const string InvalidRuneSurrogate = "PN1014";
   public const string MultilineStringInSingleLineInterpolation = "PN1015";
+  public const string ControlCharacterInLiteral = "PN1016";
+  public const string KeywordInSimpleInterpolation = "PN1017";
 
   // -------------------------------------------------------------------------
   // PN2xxx — Parser (reserved)

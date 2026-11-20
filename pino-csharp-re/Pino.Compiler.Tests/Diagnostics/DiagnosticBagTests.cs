@@ -92,6 +92,8 @@ public sealed class DiagnosticBagTests {
         DiagnosticCodes.UnterminatedInterpolation,
         DiagnosticCodes.InvalidRuneSurrogate,
         DiagnosticCodes.MultilineStringInSingleLineInterpolation,
+        DiagnosticCodes.ControlCharacterInLiteral,
+        DiagnosticCodes.KeywordInSimpleInterpolation,
     ];
 
     Assert.Equal(codes.Length, codes.Distinct(StringComparer.Ordinal).Count());
