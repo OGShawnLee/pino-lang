@@ -29,7 +29,8 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 
 - [x] **`013-scan-self-host-syntax` (Gemini 4 Hydrogen Medium, read-only):** 79 syntax forms inventoried across self-host, legacy and spec (`.tickets/013-scan-self-host-syntax/inventory.md`); router spot-checked. The owner settled most of its questions (see the decision batch below).
 
-## Active tickets (owner away; router verifies and integrates by rebase + fast-forward, no push)
+## Active tickets (written, on hold; router verifies and integrates by rebase + fast-forward, no push)
+- **On hold (2026-11-19):** none were dispatched. The Gemini provider was unavailable in T3 ("Antigravity 1.4.5 no longer works with this T3 Code release"), and the owner chose to hold the batch rather than switch to Claude workers. Dispatch once Antigravity is updated: 014, 016, 017 and 018 in parallel (014, 017 and 018 in worktrees; 016 read-only in the main checkout), then 015 after 014 is integrated. 015's ticket is not written yet.
 - [ ] **014-spec-record-syntax-decisions** (Hydrogen Medium, worktree): record the syntax decisions in `spec/`, rewrite the affected conformance cases, log legacy failures as known failures.
 - [ ] **015-spec-record-semantics-decisions** (Hydrogen Medium, worktree): same for semantics and the stdlib. Starts after 014 is integrated (both rewrite cases).
 - [ ] **016-re-parser-design** (Neon Medium, read-only): parser design doc for owner review. No parser code until the owner approves it.
