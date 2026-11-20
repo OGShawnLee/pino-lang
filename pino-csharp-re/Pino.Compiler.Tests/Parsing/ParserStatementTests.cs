@@ -238,11 +238,11 @@ public sealed class ParserStatementTests {
   }
 
   [Fact]
-  public void OpenDecisionForms_ParseWithZeroDiagnostics() {
+  public void VisibilityVoidAndBlockForms_ParseWithZeroDiagnostics() {
     const string Source = """
       pub val top = 1
 
-      @pub_testing
+      @@Testable
       fn helper(name = "World", x void) void {
         {
           val inner = name
@@ -251,11 +251,11 @@ public sealed class ParserStatementTests {
 
       pub struct Box {
         pub value int
-        @pub_testing secret string
+        @@Testable secret string
         pub fn get() int {
           return value
         }
-        @pub_testing fn debug_val() void {}
+        @@Testable fn debug_val() void {}
       }
       """;
 

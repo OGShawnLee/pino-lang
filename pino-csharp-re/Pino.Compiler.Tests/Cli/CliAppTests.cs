@@ -211,6 +211,20 @@ public sealed class CliAppTests : IDisposable {
   }
 
   [Fact]
+  public void TreeEscapesNewlineCarriageReturnAndTabInTokenText() {
+    string file = WriteFile("multi.pino", "val s = \"\"\"a\nb\r\n\tc\"\"\"");
+
+    RunResult result = Run(["tree", file]);
+
+    Assert.Equal(0, result.ExitCode);
+    Assert.Contains("StringPart 'a\\nb\\r\\n\\tc'\n", result.Stdout, StringComparison.Ordinal);
+    Assert.All(
+        result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries),
+        static line => Assert.DoesNotContain("\r", line, StringComparison.Ordinal));
+    Assert.DoesNotContain("\t", result.Stdout, StringComparison.Ordinal);
+  }
+
+  [Fact]
   public void TreeShowsMissingTokensAndThenTheDiagnostics() {
     string file = WriteFile("call.pino", "foo(a,");
 

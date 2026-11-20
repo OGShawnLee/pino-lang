@@ -8,7 +8,9 @@ using Pino.Compiler.Text;
 namespace Pino.Compiler.Parsing;
 
 public sealed partial class Parser {
-  private PatternSyntax ParsePattern() {
+  // D-169: label bindings (`@field`, `@field: name`) exist only in `match` (`when`) patterns. `is` patterns keep the
+  // positional form, so ParsePattern(allowLabels: false) is used for them and for everything nested inside them.
+  private PatternSyntax ParsePattern(bool allowLabels = true) {
     if (_depth >= MaxDepth) {
       ReportDepthExceeded();
       return new MissingPatternSyntax(NextId(), new SourceSpan(CurrentMissingOffset(), 0));
@@ -20,7 +22,7 @@ public sealed partial class Parser {
         case TokenKind.Identifier: {
             if (Peek(1).Kind == TokenKind.ColonColon) {
               Token typeToken = Consume();
-              return ParseVariantPattern(typeToken, typeArgs: null);
+              return ParseVariantPattern(typeToken, typeArgs: null, allowLabels);
             }
 
             if (Peek(1).Kind == TokenKind.OpenBracket
@@ -33,7 +35,7 @@ public sealed partial class Parser {
               Token typeToken = Consume();
               if (TryParseTypeArgumentListAfterBase(out TypeArgumentListSyntax? typeArgs)
                   && Current.Kind == TokenKind.ColonColon) {
-                return ParseVariantPattern(typeToken, typeArgs);
+                return ParseVariantPattern(typeToken, typeArgs, allowLabels);
               }
 
               _pos = savedPos;
@@ -73,7 +75,10 @@ public sealed partial class Parser {
             ReportError(
                 DiagnosticCodes.ExpectedPattern,
                 Current.Span,
-                $"Expected pattern, found {DescribeToken(Current)}.");
+                $"Expected pattern, found {DescribeToken(Current)}.",
+                help: !allowLabels && Current.Kind == TokenKind.At && Peek(1).Kind == TokenKind.Identifier
+                    ? "label bindings ('@name') are only valid in 'when' patterns; 'is' patterns bind by position"
+                    : null);
             return new MissingPatternSyntax(NextId(), new SourceSpan(CurrentMissingOffset(), 0));
           }
       }
@@ -82,7 +87,27 @@ public sealed partial class Parser {
     }
   }
 
-  private VariantPatternSyntax ParseVariantPattern(Token typeToken, TypeArgumentListSyntax? typeArgs) {
+  private LabelBindingPatternSyntax ParseLabelBindingPattern() {
+    Token atToken = Consume();
+    Token fieldToken = ExpectIdentifier();
+    Token? colonToken = null;
+    Token? nameToken = null;
+    if (Current.Kind == TokenKind.Colon) {
+      colonToken = Consume();
+      nameToken = ExpectIdentifier();
+    }
+
+    int end = (nameToken ?? colonToken ?? fieldToken).Span.End;
+    return new LabelBindingPatternSyntax(
+        NextId(),
+        SourceSpan.FromBounds(atToken.Span.Start, Math.Max(end, atToken.Span.End)),
+        atToken,
+        fieldToken,
+        colonToken,
+        nameToken);
+  }
+
+  private VariantPatternSyntax ParseVariantPattern(Token typeToken, TypeArgumentListSyntax? typeArgs, bool allowLabels) {
     Token colonColon = Consume();
     Token variantToken = ExpectIdentifier();
 
@@ -112,7 +137,9 @@ public sealed partial class Parser {
         }
 
         int beforePatId = _nextId;
-        PatternSyntax subPattern = ParsePattern();
+        PatternSyntax subPattern = allowLabels && Current.Kind == TokenKind.At
+            ? ParseLabelBindingPattern()
+            : ParsePattern(allowLabels);
         if (subPattern is MissingPatternSyntax && _pos == startPos) {
           _nextId = beforePatId;
           break;

@@ -125,6 +125,8 @@ public sealed class LexerCoreTests {
         { "*=", TokenKind.StarAssign },
         { "/", TokenKind.Slash },
         { "/=", TokenKind.SlashAssign },
+        { "//", TokenKind.SlashSlash },
+        { "//=", TokenKind.SlashSlashAssign },
         { "%", TokenKind.Percent },
         { "%=", TokenKind.PercentAssign },
         { "<", TokenKind.Less },
@@ -149,6 +151,17 @@ public sealed class LexerCoreTests {
     Assert.Equal([expected, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
     Assert.Equal(new SourceSpan(0, text.Length), result.Tokens[0].Span);
     Assert.Empty(result.Diagnostics);
+  }
+
+  [Fact]
+  public void FloorDivisionOperatorsUseMaximalMunch() {
+    Assert.Equal(
+        [TokenKind.SlashSlash, TokenKind.SlashSlashAssign, TokenKind.SlashAssign, TokenKind.Slash],
+        KindsWithoutEOF("// //= /= /"));
+    Assert.Equal([TokenKind.SlashSlash, TokenKind.Slash], KindsWithoutEOF("///"));
+    Assert.Equal([TokenKind.SlashSlashAssign, TokenKind.Assign], KindsWithoutEOF("//=="));
+    Assert.Equal([TokenKind.Slash, TokenKind.Slash], KindsWithoutEOF("/ /"));
+    Assert.Empty(Lex("a // b //= c").Diagnostics);
   }
 
   [Fact]

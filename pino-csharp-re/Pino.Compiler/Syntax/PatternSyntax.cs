@@ -55,6 +55,29 @@ public sealed record VariantPatternSyntax(
   }
 }
 
+/// <summary>
+/// A label binding inside a union variant pattern (D-169): <c>@field</c> or <c>@field: name</c>.
+/// Appears among <see cref="VariantPatternSyntax.SubPatterns"/> in <c>when</c> patterns only.
+/// </summary>
+public sealed record LabelBindingPatternSyntax(
+    int Id,
+    SourceSpan Span,
+    Token AtToken,
+    Token FieldToken,
+    Token? ColonToken,
+    Token? NameToken) : PatternSyntax(Id, Span) {
+  public override IEnumerable<SyntaxElement> GetChildren() {
+    yield return AtToken;
+    yield return FieldToken;
+    if (ColonToken is { } colon) {
+      yield return colon;
+    }
+    if (NameToken is { } name) {
+      yield return name;
+    }
+  }
+}
+
 public sealed record MissingPatternSyntax(
     int Id,
     SourceSpan Span) : PatternSyntax(Id, Span) {

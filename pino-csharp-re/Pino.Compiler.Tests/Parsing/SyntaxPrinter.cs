@@ -65,6 +65,8 @@ internal static class SyntaxPrinter {
           or TokenKind.StarAssign
           or TokenKind.Slash
           or TokenKind.SlashAssign
+          or TokenKind.SlashSlash
+          or TokenKind.SlashSlashAssign
           or TokenKind.Percent
           or TokenKind.PercentAssign
           or TokenKind.Less

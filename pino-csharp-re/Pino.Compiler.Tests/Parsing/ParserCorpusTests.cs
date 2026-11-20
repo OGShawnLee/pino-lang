@@ -59,6 +59,9 @@ public sealed class ParserCorpusTests(ITestOutputHelper output) {
             DiagnosticCodes.ExpectedToken,
             DiagnosticCodes.ExpectedStatement,
             DiagnosticCodes.DeprecatedFatArrow),
+        ["projects/pino-compiler/modules/Utility.pino"] = Allow(
+            "Uses '@pub_testing' instead of '@@Testable' (D-163).",
+            DiagnosticCodes.DeprecatedVisibilitySyntax),
         ["projects/pino-compiler/modules/Lexer.pino"] = Allow(
             "Uses D-020 unescaped regex backslashes.",
             DiagnosticCodes.InvalidStringEscape),
@@ -67,10 +70,11 @@ public sealed class ParserCorpusTests(ITestOutputHelper output) {
             DiagnosticCodes.ExpectedToken,
             DiagnosticCodes.DeprecatedFatArrow),
         ["projects/pino-compiler/modules/Parser.pino"] = Allow(
-            "Uses legacy map ':' entries (MAP-E4) and '=>' match arms (D-100).",
+            "Uses legacy map ':' entries (MAP-E4), '=>' match arms (D-100) and '@pub_testing' (D-163).",
             DiagnosticCodes.ExpectedToken,
             DiagnosticCodes.ExpectedIdentifier,
-            DiagnosticCodes.DeprecatedFatArrow),
+            DiagnosticCodes.DeprecatedFatArrow,
+            DiagnosticCodes.DeprecatedVisibilitySyntax),
         ["projects/pino-compiler/test/match_expr_test.pino"] = Allow(
             "Uses legacy '=>' match arms instead of '->' (D-100).",
             DiagnosticCodes.DeprecatedFatArrow),

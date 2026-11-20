@@ -290,7 +290,14 @@ public static class Lexer {
 
           return;
         case '*': WithOptionalEquals(TokenKind.Star, TokenKind.StarAssign); return;
-        case '/': WithOptionalEquals(TokenKind.Slash, TokenKind.SlashAssign); return;
+        case '/':
+          if (Peek(1) == '/') {
+            Multi(Peek(2) == '=' ? 3 : 2, Peek(2) == '=' ? TokenKind.SlashSlashAssign : TokenKind.SlashSlash);
+          } else {
+            WithOptionalEquals(TokenKind.Slash, TokenKind.SlashAssign);
+          }
+
+          return;
         case '%': WithOptionalEquals(TokenKind.Percent, TokenKind.PercentAssign); return;
         case '<': WithOptionalEquals(TokenKind.Less, TokenKind.LessEqual); return;
         case '>': WithOptionalEquals(TokenKind.Greater, TokenKind.GreaterEqual); return;
@@ -504,7 +511,7 @@ public static class Lexer {
         Diagnostics.ReportError(
           DiagnosticCodes.KeywordInSimpleInterpolation,
           new SourceSpan(start, _pos - start),
-          $"Keyword '{word.ToString()}' cannot be used in simple '$name' interpolation; use '\\$' for a literal dollar or '$({word.ToString()})' for an expression.");
+          $"Keyword '{word.ToString()}' cannot be used in simple '$name' interpolation; write '\\$' for a literal dollar, or put an expression in parentheses, such as '$(1 + 2)'.");
         AddToken(TokenKind.Error, identStart);
       } else {
         AddToken(TokenKind.Identifier, identStart);

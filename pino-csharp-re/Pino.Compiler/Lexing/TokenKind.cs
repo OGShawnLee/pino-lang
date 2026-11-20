@@ -67,6 +67,8 @@ public enum TokenKind : ushort {
   StarAssign,
   Slash,
   SlashAssign,
+  SlashSlash,
+  SlashSlashAssign,
   Percent,
   PercentAssign,
   Less,

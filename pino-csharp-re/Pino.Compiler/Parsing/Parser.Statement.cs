@@ -11,6 +11,15 @@ public sealed partial class Parser {
   private VariableDeclarationSyntax ParseVariableDeclaration(VisibilitySyntax? visibility) {
     Token keywordToken = Consume();
     Token nameToken = ExpectIdentifier();
+
+    // D-012: an optional type follows the name, with no colon: `val n int = 12`. A token that can start a
+    // type (and is not `=`) begins the annotation; a type on the next line is not read as an annotation, so a
+    // missing `=` still recovers with PN2001 instead of swallowing the next statement.
+    TypeSyntax? type = null;
+    if (Current.Kind != TokenKind.Assign && !HasLeadingNewline(Current) && CanStartType(Current)) {
+      type = ParseType();
+    }
+
     Token equalsToken = Expect(TokenKind.Assign);
     ExpressionSyntax initializer = ParseExpression(0, ExprContext.AllowBraceLiteral);
 
@@ -23,7 +32,7 @@ public sealed partial class Parser {
         nameToken,
         equalsToken,
         initializer,
-        Type: null,
+        Type: type,
         Visibility: visibility);
   }
 
@@ -329,7 +338,7 @@ public sealed partial class Parser {
 
   private MatchStatementSyntax ParseMatchStatement() {
     Token matchKeyword = Consume();
-    ExpressionSyntax subject = ParseExpression(0, ExprContext.None);
+    ExpressionSyntax subject = ParseMatchSubject();
     Token openBrace = Expect(TokenKind.OpenBrace);
     ImmutableArray<SyntaxNode> arms = ParseMatchBody(openBrace, isStatement: true);
     Token closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace);

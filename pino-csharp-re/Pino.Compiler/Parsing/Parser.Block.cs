@@ -98,7 +98,7 @@ public sealed partial class Parser {
     int beforePrefixId = _nextId;
     GenericDecoratorSyntax? genericDecorator = null;
 
-    if (IsAdjacentDoubleAt()) {
+    if (IsAdjacentDoubleAt() && !IsTestableStart()) {
       if (IsIdentifierText(Peek(2), "Generic")) {
         genericDecorator = ParseGenericDecorator();
       } else {
@@ -109,40 +109,34 @@ public sealed partial class Parser {
       genericDecorator = ParseDeprecatedGenericDecorator();
     }
 
-    // open decision: accept `pub` and `@pub_testing` on top-level declarations.
-    (Token? AtToken, Token KeywordOrIdent)? pendingVisibility = null;
+    // D-163: `pub` or `@@Testable` on top-level declarations.
+    VisibilityTokens? pendingVisibility = null;
     while (IsVisibilityStart()) {
-      (Token? atToken, Token kwToken) = ParseVisibilityTokens();
+      VisibilityTokens visibilityTokens = ParseVisibilityTokens();
       if (pendingVisibility is null) {
-        pendingVisibility = (atToken, kwToken);
+        pendingVisibility = visibilityTokens;
       } else {
-        // MOD-E5: `pub` and `@pub_testing` are mutually exclusive in either order.
-        SourceSpan dupSpan = atToken is { } a
-            ? SourceSpan.FromBounds(a.Span.Start, kwToken.Span.End)
-            : kwToken.Span;
+        // MOD-E5: `pub` and `@@Testable` are mutually exclusive in either order.
         ReportErrorAt(
             _pos - 1,
             DiagnosticCodes.ExpectedStatement,
-            dupSpan,
-            "'pub' and '@pub_testing' cannot be combined on the same declaration.");
+            visibilityTokens.Span,
+            "'pub' and '@@Testable' cannot be combined on the same declaration.");
         var errTokens = ImmutableArray.CreateBuilder<Token>();
         if (genericDecorator is not null) {
           AppendRealTokens(errTokens, genericDecorator);
           genericDecorator = null;
           _nextId = beforePrefixId;
         }
-        if (pendingVisibility.Value.AtToken is { } prevAt) {
-          errTokens.Add(prevAt);
-        }
-        errTokens.Add(pendingVisibility.Value.KeywordOrIdent);
+        pendingVisibility.Value.AppendTo(errTokens);
         items.Add(MakeErrorStatementFromTokens(errTokens.ToImmutable()));
         beforePrefixId = _nextId;
-        pendingVisibility = (atToken, kwToken);
+        pendingVisibility = visibilityTokens;
       }
     }
 
     VisibilitySyntax? visibility = pendingVisibility is { } pv
-        ? BuildVisibilitySyntax(pv.AtToken, pv.KeywordOrIdent)
+        ? BuildVisibilitySyntax(pv)
         : null;
 
     if (genericDecorator is not null || visibility is not null) {
@@ -174,7 +168,7 @@ public sealed partial class Parser {
             _nextId = beforePrefixId;
             items.Add(MakeErrorStatementFromTokens(decTokens.ToImmutable()));
             visibility = pendingVisibility is { } epv
-                ? BuildVisibilitySyntax(epv.AtToken, epv.KeywordOrIdent)
+                ? BuildVisibilitySyntax(epv)
                 : null;
           }
 
@@ -192,7 +186,7 @@ public sealed partial class Parser {
               _nextId = beforePrefixId;
               items.Add(MakeErrorStatementFromTokens(decTokens.ToImmutable()));
               visibility = pendingVisibility is { } vpv
-                  ? BuildVisibilitySyntax(vpv.AtToken, vpv.KeywordOrIdent)
+                  ? BuildVisibilitySyntax(vpv)
                   : null;
             }
 
@@ -310,7 +304,7 @@ public sealed partial class Parser {
             return new ContinueStatementSyntax(NextId(), continueKeyword.Span, continueKeyword);
           }
 
-        // open decision: standalone `{ ... }` at statement start parses as a BlockStatementSyntax.
+        // D-161: standalone `{ ... }` at statement start parses as a BlockStatementSyntax.
         case TokenKind.OpenBrace:
           return ParseBlock();
 

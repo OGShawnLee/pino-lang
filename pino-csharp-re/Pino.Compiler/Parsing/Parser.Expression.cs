@@ -71,7 +71,7 @@ public sealed partial class Parser {
 
           Token isKeyword = Consume();
           Token? notKeyword = Current.Kind == TokenKind.Not ? Consume() : null;
-          PatternSyntax pattern = ParsePattern();
+          PatternSyntax pattern = ParsePattern(allowLabels: false);
           left = new IsPatternExpressionSyntax(
               NextId(),
               SourceSpan.FromBounds(left.Span.Start, pattern.Span.End),
@@ -1462,9 +1462,23 @@ public sealed partial class Parser {
         elseBranch);
   }
 
+  // A `{` right after `match` is the arm list of a match whose subject is missing; reading it as the subject would
+  // swallow the arms and the closing brace, so it is reported and the braces are left for the arm list.
+  private ExpressionSyntax ParseMatchSubject() {
+    if (Current.Kind == TokenKind.OpenBrace) {
+      ReportError(
+          DiagnosticCodes.ExpectedExpression,
+          Current.Span,
+          "Expected match subject, found '{'.");
+      return new MissingExpressionSyntax(NextId(), new SourceSpan(CurrentMissingOffset(), 0));
+    }
+
+    return ParseExpression(0, ExprContext.None);
+  }
+
   private MatchExpressionSyntax ParseMatchExpression() {
     Token matchKeyword = Consume();
-    ExpressionSyntax subject = ParseExpression(0, ExprContext.None);
+    ExpressionSyntax subject = ParseMatchSubject();
     Token openBrace = Expect(TokenKind.OpenBrace);
     ImmutableArray<SyntaxNode> arms = ParseMatchBody(openBrace, isStatement: false);
     Token closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace);
@@ -1831,6 +1845,7 @@ public sealed partial class Parser {
           or TokenKind.MinusAssign
           or TokenKind.StarAssign
           or TokenKind.SlashAssign
+          or TokenKind.SlashSlashAssign
           or TokenKind.PercentAssign;
 
   private static int GetBinaryLeftBindingPower(TokenKind kind) =>
@@ -1840,7 +1855,7 @@ public sealed partial class Parser {
         TokenKind.EqualEqual or TokenKind.BangEqual or TokenKind.EqualEqualEqual or TokenKind.BangEqualEqual => 40,
         TokenKind.Less or TokenKind.LessEqual or TokenKind.Greater or TokenKind.GreaterEqual or TokenKind.InKeyword => 50,
         TokenKind.Plus or TokenKind.Minus => 60,
-        TokenKind.Star or TokenKind.Slash or TokenKind.Percent => 70,
+        TokenKind.Star or TokenKind.Slash or TokenKind.SlashSlash or TokenKind.Percent => 70,
         _ => 0,
       };
 }

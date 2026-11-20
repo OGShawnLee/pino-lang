@@ -229,7 +229,7 @@ public static class CliApp {
         if ((token.Flags & TokenFlags.Missing) != 0) {
           sb.Append(" <missing>");
         } else {
-          sb.Append(" '").Append(TokenText(token, source)).Append('\'');
+          sb.Append(" '").Append(EscapeTokenText(TokenText(token, source))).Append('\'');
         }
 
         sb.Append('\n');
@@ -250,6 +250,12 @@ public static class CliApp {
       }
     }
   }
+
+  // Multi-line token text (a triple-quoted string part, for example) must not break the one-token-per-line tree.
+  private static string EscapeTokenText(string text) =>
+      text.Replace("\n", "\\n", StringComparison.Ordinal)
+          .Replace("\r", "\\r", StringComparison.Ordinal)
+          .Replace("\t", "\\t", StringComparison.Ordinal);
 
   private static string TokenText(Token token, SourceText source) {
     int start = Math.Clamp(token.Span.Start, 0, source.Length);

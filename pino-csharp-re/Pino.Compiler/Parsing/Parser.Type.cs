@@ -47,7 +47,7 @@ public sealed partial class Parser {
                   colonColon,
                   member);
             } else {
-              // open decision: `void` written as a type is parsed as an ordinary NamedTypeSyntax.
+              // D-162: `void` written as a type is an ordinary NamedTypeSyntax; the checker restricts where it may appear.
               baseType = new NamedTypeSyntax(NextId(), firstIdent.Span, firstIdent);
             }
 

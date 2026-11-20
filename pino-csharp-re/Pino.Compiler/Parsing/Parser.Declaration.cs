@@ -8,26 +8,57 @@ using Pino.Compiler.Text;
 namespace Pino.Compiler.Parsing;
 
 public sealed partial class Parser {
-  private bool IsVisibilityStart() =>
-      Current.Kind == TokenKind.PubKeyword
-      || (Current.Kind == TokenKind.At && IsIdentifierText(Peek(1), "pub_testing"));
+  private readonly record struct VisibilityTokens(Token? AtToken, Token? SecondAtToken, Token KeywordOrIdent) {
+    public SourceSpan Span => SourceSpan.FromBounds((AtToken ?? KeywordOrIdent).Span.Start, KeywordOrIdent.Span.End);
 
-  private (Token? AtToken, Token KeywordOrIdent) ParseVisibilityTokens() {
+    public void AppendTo(ImmutableArray<Token>.Builder tokens) {
+      if (AtToken is { } at) {
+        tokens.Add(at);
+      }
+
+      if (SecondAtToken is { } secondAt) {
+        tokens.Add(secondAt);
+      }
+
+      tokens.Add(KeywordOrIdent);
+    }
+  }
+
+  // D-163: visibility is `pub` or `@@Testable` (two adjacent `@` tokens and the identifier `Testable`).
+  private bool IsTestableStart() => IsAdjacentDoubleAt() && IsIdentifierText(Peek(2), "Testable");
+
+  // The old spelling `@pub_testing` is still recognized so it can be diagnosed and recovered as `@@Testable`.
+  private bool IsDeprecatedPubTestingStart() =>
+      Current.Kind == TokenKind.At && IsIdentifierText(Peek(1), "pub_testing");
+
+  private bool IsVisibilityStart() =>
+      Current.Kind == TokenKind.PubKeyword || IsTestableStart() || IsDeprecatedPubTestingStart();
+
+  private VisibilityTokens ParseVisibilityTokens() {
     if (Current.Kind == TokenKind.PubKeyword) {
-      return (null, Consume());
+      return new VisibilityTokens(null, null, Consume());
     }
 
+    if (IsTestableStart()) {
+      Token firstAt = Consume();
+      Token secondAt = Consume();
+      return new VisibilityTokens(firstAt, secondAt, Consume());
+    }
+
+    int atIndex = _pos;
     Token atToken = Consume();
     Token identToken = Consume();
-    return (atToken, identToken);
+    ReportErrorAt(
+        atIndex,
+        DiagnosticCodes.DeprecatedVisibilitySyntax,
+        SourceSpan.FromBounds(atToken.Span.Start, identToken.Span.End),
+        "'@pub_testing' is not valid; use '@@Testable' instead.",
+        help: "replace '@pub_testing' with '@@Testable'");
+    return new VisibilityTokens(atToken, null, identToken);
   }
 
-  private VisibilitySyntax BuildVisibilitySyntax(Token? atToken, Token keywordOrIdent) {
-    SourceSpan span = atToken is { } at
-        ? SourceSpan.FromBounds(at.Span.Start, keywordOrIdent.Span.End)
-        : keywordOrIdent.Span;
-    return new VisibilitySyntax(NextId(), span, atToken, keywordOrIdent);
-  }
+  private VisibilitySyntax BuildVisibilitySyntax(VisibilityTokens tokens) =>
+      new(NextId(), tokens.Span, tokens.AtToken, tokens.KeywordOrIdent, tokens.SecondAtToken);
 
   private GenericDecoratorSyntax ParseGenericDecorator() {
     Token firstAt = Consume();
@@ -469,7 +500,7 @@ public sealed partial class Parser {
     GenericDecoratorSyntax? memberGeneric = null;
     Token? staticKeyword = null;
 
-    if (IsAdjacentDoubleAt()) {
+    if (IsAdjacentDoubleAt() && !IsTestableStart()) {
       if (IsIdentifierText(Peek(2), "Generic")) {
         memberGeneric = ParseGenericDecorator();
       } else {
@@ -481,39 +512,33 @@ public sealed partial class Parser {
       memberGeneric = ParseDeprecatedGenericDecorator();
     }
 
-    // open decision: accept `pub` and `@pub_testing` on struct fields and methods.
-    (Token? AtToken, Token KeywordOrIdent)? pendingVisibility = null;
+    // D-163: `pub` or `@@Testable` on struct fields and methods.
+    VisibilityTokens? pendingVisibility = null;
     while (IsVisibilityStart()) {
-      (Token? atToken, Token kwToken) = ParseVisibilityTokens();
+      VisibilityTokens visibilityTokens = ParseVisibilityTokens();
       if (pendingVisibility is null) {
-        pendingVisibility = (atToken, kwToken);
+        pendingVisibility = visibilityTokens;
       } else {
-        SourceSpan dupSpan = atToken is { } a
-            ? SourceSpan.FromBounds(a.Span.Start, kwToken.Span.End)
-            : kwToken.Span;
         ReportErrorAt(
             _pos - 1,
             DiagnosticCodes.ExpectedStatement,
-            dupSpan,
-            "'pub' and '@pub_testing' cannot be combined on the same member.");
+            visibilityTokens.Span,
+            "'pub' and '@@Testable' cannot be combined on the same member.");
         var errTokens = ImmutableArray.CreateBuilder<Token>();
         if (memberGeneric is not null) {
           AppendRealTokens(errTokens, memberGeneric);
           memberGeneric = null;
           _nextId = beforeMemberId;
         }
-        if (pendingVisibility.Value.AtToken is { } prevAt) {
-          errTokens.Add(prevAt);
-        }
-        errTokens.Add(pendingVisibility.Value.KeywordOrIdent);
+        pendingVisibility.Value.AppendTo(errTokens);
         members.Add(MakeErrorMemberFromTokens(errTokens.ToImmutable()));
         beforeMemberId = _nextId;
-        pendingVisibility = (atToken, kwToken);
+        pendingVisibility = visibilityTokens;
       }
     }
 
     VisibilitySyntax? memberVisibility = pendingVisibility is { } pv
-        ? BuildVisibilitySyntax(pv.AtToken, pv.KeywordOrIdent)
+        ? BuildVisibilitySyntax(pv)
         : null;
 
     if (Current.Kind == TokenKind.StaticKeyword) {
@@ -1086,7 +1111,7 @@ public sealed partial class Parser {
 
       if (Current.Kind is TokenKind.FnKeyword or TokenKind.StaticKeyword or TokenKind.PubKeyword
           || IsAdjacentDoubleAt()
-          || (Current.Kind == TokenKind.At && IsIdentifierText(Peek(1), "pub_testing"))
+          || IsDeprecatedPubTestingStart()
           || (Current.Kind == TokenKind.At && IsIdentifierText(Peek(1), "generic"))) {
         break;
       }

@@ -44,6 +44,11 @@ public sealed class DiagnosticCodesTests {
   }
 
   [Fact]
+  public void ParserCodePN2021_DeprecatedVisibilitySyntax_Exists() {
+    Assert.Equal("PN2021", DiagnosticCodes.DeprecatedVisibilitySyntax);
+  }
+
+  [Fact]
   public void AllPublicConstantsInDiagnosticCodes_AreUnique() {
     FieldInfo[] fields = typeof(DiagnosticCodes)
         .GetFields(BindingFlags.Public | BindingFlags.Static)

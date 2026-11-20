@@ -9,10 +9,17 @@ public sealed record VisibilitySyntax(
     int Id,
     SourceSpan Span,
     Token? AtToken,
-    Token KeywordOrIdentifierToken) : SyntaxNode(Id, Span) {
+    Token KeywordOrIdentifierToken,
+    Token? SecondAtToken = null) : SyntaxNode(Id, Span) {
+  /// <summary>True for <c>pub</c>; otherwise <c>@@Testable</c> (or the deprecated <c>@pub_testing</c>, recovered as <c>@@Testable</c>).</summary>
+  public bool IsPub => KeywordOrIdentifierToken.Kind == TokenKind.PubKeyword;
+
   public override IEnumerable<SyntaxElement> GetChildren() {
     if (AtToken is { } at) {
       yield return at;
+    }
+    if (SecondAtToken is { } secondAt) {
+      yield return secondAt;
     }
     yield return KeywordOrIdentifierToken;
   }

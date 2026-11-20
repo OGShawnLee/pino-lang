@@ -246,6 +246,10 @@ public sealed class LexerStringTests {
     string message = result.Diagnostics[0].Message;
     Assert.Contains("\\$", message, StringComparison.Ordinal);
     Assert.Contains("$(", message, StringComparison.Ordinal);
+    // PN1017 help: a keyword is not an expression, so `$(if)` was a bad suggestion; the example must be valid.
+    Assert.DoesNotContain($"$({keyword})", message, StringComparison.Ordinal);
+    Assert.Contains("'$(1 + 2)'", message, StringComparison.Ordinal);
+    Assert.Contains("parentheses", message, StringComparison.Ordinal);
     AssertWellFormed(text, result);
   }
 

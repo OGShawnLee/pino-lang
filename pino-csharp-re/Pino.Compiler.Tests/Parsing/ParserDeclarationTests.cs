@@ -256,15 +256,27 @@ public sealed class ParserDeclarationTests {
     Assert.IsType<VariableDeclarationSyntax>(r2.Root.Items[1]);
   }
 
-  [Fact]
-  public void PubAndPubTestingCombined_EmitsParseErrorAndKeepsTokenAccounting() {
-    ParseResult r1 = ParserTestHelpers.ParseFile("pub @pub_testing fn foo() {}", expectNoDiagnostics: false);
-    Assert.Single(r1.Diagnostics);
-    Assert.Contains(r1.Root.Items, static n => n is FunctionDeclarationSyntax);
+  [Theory]
+  [InlineData("pub @@Testable fn foo() {}")]
+  [InlineData("@@Testable pub fn foo() {}")]
+  [InlineData("pub @@Testable val x = 1")]
+  [InlineData("@@Testable pub struct S {}")]
+  public void PubAndTestableCombined_EmitsMODE5ParseErrorAndKeepsTokenAccounting(string source) {
+    ParseResult result = ParserTestHelpers.ParseFile(source, expectNoDiagnostics: false);
+    Diagnostic diagnostic = Assert.Single(result.Diagnostics);
+    Assert.Equal(DiagnosticCodes.ExpectedStatement, diagnostic.Code);
+    Assert.Contains("cannot be combined", diagnostic.Message, StringComparison.Ordinal);
+    Assert.DoesNotContain("pub_testing", diagnostic.Message, StringComparison.Ordinal);
+    Assert.Contains(result.Root.Items, static n => n is not ErrorStatementSyntax);
+  }
 
-    ParseResult r2 = ParserTestHelpers.ParseFile("@pub_testing pub fn foo() {}", expectNoDiagnostics: false);
-    Assert.Single(r2.Diagnostics);
-    Assert.Contains(r2.Root.Items, static n => n is FunctionDeclarationSyntax);
+  [Fact]
+  public void PubAndTestableCombinedOnAStructMember_EmitsOneParseError() {
+    ParseResult result = ParserTestHelpers.ParseFile(
+        "struct S { pub @@Testable x int\n @@Testable pub fn f() {} }",
+        expectNoDiagnostics: false);
+    Assert.Equal(2, result.Diagnostics.Length);
+    Assert.All(result.Diagnostics, static d => Assert.Equal(DiagnosticCodes.ExpectedStatement, d.Code));
   }
 
   [Theory]

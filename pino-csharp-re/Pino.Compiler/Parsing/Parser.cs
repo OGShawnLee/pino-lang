@@ -448,7 +448,7 @@ public sealed partial class Parser {
 
     if (Current.Kind == TokenKind.At) {
       return IsAdjacentDoubleAt()
-          || IsIdentifierText(Peek(1), "pub_testing")
+          || IsDeprecatedPubTestingStart()
           || IsIdentifierText(Peek(1), "generic");
     }
 
@@ -547,8 +547,12 @@ public sealed partial class Parser {
         TokenKind.StringEnd => "end of string",
         TokenKind.InterpStart => "interpolation",
         TokenKind.InterpEnd => "')'",
-        _ => $"'{GetTokenText(token)}'",
+        _ => QuoteTokenText(GetTokenText(token)),
       };
+
+  // Token text that is already quoted (a rune literal such as `'-'`) is shown as written, not quoted a second time.
+  private static string QuoteTokenText(string text) =>
+      text.Length >= 2 && text[0] == '\'' && text[^1] == '\'' ? text : $"'{text}'";
 
   private static string DescribeTokenKind(TokenKind kind) =>
       kind switch {
