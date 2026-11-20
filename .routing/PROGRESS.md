@@ -120,6 +120,25 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - Owner decision (2026-11-19): existing conformance cases are rewritten into the decided language; legacy failures go to `known-failures.txt` citing the decision.
 
 ## Next steps
+- [ ] **Owner decisions of 2026-11-20 (tech-debt review), to be recorded in `spec/` by one ticket once the follow-up questions are answered:**
+  - D-012 decided: type annotations are added, spelled `val n int = 12` (type after the name, no colon), as in the owner's `main.pino:14-20`.
+  - Option: `var x Option[string] = Option::None` is how an "empty" variable is written; a `val` initialized with `Option::None` is a checker error, because it can never hold a value.
+  - Standalone `{ ... }` blocks are part of the language (the self-host uses compound statements).
+  - `void` is a type users can write:
+    - allowed as a function return type, as the return of a function type (`fn (int) -> void`), and as `Result[void, E]` (success with no value: the self-host wants it for functions that can only fail)
+    - an error as a parameter, variable or field type, and as a collection element type
+  - `pub` makes an entity importable by other modules. Struct fields are **private by default** and **module-private** (as in Go and Rust), and `pub name string` makes a field public. `@pub_testing` is renamed **`@@Testable`**.
+  - Integer division: **`//` floors**, and **`%` floors to match** (Python semantics, so `a == (a // b) * b + a % b`). Level 7 with `*`, `/` and `%`. Follow-ups: `//=`; `//` on floats; whether truncating built-ins exist (the router suggests deferring).
+  - D-050 (return-type inference for named functions): the owner says yes, as the self-host already does, with `Type::Implicit`, hoisting and recursive inference. Exact semantics come from audit 028 before recording.
+  - [x] **Audit `028-audit-self-host-checker` (Gemini 4 Neon High, read-only; `.tickets/028-audit-self-host-checker/audit.md`):** 23 probe runs, no tracked files touched.
+    - Self-host checker: two passes; `Type::Implicit`; hoisting; recursive return inference that works when the base-case `return` is checked before the recursive call (also for mutual recursion in either order) and fails on a late or missing base case.
+    - 11 major self-host bugs: implicit-return methods using `self` panic; duplicate string map keys panic; `coerce_to_float` falls off its end; global state leaks; the inference stack is missing a push; generic compatibility is broken; out-of-bounds on extra arguments; `Parser.pino:925` precedence; stale tests and `Transformer.pino`.
+    - Recommends for `-re`: `SyntaxNode.Id` side tables, bidirectional checking, unification for `@@Generic`, two-phase memoized return inference (late base cases too), and a non-cascading `ErrorType`.
+    - 10 owner questions (section 7). They block the `-re` checker design.
+  - Deferred: D-036 (`main` args), typeless default parameters, named call arguments, the `LANGUAGE_REFERENCE.md` update, and the spacing of `:` member access (only affects old `k: v` maps).
+  - Skipped: conformance-runner crash isolation (RUNE-E2 stays `[no-case]`).
+  - To do: the spec loose ends (`program_item` grammar, `assert` production, SET-4, D-100 known-failure reasons) and the `-re` message polish (PN1017 `$(if)`, PN2001 doubled quotes, multi-line tokens in `tree`).
+  - Note: the owner's uncommitted `main.pino` now uses annotations, so `ParserCorpusTests` fails on `main.pino` in the main checkout (4× `PN2001`) until the `-re` parser implements D-012.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
 - [ ] **Pending self-host corrections (owner, by hand; never ticketed to workers):**
   - D-020: double the backslashes in regex string literals (`"\+"` → `"\\+"`, etc.), because unknown escapes are now errors. Files: `projects/pino-compiler/modules/Lexer.pino` and `projects/c-compiler/modules/lexer.pino`. The `-re` corpus test skips exactly these two files until they are fixed.
