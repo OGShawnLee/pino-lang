@@ -76,7 +76,17 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - inline-generic recovery dropping tokens
     - Main: `-re` 2515/2515 in 10 s, 0 warnings, including the owner's uncommitted `c-compiler` edits.
 
-  Next: the `-re` checker design (AD-001; must satisfy A4), or a `-re` CLI driver so `DiagnosticRenderer` output and Pino's voice show up in the terminal. Owner's choice.
+  - [x] `027-re-cli-check-and-tree` (`f7c8a6e`, **Claude Sonnet 5.5 High**, chosen to spare the owner's Gemini quota):
+    - new `pino-csharp-re/Pino.Cli` (`pino-re`):
+      - `check <files|dirs>` prints rendered diagnostics and a summary; exits 0 when clean, 1 on errors, 2 on usage or I/O problems
+      - `tree <file>` prints the indented syntax tree
+      - `--color auto|always|never` (`NO_COLOR`, redirection, Windows VT mode) and `--voice pino|plain`
+    - 29 tests. Main: `-re` 2544/2544, 0 warnings. The router ran `check` and `tree` on real files in main.
+    - Polish found by the router's run (not urgent):
+      - (a) The `PN2001` "found" text double-quotes rune tokens (`found ''-''`).
+      - (b) Old `k: v` map entries parse the first entry as member access (`'+': Atom` → `'+':Atom`), so the error lands one line late. The spec doesn't say whether `:` member access allows surrounding spaces; that needs a spec decision, then a help hint suggesting `->`.
+
+  Next: the `-re` checker design (AD-001; must satisfy A4). The router suggests Gemini Neon for it.
 *(None)*
 
 ## Architecture decisions
