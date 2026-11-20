@@ -23,18 +23,13 @@ public sealed class LexerCorpusTests {
     DiagnosticCodes.KeywordInSimpleInterpolation,
   };
 
-  // LEX-E*, STR-E*, and RUNE-E* rules whose errors belong to the parser or checker rather than the lexer.
-  private static readonly HashSet<string> s_nonLexerErrorRules = new(StringComparer.Ordinal) {
-    // Parser error: keywords lex as keyword tokens; using one as an identifier is rejected by the parser.
-    "LEX-E1",
-    // Parser error: '-' and adjacent tokens lex cleanly; ambiguous spacing is rejected by the parser.
-    "LEX-E2",
-    // Parser error: ',' lexes as a comma token; trailing commas are rejected by the parser.
-    "LEX-E4",
-    // Parser error: '=>' lexes cleanly; fat arrow in function/match syntax is rejected by the parser.
-    "LEX-E5",
-    // Checker error: string index assignment lexes and parses cleanly; immutability is enforced by the checker.
-    "STR-E1",
+  // Lexer-error rule IDs; add new ones here when a lexer diagnostic gets a spec rule.
+  private static readonly HashSet<string> s_lexerErrorRules = new(StringComparer.Ordinal) {
+    "LEX-E3",
+    "RUNE-E1",
+    "STR-E2",
+    "STR-E3",
+    "STR-E4",
   };
 
   private static readonly string s_repositoryRoot = FindRepositoryRoot();
@@ -59,7 +54,7 @@ public sealed class LexerCorpusTests {
         }
 
         string text = File.ReadAllText(Path.Combine(s_repositoryRoot, path));
-        if (GetCoveredRuleIds(text).Any(IsLexerErrorRule)) {
+        if (GetCoveredRuleIds(text).Any(s_lexerErrorRules.Contains)) {
           data.Add(path);
         }
       }
@@ -89,12 +84,6 @@ public sealed class LexerCorpusTests {
       }
     }
   }
-
-  private static bool IsLexerErrorRule(string ruleId) =>
-    (ruleId.StartsWith("LEX-E", StringComparison.Ordinal)
-      || ruleId.StartsWith("STR-E", StringComparison.Ordinal)
-      || ruleId.StartsWith("RUNE-E", StringComparison.Ordinal))
-    && !s_nonLexerErrorRules.Contains(ruleId);
 
   private static bool ProducesErrorToken(Diagnostic diagnostic) =>
     s_errorTokenDiagnosticCodes.Contains(diagnostic.Code)
