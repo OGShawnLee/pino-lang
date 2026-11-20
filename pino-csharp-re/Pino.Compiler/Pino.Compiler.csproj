@@ -5,4 +5,8 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Pino.Compiler.Tests" />
+  </ItemGroup>
+
 </Project>
