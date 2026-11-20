@@ -105,4 +105,150 @@ public sealed class ParserRecoveryTests {
     Assert.Equal(1, diag.Span.Length);
     Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1), $"Took {sw.Elapsed.TotalMilliseconds:F1} ms.");
   }
+
+  [Theory]
+  [InlineData("val x =", "(CompilationUnit (VariableDeclaration val x = (MissingExpression)))", DiagnosticCodes.ExpectedExpression)]
+  [InlineData("if x {", "(CompilationUnit (IfStatement (IdentifierExpression x) (BlockStatement <missing CloseBrace>)))", DiagnosticCodes.ExpectedToken)]
+  [InlineData("match x { when", "(CompilationUnit (MatchStatement (IdentifierExpression x) (WhenArm (MissingPattern)) <missing CloseBrace>))", DiagnosticCodes.ExpectedPattern)]
+  [InlineData("fn foo(", "(CompilationUnit (FunctionDeclaration foo <missing CloseParen> (BlockStatement <missing OpenBrace> <missing CloseBrace>)))", DiagnosticCodes.ExpectedToken)]
+  public void DesignA2_StatementAndDeclarationRows_ProduceStructuredMissingNodes(
+      string source,
+      string expectedSExpr,
+      string expectedCode) {
+    ParseResult result = ParserTestHelpers.ParseFile(source, expectNoDiagnostics: false);
+    Assert.Equal(expectedSExpr, SyntaxPrinter.Print(result.Root, result.Lex.Source));
+    Assert.Contains(result.Diagnostics, d => d.Code == expectedCode);
+  }
+
+  [Fact]
+  public void A1_MissingBraceBeforeColumn1Declaration_ClosesBlockAndParsesNextDeclaration() {
+    const string Source = """
+      fn foo() {
+        val x = 1
+      fn bar() {
+        val y = 2
+      }
+      """;
+
+    ParseResult result = ParserTestHelpers.ParseFile(Source, expectNoDiagnostics: false);
+    Assert.Equal(2, result.Root.Items.Length);
+    FunctionDeclarationSyntax foo = Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[0]);
+    FunctionDeclarationSyntax bar = Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[1]);
+    Assert.Equal("foo", result.Lex.GetText(foo.NameToken).ToString());
+    Assert.Equal("bar", result.Lex.GetText(bar.NameToken).ToString());
+    Assert.True((foo.Body.CloseBraceToken.Flags & TokenFlags.Missing) != 0);
+    Assert.True((bar.Body.CloseBraceToken.Flags & TokenFlags.Missing) == 0);
+
+    Diagnostic diag = Assert.Single(result.Diagnostics);
+    Assert.Equal(DiagnosticCodes.ExpectedToken, diag.Code);
+    Assert.Equal("expected '}' before this declaration", diag.Message);
+    Assert.Equal(0, diag.Span.Length);
+    Assert.Equal(bar.Span.Start, diag.Span.Start);
+
+    RelatedLocation rel = Assert.Single(diag.Related);
+    Assert.Equal("this block is never closed", rel.Message);
+    Assert.Equal(foo.Body.OpenBraceToken.Span, rel.Span);
+  }
+
+  [Fact]
+  public void A1_TwoNestedUnclosedBlocks_EmitOnePN2001WithTwoRelatedLocations() {
+    const string Source = """
+      fn foo() {
+        if cond {
+          val x = 1
+      fn bar() {
+      }
+      """;
+
+    ParseResult result = ParserTestHelpers.ParseFile(Source, expectNoDiagnostics: false);
+    Assert.Equal(2, result.Root.Items.Length);
+    FunctionDeclarationSyntax foo = Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[0]);
+    FunctionDeclarationSyntax bar = Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[1]);
+    IfStatementSyntax innerIf = Assert.IsType<IfStatementSyntax>(Assert.Single(foo.Body.Items));
+    Assert.True((foo.Body.CloseBraceToken.Flags & TokenFlags.Missing) != 0);
+    Assert.True((innerIf.ThenBranch.CloseBraceToken.Flags & TokenFlags.Missing) != 0);
+
+    Diagnostic diag = Assert.Single(result.Diagnostics);
+    Assert.Equal(DiagnosticCodes.ExpectedToken, diag.Code);
+    Assert.Equal("expected '}' before this declaration", diag.Message);
+    Assert.Equal(bar.Span.Start, diag.Span.Start);
+    Assert.Equal(2, diag.Related.Length);
+    Assert.All(diag.Related, static r => Assert.Equal("this block is never closed", r.Message));
+    Assert.Equal(foo.Body.OpenBraceToken.Span, diag.Related[0].Span);
+    Assert.Equal(innerIf.ThenBranch.OpenBraceToken.Span, diag.Related[1].Span);
+  }
+
+  [Fact]
+  public void A1_BalancedFileWithColumn1DeclarationInsideBlock_FollowsGrammar() {
+    const string Source = """
+      fn outer() {
+      fn inner() {
+        val x = 1
+      }
+        inner()
+      }
+      """;
+
+    ParseResult result = ParserTestHelpers.ParseFile(Source, expectNoDiagnostics: true);
+    FunctionDeclarationSyntax outer = Assert.IsType<FunctionDeclarationSyntax>(Assert.Single(result.Root.Items));
+    Assert.Equal(2, outer.Body.Items.Length);
+    FunctionDeclarationSyntax inner = Assert.IsType<FunctionDeclarationSyntax>(outer.Body.Items[0]);
+    Assert.Equal("inner", result.Lex.GetText(inner.NameToken).ToString());
+    Assert.IsType<ExpressionStatementSyntax>(outer.Body.Items[1]);
+  }
+
+  [Fact]
+  public void A1_Column1LambdaDoesNotTriggerColumn1Recovery() {
+    const string Source = """
+      fn foo() {
+      fn (x int) -> x + 1
+      }
+      """;
+
+    ParseResult result = ParserTestHelpers.ParseFile(Source, expectNoDiagnostics: true);
+    FunctionDeclarationSyntax foo = Assert.IsType<FunctionDeclarationSyntax>(Assert.Single(result.Root.Items));
+    ExpressionStatementSyntax stmt = Assert.IsType<ExpressionStatementSyntax>(Assert.Single(foo.Body.Items));
+    Assert.IsType<LambdaExpressionSyntax>(stmt.Expression);
+  }
+
+  [Fact]
+  public void A1_Column1LambdaInsideUnclosedFileDoesNotTriggerEarlyClose() {
+    const string Source = """
+      fn foo() {
+      fn (x int) -> x + 1
+      fn bar() {
+      }
+      """;
+
+    ParseResult result = ParserTestHelpers.ParseFile(Source, expectNoDiagnostics: false);
+    Assert.Equal(2, result.Root.Items.Length);
+    FunctionDeclarationSyntax foo = Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[0]);
+    FunctionDeclarationSyntax bar = Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[1]);
+    ExpressionStatementSyntax stmt = Assert.IsType<ExpressionStatementSyntax>(Assert.Single(foo.Body.Items));
+    Assert.IsType<LambdaExpressionSyntax>(stmt.Expression);
+
+    Diagnostic diag = Assert.Single(result.Diagnostics);
+    Assert.Equal(DiagnosticCodes.ExpectedToken, diag.Code);
+    Assert.Equal(bar.Span.Start, diag.Span.Start);
+    Assert.Single(diag.Related);
+  }
+
+  [Fact]
+  public void GarbageBetweenDeclarations_BecomesOneErrorNodeAndOneDiagnostic() {
+    const string Source = """
+      fn first() {}
+      ) ] + *
+      fn second() {}
+      """;
+
+    ParseResult result = ParserTestHelpers.ParseFile(Source, expectNoDiagnostics: false);
+    Assert.Equal(3, result.Root.Items.Length);
+    Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[0]);
+    ErrorStatementSyntax err = Assert.IsType<ErrorStatementSyntax>(result.Root.Items[1]);
+    Assert.Equal(4, err.SkippedTokens.Length);
+    Assert.IsType<FunctionDeclarationSyntax>(result.Root.Items[2]);
+
+    Diagnostic diag = Assert.Single(result.Diagnostics);
+    Assert.Equal(DiagnosticCodes.ExpectedStatement, diag.Code);
+  }
 }

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Lexing;
 using Pino.Compiler.Parsing;
@@ -7,6 +9,12 @@ using Pino.Compiler.Text;
 namespace Pino.Compiler.Tests.Parsing;
 
 internal static class ParserTestHelpers {
+  public static ParseResult ParseFile(string source, bool expectNoDiagnostics = true) {
+    ParseResult result = Parser.Parse(new SourceText(source));
+    AssertFileInvariants(result, expectNoDiagnostics);
+    return result;
+  }
+
   public static ParseResult<ExpressionSyntax> ParseExpression(string source, bool expectEOF = true, bool expectNoDiagnostics = true) {
     LexResult lex = Lexer.Lex(new SourceText(source));
     ParseResult<ExpressionSyntax> result = Parser.ParseStandaloneExpression(lex);
@@ -35,13 +43,24 @@ internal static class ParserTestHelpers {
     return result;
   }
 
+  public static void AssertFileInvariants(
+      ParseResult result,
+      bool expectNoDiagnostics = false) {
+    LexResult lex = result.Lex;
+    if (expectNoDiagnostics) {
+      Assert.Empty(lex.Diagnostics);
+      Assert.Empty(result.Diagnostics);
+    }
+
+    AssertTokenAccounting(lex, result.Root, lex.Tokens.Length - 1, includesEOF: true);
+    AssertNodesAndDiagnostics(result.Root, result.NodeCount, result.Diagnostics, lex.Source.Length, lex.Source.Text);
+  }
+
   public static void AssertInvariants<TNode>(
       ParseResult<TNode> result,
       bool expectEOF = true,
       bool expectNoDiagnostics = false) where TNode : SyntaxNode {
     LexResult lex = result.Lex;
-    int sourceLength = lex.Source.Length;
-
     if (expectNoDiagnostics) {
       Assert.Empty(lex.Diagnostics);
       Assert.Empty(result.Diagnostics);
@@ -54,11 +73,29 @@ internal static class ParserTestHelpers {
       Assert.InRange(result.EndTokenIndex, 0, lex.Tokens.Length - 1);
     }
 
-    // Token accounting: DescendantTokens() minus Missing == lex.Tokens[0..EndTokenIndex) in order.
-    Token[] expectedRealTokens = [.. lex.Tokens.Take(result.EndTokenIndex)];
-    Token[] actualTokens = [.. result.Node.DescendantTokens()];
+    AssertTokenAccounting(lex, result.Node, result.EndTokenIndex, includesEOF: false);
+    AssertNodesAndDiagnostics(result.Node, result.NodeCount, result.Diagnostics, lex.Source.Length, lex.Source.Text);
+  }
+
+  private static void AssertTokenAccounting(
+      LexResult lex,
+      SyntaxNode root,
+      int endTokenIndex,
+      bool includesEOF) {
+    int sourceLength = lex.Source.Length;
+    Token[] expectedRealTokens = includesEOF
+        ? [.. lex.Tokens]
+        : [.. lex.Tokens.Take(endTokenIndex)];
+    Token[] actualTokens = [.. root.DescendantTokens()];
     Token[] actualRealTokens = [.. actualTokens.Where(static t => (t.Flags & TokenFlags.Missing) == 0)];
     Assert.Equal(expectedRealTokens, actualRealTokens);
+
+    if (includesEOF) {
+      Token[] expectedNonEOF = [.. lex.Tokens.Where(static t => t.Kind != TokenKind.EOF)];
+      Token[] actualNonEOF = [.. actualRealTokens.Where(static t => t.Kind != TokenKind.EOF)];
+      Assert.Equal(expectedNonEOF, actualNonEOF);
+      Assert.Equal(TokenKind.EOF, actualRealTokens[^1].Kind);
+    }
 
     int lastStart = -1;
     foreach (Token token in actualTokens) {
@@ -71,11 +108,17 @@ internal static class ParserTestHelpers {
       Assert.InRange(token.Span.End, 0, sourceLength);
       lastStart = token.Span.Start;
     }
+  }
 
-    // Dense node IDs 0..NodeCount-1 and in-bounds spans.
+  private static void AssertNodesAndDiagnostics(
+      SyntaxNode root,
+      int nodeCount,
+      ImmutableArray<Diagnostic> diagnostics,
+      int sourceLength,
+      string sourceText) {
     var seenIds = new HashSet<int>();
-    foreach (SyntaxNode node in WalkNodes(result.Node)) {
-      Assert.InRange(node.Id, 0, result.NodeCount - 1);
+    foreach (SyntaxNode node in WalkNodes(root)) {
+      Assert.InRange(node.Id, 0, nodeCount - 1);
       Assert.True(seenIds.Add(node.Id), $"Duplicate node Id {node.Id}.");
       Assert.InRange(node.Span.Start, 0, sourceLength);
       Assert.InRange(node.Span.End, 0, sourceLength);
@@ -88,13 +131,12 @@ internal static class ParserTestHelpers {
     }
 
     Assert.True(
-        result.NodeCount == seenIds.Count,
-        $"Dense NodeCount mismatch for '{lex.Source.Text}': NodeCount={result.NodeCount}, seen={seenIds.Count}");
+        nodeCount == seenIds.Count,
+        $"Dense NodeCount mismatch for '{sourceText}': NodeCount={nodeCount}, seen={seenIds.Count}");
 
-    // Diagnostics are sorted and in-bounds.
     int prevStart = -1;
     int prevLen = -1;
-    foreach (Diagnostic diag in result.Diagnostics) {
+    foreach (Diagnostic diag in diagnostics) {
       Assert.InRange(diag.Span.Start, 0, sourceLength);
       Assert.InRange(diag.Span.End, 0, sourceLength);
       Assert.True(

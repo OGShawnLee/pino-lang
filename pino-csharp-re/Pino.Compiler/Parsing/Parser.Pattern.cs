@@ -7,7 +7,7 @@ using Pino.Compiler.Text;
 
 namespace Pino.Compiler.Parsing;
 
-internal sealed partial class Parser {
+public sealed partial class Parser {
   private PatternSyntax ParsePattern() {
     if (_depth >= MaxDepth) {
       ReportDepthExceeded();

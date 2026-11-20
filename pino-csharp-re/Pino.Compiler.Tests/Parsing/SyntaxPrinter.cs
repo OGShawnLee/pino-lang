@@ -52,6 +52,10 @@ internal static class SyntaxPrinter {
           or TokenKind.Not
           or TokenKind.InKeyword
           or TokenKind.IsKeyword
+          or TokenKind.PubKeyword
+          or TokenKind.StaticKeyword
+          or TokenKind.ValKeyword
+          or TokenKind.VarKeyword
           or TokenKind.Assign
           or TokenKind.Plus
           or TokenKind.PlusAssign

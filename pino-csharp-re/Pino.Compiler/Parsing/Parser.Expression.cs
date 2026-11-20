@@ -8,7 +8,7 @@ using Pino.Compiler.Text;
 
 namespace Pino.Compiler.Parsing;
 
-internal sealed partial class Parser {
+public sealed partial class Parser {
   [Flags]
   private enum ExprContext {
     None = 0,
@@ -687,83 +687,92 @@ internal sealed partial class Parser {
 
         if (context.HasFlag(ExprContext.AllowBraceLiteral) && Current.Kind == TokenKind.OpenBrace) {
           openBrace = Consume();
-          while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-            if (IsStatementSyncToken(Current.Kind) && Current.Kind != TokenKind.Identifier) {
-              break;
-            }
+          bool pushed = PushOpenBrace(openBrace.Value);
+          try {
+            while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+              if (CheckColumn1Trigger()) {
+                break;
+              }
 
-            int startPos = _pos;
-            if (Current.Kind == TokenKind.Comma) {
-              int commaIndex = _pos;
-              Token leadingComma = Consume();
-              ReportErrorAt(
-                  commaIndex,
-                  DiagnosticCodes.UnexpectedComma,
-                  leadingComma.Span,
-                  "Unexpected ',' before vector property.");
-              var missingSpan = new SourceSpan(leadingComma.Span.Start, 0);
-              var missingName = new Token(TokenKind.Identifier, missingSpan, TokenFlags.Missing);
-              var missingColon = new Token(TokenKind.Colon, missingSpan, TokenFlags.Missing);
-              var missingVal = new MissingExpressionSyntax(NextId(), missingSpan);
-              props.Add(new VectorPropertySyntax(
-                  NextId(),
-                  leadingComma.Span,
-                  missingName,
-                  missingColon,
-                  missingVal,
-                  leadingComma));
-              continue;
-            }
+              if (IsStatementSyncToken(Current.Kind) && Current.Kind != TokenKind.Identifier) {
+                break;
+              }
 
-            if (Current.Kind != TokenKind.Identifier && Current.Kind != TokenKind.Colon) {
-              ReportError(
-                  DiagnosticCodes.ExpectedIdentifier,
-                  Current.Span,
-                  $"Expected vector property name, found {DescribeToken(Current)}.");
-              break;
-            }
-
-            Token propName = ExpectIdentifier();
-            Token colon = Expect(TokenKind.Colon);
-            ExpressionSyntax propValue = ParseExpression(0, ExprContext.AllowBraceLiteral);
-
-            Token? commaToken = null;
-            if (Current.Kind == TokenKind.Comma) {
-              int commaIndex = _pos;
-              Token comma = Consume();
-              commaToken = comma;
-              if (Current.Kind == TokenKind.CloseBrace) {
+              int startPos = _pos;
+              if (Current.Kind == TokenKind.Comma) {
+                int commaIndex = _pos;
+                Token leadingComma = Consume();
                 ReportErrorAt(
                     commaIndex,
-                    DiagnosticCodes.TrailingComma,
-                    comma.Span,
-                    "Trailing comma is not allowed.",
-                    help: "Remove the trailing ','.");
-              } else if (Current.Kind == TokenKind.Comma) {
-                ReportErrorAt(
-                    _pos,
                     DiagnosticCodes.UnexpectedComma,
+                    leadingComma.Span,
+                    "Unexpected ',' before vector property.");
+                var missingSpan = new SourceSpan(leadingComma.Span.Start, 0);
+                var missingName = new Token(TokenKind.Identifier, missingSpan, TokenFlags.Missing);
+                var missingColon = new Token(TokenKind.Colon, missingSpan, TokenFlags.Missing);
+                var missingVal = new MissingExpressionSyntax(NextId(), missingSpan);
+                props.Add(new VectorPropertySyntax(
+                    NextId(),
+                    leadingComma.Span,
+                    missingName,
+                    missingColon,
+                    missingVal,
+                    leadingComma));
+                continue;
+              }
+
+              if (Current.Kind != TokenKind.Identifier && Current.Kind != TokenKind.Colon) {
+                ReportError(
+                    DiagnosticCodes.ExpectedIdentifier,
                     Current.Span,
-                    "Expected property before consecutive ','.");
+                    $"Expected vector property name, found {DescribeToken(Current)}.");
+                break;
+              }
+
+              Token propName = ExpectIdentifier();
+              Token colon = Expect(TokenKind.Colon);
+              ExpressionSyntax propValue = ParseExpression(0, ExprContext.AllowBraceLiteral);
+
+              Token? commaToken = null;
+              if (Current.Kind == TokenKind.Comma) {
+                int commaIndex = _pos;
+                Token comma = Consume();
+                commaToken = comma;
+                if (Current.Kind == TokenKind.CloseBrace) {
+                  ReportErrorAt(
+                      commaIndex,
+                      DiagnosticCodes.TrailingComma,
+                      comma.Span,
+                      "Trailing comma is not allowed.",
+                      help: "Remove the trailing ','.");
+                } else if (Current.Kind == TokenKind.Comma) {
+                  ReportErrorAt(
+                      _pos,
+                      DiagnosticCodes.UnexpectedComma,
+                      Current.Span,
+                      "Expected property before consecutive ','.");
+                }
+              }
+
+              int endOffset = commaToken is { } c ? c.Span.End : propValue.Span.End;
+              props.Add(new VectorPropertySyntax(
+                  NextId(),
+                  SourceSpan.FromBounds(propName.Span.Start, endOffset),
+                  propName,
+                  colon,
+                  propValue,
+                  commaToken));
+
+              if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
+                break;
+              }
+
+              if (_pos == startPos) {
+                break;
               }
             }
-
-            int endOffset = commaToken is { } c ? c.Span.End : propValue.Span.End;
-            props.Add(new VectorPropertySyntax(
-                NextId(),
-                SourceSpan.FromBounds(propName.Span.Start, endOffset),
-                propName,
-                colon,
-                propValue,
-                commaToken));
-
-            if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
-              break;
-            }
-
-            if (_pos == startPos) {
-              break;
-            }
+          } finally {
+            PopOpenBrace(pushed);
           }
 
           closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace.Value);
@@ -867,90 +876,99 @@ internal sealed partial class Parser {
 
     if (context.HasFlag(ExprContext.AllowBraceLiteral) && Current.Kind == TokenKind.OpenBrace) {
       openBrace = Consume();
-      while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-        if (IsStatementSyncToken(Current.Kind) && !CanStartExpression(Current)) {
-          break;
-        }
-
-        int startPos = _pos;
-        if (Current.Kind == TokenKind.Comma) {
-          int commaIndex = _pos;
-          Token leadingComma = Consume();
-          ReportErrorAt(
-              commaIndex,
-              DiagnosticCodes.UnexpectedComma,
-              leadingComma.Span,
-              "Unexpected ',' before map entry.");
-          var missingSpan = new SourceSpan(leadingComma.Span.Start, 0);
-          var missingKey = new MissingExpressionSyntax(NextId(), missingSpan);
-          var missingArrow = new Token(TokenKind.Arrow, missingSpan, TokenFlags.Missing);
-          var missingValue = new MissingExpressionSyntax(NextId(), missingSpan);
-          entries.Add(new MapEntrySyntax(
-              NextId(),
-              leadingComma.Span,
-              missingKey,
-              missingArrow,
-              missingValue,
-              leadingComma));
-          continue;
-        }
-
-        int beforeKeyId = _nextId;
-        ExpressionSyntax key = ParseExpression(0, ExprContext.AllowBraceLiteral | ExprContext.InCommaOptionalList);
-        if (key is MissingExpressionSyntax && _pos == startPos) {
-          _nextId = beforeKeyId;
-          if (IsStatementSyncToken(Current.Kind) || IsCloserOrEOF(Current.Kind)) {
+      bool pushed = PushOpenBrace(openBrace.Value);
+      try {
+        while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+          if (CheckColumn1Trigger()) {
             break;
           }
 
-          Token skipped = Consume();
-          key = new ErrorExpressionSyntax(NextId(), skipped.Span, [skipped]);
-        }
+          if (IsStatementSyncToken(Current.Kind) && !CanStartExpression(Current)) {
+            break;
+          }
 
-        Token arrowToken;
-        Token? secondaryArrow;
-        if (!TryConsumeArrow(out arrowToken, out secondaryArrow)) {
-          arrowToken = Expect(TokenKind.Arrow);
-        }
-
-        ExpressionSyntax value = ParseExpression(0, ExprContext.AllowBraceLiteral | ExprContext.InCommaOptionalList);
-
-        Token? commaToken = null;
-        if (Current.Kind == TokenKind.Comma) {
-          int commaIndex = _pos;
-          Token comma = Consume();
-          commaToken = comma;
-          if (Current.Kind == TokenKind.CloseBrace) {
+          int startPos = _pos;
+          if (Current.Kind == TokenKind.Comma) {
+            int commaIndex = _pos;
+            Token leadingComma = Consume();
             ReportErrorAt(
                 commaIndex,
-                DiagnosticCodes.TrailingComma,
-                comma.Span,
-                "Trailing comma is not allowed.",
-                help: "Remove the trailing ','.");
-          } else if (Current.Kind == TokenKind.Comma) {
-            ReportErrorAt(
-                _pos,
                 DiagnosticCodes.UnexpectedComma,
-                Current.Span,
-                "Expected map entry before consecutive ','.");
+                leadingComma.Span,
+                "Unexpected ',' before map entry.");
+            var missingSpan = new SourceSpan(leadingComma.Span.Start, 0);
+            var missingKey = new MissingExpressionSyntax(NextId(), missingSpan);
+            var missingArrow = new Token(TokenKind.Arrow, missingSpan, TokenFlags.Missing);
+            var missingValue = new MissingExpressionSyntax(NextId(), missingSpan);
+            entries.Add(new MapEntrySyntax(
+                NextId(),
+                leadingComma.Span,
+                missingKey,
+                missingArrow,
+                missingValue,
+                leadingComma));
+            continue;
+          }
+
+          int beforeKeyId = _nextId;
+          ExpressionSyntax key = ParseExpression(0, ExprContext.AllowBraceLiteral | ExprContext.InCommaOptionalList);
+          if (key is MissingExpressionSyntax && _pos == startPos) {
+            _nextId = beforeKeyId;
+            if (IsStatementSyncToken(Current.Kind) || IsCloserOrEOF(Current.Kind)) {
+              break;
+            }
+
+            Token skipped = Consume();
+            key = new ErrorExpressionSyntax(NextId(), skipped.Span, [skipped]);
+          }
+
+          Token arrowToken;
+          Token? secondaryArrow;
+          if (!TryConsumeArrow(out arrowToken, out secondaryArrow)) {
+            arrowToken = Expect(TokenKind.Arrow);
+          }
+
+          ExpressionSyntax value = ParseExpression(0, ExprContext.AllowBraceLiteral | ExprContext.InCommaOptionalList);
+
+          Token? commaToken = null;
+          if (Current.Kind == TokenKind.Comma) {
+            int commaIndex = _pos;
+            Token comma = Consume();
+            commaToken = comma;
+            if (Current.Kind == TokenKind.CloseBrace) {
+              ReportErrorAt(
+                  commaIndex,
+                  DiagnosticCodes.TrailingComma,
+                  comma.Span,
+                  "Trailing comma is not allowed.",
+                  help: "Remove the trailing ','.");
+            } else if (Current.Kind == TokenKind.Comma) {
+              ReportErrorAt(
+                  _pos,
+                  DiagnosticCodes.UnexpectedComma,
+                  Current.Span,
+                  "Expected map entry before consecutive ','.");
+            }
+          }
+
+          int endOffset = commaToken is { } c
+              ? c.Span.End
+              : Math.Max(value.Span.End, (secondaryArrow ?? arrowToken).Span.End);
+          entries.Add(new MapEntrySyntax(
+              NextId(),
+              SourceSpan.FromBounds(key.Span.Start, endOffset),
+              key,
+              arrowToken,
+              value,
+              commaToken,
+              secondaryArrow));
+
+          if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
+            break;
           }
         }
-
-        int endOffset = commaToken is { } c
-            ? c.Span.End
-            : Math.Max(value.Span.End, (secondaryArrow ?? arrowToken).Span.End);
-        entries.Add(new MapEntrySyntax(
-            NextId(),
-            SourceSpan.FromBounds(key.Span.Start, endOffset),
-            key,
-            arrowToken,
-            value,
-            commaToken,
-            secondaryArrow));
-
-        if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
-          break;
-        }
+      } finally {
+        PopOpenBrace(pushed);
       }
 
       closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace.Value);
@@ -975,60 +993,69 @@ internal sealed partial class Parser {
 
     if (context.HasFlag(ExprContext.AllowBraceLiteral) && Current.Kind == TokenKind.OpenBrace) {
       openBrace = Consume();
-      while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-        if (IsStatementSyncToken(Current.Kind) && !CanStartExpression(Current)) {
-          break;
-        }
-
-        int startPos = _pos;
-        if (Current.Kind == TokenKind.Comma) {
-          int commaIndex = _pos;
-          Token leadingComma = Consume();
-          ReportErrorAt(
-              commaIndex,
-              DiagnosticCodes.UnexpectedComma,
-              leadingComma.Span,
-              "Unexpected ',' before set element.");
-          commas.Add(leadingComma);
-          continue;
-        }
-
-        int beforeElemId = _nextId;
-        ExpressionSyntax element = ParseExpression(0, ExprContext.AllowBraceLiteral | ExprContext.InCommaOptionalList);
-        if (element is MissingExpressionSyntax && _pos == startPos) {
-          _nextId = beforeElemId;
-          if (IsStatementSyncToken(Current.Kind) || IsCloserOrEOF(Current.Kind)) {
+      bool pushed = PushOpenBrace(openBrace.Value);
+      try {
+        while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+          if (CheckColumn1Trigger()) {
             break;
           }
 
-          Token skipped = Consume();
-          element = new ErrorExpressionSyntax(NextId(), skipped.Span, [skipped]);
-        }
+          if (IsStatementSyncToken(Current.Kind) && !CanStartExpression(Current)) {
+            break;
+          }
 
-        elements.Add(element);
-
-        if (Current.Kind == TokenKind.Comma) {
-          int commaIndex = _pos;
-          Token comma = Consume();
-          commas.Add(comma);
-          if (Current.Kind == TokenKind.CloseBrace) {
+          int startPos = _pos;
+          if (Current.Kind == TokenKind.Comma) {
+            int commaIndex = _pos;
+            Token leadingComma = Consume();
             ReportErrorAt(
                 commaIndex,
-                DiagnosticCodes.TrailingComma,
-                comma.Span,
-                "Trailing comma is not allowed.",
-                help: "Remove the trailing ','.");
-            break;
+                DiagnosticCodes.UnexpectedComma,
+                leadingComma.Span,
+                "Unexpected ',' before set element.");
+            commas.Add(leadingComma);
+            continue;
           }
 
+          int beforeElemId = _nextId;
+          ExpressionSyntax element = ParseExpression(0, ExprContext.AllowBraceLiteral | ExprContext.InCommaOptionalList);
+          if (element is MissingExpressionSyntax && _pos == startPos) {
+            _nextId = beforeElemId;
+            if (IsStatementSyncToken(Current.Kind) || IsCloserOrEOF(Current.Kind)) {
+              break;
+            }
+
+            Token skipped = Consume();
+            element = new ErrorExpressionSyntax(NextId(), skipped.Span, [skipped]);
+          }
+
+          elements.Add(element);
+
           if (Current.Kind == TokenKind.Comma) {
-            ReportErrorAt(
-                _pos,
-                DiagnosticCodes.UnexpectedComma,
-                Current.Span,
-                "Expected element before consecutive ','.");
+            int commaIndex = _pos;
+            Token comma = Consume();
+            commas.Add(comma);
+            if (Current.Kind == TokenKind.CloseBrace) {
+              ReportErrorAt(
+                  commaIndex,
+                  DiagnosticCodes.TrailingComma,
+                  comma.Span,
+                  "Trailing comma is not allowed.",
+                  help: "Remove the trailing ','.");
+              break;
+            }
+
+            if (Current.Kind == TokenKind.Comma) {
+              ReportErrorAt(
+                  _pos,
+                  DiagnosticCodes.UnexpectedComma,
+                  Current.Span,
+                  "Expected element before consecutive ','.");
+            }
           }
         }
+      } finally {
+        PopOpenBrace(pushed);
       }
 
       closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace.Value);
@@ -1048,91 +1075,99 @@ internal sealed partial class Parser {
   private StructLiteralExpressionSyntax ParseStructLiteral(TypeSyntax typeName) {
     Token openBrace = Consume();
     var fields = ImmutableArray.CreateBuilder<StructFieldInitSyntax>();
+    bool pushed = PushOpenBrace(openBrace);
+    try {
+      while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+        if (CheckColumn1Trigger()) {
+          break;
+        }
 
-    while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-      if (IsStatementSyncToken(Current.Kind) && Current.Kind != TokenKind.Identifier) {
-        break;
-      }
+        if (IsStatementSyncToken(Current.Kind) && Current.Kind != TokenKind.Identifier) {
+          break;
+        }
 
-      int startPos = _pos;
-      if (Current.Kind == TokenKind.Comma) {
-        int commaIndex = _pos;
-        Token leadingComma = Consume();
-        ReportErrorAt(
-            commaIndex,
-            DiagnosticCodes.UnexpectedComma,
-            leadingComma.Span,
-            "Unexpected ',' before struct field.");
-        Token missingName = new(TokenKind.Identifier, new SourceSpan(leadingComma.Span.Start, 0), TokenFlags.Missing);
-        fields.Add(new StructFieldInitSyntax(
-            NextId(),
-            leadingComma.Span,
-            missingName,
-            null,
-            null,
-            leadingComma));
-        continue;
-      }
-
-      if (Current.Kind != TokenKind.Identifier && Current.Kind != TokenKind.Colon) {
-        ReportError(
-            DiagnosticCodes.ExpectedIdentifier,
-            Current.Span,
-            $"Expected field name, found {DescribeToken(Current)}.");
-        break;
-      }
-
-      Token fieldName = ExpectIdentifier();
-      Token? colonToken = null;
-      ExpressionSyntax? value = null;
-      if (Current.Kind == TokenKind.Colon) {
-        colonToken = Consume();
-        value = ParseExpression(0, ExprContext.AllowBraceLiteral);
-      }
-
-      Token? commaToken = null;
-      if (Current.Kind == TokenKind.Comma) {
-        int commaIndex = _pos;
-        Token comma = Consume();
-        commaToken = comma;
-        if (Current.Kind == TokenKind.CloseBrace) {
+        int startPos = _pos;
+        if (Current.Kind == TokenKind.Comma) {
+          int commaIndex = _pos;
+          Token leadingComma = Consume();
           ReportErrorAt(
               commaIndex,
-              DiagnosticCodes.TrailingComma,
-              comma.Span,
-              "Trailing comma is not allowed.",
-              help: "Remove the trailing ','.");
-        } else if (Current.Kind == TokenKind.Comma) {
-          ReportErrorAt(
-              _pos,
               DiagnosticCodes.UnexpectedComma,
+              leadingComma.Span,
+              "Unexpected ',' before struct field.");
+          Token missingName = new(TokenKind.Identifier, new SourceSpan(leadingComma.Span.Start, 0), TokenFlags.Missing);
+          fields.Add(new StructFieldInitSyntax(
+              NextId(),
+              leadingComma.Span,
+              missingName,
+              null,
+              null,
+              leadingComma));
+          continue;
+        }
+
+        if (Current.Kind != TokenKind.Identifier && Current.Kind != TokenKind.Colon) {
+          ReportError(
+              DiagnosticCodes.ExpectedIdentifier,
               Current.Span,
-              "Expected field before consecutive ','.");
+              $"Expected field name, found {DescribeToken(Current)}.");
+          break;
+        }
+
+        Token fieldName = ExpectIdentifier();
+        Token? colonToken = null;
+        ExpressionSyntax? value = null;
+        if (Current.Kind == TokenKind.Colon) {
+          colonToken = Consume();
+          value = ParseExpression(0, ExprContext.AllowBraceLiteral);
+        }
+
+        Token? commaToken = null;
+        if (Current.Kind == TokenKind.Comma) {
+          int commaIndex = _pos;
+          Token comma = Consume();
+          commaToken = comma;
+          if (Current.Kind == TokenKind.CloseBrace) {
+            ReportErrorAt(
+                commaIndex,
+                DiagnosticCodes.TrailingComma,
+                comma.Span,
+                "Trailing comma is not allowed.",
+                help: "Remove the trailing ','.");
+          } else if (Current.Kind == TokenKind.Comma) {
+            ReportErrorAt(
+                _pos,
+                DiagnosticCodes.UnexpectedComma,
+                Current.Span,
+                "Expected field before consecutive ','.");
+          }
+        }
+
+        int endOffset = commaToken is { } c
+            ? c.Span.End
+            : value is not null
+                ? value.Span.End
+                : colonToken is { } col
+                    ? col.Span.End
+                    : fieldName.Span.End;
+        fields.Add(new StructFieldInitSyntax(
+            NextId(),
+            SourceSpan.FromBounds(fieldName.Span.Start, endOffset),
+            fieldName,
+            colonToken,
+            value,
+            commaToken));
+
+        if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
+          break;
+        }
+
+        if (_pos == startPos) {
+          break;
         }
       }
-
-      int endOffset = commaToken is { } c
-          ? c.Span.End
-          : value is not null
-              ? value.Span.End
-              : colonToken is { } col
-                  ? col.Span.End
-                  : fieldName.Span.End;
-      fields.Add(new StructFieldInitSyntax(
-          NextId(),
-          SourceSpan.FromBounds(fieldName.Span.Start, endOffset),
-          fieldName,
-          colonToken,
-          value,
-          commaToken));
-
-      if (commaToken is { } && Current.Kind == TokenKind.CloseBrace) {
-        break;
-      }
-
-      if (_pos == startPos) {
-        break;
-      }
+    } finally {
+      PopOpenBrace(pushed);
     }
 
     Token closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace);
@@ -1394,76 +1429,99 @@ internal sealed partial class Parser {
     Token matchKeyword = Consume();
     ExpressionSyntax subject = ParseExpression(0, ExprContext.None);
     Token openBrace = Expect(TokenKind.OpenBrace);
-    var arms = ImmutableArray.CreateBuilder<SyntaxNode>();
-    bool sawElse = false;
-
-    if ((openBrace.Flags & TokenFlags.Missing) == 0
-        || Current.Kind is TokenKind.WhenKeyword or TokenKind.ElseKeyword) {
-      while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-        int startPos = _pos;
-        if (Current.Kind == TokenKind.WhenKeyword) {
-          arms.Add(ParseWhenArm());
-        } else if (Current.Kind == TokenKind.ElseKeyword) {
-          Token elseKeyword = Consume();
-          if (sawElse) {
-            ReportErrorAt(
-                _pos - 1,
-                DiagnosticCodes.DuplicateElseArm,
-                elseKeyword.Span,
-                "Duplicate 'else' arm in match expression.");
-          }
-
-          sawElse = true;
-          (Token? arrow, Token? secondary, ExpressionSyntax? exprBody, BlockStatementSyntax? blockBody) =
-              ParseMatchArmBody();
-          int endOffset = blockBody is not null
-              ? blockBody.Span.End
-              : exprBody is not null
-                  ? exprBody.Span.End
-                  : (secondary ?? arrow ?? elseKeyword).Span.End;
-          arms.Add(new ElseArmSyntax(
-              NextId(),
-              SourceSpan.FromBounds(elseKeyword.Span.Start, endOffset),
-              elseKeyword,
-              arrow,
-              exprBody,
-              blockBody,
-              secondary));
-        } else {
-          ReportError(
-              DiagnosticCodes.ExpectedToken,
-              Current.Span,
-              $"Expected 'when', 'else', or '}}', found {DescribeToken(Current)}.");
-          var skipped = ImmutableArray.CreateBuilder<Token>();
-          while (Current.Kind is not (TokenKind.WhenKeyword or TokenKind.ElseKeyword or TokenKind.CloseBrace or TokenKind.EOF)) {
-            skipped.Add(Consume());
-          }
-
-          arms.Add(new ErrorMatchArmSyntax(
-              NextId(),
-              SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
-              skipped.ToImmutable()));
-        }
-
-        if (_pos == startPos && !IsAtEnd) {
-          Token skipped = Consume();
-          arms.Add(new ErrorMatchArmSyntax(NextId(), skipped.Span, [skipped]));
-        }
-      }
-    }
-
+    ImmutableArray<SyntaxNode> arms = ParseMatchBody(openBrace, isStatement: false);
     Token closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace);
+
     return new MatchExpressionSyntax(
         NextId(),
         SourceSpan.FromBounds(matchKeyword.Span.Start, closeBrace.Span.End),
         matchKeyword,
         subject,
         openBrace,
-        arms.ToImmutable(),
+        arms,
         closeBrace);
   }
 
-  private WhenArmSyntax ParseWhenArm() {
+  private ImmutableArray<SyntaxNode> ParseMatchBody(Token openBrace, bool isStatement) {
+    var arms = ImmutableArray.CreateBuilder<SyntaxNode>();
+    bool sawElse = false;
+
+    if ((openBrace.Flags & TokenFlags.Missing) == 0
+        || Current.Kind is TokenKind.WhenKeyword or TokenKind.ElseKeyword) {
+      bool pushed = PushOpenBrace(openBrace);
+      try {
+        while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+          if (CheckColumn1Trigger()) {
+            break;
+          }
+
+          int startPos = _pos;
+          if (Current.Kind == TokenKind.WhenKeyword) {
+            arms.Add(ParseWhenArm(isStatement));
+          } else if (Current.Kind == TokenKind.ElseKeyword) {
+            Token elseKeyword = Consume();
+            if (sawElse) {
+              ReportErrorAt(
+                  _pos - 1,
+                  DiagnosticCodes.DuplicateElseArm,
+                  elseKeyword.Span,
+                  isStatement
+                      ? "Duplicate 'else' arm in match statement."
+                      : "Duplicate 'else' arm in match expression.");
+            }
+
+            sawElse = true;
+            (Token? arrow, Token? secondary, ExpressionSyntax? exprBody, BlockStatementSyntax? blockBody) =
+                ParseMatchArmBody(isStatement);
+            int endOffset = blockBody is not null
+                ? blockBody.Span.End
+                : exprBody is not null
+                    ? exprBody.Span.End
+                    : (secondary ?? arrow ?? elseKeyword).Span.End;
+            arms.Add(new ElseArmSyntax(
+                NextId(),
+                SourceSpan.FromBounds(elseKeyword.Span.Start, endOffset),
+                elseKeyword,
+                arrow,
+                exprBody,
+                blockBody,
+                secondary));
+          } else {
+            ReportError(
+                DiagnosticCodes.ExpectedToken,
+                Current.Span,
+                $"Expected 'when', 'else', or '}}', found {DescribeToken(Current)}.");
+            var skipped = ImmutableArray.CreateBuilder<Token>();
+            while (Current.Kind is not (TokenKind.WhenKeyword or TokenKind.ElseKeyword or TokenKind.CloseBrace or TokenKind.EOF)) {
+              if (MatchesColumn1Trigger()) {
+                break;
+              }
+
+              skipped.Add(Consume());
+            }
+
+            if (skipped.Count > 0) {
+              arms.Add(new ErrorMatchArmSyntax(
+                  NextId(),
+                  SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
+                  skipped.ToImmutable()));
+            }
+          }
+
+          if (_pos == startPos && !IsAtEnd) {
+            Token skipped = Consume();
+            arms.Add(new ErrorMatchArmSyntax(NextId(), skipped.Span, [skipped]));
+          }
+        }
+      } finally {
+        PopOpenBrace(pushed);
+      }
+    }
+
+    return arms.ToImmutable();
+  }
+
+  private WhenArmSyntax ParseWhenArm(bool isStatement) {
     Token whenKeyword = Consume();
     var patterns = ImmutableArray.CreateBuilder<PatternSyntax>();
     var commas = ImmutableArray.CreateBuilder<Token>();
@@ -1528,7 +1586,7 @@ internal sealed partial class Parser {
     }
 
     (Token? arrow, Token? secondary, ExpressionSyntax? exprBody, BlockStatementSyntax? blockBody) =
-        ParseMatchArmBody();
+        ParseMatchArmBody(isStatement);
     int endOffset = blockBody is not null
         ? blockBody.Span.End
         : exprBody is not null
@@ -1559,9 +1617,38 @@ internal sealed partial class Parser {
           or TokenKind.ElseKeyword
           or TokenKind.CloseBrace
           or TokenKind.EOF
-      || IsFatArrow();
+      || IsFatArrow()
+      || MatchesColumn1Trigger();
 
-  private (Token? Arrow, Token? SecondaryArrow, ExpressionSyntax? ExprBody, BlockStatementSyntax? BlockBody) ParseMatchArmBody() {
+  private (Token? Arrow, Token? SecondaryArrow, ExpressionSyntax? ExprBody, BlockStatementSyntax? BlockBody) ParseMatchArmBody(bool isStatement) {
+    if (isStatement) {
+      if (Current.Kind == TokenKind.OpenBrace) {
+        return (null, null, null, ParseBlock());
+      }
+
+      int arrowIndex = _pos;
+      if (TryConsumeAnyArrowTokens(out Token stmtArrow, out Token? stmtSecondary)) {
+        // MATCH-E7 (D-148): `->` arms are only allowed in `match` expressions.
+        ReportErrorAt(
+            arrowIndex,
+            DiagnosticCodes.ExpectedToken,
+            SourceSpan.FromBounds(stmtArrow.Span.Start, (stmtSecondary ?? stmtArrow).Span.End),
+            "Expected '{' for match statement arm; '->' arms are only allowed in match expressions.");
+        if (Current.Kind == TokenKind.OpenBrace) {
+          return (stmtArrow, stmtSecondary, null, ParseBlock());
+        }
+
+        ExpressionSyntax recoveredExpr = ParseExpression(0, ExprContext.AllowBraceLiteral);
+        return (stmtArrow, stmtSecondary, recoveredExpr, null);
+      }
+
+      ReportError(
+          DiagnosticCodes.ExpectedToken,
+          Current.Span,
+          $"Expected '{{' for match statement arm, found {DescribeToken(Current)}.");
+      return (null, null, null, null);
+    }
+
     if (TryConsumeArrow(out Token arrow, out Token? secondary)) {
       if (Current.Kind == TokenKind.OpenBrace) {
         ReportError(

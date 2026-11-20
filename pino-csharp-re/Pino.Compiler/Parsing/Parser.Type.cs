@@ -7,7 +7,7 @@ using Pino.Compiler.Text;
 
 namespace Pino.Compiler.Parsing;
 
-internal sealed partial class Parser {
+public sealed partial class Parser {
   private TypeSyntax ParseType() {
     if (_depth >= MaxDepth) {
       ReportDepthExceeded();
@@ -47,6 +47,7 @@ internal sealed partial class Parser {
                   colonColon,
                   member);
             } else {
+              // open decision: `void` written as a type is parsed as an ordinary NamedTypeSyntax.
               baseType = new NamedTypeSyntax(NextId(), firstIdent.Span, firstIdent);
             }
 

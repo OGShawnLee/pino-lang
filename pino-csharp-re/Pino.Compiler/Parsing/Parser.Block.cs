@@ -7,7 +7,7 @@ using Pino.Compiler.Text;
 
 namespace Pino.Compiler.Parsing;
 
-internal sealed partial class Parser {
+public sealed partial class Parser {
   private BlockStatementSyntax ParseBlock() {
     if (_depth >= MaxDepth) {
       ReportDepthExceeded();
@@ -17,9 +17,16 @@ internal sealed partial class Parser {
     _depth++;
     try {
       Token openBrace = Expect(TokenKind.OpenBrace);
-      ImmutableArray<SyntaxNode> items = (openBrace.Flags & TokenFlags.Missing) == 0
-          ? ParseBlockItems()
-          : [];
+      ImmutableArray<SyntaxNode> items;
+      bool pushed = PushOpenBrace(openBrace);
+      try {
+        items = (openBrace.Flags & TokenFlags.Missing) == 0
+            ? ParseBlockItems()
+            : [];
+      } finally {
+        PopOpenBrace(pushed);
+      }
+
       Token closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace);
       return new BlockStatementSyntax(
           NextId(),
@@ -41,9 +48,16 @@ internal sealed partial class Parser {
     _depth++;
     try {
       Token openBrace = Expect(TokenKind.OpenBrace);
-      ImmutableArray<SyntaxNode> items = (openBrace.Flags & TokenFlags.Missing) == 0
-          ? ParseBlockItems()
-          : [];
+      ImmutableArray<SyntaxNode> items;
+      bool pushed = PushOpenBrace(openBrace);
+      try {
+        items = (openBrace.Flags & TokenFlags.Missing) == 0
+            ? ParseBlockItems()
+            : [];
+      } finally {
+        PopOpenBrace(pushed);
+      }
+
       Token closeBrace = ExpectCloseWithRelated(TokenKind.CloseBrace, openBrace);
       return new RecoveryBlockSyntax(
           NextId(),
@@ -59,9 +73,12 @@ internal sealed partial class Parser {
   private ImmutableArray<SyntaxNode> ParseBlockItems() {
     var items = ImmutableArray.CreateBuilder<SyntaxNode>();
     while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
+      if (CheckColumn1Trigger()) {
+        break;
+      }
+
       int startPos = _pos;
-      SyntaxNode stmt = ParseStatementTemporary();
-      items.Add(stmt);
+      ParseBlockItem(items, insideBlock: true);
 
       if (_pos == startPos && !IsAtEnd) {
         Token skipped = Consume();
@@ -72,57 +89,233 @@ internal sealed partial class Parser {
     return items.ToImmutable();
   }
 
-  // 023: temporary statement subset (expression statements, `yield`, `return`); ticket 023 replaces this.
-  private SyntaxNode ParseStatementTemporary() {
+  private void ParseBlockItem(ImmutableArray<SyntaxNode>.Builder items, bool insideBlock) {
+    if (Current.Kind == TokenKind.Error) {
+      items.Add(ConsumeErrorTokensAsStatement());
+      return;
+    }
+
+    int beforePrefixId = _nextId;
+    GenericDecoratorSyntax? genericDecorator = null;
+
+    if (IsAdjacentDoubleAt()) {
+      if (IsIdentifierText(Peek(2), "Generic")) {
+        genericDecorator = ParseGenericDecorator();
+      } else {
+        items.Add(SkipUnknownDoubleAtDecorator());
+        return;
+      }
+    } else if (Current.Kind == TokenKind.At && IsIdentifierText(Peek(1), "generic")) {
+      genericDecorator = ParseDeprecatedGenericDecorator();
+    }
+
+    // open decision: accept `pub` and `@pub_testing` on top-level declarations.
+    (Token? AtToken, Token KeywordOrIdent)? pendingVisibility = null;
+    while (IsVisibilityStart()) {
+      (Token? atToken, Token kwToken) = ParseVisibilityTokens();
+      if (pendingVisibility is null) {
+        pendingVisibility = (atToken, kwToken);
+      } else {
+        // MOD-E5: `pub` and `@pub_testing` are mutually exclusive in either order.
+        SourceSpan dupSpan = atToken is { } a
+            ? SourceSpan.FromBounds(a.Span.Start, kwToken.Span.End)
+            : kwToken.Span;
+        ReportErrorAt(
+            _pos - 1,
+            DiagnosticCodes.ExpectedStatement,
+            dupSpan,
+            "'pub' and '@pub_testing' cannot be combined on the same declaration.");
+        var errTokens = ImmutableArray.CreateBuilder<Token>();
+        if (genericDecorator is not null) {
+          AppendRealTokens(errTokens, genericDecorator);
+          genericDecorator = null;
+          _nextId = beforePrefixId;
+        }
+        if (pendingVisibility.Value.AtToken is { } prevAt) {
+          errTokens.Add(prevAt);
+        }
+        errTokens.Add(pendingVisibility.Value.KeywordOrIdent);
+        items.Add(MakeErrorStatementFromTokens(errTokens.ToImmutable()));
+        beforePrefixId = _nextId;
+        pendingVisibility = (atToken, kwToken);
+      }
+    }
+
+    VisibilitySyntax? visibility = pendingVisibility is { } pv
+        ? BuildVisibilitySyntax(pv.AtToken, pv.KeywordOrIdent)
+        : null;
+
+    if (genericDecorator is not null || visibility is not null) {
+      switch (Current.Kind) {
+        case TokenKind.FnKeyword:
+          items.Add(ParseFunctionDeclaration(genericDecorator, visibility));
+          return;
+
+        case TokenKind.StructKeyword:
+          items.Add(ParseStructDeclaration(genericDecorator, visibility));
+          return;
+
+        case TokenKind.InterfaceKeyword:
+          items.Add(ParseInterfaceDeclaration(genericDecorator, visibility));
+          return;
+
+        case TokenKind.UnionKeyword:
+          items.Add(ParseUnionDeclaration(genericDecorator, visibility));
+          return;
+
+        case TokenKind.EnumKeyword:
+          if (genericDecorator is not null) {
+            ReportError(
+                DiagnosticCodes.ExpectedStatement,
+                genericDecorator.Span,
+                "'@@Generic' cannot be applied to enum declarations.");
+            var decTokens = ImmutableArray.CreateBuilder<Token>();
+            AppendRealTokens(decTokens, genericDecorator);
+            _nextId = beforePrefixId;
+            items.Add(MakeErrorStatementFromTokens(decTokens.ToImmutable()));
+            visibility = pendingVisibility is { } epv
+                ? BuildVisibilitySyntax(epv.AtToken, epv.KeywordOrIdent)
+                : null;
+          }
+
+          items.Add(ParseEnumDeclaration(visibility));
+          return;
+
+        case TokenKind.ValKeyword or TokenKind.VarKeyword: {
+            if (genericDecorator is not null) {
+              ReportError(
+                  DiagnosticCodes.ExpectedStatement,
+                  genericDecorator.Span,
+                  "'@@Generic' cannot be applied to variable declarations.");
+              var decTokens = ImmutableArray.CreateBuilder<Token>();
+              AppendRealTokens(decTokens, genericDecorator);
+              _nextId = beforePrefixId;
+              items.Add(MakeErrorStatementFromTokens(decTokens.ToImmutable()));
+              visibility = pendingVisibility is { } vpv
+                  ? BuildVisibilitySyntax(vpv.AtToken, vpv.KeywordOrIdent)
+                  : null;
+            }
+
+            if (Peek(1).Kind == TokenKind.At && Peek(2).Kind == TokenKind.OpenParen) {
+              if (visibility is not null) {
+                ReportError(
+                    DiagnosticCodes.ExpectedStatement,
+                    visibility.Span,
+                    $"'{GetTokenText(visibility.KeywordOrIdentifierToken)}' cannot prefix tuple destructuring.");
+                var visTokens = ImmutableArray.CreateBuilder<Token>();
+                AppendRealTokens(visTokens, visibility);
+                _nextId = visibility.Id;
+                items.Add(MakeErrorStatementFromTokens(visTokens.ToImmutable()));
+              }
+
+              items.Add(ParseTupleDestructuringStatement());
+              return;
+            }
+
+            items.Add(ParseVariableDeclaration(visibility));
+            return;
+          }
+
+        default: {
+            ReportError(
+                DiagnosticCodes.ExpectedStatement,
+                Current.Span,
+                $"Expected declaration after modifier, found {DescribeToken(Current)}.");
+            var modifierTokens = ImmutableArray.CreateBuilder<Token>();
+            if (genericDecorator is not null) {
+              AppendRealTokens(modifierTokens, genericDecorator);
+            }
+            if (visibility is not null) {
+              AppendRealTokens(modifierTokens, visibility);
+            }
+            if (modifierTokens.Count > 0) {
+              _nextId = beforePrefixId;
+              items.Add(MakeErrorStatementFromTokens(modifierTokens.ToImmutable()));
+            }
+
+            return;
+          }
+      }
+    }
+
+    items.Add(ParseStatementOrDeclarationUnprefixed(insideBlock));
+  }
+
+  private SyntaxNode ParseStatementOrDeclarationUnprefixed(bool insideBlock) {
     switch (Current.Kind) {
-      case TokenKind.YieldKeyword: {
-          Token yieldKeyword = Consume();
-          ExpressionSyntax expr = ParseExpression(0, ExprContext.AllowBraceLiteral);
-          return new YieldStatementSyntax(
-              NextId(),
-              SourceSpan.FromBounds(yieldKeyword.Span.Start, expr.Span.End),
-              yieldKeyword,
-              expr);
+      case TokenKind.FnKeyword when Peek(1).Kind != TokenKind.OpenParen:
+        return ParseFunctionDeclaration(genericDecorator: null, visibility: null);
+
+      case TokenKind.StructKeyword:
+        return ParseStructDeclaration(genericDecorator: null, visibility: null);
+
+      case TokenKind.InterfaceKeyword:
+        return ParseInterfaceDeclaration(genericDecorator: null, visibility: null);
+
+      case TokenKind.UnionKeyword:
+        return ParseUnionDeclaration(genericDecorator: null, visibility: null);
+
+      case TokenKind.EnumKeyword:
+        return ParseEnumDeclaration(visibility: null);
+
+      case TokenKind.ModuleKeyword:
+        return ParseModuleDeclaration();
+
+      case TokenKind.TestKeyword:
+        return ParseTestDeclaration();
+
+      case TokenKind.ImportKeyword:
+        return ParseImportStatement();
+
+      case TokenKind.FromKeyword:
+        return ParseFromImportStatement();
+
+      case TokenKind.ValKeyword or TokenKind.VarKeyword:
+        return Peek(1).Kind == TokenKind.At && Peek(2).Kind == TokenKind.OpenParen
+            ? ParseTupleDestructuringStatement()
+            : ParseVariableDeclaration(visibility: null);
+
+      case TokenKind.IfKeyword:
+        return ParseIfStatementOrExpression();
+
+      case TokenKind.ForKeyword:
+        return ParseForStatement();
+
+      case TokenKind.MatchKeyword:
+        return ParseMatchStatement();
+
+      case TokenKind.ReturnKeyword:
+        return ParseReturnStatement();
+
+      case TokenKind.YieldKeyword:
+        return ParseYieldStatement();
+
+      case TokenKind.AssertKeyword:
+        return ParseAssertStatement();
+
+      case TokenKind.BreakKeyword: {
+          Token breakKeyword = Consume();
+          return new BreakStatementSyntax(NextId(), breakKeyword.Span, breakKeyword);
         }
 
-      case TokenKind.ReturnKeyword: {
-          Token returnKeyword = Consume();
-          // D-142: `return` continues onto the next line and is bare only before `}` or `EOF`.
-          if (Current.Kind is TokenKind.CloseBrace or TokenKind.EOF) {
-            return new ReturnStatementSyntax(
-                NextId(),
-                returnKeyword.Span,
-                returnKeyword,
-                null);
-          }
-
-          ExpressionSyntax expr = ParseExpression(0, ExprContext.AllowBraceLiteral);
-          return new ReturnStatementSyntax(
-              NextId(),
-              SourceSpan.FromBounds(returnKeyword.Span.Start, expr.Span.End),
-              returnKeyword,
-              expr);
+      case TokenKind.ContinueKeyword: {
+          Token continueKeyword = Consume();
+          return new ContinueStatementSyntax(NextId(), continueKeyword.Span, continueKeyword);
         }
 
-      case TokenKind.Error: {
-          var skipped = ImmutableArray.CreateBuilder<Token>();
-          while (Current.Kind == TokenKind.Error) {
-            skipped.Add(Consume());
-          }
-
-          return new ErrorStatementSyntax(
-              NextId(),
-              SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
-              skipped.ToImmutable());
-        }
+      // open decision: standalone `{ ... }` at statement start parses as a BlockStatementSyntax.
+      case TokenKind.OpenBrace:
+        return ParseBlock();
 
       default: {
           if (!CanStartExpression(Current)) {
             ReportError(
                 DiagnosticCodes.ExpectedStatement,
                 Current.Span,
-                $"Unexpected token {DescribeToken(Current)} in block.");
-            return SkipToNextStatementStart();
+                insideBlock
+                    ? $"Unexpected token {DescribeToken(Current)} in block."
+                    : $"Unexpected token {DescribeToken(Current)}.");
+            return SkipToNextStatementStart(insideBlock);
           }
 
           ExpressionSyntax expr = ParseExpression(0, ExprContext.AllowBraceLiteral);
@@ -131,23 +324,48 @@ internal sealed partial class Parser {
     }
   }
 
-  // 023: temporary statement recovery; ticket 023 replaces this.
-  private ErrorStatementSyntax SkipToNextStatementStart() {
+  private ErrorStatementSyntax ConsumeErrorTokensAsStatement() {
+    var skipped = ImmutableArray.CreateBuilder<Token>();
+    while (Current.Kind == TokenKind.Error) {
+      skipped.Add(Consume());
+    }
+
+    return MakeErrorStatementFromTokens(skipped.ToImmutable());
+  }
+
+  private ErrorStatementSyntax SkipToNextStatementStart(bool insideBlock) {
     var skipped = ImmutableArray.CreateBuilder<Token>();
     skipped.Add(Consume());
 
-    while (Current.Kind is not (TokenKind.CloseBrace or TokenKind.EOF)) {
-      if (HasLeadingNewline(Current) || IsStatementSyncToken(Current.Kind)) {
+    while (!IsAtEnd) {
+      if (insideBlock && Current.Kind == TokenKind.CloseBrace) {
+        break;
+      }
+
+      if (MatchesColumn1Trigger()
+          || HasLeadingNewline(Current)
+          || IsStatementOrTopLevelSyncToken(insideBlock)) {
         break;
       }
 
       skipped.Add(Consume());
     }
 
-    return new ErrorStatementSyntax(
-        NextId(),
-        SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
-        skipped.ToImmutable());
+    return MakeErrorStatementFromTokens(skipped.ToImmutable());
+  }
+
+  private ErrorStatementSyntax MakeErrorStatementFromTokens(ImmutableArray<Token> tokens) =>
+      new(
+          NextId(),
+          SourceSpan.FromBounds(tokens[0].Span.Start, tokens[^1].Span.End),
+          tokens);
+
+  private static void AppendRealTokens(ImmutableArray<Token>.Builder builder, SyntaxNode node) {
+    foreach (Token token in node.DescendantTokens()) {
+      if ((token.Flags & TokenFlags.Missing) == 0) {
+        builder.Add(token);
+      }
+    }
   }
 
   private BlockStatementSyntax DrainBlockStatement() {
@@ -187,11 +405,7 @@ internal sealed partial class Parser {
           return [];
         }
 
-        var errorStmt = new ErrorStatementSyntax(
-            NextId(),
-            SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
-            skipped.ToImmutable());
-        return [errorStmt];
+        return [MakeErrorStatementFromTokens(skipped.ToImmutable())];
       }
 
       Token tok = Consume();
@@ -208,9 +422,6 @@ internal sealed partial class Parser {
       return [];
     }
 
-    return [new ErrorStatementSyntax(
-        NextId(),
-        SourceSpan.FromBounds(skipped[0].Span.Start, skipped[^1].Span.End),
-        skipped.ToImmutable())];
+    return [MakeErrorStatementFromTokens(skipped.ToImmutable())];
   }
 }

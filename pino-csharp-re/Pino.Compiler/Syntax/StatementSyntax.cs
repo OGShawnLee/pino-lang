@@ -80,7 +80,9 @@ public sealed record IfStatementSyntax(
     ExpressionSyntax Condition,
     BlockStatementSyntax ThenBranch,
     Token? ElseKeyword,
-    StatementSyntax? ElseBranch) : StatementSyntax(Id, Span) {
+    StatementSyntax? ElseBranch,
+    Token? ElseArrowToken = null,
+    Token? ElseSecondaryArrowToken = null) : StatementSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     yield return IfKeyword;
     yield return Condition;
@@ -88,9 +90,34 @@ public sealed record IfStatementSyntax(
     if (ElseKeyword is { } elseKeyword) {
       yield return elseKeyword;
     }
+    if (ElseArrowToken is { } elseArrow) {
+      yield return elseArrow;
+    }
+    if (ElseSecondaryArrowToken is { } elseSecondaryArrow) {
+      yield return elseSecondaryArrow;
+    }
     if (ElseBranch is not null) {
       yield return ElseBranch;
     }
+  }
+}
+
+public sealed record MatchStatementSyntax(
+    int Id,
+    SourceSpan Span,
+    Token MatchKeyword,
+    ExpressionSyntax Subject,
+    Token OpenBraceToken,
+    ImmutableArray<SyntaxNode> Arms,
+    Token CloseBraceToken) : StatementSyntax(Id, Span) {
+  public override IEnumerable<SyntaxElement> GetChildren() {
+    yield return MatchKeyword;
+    yield return Subject;
+    yield return OpenBraceToken;
+    foreach (SyntaxNode arm in Arms) {
+      yield return arm;
+    }
+    yield return CloseBraceToken;
   }
 }
 
@@ -187,14 +214,16 @@ public sealed record AssertStatementSyntax(
     int Id,
     SourceSpan Span,
     Token AssertKeyword,
-    Token OpenParenToken,
+    Token? OpenParenToken,
     ExpressionSyntax Condition,
     Token? CommaToken,
     ExpressionSyntax? Message,
-    Token CloseParenToken) : StatementSyntax(Id, Span) {
+    Token? CloseParenToken) : StatementSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     yield return AssertKeyword;
-    yield return OpenParenToken;
+    if (OpenParenToken is { } openParen) {
+      yield return openParen;
+    }
     yield return Condition;
     if (CommaToken is { } comma) {
       yield return comma;
@@ -202,7 +231,9 @@ public sealed record AssertStatementSyntax(
     if (Message is not null) {
       yield return Message;
     }
-    yield return CloseParenToken;
+    if (CloseParenToken is { } closeParen) {
+      yield return closeParen;
+    }
   }
 }
 

@@ -52,10 +52,10 @@ public sealed class ParserBlockTests {
   }
 
   [Fact]
-  public void UnsupportedStatementKeywordInTemporaryBlock_EmitsPN2003AndRecovers() {
+  public void UnexpectedKeywordInBlock_EmitsPN2003AndRecovers() {
     const string Source = """
       {
-        val x = 1
+        else
         yield 2
       }
       """;
@@ -63,7 +63,7 @@ public sealed class ParserBlockTests {
     ParseResult<BlockStatementSyntax> result = ParserTestHelpers.ParseBlock(Source, expectNoDiagnostics: false);
     Diagnostic diag = Assert.Single(result.Diagnostics);
     Assert.Equal(DiagnosticCodes.ExpectedStatement, diag.Code);
-    Assert.Equal("val", result.Lex.Source.AsSpan(diag.Span).ToString());
+    Assert.Equal("else", result.Lex.Source.AsSpan(diag.Span).ToString());
     Assert.Equal(2, result.Node.Items.Length);
     Assert.IsType<ErrorStatementSyntax>(result.Node.Items[0]);
     Assert.IsType<YieldStatementSyntax>(result.Node.Items[1]);

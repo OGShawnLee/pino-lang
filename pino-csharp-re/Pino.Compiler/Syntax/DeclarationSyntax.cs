@@ -92,8 +92,12 @@ public sealed record VariableDeclarationSyntax(
     Token NameToken,
     Token EqualsToken,
     ExpressionSyntax Initializer,
-    TypeSyntax? Type = null) : DeclarationSyntax(Id, Span) {
+    TypeSyntax? Type = null,
+    VisibilitySyntax? Visibility = null) : DeclarationSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
+    if (Visibility is not null) {
+      yield return Visibility;
+    }
     yield return KeywordToken;
     yield return NameToken;
     if (Type is not null) {
@@ -115,7 +119,9 @@ public sealed record FunctionDeclarationSyntax(
     Token? CloseParenToken,
     TypeSyntax? ReturnType,
     BlockStatementSyntax Body,
-    GenericDecoratorSyntax? GenericDecorator = null) : DeclarationSyntax(Id, Span) {
+    GenericDecoratorSyntax? GenericDecorator = null,
+    Token? ArrowToken = null,
+    Token? SecondaryArrowToken = null) : DeclarationSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     if (GenericDecorator is not null) {
       yield return GenericDecorator;
@@ -136,6 +142,12 @@ public sealed record FunctionDeclarationSyntax(
     }
     if (ReturnType is not null) {
       yield return ReturnType;
+    }
+    if (ArrowToken is { } arrow) {
+      yield return arrow;
+    }
+    if (SecondaryArrowToken is { } secondaryArrow) {
+      yield return secondaryArrow;
     }
     yield return Body;
   }
@@ -201,7 +213,9 @@ public sealed record MethodDeclarationSyntax(
     ImmutableArray<ParameterSyntax> Parameters,
     Token? CloseParenToken,
     TypeSyntax? ReturnType,
-    BlockStatementSyntax Body) : SyntaxNode(Id, Span) {
+    BlockStatementSyntax Body,
+    Token? ArrowToken = null,
+    Token? SecondaryArrowToken = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     if (GenericDecorator is not null) {
       yield return GenericDecorator;
@@ -226,6 +240,12 @@ public sealed record MethodDeclarationSyntax(
     if (ReturnType is not null) {
       yield return ReturnType;
     }
+    if (ArrowToken is { } arrow) {
+      yield return arrow;
+    }
+    if (SecondaryArrowToken is { } secondaryArrow) {
+      yield return secondaryArrow;
+    }
     yield return Body;
   }
 }
@@ -241,7 +261,8 @@ public sealed record StructDeclarationSyntax(
     ImmutableArray<SyntaxNode> Members,
     Token CloseBraceToken) : DeclarationSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
-    if (GenericDecorator is not null) {
+    bool inlineGeneric = GenericDecorator is not null && GenericDecorator.Span.Start > StructKeyword.Span.Start;
+    if (GenericDecorator is not null && !inlineGeneric) {
       yield return GenericDecorator;
     }
     if (Visibility is not null) {
@@ -249,6 +270,9 @@ public sealed record StructDeclarationSyntax(
     }
     yield return StructKeyword;
     yield return NameToken;
+    if (GenericDecorator is not null && inlineGeneric) {
+      yield return GenericDecorator;
+    }
     yield return OpenBraceToken;
     foreach (SyntaxNode member in Members) {
       yield return member;
@@ -407,7 +431,8 @@ public sealed record UnionDeclarationSyntax(
     ImmutableArray<SyntaxNode> Variants,
     Token CloseBraceToken) : DeclarationSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
-    if (GenericDecorator is not null) {
+    bool inlineGeneric = GenericDecorator is not null && GenericDecorator.Span.Start > UnionKeyword.Span.Start;
+    if (GenericDecorator is not null && !inlineGeneric) {
       yield return GenericDecorator;
     }
     if (Visibility is not null) {
@@ -415,6 +440,9 @@ public sealed record UnionDeclarationSyntax(
     }
     yield return UnionKeyword;
     yield return NameToken;
+    if (GenericDecorator is not null && inlineGeneric) {
+      yield return GenericDecorator;
+    }
     yield return OpenBraceToken;
     foreach (SyntaxNode variant in Variants) {
       yield return variant;
