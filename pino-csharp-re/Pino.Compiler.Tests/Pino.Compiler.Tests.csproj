@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pino.Compiler\Pino.Compiler.csproj" />
+    <ProjectReference Include="..\Pino.Cli\Pino.Cli.csproj" />
   </ItemGroup>
 
 </Project>
