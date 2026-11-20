@@ -66,9 +66,17 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - `grammar.ebnf` `program_item` still allows `val IDENT [type_name] = expr`, contradicting D-012 and `variable_decl`
       - no `assert_statement` production exists (the parser follows legacy and the self-host: `assert <expr>`)
 
-  Next:
-  - 024 corpus, fuzzer and A3 (Hydrogen High, running; A3 refined in `design.md` so that K is the first column-1 *declaration* after the edit)
-  - 024 corpus, fuzzer and A3 (Hydrogen High, running; A3 refined in `design.md` so that K is the first column-1 *declaration* after the edit)
+  - [x] `024-re-parser-corpus-and-fuzzer` (`bacb561`, Hydrogen High). **The `-re` parser is complete.**
+    - **Corpus:** 508 files. Every positive (`.out`) conformance case parses with 0 diagnostics; 22 `projects/` files are allowlisted with exact codes and reasons, and stale entries fail the test.
+    - **Fuzzer:** 16,276 exhaustive inputs, 25,000 seeded inputs and 9 nesting attacks at 10,000 levels; 0 failures, worst case 145 ms.
+    - **Edit locality (A3):** 3,732 edits, 566 verified, 0 violations. 3,166 were skipped because no column-1 declaration follows the edit, which is common in script-style conformance files.
+    - **Parser fixes the fuzzer found:**
+      - depth guards (`PN2020`) on blocks, vectors, lambdas and match bodies, which were stack overflows at 10,000 levels
+      - one parser diagnostic per offset
+      - inline-generic recovery dropping tokens
+    - Main: `-re` 2515/2515 in 10 s, 0 warnings, including the owner's uncommitted `c-compiler` edits.
+
+  Next: the `-re` checker design (AD-001; must satisfy A4), or a `-re` CLI driver so `DiagnosticRenderer` output and Pino's voice show up in the terminal. Owner's choice.
 *(None)*
 
 ## Architecture decisions
@@ -111,6 +119,10 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - Arrows: the self-host source still writes `=>` in about 137 places (match arms such as `Checker.pino:47`, map entries). `=>` has left the language (`->` everywhere); this matters once `-re` replaces legacy as the self-host's compiler.
   - (OQ-3 needs no fix: on 2026-11-20 the owner revised it so `return` at the end of a line continues onto the next line, keeping `Parser.pino:264` valid.)
   - OQ-5: untyped lambda parameters need commas. `main.pino:20` `fn (n m)` becomes `fn (n, m)`, and `Parser.pino:925-936` currently reads `fn (n m)` as one param `n` of type `m`.
+  - Old syntax found by the 024 corpus (the exact files are in `ParserCorpusTests.Allowlist`; each file's entry disappears from the allowlist once it's fixed, because stale entries fail the test):
+    - map entries `k: v` → `k -> v` (MAP-E4), in `Parser.pino`, `Lexing.pino`, `Environment.pino` and several `test/*.pino`
+    - `@generic[...]` → `@@Generic[...]` (D-072), in `test/union_equality_test.pino`, `union_payload_test.pino` and `vector_generic_mapping_test.pino`
+    - `=>` → `->` (see the arrows item above)
   - Root `main.pino`: old spellings `fn (int, int) int` (line 16; now `fn (int, int) -> int`) and the bare set `{ 1, 2, 3 }` (line 31; now `set[int] { 1, 2, 3 }`).
 - [ ] **Decision batch (owner):** Settle the open decisions in `spec/decisions/` by topic (commas/unary minus, rune arithmetic, type annotations, `null` vs `Option`, struct semantics, generics syntax, closures, entry point, builtins). Then ticket the engine fixes they imply.
   - Decided 2026-11-19, not yet written into `spec/decisions/`, to be recorded in one ticket at the end of the session:
