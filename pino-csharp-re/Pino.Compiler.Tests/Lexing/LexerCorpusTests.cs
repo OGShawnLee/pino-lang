@@ -6,11 +6,10 @@ namespace Pino.Compiler.Tests.Lexing;
 
 /// <summary>Lexes the repository's real <c>.pino</c> programs end to end.</summary>
 public sealed class LexerCorpusTests {
-  // D-020: compiler modules with unescaped regex backslashes (need owner edits) and negative D-020 conformance case.
+  // D-020: compiler modules with unescaped regex backslashes (pending owner edits).
   private static readonly HashSet<string> s_expectedInvalidEscapeFiles = new(StringComparer.OrdinalIgnoreCase) {
     "projects/pino-compiler/modules/Lexer.pino",
     "projects/c-compiler/modules/lexer.pino",
-    "conformance/strings/escape-unknown.pino",
   };
 
   private static readonly HashSet<string> s_errorTokenDiagnosticCodes = new(StringComparer.Ordinal) {
@@ -22,6 +21,20 @@ public sealed class LexerCorpusTests {
     DiagnosticCodes.UnterminatedRune,
     DiagnosticCodes.InvalidRuneSurrogate,
     DiagnosticCodes.KeywordInSimpleInterpolation,
+  };
+
+  // LEX-E*, STR-E*, and RUNE-E* rules whose errors belong to the parser or checker rather than the lexer.
+  private static readonly HashSet<string> s_nonLexerErrorRules = new(StringComparer.Ordinal) {
+    // Parser error: keywords lex as keyword tokens; using one as an identifier is rejected by the parser.
+    "LEX-E1",
+    // Parser error: '-' and adjacent tokens lex cleanly; ambiguous spacing is rejected by the parser.
+    "LEX-E2",
+    // Parser error: ',' lexes as a comma token; trailing commas are rejected by the parser.
+    "LEX-E4",
+    // Parser error: '=>' lexes cleanly; fat arrow in function/match syntax is rejected by the parser.
+    "LEX-E5",
+    // Checker error: string index assignment lexes and parses cleanly; immutability is enforced by the checker.
+    "STR-E1",
   };
 
   private static readonly string s_repositoryRoot = FindRepositoryRoot();
@@ -36,6 +49,57 @@ public sealed class LexerCorpusTests {
       return data;
     }
   }
+
+  public static TheoryData<string> LexerErrorConformanceCases {
+    get {
+      var data = new TheoryData<string>();
+      foreach (string path in EnumerateCorpusFiles()) {
+        if (!HasSiblingErrFile(path)) {
+          continue;
+        }
+
+        string text = File.ReadAllText(Path.Combine(s_repositoryRoot, path));
+        if (GetCoveredRuleIds(text).Any(IsLexerErrorRule)) {
+          data.Add(path);
+        }
+      }
+
+      return data;
+    }
+  }
+
+  private static bool HasSiblingErrFile(string relativePath) =>
+    relativePath.StartsWith("conformance/", StringComparison.Ordinal)
+    && File.Exists(Path.ChangeExtension(Path.Combine(s_repositoryRoot, relativePath), ".err"));
+
+  private static IEnumerable<string> GetCoveredRuleIds(string text) {
+    using var reader = new StringReader(text);
+    while (reader.ReadLine() is { } line) {
+      string trimmed = line.Trim();
+      if (!trimmed.StartsWith('#')) {
+        break;
+      }
+
+      const string prefix = "# covers:";
+      if (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) {
+        string rest = trimmed[prefix.Length..];
+        foreach (string part in rest.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+          yield return part;
+        }
+      }
+    }
+  }
+
+  private static bool IsLexerErrorRule(string ruleId) =>
+    (ruleId.StartsWith("LEX-E", StringComparison.Ordinal)
+      || ruleId.StartsWith("STR-E", StringComparison.Ordinal)
+      || ruleId.StartsWith("RUNE-E", StringComparison.Ordinal))
+    && !s_nonLexerErrorRules.Contains(ruleId);
+
+  private static bool ProducesErrorToken(Diagnostic diagnostic) =>
+    s_errorTokenDiagnosticCodes.Contains(diagnostic.Code)
+    || (diagnostic.Code == DiagnosticCodes.ControlCharacterInLiteral
+      && diagnostic.Message.Contains("in rune literal", StringComparison.Ordinal));
 
   private static string FindRepositoryRoot() {
     for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
@@ -115,15 +179,15 @@ public sealed class LexerCorpusTests {
 
     // Error tokens only ever come from reported diagnostics (no silent error tokens).
     Assert.Equal(
-      result.Diagnostics.Count(static d => s_errorTokenDiagnosticCodes.Contains(d.Code)),
+      result.Diagnostics.Count(ProducesErrorToken),
       result.Tokens.Count(static t => t.Kind == TokenKind.Error));
   }
 
   [Theory]
   [MemberData(nameof(CorpusFiles))]
   public void EveryFileLexesWithoutDiagnosticsExceptTheKnownD020EscapeFiles(string relativePath) {
-    // D-020: skip the two compiler modules (pending owner edits) and the intentional STR-E2 negative case.
-    if (s_expectedInvalidEscapeFiles.Contains(relativePath)) {
+    // D-020: skip the two compiler modules (pending owner edits) and expected-error conformance cases (.err).
+    if (s_expectedInvalidEscapeFiles.Contains(relativePath) || HasSiblingErrFile(relativePath)) {
       return;
     }
 
@@ -132,6 +196,14 @@ public sealed class LexerCorpusTests {
     Assert.True(
       result.Diagnostics.IsEmpty,
       $"{relativePath}: {string.Join("; ", result.Diagnostics.Select(d => $"{d.Code}@{d.Span.Start}+{d.Span.Length}: {d.Message}"))}");
+  }
+
+  [Theory]
+  [MemberData(nameof(LexerErrorConformanceCases))]
+  public void ExpectedLexerErrorConformanceCasesReportAtLeastOneDiagnostic(string relativePath) {
+    (_, LexResult result) = LexFile(relativePath);
+
+    Assert.NotEmpty(result.Diagnostics);
   }
 
   // D-020
