@@ -135,6 +135,34 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - 11 major self-host bugs: implicit-return methods using `self` panic; duplicate string map keys panic; `coerce_to_float` falls off its end; global state leaks; the inference stack is missing a push; generic compatibility is broken; out-of-bounds on extra arguments; `Parser.pino:925` precedence; stale tests and `Transformer.pino`.
     - Recommends for `-re`: `SyntaxNode.Id` side tables, bidirectional checking, unification for `@@Generic`, two-phase memoized return inference (late base cases too), and a non-cascading `ErrorType`.
     - 10 owner questions (section 7). They block the `-re` checker design.
+    - **Owner answers (2026-11-20):**
+      - Q1: infer return types even when the base case comes after the recursive call (two-phase inference).
+      - Q2: a single `float` among the returns makes the inferred type `float`.
+      - Q3: hoist declarations in nested blocks too.
+      - Q4: a constant division by zero is an error; `for false` and unreachable arms are warnings.
+      - Q5: untyped lambda parameters infer from every typed context.
+      - Q6: `[1, 2.5]` is `[]float`.
+      - Q7: partial matching is wanted:
+        - `when U::Pair` with no bindings matches only the variant
+        - label binding on named-field variants (`when U::Pair(a)`) binds only the fields you care about
+        - the owner dislikes `*`/wildcards
+        - follow-ups pending
+      - Q8: design the checker together with the stdlib. The owner isn't sure the hard-coded `Environment.pino` table is right.
+      - Q7 follow-ups answered:
+        - positional binding allows a prefix (`when U::Pair(x)`)
+        - label binding is `@name` / `@name: renamed`, any subset, named-field variants only
+        - no mixing of positional and label bindings
+      - `//` details answered: `//=` exists, and `//` floors floats too.
+      - Q9 answered:
+        - D-033: option 1
+        - D-078: option 2 (every field is required, as in the self-host)
+        - D-014: option 2, **enforced as an error**, because the self-host relies on casing to parse struct literals; the exact rule is copied from the self-host
+        - D-073: option 1
+        - D-075: option 1
+        - D-083: option 1
+    - **Recording ticket `029-spec-record-checker-decisions` (Claude Sonnet 5.5 High, dispatched):** D-012, D-014, D-033, D-050, D-073, D-075, D-078, D-083, new D-160–D-169, and the spec loose ends.
+    - After 029: the `-re` checker + stdlib design (Neon suggested; the owner wants the stdlib designed together with the checker, and isn't sure the hard-coded `Environment.pino` table is right). Then the `-re` parser follow-up: annotations, `//`, `@@Testable`, `@name` patterns, and the message polish.
+      - Q10: a bare `return` is only allowed in `void` functions.
   - Deferred: D-036 (`main` args), typeless default parameters, named call arguments, the `LANGUAGE_REFERENCE.md` update, and the spacing of `:` member access (only affects old `k: v` maps).
   - Skipped: conformance-runner crash isolation (RUNE-E2 stays `[no-case]`).
   - To do: the spec loose ends (`program_item` grammar, `assert` production, SET-4, D-100 known-failure reasons) and the `-re` message polish (PN1017 `$(if)`, PN2001 doubled quotes, multi-line tokens in `tree`).
