@@ -22,6 +22,35 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - [x] **D-010 accepted (option 3, `a8b5ea3`, follow-up in the 012 thread):** asymmetric `-` spacing in comma-optional lists is an error (LEX-17, LEX-E2). Legacy engines listed as known failures; enforced by the future `-re` parser.
 
 ## In progress
+- **Parser batch (dispatched 2026-11-20, Hydrogen Medium, worktrees):** the owner approved the 016 design with amendments A1–A5 (see the end of `design.md`):
+  - A1: column-1 recovery for an unclosed `{`
+  - A2: half-typed code parses into useful nodes
+  - A3: edit-locality property test
+  - A4: the checker must be error-tolerant too
+  - A5: Rust/Elm-style rendered diagnostics plus Pino's voice
+
+  Done (integrated by rebase + fast-forward, not pushed; main: legacy 1685/1685, `-re` 1369/1369, 0 warnings, format clean):
+  - [x] `021-re-parser-syntax-tree` (`1deed2d`):
+    - 90 sealed node types in `Pino.Compiler/Syntax/`, with `GetChildren`/`DescendantTokens` and no reflection
+    - `PN2001`–`PN2020` and `LexResult.FindTokenIndex`
+    - all 9 A2 shapes tested
+    - Visibility is a `VisibilitySyntax` node, because `@pub_testing` lexes as `@` + identifier.
+  - [x] `025-re-diagnostic-renderer` (`17104a2`):
+    - `DiagnosticRenderer`, `DiagnosticRenderOptions`, `DiagnosticVoice` and `DisplayWidth`
+    - 20 golden cases, each with a color twin
+    - end-to-end and robustness tests on the lexer's real diagnostics
+    - `PinoVoice.Notes` is `FrozenDictionary.Empty`. **The owner writes Pino's lines** by turning it into `new Dictionary<string, string> { ["PN1011"] = "..." }.ToFrozenDictionary()`; `PinoVoiceTests` checks that every key is a real code.
+    - No CLI prints it yet; the future `-re` driver will.
+  - [x] `026-spec-match-statement-block-arms` (`85f5095`):
+    - D-148 and MATCH-E7
+    - `match_statement` has block-only arms in `grammar.ebnf`
+    - The self-host scan found no statement-position arrow arms.
+    - 3 known-failure lines
+
+  Next, in order:
+  - 022 expressions and types
+  - 023 statements, declarations and A1
+  - 024 corpus, fuzzer and A3
 *(None)*
 
 ## Architecture decisions
@@ -117,6 +146,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - [ ] **Data Science & FFI:** Design n-dimensional array/tensor primitives and standardize C FFI (`proposals/ffi_standardization_proposal.md`).
 
 ## Architectural gaps & tech debt
+- [ ] **Checker error tolerance (design 016 A4):** the `-re` checker design must give error and missing nodes an `error` type that is compatible with everything and never produces further diagnostics, so intellisense keeps working past a mistake.
 - [ ] **`TranspilerC.cs` monolith:** 235 KB single file with CS8604/CS0184 compiler warnings.
 - [ ] **PinoVM parity** *(won't fix per AD-001; legacy VM frozen)*: VM lags behind Tree-Walk and C Transpiler on structs, unions, and complex stdlib methods.
 - [ ] **Language specs:** Decide on explicit variable type annotations (`val x: int = 10`), struct value-vs-reference semantics, and `null` deprecation vs `Option[T]`.
