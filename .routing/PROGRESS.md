@@ -55,13 +55,20 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Main: `-re` 1483/1483, 0 warnings.
     - Checker hand-offs: assignment-target validity; `fns[i](9)` parses as type arguments and must be reinterpreted as index-then-call when `i` is a value.
 
-  - [ ] `023-re-parser-statements-and-declarations` (Hydrogen High, running):
-    - full statements and declarations, `Parser.Parse`, sync recovery, A1, and the statement/declaration rows of A2
+  - [x] `023-re-parser-statements-and-declarations` (`70302c1`, Hydrogen High):
+    - full statements and declarations, the public `Parser.Parse(SourceText|LexResult)`, sync recovery, A1, and the statement/declaration rows of A2
+    - New `MatchStatementSyntax` (D-148); `assert` parens are optional.
+    - Every `PN2001`–`PN2020` code has a test.
+    - Smoke test: the self-host `Parser.pino` and all 466 conformance files parse with no exception and full token accounting; 439 of them have 0 diagnostics.
     - The four open owner decisions are parsed **permissively** with no diagnostic (marked `// open decision:`): standalone blocks, `void` as a type, `pub`/`@pub_testing` on declarations and fields, and typeless defaults. The checker will enforce whatever the owner decides.
+    - Main: `-re` 1980/1980, 0 warnings.
+    - Spec nits found:
+      - `grammar.ebnf` `program_item` still allows `val IDENT [type_name] = expr`, contradicting D-012 and `variable_decl`
+      - no `assert_statement` production exists (the parser follows legacy and the self-host: `assert <expr>`)
 
   Next:
-  - 023 (running)
-  - 024 corpus, fuzzer and A3
+  - 024 corpus, fuzzer and A3 (Hydrogen High, running; A3 refined in `design.md` so that K is the first column-1 *declaration* after the edit)
+  - 024 corpus, fuzzer and A3 (Hydrogen High, running; A3 refined in `design.md` so that K is the first column-1 *declaration* after the edit)
 *(None)*
 
 ## Architecture decisions
