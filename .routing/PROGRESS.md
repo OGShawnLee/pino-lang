@@ -181,7 +181,20 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
         - parameter names in D-083
         - hoisted call versus top-level `val` order
         - confirm D-168's reading (`set[float] { 1, 2.5 }` and `map[K, float]` values widen)
-    - [ ] **`030-re-parser-apply-029-decisions` (Claude Sonnet 5.5 High, running):** `//` and `//=` tokens, annotations, `@@Testable`, D-169 patterns, the PN1017, PN2001 and `tree` message fixes, and `-re` back to green, including the owner's `main.pino`.
+    - [x] **`030-re-parser-apply-029-decisions` (`88226d1`, Claude Sonnet 5.5 High):**
+      - `//` and `//=` tokens
+      - `val`/`var` annotations; a newline after the name ends the annotation, for recovery
+      - `@@Testable`; the old `@pub_testing` gives new `PN2021` and recovers
+      - D-169 `when` patterns; `is` patterns reject labels at every depth; mixed bindings and UNION-E10/E11 are left to the checker, per the 029 rules
+      - the PN1017, PN2001 and `tree` message fixes
+      - an extra fix: `match {` with no subject no longer swallows its arms (exposed by the edit-locality test)
+      - Main: `-re` 2890/2890, 0 warnings, format clean; `pino-re check main.pino` gives 0 errors.
+
+  **Next: the `-re` checker + stdlib design** (Neon suggested; Opus if the owner wants to spare Gemini quota). It must:
+  - use audit 028 as the baseline
+  - satisfy A4 (error tolerance)
+  - compare the hard-coded `Environment.pino` table with a Pino-source prelude
+  - fold in the open 029 sub-points as owner questions
     - After 029: the `-re` checker + stdlib design (Neon suggested; the owner wants the stdlib designed together with the checker, and isn't sure the hard-coded `Environment.pino` table is right). Then the `-re` parser follow-up: annotations, `//`, `@@Testable`, `@name` patterns, and the message polish.
       - Q10: a bare `return` is only allowed in `void` functions.
   - Deferred: D-036 (`main` args), typeless default parameters, named call arguments, the `LANGUAGE_REFERENCE.md` update, and the spacing of `:` member access (only affects old `k: v` maps).
