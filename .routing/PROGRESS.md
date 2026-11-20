@@ -29,12 +29,19 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 
 - [x] **`013-scan-self-host-syntax` (Gemini 4 Hydrogen Medium, read-only):** 79 syntax forms inventoried across self-host, legacy and spec (`.tickets/013-scan-self-host-syntax/inventory.md`); router spot-checked. The owner settled most of its questions (see the decision batch below).
 
-## Active tickets (written, on hold; router verifies and integrates by rebase + fast-forward, no push)
-- **On hold (2026-11-19):** none were dispatched. The Gemini provider was unavailable in T3 ("Antigravity 1.4.5 no longer works with this T3 Code release"), and the owner chose to hold the batch rather than switch to Claude workers. Dispatch once Antigravity is updated: 014, 016, 017 and 018 in parallel (014, 017 and 018 in worktrees; 016 read-only in the main checkout), then 015 after 014 is integrated. 015's ticket is not written yet.
+## Active tickets (owner away; router verifies and integrates by rebase + fast-forward, no push)
+- **Dispatched 2026-11-19** after the owner updated Antigravity: 014, 016, 017 and 018 are running (014, 017 and 018 in worktrees; 016 read-only in the main checkout). 015 is written after 014 is integrated.
 - [ ] **014-spec-record-syntax-decisions** (Hydrogen Medium, worktree): record the syntax decisions in `spec/`, rewrite the affected conformance cases, log legacy failures as known failures.
 - [ ] **015-spec-record-semantics-decisions** (Hydrogen Medium, worktree): same for semantics and the stdlib. Starts after 014 is integrated (both rewrite cases).
-- [ ] **016-re-parser-design** (Neon Medium, read-only): parser design doc for owner review. No parser code until the owner approves it.
-- [ ] **017-repo-cleanup-inventory** (Hydrogen Medium, worktree): list migration leftovers (no deletions; owner approves later) and fix `ARCHITECTURE.md`.
+- [x] **016-re-parser-design** (Neon Medium, read-only; router-verified): `.tickets/016-re-parser-design/design.md`. Proposes a typed immutable AST plus the lossless `LexResult` (no Roslyn green/red trees), recursive descent with a 9-level Pratt expression parser, `TokenFlags` predicates for D-010/D-058/D-001/trailing commas, sync-set recovery with `PN2001`–`PN2020`, no incremental parsing yet, and a 4-ticket split (019 AST + `->` token, 020 expressions/types, 021 statements/declarations, 022 corpus + fuzzer). **Awaiting owner approval and 8 owner questions (OQ-1..OQ-8):**
+  - `or { }` precedence
+  - `in`/`is`/`=` levels
+  - whether a newline ends a bare `return` or a postfix `(`
+  - comma-less untyped lambda params `fn (n m)` (ambiguous with `fn (n Type)`; the self-host misparses it)
+  - `Variant(A B)` ambiguity
+  - `set[i]` vs `set[T]`
+  - D-055/D-076 and the pending 013 items.
+- [x] **017-repo-cleanup-inventory** (`69110fc`, Hydrogen Medium): `ARCHITECTURE.md` rewritten (legacy pipeline, `-re` as planned per AD-001, self-host, spec/conformance; router checked its paths). 39 leftover candidates in `.tickets/017-repo-cleanup-inventory/inventory.md` (18 duplicates, 13 orphans, 6 stale, 1 superseded, 1 generated), almost all in the gitignored `.context/`. A commented-out deletion block awaits owner approval. Note: 14 of the "exact duplicates" differ only in line endings (LF vs CRLF).
 - [ ] **018-re-lexer-apply-decisions** (Hydrogen Medium, worktree): apply D-090, D-091 and D-093 to the `-re` lexer.
 - Owner decision (2026-11-19): existing conformance cases are rewritten into the decided language; legacy failures go to `known-failures.txt` citing the decision.
 
