@@ -39,6 +39,38 @@ public sealed record LexResult(
     return Trivia.AsSpan(first, after - first);
   }
 
+  /// <summary>
+  /// Returns the index of <paramref name="token"/> in <see cref="Tokens"/> by binary search on
+  /// <see cref="SourceSpan.Start"/>, matching both <see cref="Token.Kind"/> and
+  /// <see cref="Token.Span"/>. Returns <c>-1</c> if <paramref name="token"/> has
+  /// <see cref="TokenFlags.Missing"/> or is not present in <see cref="Tokens"/>.
+  /// </summary>
+  public int FindTokenIndex(Token token) {
+    if ((token.Flags & TokenFlags.Missing) != 0 || Tokens.IsDefaultOrEmpty) {
+      return -1;
+    }
+
+    int lo = 0;
+    int hi = Tokens.Length;
+    while (lo < hi) {
+      int mid = lo + ((hi - lo) / 2);
+      if (Tokens[mid].Span.Start < token.Span.Start) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+
+    while (lo < Tokens.Length && Tokens[lo].Span.Start == token.Span.Start) {
+      if (Tokens[lo].Kind == token.Kind && Tokens[lo].Span == token.Span) {
+        return lo;
+      }
+      lo++;
+    }
+
+    return -1;
+  }
+
   private static int LowerBound(ImmutableArray<Trivia> trivia, int offset) {
     int lo = 0;
     int hi = trivia.Length;

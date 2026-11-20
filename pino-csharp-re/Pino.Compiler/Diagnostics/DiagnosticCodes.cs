@@ -36,8 +36,29 @@ public static class DiagnosticCodes {
   public const string KeywordInSimpleInterpolation = "PN1017";
 
   // -------------------------------------------------------------------------
-  // PN2xxx — Parser (reserved)
+  // PN2xxx — Parser
   // -------------------------------------------------------------------------
+
+  public const string ExpectedToken = "PN2001";
+  public const string ExpectedExpression = "PN2002";
+  public const string ExpectedStatement = "PN2003";
+  public const string ExpectedType = "PN2004";
+  public const string ExpectedPattern = "PN2005";
+  public const string ExpectedIdentifier = "PN2006";
+  public const string TrailingComma = "PN2007";
+  public const string UnexpectedComma = "PN2008";
+  public const string AmbiguousMinusInList = "PN2009";
+  public const string DeprecatedFatArrow = "PN2010";
+  public const string UnbracedIfBranch = "PN2011";
+  public const string ElseArrowAfterIf = "PN2012";
+  public const string ArrowBeforeMatchBlock = "PN2013";
+  public const string DeprecatedGenericSyntax = "PN2014";
+  public const string MixedUnionPayloadForms = "PN2015";
+  public const string EmptyDeclarationBody = "PN2016";
+  public const string UnexpectedBlockInExpression = "PN2017";
+  public const string DuplicateElseArm = "PN2018";
+  public const string ExpectedBlockBody = "PN2019";
+  public const string MaxNestingDepthExceeded = "PN2020";
 
   // -------------------------------------------------------------------------
   // PN3xxx — Checker (reserved)
