@@ -48,7 +48,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - [x] **017-repo-cleanup-inventory** (`69110fc`, Hydrogen Medium): `ARCHITECTURE.md` rewritten (legacy pipeline, `-re` as planned per AD-001, self-host, spec/conformance; router checked its paths). 39 leftover candidates in `.tickets/017-repo-cleanup-inventory/inventory.md` (18 duplicates, 13 orphans, 6 stale, 1 superseded, 1 generated), almost all in the gitignored `.context/`. A commented-out deletion block awaits owner approval. Note: 14 of the "exact duplicates" differ only in line endings (LF vs CRLF).
 - [x] **018-re-lexer-apply-decisions** (`d62e6c7`, Hydrogen Medium): D-090 (last 3 quotes close), D-091 (`PN1016`, control characters, shown as `U+XXXX`), D-093 (`PN1017`, keyword after `$`), D-092 tests tagged, `->` lexed as `Arrow` and `=>` split into `Assign` + `Greater`. `-re`: 1172 tests pass in the main checkout, build has 0 warnings, format is clean. The router reproduced every spec check with a probe. Notes:
   - Gemini (Antigravity, updated version) ends its turn while a long command is still running; this needed two nudges. Always check the branch before trusting a "completed" report.
-  - Tech debt: `core.autocrlf=true` with no `.gitattributes`, so fresh checkouts and fast-forwards write CRLF and `dotnet format --verify-no-changes` fails on untouched files. Fix: a `.gitattributes` with `*.cs text eol=lf` (owner approval needed).
+  - Line endings: fixed by `.gitattributes` (`ea11e10`).
   - Nit: the PN1017 message suggests `$(if)`, which is not a meaningful expression.
 - Owner decision (2026-11-19): existing conformance cases are rewritten into the decided language; legacy failures go to `known-failures.txt` citing the decision.
 
@@ -107,7 +107,8 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - [ ] **Modularize `TranspilerC.cs`** *(deprioritized by AD-001: legacy is replaced, not refactored)*: Split 235 KB single file into partial classes and resolve CS8604 nullable warnings.
 - [ ] **Update `ARCHITECTURE.md`:** Replace stale "transpiles to C#" references with the actual C99 + TCC + Boehm GC pipeline.
 - [ ] **Self-Host (`projects/pino-compiler/`):** Update stale test fixtures (`checker_test.pino`, `parser_test.pino`) for `Constant` union schema, and advance TACKY -> C codegen when requested.
-- [ ] **Repository cleanup:** Remove leftovers from previous migrations (e.g. `.context/proposals/` duplicates); close the unterminated code fence at `LANGUAGE_REFERENCE.md:219`.
+- [x] **Repository cleanup** (`4ca2ce0`, owner-approved from the 017 inventory): untracked `.idea/`; deleted `.vscode/tasks.json`, `build_wasm.ps1` and `projects.cmd`; moved `game-proposals/` to `pino.games/proposals/`. On disk only: removed the `.context/` doc and proposal copies (6 unreferenced images kept, still gitignored), `scratch_test_c.exe`, `issue.md` and the empty `.gemini/`. The owner's private images in `.vscode/` stay gitignored on purpose: never move, track or name them. `.gitattributes` (`*.cs text eol=lf`) added in `ea11e10`.
+- [ ] **`LANGUAGE_REFERENCE.md`:** close the unterminated code fence at line 219; the file is now out of date versus `spec/` (arrows, `null`, printing, etc.) and needs a rewrite or retirement.
 - [ ] **Data Science & FFI:** Design n-dimensional array/tensor primitives and standardize C FFI (`proposals/ffi_standardization_proposal.md`).
 
 ## Architectural gaps & tech debt
