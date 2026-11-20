@@ -42,7 +42,10 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - `set[i]` vs `set[T]`
   - D-055/D-076 and the pending 013 items.
 - [x] **017-repo-cleanup-inventory** (`69110fc`, Hydrogen Medium): `ARCHITECTURE.md` rewritten (legacy pipeline, `-re` as planned per AD-001, self-host, spec/conformance; router checked its paths). 39 leftover candidates in `.tickets/017-repo-cleanup-inventory/inventory.md` (18 duplicates, 13 orphans, 6 stale, 1 superseded, 1 generated), almost all in the gitignored `.context/`. A commented-out deletion block awaits owner approval. Note: 14 of the "exact duplicates" differ only in line endings (LF vs CRLF).
-- [ ] **018-re-lexer-apply-decisions** (Hydrogen Medium, worktree): apply D-090, D-091 and D-093 to the `-re` lexer.
+- [x] **018-re-lexer-apply-decisions** (`d62e6c7`, Hydrogen Medium): D-090 (last 3 quotes close), D-091 (`PN1016`, control characters, shown as `U+XXXX`), D-093 (`PN1017`, keyword after `$`), D-092 tests tagged, `->` lexed as `Arrow` and `=>` split into `Assign` + `Greater`. `-re`: 1172 tests pass in the main checkout, build has 0 warnings, format is clean. The router reproduced every spec check with a probe. Notes:
+  - Gemini (Antigravity, updated version) ends its turn while a long command is still running; this needed two nudges. Always check the branch before trusting a "completed" report.
+  - Tech debt: `core.autocrlf=true` with no `.gitattributes`, so fresh checkouts and fast-forwards write CRLF and `dotnet format --verify-no-changes` fails on untouched files. Fix: a `.gitattributes` with `*.cs text eol=lf` (owner approval needed).
+  - Nit: the PN1017 message suggests `$(if)`, which is not a meaningful expression.
 - Owner decision (2026-11-19): existing conformance cases are rewritten into the decided language; legacy failures go to `known-failures.txt` citing the decision.
 
 ## Next steps
