@@ -160,7 +160,28 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
         - D-073: option 1
         - D-075: option 1
         - D-083: option 1
-    - **Recording ticket `029-spec-record-checker-decisions` (Claude Sonnet 5.5 High, dispatched):** D-012, D-014, D-033, D-050, D-073, D-075, D-078, D-083, new D-160–D-169, and the spec loose ends.
+    - [x] **`029-spec-record-checker-decisions` (`b04d1dd`, Claude Sonnet 5.5 High):**
+      - 10 new decisions (D-160–D-169) and 8 accepted (D-012, D-014, D-033, D-050, D-073, D-075, D-078, D-083)
+      - 40 rules added, 6 reworded, 61 new cases, 175 known-failure lines (plus 15 reasons corrected to D-100)
+      - No `.out` changed: no existing case used a negative `%`, an omitted field, a bad name, or full binding.
+      - Legacy 1868/1868.
+      - `-re` had 13 corpus failures after the merge (12 new cases using the new syntax, plus `main.pino`); ticket 030 fixes them.
+      - **Open sub-points for the owner** (logged in 029's changelog, no rules written):
+        - D-014: the self-host only enforces "type-like names start with A–Z" (LEX-20); `snake_case` for values, acronyms, digits, and `SCREAMING_SNAKE_CASE` constants (used by the self-host itself) are undecided
+        - run-time division by zero
+        - `%` on floats
+        - what counts as a "constant" zero divisor (`val z = 0`)
+        - other mixed return types (`int`/`string`)
+        - a private field named in a literal from another module
+        - labels in `is` patterns, duplicate labels, too many positional bindings
+        - an untyped lambda with no context
+        - the success value of `Result[void, E]`
+        - `val x float = 1`
+        - embedded structs and D-078
+        - parameter names in D-083
+        - hoisted call versus top-level `val` order
+        - confirm D-168's reading (`set[float] { 1, 2.5 }` and `map[K, float]` values widen)
+    - [ ] **`030-re-parser-apply-029-decisions` (Claude Sonnet 5.5 High, running):** `//` and `//=` tokens, annotations, `@@Testable`, D-169 patterns, the PN1017, PN2001 and `tree` message fixes, and `-re` back to green, including the owner's `main.pino`.
     - After 029: the `-re` checker + stdlib design (Neon suggested; the owner wants the stdlib designed together with the checker, and isn't sure the hard-coded `Environment.pino` table is right). Then the `-re` parser follow-up: annotations, `//`, `@@Testable`, `@name` patterns, and the message polish.
       - Q10: a bare `return` is only allowed in `void` functions.
   - Deferred: D-036 (`main` args), typeless default parameters, named call arguments, the `LANGUAGE_REFERENCE.md` update, and the spacing of `:` member access (only affects old `k: v` maps).
