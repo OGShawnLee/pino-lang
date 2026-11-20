@@ -47,9 +47,20 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - The self-host scan found no statement-position arrow arms.
     - 3 known-failure lines
 
-  Next, in order:
-  - 022 expressions and types
-  - 023 statements, declarations and A1
+  - [x] `022-re-parser-expressions-and-types` (`150acf2`, Hydrogen **High**; the Medium run was cancelled per the owner's model rule):
+    - `Pino.Compiler/Parsing/` Pratt parser with the 9-level table, types, patterns, and a temporary block subset (expression, `yield`, `return` per D-142; marked `// 023:`)
+    - D-010, D-055 (speculative type arguments with rollback), D-058, D-076, D-140–D-145 and D-147
+    - `PN2010` `=>` recovery keeps both tokens (`SecondaryArrowToken` added to 5 nodes)
+    - 114 tests with an S-expression printer and a token-accounting assertion
+    - Main: `-re` 1483/1483, 0 warnings.
+    - Checker hand-offs: assignment-target validity; `fns[i](9)` parses as type arguments and must be reinterpreted as index-then-call when `i` is a value.
+
+  - [ ] `023-re-parser-statements-and-declarations` (Hydrogen High, running):
+    - full statements and declarations, `Parser.Parse`, sync recovery, A1, and the statement/declaration rows of A2
+    - The four open owner decisions are parsed **permissively** with no diagnostic (marked `// open decision:`): standalone blocks, `void` as a type, `pub`/`@pub_testing` on declarations and fields, and typeless defaults. The checker will enforce whatever the owner decides.
+
+  Next:
+  - 023 (running)
   - 024 corpus, fuzzer and A3
 *(None)*
 
