@@ -1,6 +1,6 @@
 # D-050: Function return-type inference
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -39,4 +39,12 @@ println(multiplier(2)(5))
 3. Leave it unspecified and keep annotating return types in the documentation.
 
 ## Decision
-_Pending: owner decides._
+Option 1, refined and decided by the owner on 2026-11-20. Return-type inference for named functions without a declared return type:
+- The return type is inferred from the function's `return` statements.
+- A function with no value-returning `return` is `void`.
+- Inference **does not depend on the order** of the base case and the recursive call: `if n > 0 { return n * f(n - 1) } return 1` infers `int`, as does the early-base-case form, and mutual recursion works in any declaration order.
+- Recursion with no non-recursive `return` at all is a checker error suggesting an explicit return type.
+- If any `return` yields `float` and the others `int`, the type is `float`.
+- `return`s of different struct types are an error suggesting a declared interface return type.
+- A non-`void` function must return on every path (definite return); a checker error otherwise.
+- A bare `return` is allowed only in `void` functions.

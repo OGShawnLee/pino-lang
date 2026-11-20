@@ -1,0 +1,3 @@
+# covers: IF-E5
+val r = if true then 1 else "x"
+println(r)

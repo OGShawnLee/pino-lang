@@ -1,6 +1,6 @@
 # D-075: Calling a sibling method by its bare name inside a method
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/structs.md
 
@@ -40,4 +40,4 @@ println(r:doubled())
 2. Reject it with a clear type-check error and require `self:`/`this:`.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20: inside a method, a sibling method can be called by its bare name (`area()`), like bare field access.

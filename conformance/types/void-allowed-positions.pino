@@ -1,0 +1,23 @@
+# covers: TYPE-17
+fn log(msg string) void {
+  println(msg)
+}
+
+fn show(n int) {
+  println(n)
+}
+
+fn apply(f fn (int) -> void, n int) void {
+  f(n)
+}
+
+fn fail_with(msg string) Result[void, string] {
+  return Result::Failure(msg)
+}
+
+log("hi")
+apply(show, 5)
+match fail_with("boom") {
+  when Result::Failure(e) { println("failed: $e") }
+  else { println("ok") }
+}

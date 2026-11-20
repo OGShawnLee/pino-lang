@@ -1,0 +1,6 @@
+# covers: FN-30
+fn make_adder() fn (int) -> int {
+  return fn (x) -> x + 10
+}
+val add = make_adder()
+println(add(5))

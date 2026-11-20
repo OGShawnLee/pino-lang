@@ -20,6 +20,8 @@ A map associates unique keys with values. It is created with `map[KeyType, Value
 
 - MAP-11: In expression position, `map[...]` is always parsed as a map form (including brace-less empty `map[K, V]`) rather than indexing a variable named `map`, while member calls such as `xs:map(f)` remain unaffected. [src: spec/decisions/D-147-set-map-expression-forms.md]
 
+- MAP-12: A map literal `map[K, float] { ... }` whose values mix `int` and `float` has the value type `float`, and the `int` values widen to `float`. [src: spec/decisions/D-168-literal-widening.md]
+
 ## Errors
 - MAP-E1: Reading a key that is not in the map with `m[key]` fails at run time; the engines share the wording "not found in map", which the conformance case checks. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior]
 - MAP-E2: A key in a map literal whose type is not the declared key type is rejected before execution with a type check error. [src: CheckerTests.TestMapTypeCheckerSemanticValidation]

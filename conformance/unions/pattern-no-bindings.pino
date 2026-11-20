@@ -1,0 +1,10 @@
+# covers: UNION-4
+union U {
+  Pair(a int, b string)
+  Empty
+}
+val u = U::Pair(1, "x")
+match u {
+  when U::Pair { println("pair") }
+  when U::Empty { println("empty") }
+}

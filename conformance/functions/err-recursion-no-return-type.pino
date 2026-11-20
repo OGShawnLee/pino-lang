@@ -1,0 +1,5 @@
+# covers: FN-E4
+fn forever(n int) {
+  return forever(n)
+}
+println(forever(1))

@@ -1,0 +1,3 @@
+# covers: LEX-E6, LEX-20
+enum color { Red, Green }
+println("unreachable")

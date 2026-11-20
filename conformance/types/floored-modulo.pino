@@ -1,0 +1,8 @@
+# covers: TYPE-14
+println(7 % 2)
+println(-7 % 2)
+println(7 % -2)
+println(-7 % -2)
+val a = -7
+val b = 2
+println((a // b) * b + a % b)

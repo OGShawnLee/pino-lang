@@ -34,16 +34,26 @@ A function is declared with `fn`, a name, a parameter list (`name Type` pairs, p
 - FN-24: Untyped lambda parameters must be separated by commas (`fn (n, m) -> n + m`), whereas typed parameters remain comma-optional, so `fn (n m)` declares one parameter `n` of type `m`. [src: spec/decisions/D-145-untyped-lambda-param-commas.md]
 - FN-25: Calling an indexed expression such as `fns[0](9)` calls the indexed element when the brackets contain an expression rather than type arguments. [src: spec/decisions/D-055-indexed-element-call.md]
 
+- FN-26: Declarations (`fn`, `struct`, `enum`, `union` and `interface`) are hoisted at module level and inside nested blocks, so they can be used before their textual position in the same scope; `val` and `var` are not hoisted. [src: spec/decisions/D-165-declaration-hoisting.md]
+- FN-27: A named function without a declared return type has the type of its `return` statements as its return type, and is `void` when it has no value-returning `return`. [src: spec/decisions/D-050-function-return-type-inference.md]
+- FN-28: Return-type inference does not depend on the order of the base case and a recursive call, so `if n > 0 { return n * f(n - 1) } return 1` infers `int` just as the early-base-case form does, and mutual recursion works in any declaration order. [src: spec/decisions/D-050-function-return-type-inference.md]
+- FN-29: When one `return` of an unannotated function yields `float` and the others yield `int`, the inferred return type is `float`. [src: spec/decisions/D-050-function-return-type-inference.md; spec/decisions/D-019-int-float-mixing-and-division.md]
+- FN-30: Untyped lambda parameters take their types from the context the lambda appears in: a typed `val` or `var`, a `return` in a function with a known return type, a struct field type, a collection element type or a call argument. [src: spec/decisions/D-167-lambda-parameter-inference.md]
+
 ## Errors
 - FN-E1: Calling a function with an argument of the wrong type is rejected with a type check error. [src: CheckerTests.TestEnumDefinitionAndTypeChecking; CheckerTests.TestRuneTypeChecker]
 - FN-E2: Named functions and methods must have block bodies (`{ ... }`); an arrow body on a named function or method (`fn f() int -> 1`) is rejected as a parse error. [src: spec/decisions/D-052-arrow-bodied-function-declarations.md]
 - FN-E3: A lambda with an explicit return type (`fn (n int) int -> n`) is rejected as a parse error. [src: spec/decisions/D-053-lambda-return-type-annotation.md]
 
+- FN-E4: Recursion in an unannotated function with no non-recursive `return` is rejected by the checker with a message containing "explicit return type". [src: spec/decisions/D-050-function-return-type-inference.md]
+- FN-E5: `return` statements of an unannotated function that yield different struct types are rejected by the checker with a message containing "conflicting return types", suggesting a declared interface return type. [src: spec/decisions/D-050-function-return-type-inference.md]
+- FN-E6: A function whose return type is not `void` and that does not return on every path is rejected by the checker with a message containing "always return". [src: spec/decisions/D-050-function-return-type-inference.md]
+- FN-E7: A bare `return` in a function whose return type is not `void` is rejected by the checker with a message containing "must return a value". [src: spec/decisions/D-050-function-return-type-inference.md]
+
 ## Examples
 Conformance cases: `conformance/functions/`.
 
 ## Open questions
-- D-050: Is the return type of a function without a declared return type inferred, and from what?
 - D-054: The reference's `each` example names a parameter `val`, a keyword the parser rejects.
 - D-057: Should the argument-count and return-type errors be specified?
 - D-002: `it` inside a call argument turns the argument into a lambda even in a loop body (see loops).

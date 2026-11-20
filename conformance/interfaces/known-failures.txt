@@ -18,3 +18,7 @@ C structural-dispatch.pino  # C backend: TCC error "',' expected (got "s")"
 
 # --- Syntax decisions (ticket 014)
 TreeWalk map-of-interface.pino  # D-100: legacy parser uses => / k: v instead of ->
+
+# --- Checker, visibility and division decisions (ticket 029)
+VM exact-signature-match.pino  # D-083: legacy fails: RUNTIME ERROR: Value is not callable.
+C exact-signature-match.pino  # D-083: legacy fails: TCC compilation failed: / pino_output.c: error: ',' expected (got "g")

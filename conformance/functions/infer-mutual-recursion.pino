@@ -1,0 +1,25 @@
+# covers: FN-28
+fn is_even(n int) {
+  if n == 0 {
+    return true
+  }
+  return is_odd(n - 1)
+}
+fn is_odd(n int) {
+  if n == 0 {
+    return false
+  }
+  return is_even(n - 1)
+}
+fn pong(n int) {
+  return ping(n)
+}
+fn ping(n int) {
+  if n == 0 {
+    return "done"
+  }
+  return pong(n - 1)
+}
+println(is_even(10))
+println(is_odd(7))
+println(ping(3))

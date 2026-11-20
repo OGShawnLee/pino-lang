@@ -1,0 +1,22 @@
+# covers: LEX-20
+struct Player {
+  hp int
+}
+enum Direction { North, South }
+union Shape {
+  Circle(int)
+  Dot
+}
+interface Named {
+  fn name() string
+}
+val p = Player { hp: 3 }
+println(p:hp)
+if Direction::North == Direction::North {
+  println("same")
+}
+val s = Shape::Circle(2)
+match s {
+  when Shape::Circle(r) { println(r) }
+  else { println("dot") }
+}

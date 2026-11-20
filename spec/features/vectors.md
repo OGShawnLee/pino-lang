@@ -25,6 +25,8 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 - VEC-16: `println` of an integer vector writes its elements in order between square brackets, separated by a comma and a space, for example `[1, 2, 3]`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods" (`map`, `filter`)]
 - VEC-17: A line break before `[` ends the expression, so a `[` at the start of a new line begins a new statement (a vector literal) rather than indexing the previous expression; indexing must be on the same line as its operand. [src: spec/decisions/D-058-bracket-starts-line-after-expression.md]
 
+- VEC-18: A vector literal whose elements mix `int` and `float` has the type `[]float`, so `[1, 2.5]` holds the floats `1.0` and `2.5`. [src: spec/decisions/D-168-literal-widening.md; spec/decisions/D-019-int-float-mixing-and-division.md]
+
 ## Errors
 - VEC-E1: A literal negative `len`, such as `[]int { len: -5, init: 0 }`, is rejected before execution with a type check error whose message contains "cannot be negative". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]
 - VEC-E2: A literal negative `cap`, such as `[]int { cap: -10 }`, is rejected before execution with a type check error whose message contains "cannot be negative". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]

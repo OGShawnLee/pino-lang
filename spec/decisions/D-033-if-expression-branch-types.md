@@ -1,6 +1,6 @@
 # D-033: Branch types of `if ... then ... else`
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/features/conditionals.md
 
@@ -29,4 +29,4 @@ println(r)
 3. Leave it: document that branch types must agree but do not enforce it.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20: the two branches of `if c then a else b` must have compatible types, and a checker error otherwise. An `int` branch and a `float` branch widen to `float` per D-019.

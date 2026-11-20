@@ -42,6 +42,11 @@ TreeWalk type-name.pino  # D-100: legacy parser uses k: v instead of k -> v for 
 TreeWalk vector-values.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
 VM err-key-type.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
 VM err-value-type.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
-TreeWalk empty-no-braces-and-member.pino  # D-147: legacy parser requires '{}' for empty map[K, V] and '->' is unsupported in lambdas
-VM empty-no-braces-and-member.pino  # D-147: legacy parser requires '{}' for empty map[K, V] and '->' is unsupported in lambdas
-C empty-no-braces-and-member.pino  # D-147: legacy parser requires '{}' for empty map[K, V] and '->' is unsupported in lambdas
+TreeWalk empty-no-braces-and-member.pino  # D-100: legacy parser rejects '->' in lambda bodies (it also requires '{}' for empty map[K, V], D-147)
+VM empty-no-braces-and-member.pino  # D-100: legacy parser rejects '->' in lambda bodies (it also requires '{}' for empty map[K, V], D-147)
+C empty-no-braces-and-member.pino  # D-100: legacy parser rejects '->' in lambda bodies (it also requires '{}' for empty map[K, V], D-147)
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk value-widening.pino  # D-168: legacy fails: PARSER: Expected expression, got Operator: > (GreaterThan)
+VM value-widening.pino  # D-168: legacy fails: PARSER: Expected expression, got Operator: > (GreaterThan)
+C value-widening.pino  # D-168: legacy fails: PARSER: Expected expression, got Operator: > (GreaterThan)

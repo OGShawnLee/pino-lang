@@ -1,6 +1,6 @@
 # D-078: Struct literals that omit fields
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/structs.md
 
@@ -35,4 +35,4 @@ println(p:age)
 3. Keep the current split behavior and document that reading an omitted field is undefined.
 
 ## Decision
-_Pending: owner decides._
+Option 2, decided by the owner on 2026-11-20: a struct literal must name every field, and an omitted field is a checker error. The shorthand `Point { x }` still counts as naming `x` (D-104).

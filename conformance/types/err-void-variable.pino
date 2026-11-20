@@ -1,0 +1,5 @@
+# covers: TYPE-E2
+fn nothing() {
+}
+val v void = nothing()
+println("unreachable")

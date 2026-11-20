@@ -13,6 +13,8 @@ An `interface` lists method signatures (`fn name(params) type`, no body) and may
 - IFACE-4: An interface may declare properties (`name type`); a struct satisfies them by declaring a field with the same name and type. [src: CheckerTests.TestInterfacePropertiesCompatibilityPasses]
 - IFACE-5: An interface type may be used as the type of a struct field or as the value type of a map, and such a field or entry accepts, and may be reassigned to, any satisfying struct. [src: CheckerTests.TestMapInterfaceCompatibilityPasses; DataStructureTests.TestStructStatePattern]
 
+- IFACE-6: A struct satisfies a non-generic interface only when each method's parameter types and return type match the interface's signature exactly. [src: spec/decisions/D-083-interface-signature-matching.md]
+
 ## Errors
 - IFACE-E1: Passing a struct that lacks a method required by the interface is rejected with a message containing "expected type" and the interface name. [src: CheckerTests.TestTypeCheckerInvalidInterfaceThrows]
 - IFACE-E2: Passing a struct that lacks a property required by the interface is rejected with a message containing "expected type" and the interface name. [src: CheckerTests.TestInterfacePropertiesMissingFieldThrows]
@@ -20,8 +22,10 @@ An `interface` lists method signatures (`fn name(params) type`, no body) and may
 - IFACE-E4: Reading a member that the interface does not declare, through a value of the interface type, is rejected with a message containing "does not have property or method". [src: CheckerTests.TestAccessOnMissingFieldThrows]
 - IFACE-E5: Calling a method that the interface does not declare, through a value of the interface type, is rejected with a message containing "does not have method or callable field". [src: CheckerTests.TestAccessOnMissingMethodThrows]
 
+- IFACE-E6: Passing a struct whose method has a different parameter type or return type than the interface's signature is rejected by the checker with a message containing "expected type" and the interface name. [src: spec/decisions/D-083-interface-signature-matching.md]
+
 ## Examples
 Conformance cases: `conformance/interfaces/`. Generic interfaces are specified in `spec/features/generics.md`.
 
 ## Open questions
-- D-083: Must a method signature (parameter and return types) match exactly for a struct to satisfy a non-generic interface?
+None.

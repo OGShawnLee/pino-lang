@@ -1,0 +1,14 @@
+# covers: FN-E5
+struct Dog {
+  name string
+}
+struct Cat {
+  name string
+}
+fn pick(flag bool) {
+  if flag {
+    return Dog { name: "Rex" }
+  }
+  return Cat { name: "Tom" }
+}
+println(pick(true):name)

@@ -1,0 +1,5 @@
+# covers: SET-5
+val s = set[float] { 1, 2.5 }
+println(1.0 in s)
+println(2.5 in s)
+println(3.0 in s)

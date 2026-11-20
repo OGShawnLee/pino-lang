@@ -1,6 +1,6 @@
 # D-083: Must method signatures match for a struct to satisfy an interface?
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/interfaces.md
 
@@ -35,4 +35,4 @@ run_greet(User {})
 3. Specify name-only matching and relax the checker.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20: a struct satisfies a non-generic interface only when its methods' parameter and return types match exactly.

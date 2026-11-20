@@ -27,3 +27,23 @@ VM err-redeclare-same-scope.pino  # D-018: legacy VM allows redeclaring a variab
 C err-float-to-int.pino  # D-019: legacy checker allows assigning float to int variable
 TreeWalk err-redeclare-same-scope.pino  # D-018: legacy TreeWalk allows redeclaring a variable in the same scope
 VM err-float-to-int.pino  # D-019: legacy checker allows assigning float to int variable
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk annotated-declarations.pino  # D-012: legacy fails: PARSER: Expected '=', got Identifier: int
+VM annotated-declarations.pino  # D-012: legacy fails: PARSER: Expected '=', got Identifier: int
+C annotated-declarations.pino  # D-012: legacy fails: PARSER: Expected '=', got Identifier: int
+TreeWalk annotated-generic-and-option.pino  # D-012: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
+VM annotated-generic-and-option.pino  # D-012: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
+C annotated-generic-and-option.pino  # D-012: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
+TreeWalk block-statement-shadowing.pino  # D-161: legacy prints '2 / 3 / 3 / 3' instead of '2 / 3 / 2 / 1'
+VM block-statement-shadowing.pino  # D-161: legacy prints '2 / 3 / 3 / 3' instead of '2 / 3 / 2 / 1'
+C block-statement-shadowing.pino  # D-161: legacy prints '2 / 3 / 3 / 3' instead of '2 / 3 / 2 / 1'
+TreeWalk compound-floor-divide.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / = (DivisionAssignment)
+VM compound-floor-divide.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / = (DivisionAssignment)
+C compound-floor-divide.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / = (DivisionAssignment)
+TreeWalk err-annotation-mismatch.pino  # D-012: legacy fails with 'PARSER: Expected '=', got Identifier: int' instead of an error containing 'Cannot assign'
+VM err-annotation-mismatch.pino  # D-012: legacy fails with 'PARSER: Expected '=', got Identifier: int' instead of an error containing 'Cannot assign'
+C err-annotation-mismatch.pino  # D-012: legacy fails with 'PARSER: Expected '=', got Identifier: int' instead of an error containing 'Cannot assign'
+TreeWalk err-val-option-none.pino  # D-160: legacy fails with 'PARSER: Expected '=', got Identifier: Option' instead of an error containing 'Option::None'
+VM err-val-option-none.pino  # D-160: legacy fails with 'PARSER: Expected '=', got Identifier: Option' instead of an error containing 'Option::None'
+C err-val-option-none.pino  # D-160: legacy fails with 'PARSER: Expected '=', got Identifier: Option' instead of an error containing 'Option::None'

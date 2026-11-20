@@ -1,0 +1,4 @@
+# covers: TYPE-E2
+fn take(x void) {
+}
+println("unreachable")

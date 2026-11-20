@@ -9,8 +9,8 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 ## Rules
 - UNION-1: `union Name { Variant(T1, T2) Other Plain }` or `union Name { Variant(a T1, b T2) Other Plain }` declares a tagged union whose variants carry zero or more payload types or named payload fields, and the declaration may be prefixed with `pub`. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; ParserUnionsTests.TestParseUnionDeclaration; spec/decisions/D-103-union-payload-forms.md]
 - UNION-2: A variant is instantiated with `Union::Variant(args)`, or `Union::Variant` when it has no payload. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"]
-- UNION-3: In `match`, `when Union::Variant(a, b)` selects the branch for that variant and binds the payload values, in order, to the names `a`, `b` inside the branch. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; UnionTests.TestBasicUnionMatchExecution; ParserUnionsTests.TestParseWhenPattern]
-- UNION-4: `when Union::Variant` without parentheses matches a variant that has no payload. [src: UnionTests.TestBasicUnionMatchExecution]
+- UNION-3: In `match`, `when Union::Variant(a, b)` selects the branch for that variant and binds the payload values by position to the names `a`, `b` inside the branch, and a prefix such as `when Union::Variant(a)` binds only the first field. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; UnionTests.TestBasicUnionMatchExecution; ParserUnionsTests.TestParseWhenPattern; spec/decisions/D-169-union-variant-match-patterns.md]
+- UNION-4: `when Union::Variant` without parentheses matches that variant, with or without a payload, and binds nothing. [src: UnionTests.TestBasicUnionMatchExecution; spec/decisions/D-169-union-variant-match-patterns.md]
 - UNION-5: An `else` branch in a `match` over a union handles every variant that no `when` branch lists. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; UnionTests.TestUnionMatchElseFallbackExecution]
 - UNION-6: A union is made generic by the `@@Generic[T, ...]` decorator before the `union` keyword, and its type parameters can be used in variant payload types. [src: LANGUAGE_REFERENCE.md §7 "Generic Unions"; proposals/005-tagged-unions-and-patterns-roadmap.md; UnionTests.TestGenericUnionMatchExecution; spec/decisions/D-072-two-generic-syntaxes.md]
 - UNION-7: Positional payload types in a union declaration are allowed only when every variant of that union is positional. [src: spec/decisions/D-103-union-payload-forms.md]
@@ -29,6 +29,9 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 
 - UNION-20: Multiple positional payload types in a union variant must be separated by commas (`Pair(int, string)`), whereas named fields remain comma-optional, so `Variant(a B)` declares one named field `a` of type `B`. [src: spec/decisions/D-146-positional-union-payload-commas.md]
 
+- UNION-21: `when Union::Variant(@field)` binds the named payload field `field` to a variable of the same name, and `when Union::Variant(@field: name)` binds it to `name`. [src: spec/decisions/D-169-union-variant-match-patterns.md]
+- UNION-22: Label bindings may bind any subset of the named fields in any order, and are valid only on variants declared with named fields. [src: spec/decisions/D-169-union-variant-match-patterns.md]
+
 ## Errors
 - UNION-E1: Constructing a variant with an argument of the wrong payload type is rejected with a message containing "for variant constructor". [src: CheckerTests.TestUnionConstructorArgumentTypeMismatch]
 - UNION-E2: A `match` over a union that omits a variant and has no `else` is rejected with a message containing "is not exhaustive". [src: CheckerTests.TestUnionMatchMissingVariantThrows; proposals/005-tagged-unions-and-patterns-roadmap.md]
@@ -38,6 +41,10 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 - UNION-E6: `is` on a value that is not a union or enum is rejected with a message containing "Cannot match union pattern". [src: CheckerTests.TestUnionIsExpressionErrors]
 - UNION-E7: `is` with explicit generic arguments that differ from the value's type is rejected with a message containing "Cannot match union pattern". [src: LANGUAGE_REFERENCE.md §7 "Variant Testing (`is` and `is not`)"; CheckerTests.TestUnionIsExpressionErrors]
 - UNION-E8: Mixing named payload fields (`Int(n int)`) and positional payload types (`Str(string)`) in the same union declaration is rejected as a compile error. [src: spec/decisions/D-103-union-payload-forms.md]
+
+- UNION-E9: Mixing positional and label bindings in one pattern, such as `when U::Pair(x, @b)`, is rejected by the checker with a message containing "cannot mix". [src: spec/decisions/D-169-union-variant-match-patterns.md]
+- UNION-E10: A label that is not a field of the variant, such as `when U::Pair(@c)`, is rejected by the checker with a message containing "is not a field". [src: spec/decisions/D-169-union-variant-match-patterns.md]
+- UNION-E11: A label binding on a variant whose payload is positional, such as `when P::Pair(@a)` for `Pair(int, string)`, is rejected by the checker with a message containing "named fields". [src: spec/decisions/D-169-union-variant-match-patterns.md]
 
 ## Examples
 Conformance cases: `conformance/unions/`. The predeclared `Option[T]` and `Result[T, E]` unions are specified in `spec/features/errors.md`.

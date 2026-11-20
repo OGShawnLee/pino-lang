@@ -1,0 +1,4 @@
+# covers: MAP-12
+val m = map[string, float] { "a" -> 1, "b" -> 2.5 }
+println(m["a"])
+println(m["b"])

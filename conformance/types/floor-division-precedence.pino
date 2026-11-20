@@ -1,0 +1,5 @@
+# covers: TYPE-16
+println(2 + 7 // 2 * 3)
+println(10 - 7 // 2)
+println(-7 // 2)
+println(17 // 5 % 2)

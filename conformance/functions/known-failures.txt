@@ -45,12 +45,50 @@ C return-newline-continuation.pino  # D-142: legacy parser does not continue 're
 TreeWalk newline-before-open-paren.pino  # D-144: legacy parser continues call across newline before '('
 VM newline-before-open-paren.pino  # D-144: legacy parser continues call across newline before '('
 C newline-before-open-paren.pino  # D-144: legacy parser continues call across newline before '('
-TreeWalk untyped-lambda-commas.pino  # D-145: legacy parser rejects untyped lambda params and '->' function types
-VM untyped-lambda-commas.pino  # D-145: legacy parser rejects untyped lambda params and '->' function types
-C untyped-lambda-commas.pino  # D-145: legacy parser rejects untyped lambda params and '->' function types
-TreeWalk typed-lambda-no-comma.pino  # D-145: legacy parser uses '=>' instead of '->' for lambda bodies
-VM typed-lambda-no-comma.pino  # D-145: legacy parser uses '=>' instead of '->' for lambda bodies
-C typed-lambda-no-comma.pino  # D-145: legacy parser uses '=>' instead of '->' for lambda bodies
-TreeWalk indexed-element-call.pino  # D-055: legacy parser reads fns[0](9) as generic call
-VM indexed-element-call.pino  # D-055: legacy parser reads fns[0](9) as generic call
-C indexed-element-call.pino  # D-055: legacy parser reads fns[0](9) as generic call
+TreeWalk untyped-lambda-commas.pino  # D-100: legacy parser rejects '->' in function types and lambda bodies (it also rejects untyped lambda params, D-145)
+VM untyped-lambda-commas.pino  # D-100: legacy parser rejects '->' in function types and lambda bodies (it also rejects untyped lambda params, D-145)
+C untyped-lambda-commas.pino  # D-100: legacy parser rejects '->' in function types and lambda bodies (it also rejects untyped lambda params, D-145)
+TreeWalk typed-lambda-no-comma.pino  # D-100: legacy parser uses '=>' instead of '->' for lambda bodies
+VM typed-lambda-no-comma.pino  # D-100: legacy parser uses '=>' instead of '->' for lambda bodies
+C typed-lambda-no-comma.pino  # D-100: legacy parser uses '=>' instead of '->' for lambda bodies
+TreeWalk indexed-element-call.pino  # D-100: legacy parser rejects '->' in lambda bodies (it also reads fns[0](9) as a generic call, D-055)
+VM indexed-element-call.pino  # D-100: legacy parser rejects '->' in lambda bodies (it also reads fns[0](9) as a generic call, D-055)
+C indexed-element-call.pino  # D-100: legacy parser rejects '->' in lambda bodies (it also reads fns[0](9) as a generic call, D-055)
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk err-bare-return-non-void.pino  # D-050: legacy accepts the program (no error containing 'must return a value')
+VM err-bare-return-non-void.pino  # D-050: legacy accepts the program (no error containing 'must return a value')
+C err-bare-return-non-void.pino  # D-050: legacy fails with 'TCC compilation failed: / pino_output.c: error: cannot cast 'void *' to 'struct <anonymous' instead of an error containing 'must return a value'
+TreeWalk err-missing-return-path.pino  # D-050: legacy accepts the program (no error containing 'always return')
+VM err-missing-return-path.pino  # D-050: legacy accepts the program (no error containing 'always return')
+C err-missing-return-path.pino  # D-050: legacy accepts the program (no error containing 'always return')
+TreeWalk hoisting-module-level.pino  # D-165: legacy fails: RUNTIME ERROR: Variable 'double' is not declared.
+VM hoisting-module-level.pino  # D-165: legacy fails: RUNTIME ERROR: Value is not callable.
+C hoisting-module-level.pino  # D-165: legacy fails: TCC compilation failed: / pino_output.c: error: too many basic types
+TreeWalk hoisting-nested-block.pino  # D-165: legacy fails: RUNTIME ERROR: Variable 'inner' is not declared.
+VM hoisting-nested-block.pino  # D-165: legacy fails: RUNTIME ERROR: Value is not callable.
+C hoisting-nested-block.pino  # D-165: legacy fails: TCC compilation failed: / pino_output.c: error: cannot cast 'int' to 'struct <anonymous>'
+TreeWalk infer-float-from-mixed-returns.pino  # D-050: legacy prints '1 / 2.5 / int' instead of '1.0 / 2.5 / float'
+VM infer-float-from-mixed-returns.pino  # D-050: legacy prints '1 / 2.5 / int' instead of '1.0 / 2.5 / float'
+C infer-float-from-mixed-returns.pino  # D-050: legacy fails: TCC compilation failed: / pino_output.c: warning: implicit declaration of function 'type' / pino_out
+TreeWalk infer-late-base-case.pino  # D-050: legacy fails: TYPE CHECK ERROR: Function 'fact' is recursive and requires an explicit return type annotation. /
+VM infer-late-base-case.pino  # D-050: legacy fails: TYPE CHECK ERROR: Function 'fact' is recursive and requires an explicit return type annotation. /
+C infer-late-base-case.pino  # D-050: legacy fails: TYPE CHECK ERROR: Function 'fact' is recursive and requires an explicit return type annotation. /
+TreeWalk infer-mutual-recursion.pino  # D-050: legacy fails: TYPE CHECK ERROR: Function 'is_even' is recursive and requires an explicit return type annotation. /
+VM infer-mutual-recursion.pino  # D-050: legacy fails: TYPE CHECK ERROR: Function 'is_even' is recursive and requires an explicit return type annotation. /
+C infer-mutual-recursion.pino  # D-050: legacy fails: TYPE CHECK ERROR: Function 'is_even' is recursive and requires an explicit return type annotation. /
+TreeWalk lambda-infer-call-argument.pino  # D-167: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+VM lambda-infer-call-argument.pino  # D-167: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+C lambda-infer-call-argument.pino  # D-167: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+TreeWalk lambda-infer-collection-element.pino  # D-167: legacy fails: PARSER: Expected '=', got Marker: [ (BracketBegin)
+VM lambda-infer-collection-element.pino  # D-167: legacy fails: PARSER: Expected '=', got Marker: [ (BracketBegin)
+C lambda-infer-collection-element.pino  # D-167: legacy fails: PARSER: Expected '=', got Marker: [ (BracketBegin)
+TreeWalk lambda-infer-return.pino  # D-167: legacy fails: PARSER: Expected '{'
+VM lambda-infer-return.pino  # D-167: legacy fails: PARSER: Expected '{'
+C lambda-infer-return.pino  # D-167: legacy fails: PARSER: Expected '{'
+TreeWalk lambda-infer-struct-field.pino  # D-167: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+VM lambda-infer-struct-field.pino  # D-167: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+C lambda-infer-struct-field.pino  # D-167: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+TreeWalk lambda-infer-typed-val.pino  # D-167: legacy fails: PARSER: Expected '=', got Keyword: fn (Function)
+VM lambda-infer-typed-val.pino  # D-167: legacy fails: PARSER: Expected '=', got Keyword: fn (Function)
+C lambda-infer-typed-val.pino  # D-167: legacy fails: PARSER: Expected '=', got Keyword: fn (Function)

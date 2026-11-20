@@ -1,0 +1,10 @@
+# covers: UNION-21, UNION-22
+union U {
+  Pair(a int, b string)
+  Empty
+}
+val u = U::Pair(7, "hello")
+match u {
+  when U::Pair(@b: text, @a: number) { println("$number $text") }
+  else { println("other") }
+}

@@ -38,3 +38,37 @@ VM bool-short-circuit.pino  # D-022: VM prints True/False instead of true/false
 TreeWalk in-and-is-precedence.pino  # D-141: legacy engine fails on combined 'in'/'is' precedence case
 VM in-and-is-precedence.pino  # D-141: legacy engine fails on combined 'in'/'is' precedence case
 C in-and-is-precedence.pino  # D-141: legacy engine fails on combined 'in'/'is' precedence case
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk err-division-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
+VM err-division-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
+C err-division-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
+TreeWalk err-floor-division-by-zero-const.pino  # D-166: legacy fails with 'PARSER: Expected expression, got Operator: / (Division)' instead of an error containing 'Division by Zero'
+VM err-floor-division-by-zero-const.pino  # D-166: legacy fails with 'PARSER: Expected expression, got Operator: / (Division)' instead of an error containing 'Division by Zero'
+C err-floor-division-by-zero-const.pino  # D-166: legacy fails with 'PARSER: Expected expression, got Operator: / (Division)' instead of an error containing 'Division by Zero'
+TreeWalk err-modulo-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
+VM err-modulo-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
+C err-modulo-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
+TreeWalk err-void-collection-element.pino  # D-162: legacy fails with 'PARSER: Expected '=', got Marker: [ (BracketBegin)' instead of an error containing 'void'
+VM err-void-collection-element.pino  # D-162: legacy fails with 'PARSER: Expected '=', got Marker: [ (BracketBegin)' instead of an error containing 'void'
+C err-void-collection-element.pino  # D-162: legacy fails with 'PARSER: Expected '=', got Marker: [ (BracketBegin)' instead of an error containing 'void'
+TreeWalk err-void-field.pino  # D-162: legacy accepts the program (no error containing 'void')
+VM err-void-field.pino  # D-162: legacy accepts the program (no error containing 'void')
+C err-void-field.pino  # D-162: legacy fails with 'TCC compilation failed: / Assertation failed! / ..\ / x86_64-gen.c, Line 441 / Expression:' instead of an error containing 'void'
+TreeWalk err-void-parameter.pino  # D-162: legacy accepts the program (no error containing 'void')
+VM err-void-parameter.pino  # D-162: legacy accepts the program (no error containing 'void')
+TreeWalk floor-division-float.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+VM floor-division-float.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+C floor-division-float.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+TreeWalk floor-division-int.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+VM floor-division-int.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+C floor-division-int.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+TreeWalk floor-division-precedence.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+VM floor-division-precedence.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+C floor-division-precedence.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+TreeWalk floored-modulo.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+VM floored-modulo.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+C floored-modulo.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+TreeWalk void-allowed-positions.pino  # D-162: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+VM void-allowed-positions.pino  # D-162: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+C void-allowed-positions.pino  # D-162: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)

@@ -1,0 +1,4 @@
+# covers: STRUCT-E13
+import Ledger
+val e = Ledger::make_entry("rent", 900)
+println(e:amount)

@@ -51,3 +51,26 @@ VM err-mixed-payloads.pino  # D-103: legacy parser does not support named union 
 VM positional-payloads.pino  # D-103: VM has no union support
 VM positional-payload-commas.pino  # D-146: legacy VM does not support multi-payload positional union variants
 C positional-payload-commas.pino  # D-146: legacy C backend fails on multi-payload positional union variants
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk err-pattern-label-on-positional.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'named fields'
+VM err-pattern-label-on-positional.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'named fields'
+C err-pattern-label-on-positional.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'named fields'
+TreeWalk err-pattern-mixed-bindings.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'cannot mix'
+VM err-pattern-mixed-bindings.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'cannot mix'
+C err-pattern-mixed-bindings.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'cannot mix'
+TreeWalk err-pattern-unknown-label.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'is not a field'
+VM err-pattern-unknown-label.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'is not a field'
+C err-pattern-unknown-label.pino  # D-169: legacy fails with 'PARSER: Expected expression, got Marker: @ (At)' instead of an error containing 'is not a field'
+TreeWalk pattern-label-rename.pino  # D-169: legacy fails: PARSER: Expected expression, got Marker: @ (At)
+VM pattern-label-rename.pino  # D-169: legacy fails: PARSER: Expected expression, got Marker: @ (At)
+C pattern-label-rename.pino  # D-169: legacy fails: PARSER: Expected expression, got Marker: @ (At)
+TreeWalk pattern-label.pino  # D-169: legacy fails: PARSER: Expected expression, got Marker: @ (At)
+VM pattern-label.pino  # D-169: legacy fails: PARSER: Expected expression, got Marker: @ (At)
+C pattern-label.pino  # D-169: legacy fails: PARSER: Expected expression, got Marker: @ (At)
+TreeWalk pattern-no-bindings.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
+VM pattern-no-bindings.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
+C pattern-no-bindings.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
+TreeWalk pattern-positional-prefix.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
+VM pattern-positional-prefix.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
+C pattern-positional-prefix.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.

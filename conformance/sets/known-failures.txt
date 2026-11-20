@@ -11,3 +11,8 @@ C expression-form.pino  # D-147: legacy parser has no set[T] collection form
 TreeWalk err-index-set-var.pino  # D-147: legacy parser allows indexing a variable named 'set'
 VM err-index-set-var.pino  # D-147: legacy parser allows indexing a variable named 'set'
 C err-index-set-var.pino  # D-147: legacy parser allows indexing a variable named 'set'
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk literal-widening.pino  # D-168: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM literal-widening.pino  # D-168: legacy fails: RUNTIME ERROR: Value is not callable.
+C literal-widening.pino  # D-168: legacy fails: Map or custom index access is not implemented in transpilation.

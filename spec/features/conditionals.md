@@ -14,14 +14,18 @@ Grammar productions: see `spec/grammar.ebnf` section `if`.
 - IF-5: `if cond then a else b` is an expression whose value is `a` when `cond` is true and `b` otherwise. [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"]
 - IF-6: An `if ... then ... else ...` expression may be used as the initializer of a `val` or `var` declaration. [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"]
 
+- IF-7: The two branches of `if cond then a else b` must have compatible types, and an `int` branch with a `float` branch widens to `float`, so `if true then 1 else 2.5` is `1.0`. [src: spec/decisions/D-033-if-expression-branch-types.md; spec/decisions/D-019-int-float-mixing-and-division.md]
+
 ## Errors
 - IF-E1: An `if` statement whose block is not enclosed in braces, such as `if x > 1 println("a")`, is rejected with a message containing "Expected '{'". [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"; spec/decisions/D-106-braced-if-else-branches.md]
 - IF-E2: An `if ... then ...` expression without an `else` part is rejected with a message containing "Expected 'else' in ternary expression". [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"]
 - IF-E3: An arrow `else` (`else -> expr` or `else => expr`) after an `if` block is rejected as a parse error. [src: spec/decisions/D-035-else-arrow-after-if-block.md]
 - IF-E4: An `if` statement condition or `if ... then ... else` condition whose type is not `bool` is rejected by the checker. [src: spec/decisions/D-032-non-bool-if-condition.md]
 
+- IF-E5: An `if cond then a else b` whose branches have incompatible types, such as `if true then 1 else "x"`, is rejected by the checker with a message containing "incompatible types". [src: spec/decisions/D-033-if-expression-branch-types.md]
+
 ## Examples
 Conformance cases: `conformance/conditionals/`.
 
 ## Open questions
-- D-033: Must both branches of `if ... then a else b` have the same type? Today `if true then 1 else "x"` is accepted, while a `match` expression with incompatible arms is rejected.
+None.

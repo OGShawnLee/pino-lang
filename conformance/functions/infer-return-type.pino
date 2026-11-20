@@ -1,0 +1,10 @@
+# covers: FN-27
+fn add(a int, b int) {
+  return a + b
+}
+fn greet(name string) {
+  println("hello $name")
+}
+val total = add(2, 3)
+println(total + 1)
+greet("Pino")

@@ -1,0 +1,14 @@
+# covers: STRUCT-18
+struct Box {
+  x int
+  fn add(x int) int {
+    return x + self:x
+  }
+  fn with_local() int {
+    val x = 100
+    return x + self:x
+  }
+}
+val b = Box { x: 5 }
+println(b:add(10))
+println(b:with_local())

@@ -1,0 +1,5 @@
+# covers: FN-E7
+fn nothing_to_return() int {
+  return
+}
+println(nothing_to_return())

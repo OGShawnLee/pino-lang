@@ -1,0 +1,5 @@
+# covers: LEX-E6, LEX-20
+struct player {
+  hp int
+}
+println("unreachable")

@@ -1,0 +1,7 @@
+# covers: FN-E6
+fn maybe(flag bool) int {
+  if flag {
+    return 1
+  }
+}
+println(maybe(true))

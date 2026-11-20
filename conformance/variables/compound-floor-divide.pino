@@ -1,0 +1,10 @@
+# covers: VAR-4, TYPE-14
+var n = 17
+n //= 5
+println(n)
+n = -17
+n //= 5
+println(n)
+n = 17
+n %= 5
+println(n)

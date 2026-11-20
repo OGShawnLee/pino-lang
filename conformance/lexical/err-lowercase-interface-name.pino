@@ -1,0 +1,5 @@
+# covers: LEX-E6, LEX-20
+interface named {
+  fn name() string
+}
+println("unreachable")

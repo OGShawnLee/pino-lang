@@ -1,0 +1,9 @@
+# covers: STRUCT-E12, STRUCT-15
+struct Point {
+  x int
+  y int
+}
+val x = 1
+val y = 2
+val p = Point { x, y }
+println(p:x + p:y)

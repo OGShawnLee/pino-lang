@@ -1,0 +1,11 @@
+# covers: IFACE-E6
+interface Sized {
+  fn size() int
+}
+struct Blob {
+  fn size() string {
+    return "big"
+  }
+}
+fn measure(s Sized) {}
+measure(Blob {})

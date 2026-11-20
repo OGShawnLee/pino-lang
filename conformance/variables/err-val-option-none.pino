@@ -1,0 +1,3 @@
+# covers: VAR-E7
+val x Option[int] = Option::None
+println("unreachable")

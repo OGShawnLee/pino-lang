@@ -32,3 +32,8 @@ VM newline-before-bracket.pino  # D-058: legacy parser continues expression acro
 # --- Semantics decisions (ticket 015)
 VM err-index-out-of-range.pino  # D-059: VM prints null instead of panicking on out-of-range index
 C err-index-out-of-range.pino  # D-059: C backend reads garbage out of range instead of panicking
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk literal-widening.pino  # D-168: legacy prints '[1, 2.5] / int' instead of '[1.0, 2.5] / float'
+VM literal-widening.pino  # D-168: legacy prints 'null / null' instead of '[1.0, 2.5] / float'
+C literal-widening.pino  # D-168: legacy fails: TCC compilation failed: / pino_output.c: warning: implicit declaration of function 'type' / pino_out

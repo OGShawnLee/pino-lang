@@ -1,0 +1,5 @@
+# covers: TYPE-E2
+struct Box {
+  v void
+}
+println("unreachable")

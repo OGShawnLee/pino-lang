@@ -1,0 +1,31 @@
+# covers: FN-26
+println(double(4))
+val s = Square { side: 3 }
+println(describe(s))
+println(Color::Green == Color::Green)
+val sh = Shape::Circle(2)
+match sh {
+  when Shape::Circle(r) { println(r) }
+  else { println("dot") }
+}
+
+fn double(n int) int {
+  return n * 2
+}
+interface HasArea {
+  fn area() int
+}
+struct Square {
+  side int
+  fn area() int {
+    return side * side
+  }
+}
+fn describe(a HasArea) int {
+  return a:area()
+}
+enum Color { Red, Green }
+union Shape {
+  Circle(int)
+  Dot
+}

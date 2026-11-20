@@ -1,0 +1,6 @@
+# covers: FN-30
+struct Box {
+  op fn (int) -> int
+}
+val b = Box { op: fn (x) -> x * 3 }
+println(b:op(4))

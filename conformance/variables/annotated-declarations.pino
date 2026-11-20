@@ -1,0 +1,10 @@
+# covers: VAR-10
+val n int = 12
+val f float = 12.5
+var s string = "hi"
+var xs []int = [1, 2, 3]
+s = "bye"
+println(n)
+println(f)
+println(s)
+println(xs)

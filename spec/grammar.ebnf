@@ -50,32 +50,38 @@ param           = IDENT , type_expr ;
 arg_list        = "(" , [ expression , { list_sep , expression } ] , ")" ;
 
 (* === section: var (owner 005) === *)
-(* D-012: the reference gives no syntax for an explicit type annotation, and neither `val x: int = 10`
-   nor `val x int = 10` parses today, so none is listed. D-018: the parser accepts a second declaration of the
-   same name in one scope. *)
-variable_decl   = ( "val" | "var" ) , IDENT , "=" , expression ;
+(* D-012: a declaration may write its type after the name, with no colon: `val n int = 12`. The initializer stays
+   required, and the declared type is the type of the variable. D-160: a `val` initialized with `Option::None` is a
+   checker error. D-018: a second declaration of the same name in one scope is a checker error. *)
+variable_decl   = ( "val" | "var" ) , IDENT , [ type_expr ] , "=" , expression ;
 
 (* Assignment is a right-associative expression at the loosest precedence level (D-141); see assign_expr in section type. *)
+block           = "{" , { statement } , "}" ;
+block_statement = block ;                                  (* D-161: `{ ... }` at statement start opens a nested scope *)
+assert_statement = "assert" , expression ;                 (* as the legacy parser and the self-host parse it *)
 assign_target   = IDENT | index_expr | member_expr ;       (* x, v[i], m["k"], obj:field *)
-assign_op       = "=" | "+=" | "-=" | "*=" | "/=" | "%=" ;
+assign_op       = "=" | "+=" | "-=" | "*=" | "/=" | "//=" | "%=" ;       (* D-164: `//=` *)
                   (* assigning to a val is an error (D-017); the checker rejects a value of another type.
                      `block` (a braced statement list that opens a nested scope) is defined with the statements. *)
 
 (* === section: type (owner 005) === *)
-(* D-012: no explicit annotation syntax is accepted for variables. Type names appear after a parameter name
-   (`a int`) and as return types; compound type forms (vectors, maps, functions, generics) belong to later sections. *)
+(* D-012: type names appear after a variable name (`val n int = 12`), after a parameter name (`a int`) and as
+   return types; compound type forms (vectors, maps, functions, generics) belong to later sections.
+   D-162: `void` is written as a function return type, a function type's return type and the success type of
+   `Result`; it is a checker error as a parameter, variable, field or collection element type. *)
 primitive_type  = "bool" | "int" | "float" | "rune" | "string" ;
 type_expr       = primitive_type
-                | IDENT ;                                (* struct, interface, enum or union name; other forms: later sections *)
+                | "void"                                 (* D-162: only where the checker allows it *)
+                | IDENT [ "[" , type_arg_list , "]" ] ;  (* struct, interface, enum or union name, with type arguments: `Person[string]`; other forms: later sections *)
 
 (* Full operator precedence table, from loosest (level 1) to tightest (level 9):
-     Level 1 (right-assoc): =, +=, -=, *=, /=, %=  (assignment expression, D-141)
+     Level 1 (right-assoc): =, +=, -=, *=, /=, //=, %=  (assignment expression, D-141, D-164)
      Level 2 (left-assoc):  or                      (logical or)
      Level 3 (left-assoc):  and                     (logical and)
      Level 4 (left-assoc):  ==, !=, ===, !==, is, is not   (equality and pattern test, D-141)
      Level 5 (left-assoc):  <, <=, >, >=, in, not in       (relational and membership, D-141)
      Level 6 (left-assoc):  +, -                    (additive)
-     Level 7 (left-assoc):  *, /, %                 (multiplicative)
+     Level 7 (left-assoc):  *, /, //, %             (multiplicative; // is floor division, % floored modulo, D-164)
      Level 8 (right-assoc): - (negate), not         (prefix unary)
      Level 9 (left-assoc):  [expr], :member, :m(args), ::member, (args), [T](args), ?, or { ... }
                             (postfix, D-055, D-076, D-107, D-140; newline before [ or ( ends expr, D-058, D-144) *)
@@ -87,7 +93,7 @@ eq_expr         = cmp_expr , { ( "==" | "!=" | "===" | "!==" ) , cmp_expr
                              | "is" , [ "not" ] , pattern } ;   (* D-141 *)
 cmp_expr        = add_expr , { ( "<" | "<=" | ">" | ">=" | "in" | "not" , "in" ) , add_expr } ;   (* D-141 *)
 add_expr        = mul_expr , { ( "+" | "-" ) , mul_expr } ;
-mul_expr        = unary_expr , { ( "*" | "/" | "%" ) , unary_expr } ;
+mul_expr        = unary_expr , { ( "*" | "/" | "//" | "%" ) , unary_expr } ;     (* D-164 *)
 unary_expr      = ( "-" | "not" ) , unary_expr
                 | postfix_expr ;                          (* D-107: postfix binds tighter than unary - and not *)
 postfix_expr    = primary_expr , { "[" , expression , "]" (* same line as operand, D-058; index if not followed by (, D-076 *)
@@ -184,8 +190,7 @@ pattern          = variant_pattern
                  | "true" | "false"
                  | expression ;               (* literal value, for example `1`, `"start"` *)
 
-variant_pattern  = IDENT , [ "[" , type_list , "]" ] , "::" , IDENT , [ "(" , { pattern , [ "," ] } , ")" ] ;
-                                              (* `Enum::Member`, or `Union::Variant(sub-patterns)` *)
+(* variant_pattern (`Enum::Member`, `Union::Variant`, `Union::Variant(bindings)`) is defined in section union (D-169). *)
 type_list        = type_name , { "," , type_name } ;
 type_name        = IDENT ;                    (* simplified; full type syntax belongs to the type section *)
 
@@ -204,13 +209,13 @@ script_file      = { statement } ;
 program_file     = { program_item } ;
 program_item     = struct_declaration | interface_declaration | enum_declaration | union_declaration
                  | function_declaration | import_statement | module_declaration | test_declaration
-                 | "val" , IDENT , [ type_name ] , "=" , expression ;
+                 | variable_decl ;                (* D-012: same production as in section var; the checker accepts only `val` here (MAIN-E3) *)
 
 (* === section: fn (owner 007) === *)
 (* Productions below reference `type`, `block` and `expression`, which belong to other sections. *)
 function_declaration = [ visibility ] , "fn" , IDENT , parameters , [ return_type ] , block ;
 
-visibility      = "pub" | "@pub_testing" ;    (* mutually exclusive; see section mod *)
+visibility      = "pub" | "@@Testable" ;      (* mutually exclusive; see section mod; D-163 *)
 
 parameters      = (* empty: only when the next token is "{" *)
                 | "(" , [ parameter , { [ "," ] , parameter } ] , ")" ;   (* commas optional, see D-051 *)
@@ -297,7 +302,7 @@ struct_member      = field_declaration
                    | embedded_struct
                    | method_declaration ;
 
-field_declaration  = IDENT , type ;               (* `name string`, `increment fn (int) -> int` *)
+field_declaration  = [ "pub" ] , IDENT , type ;   (* `name string`, `pub name string`, `increment fn (int) -> int`; fields are private to their module unless `pub` (D-163) *)
 embedded_struct    = IDENT ;                      (* a bare struct name embeds that struct *)
 method_declaration = [ generic_decorator ] , [ "static" ] , "fn" , IDENT ,
                      [ "(" , [ param_list ] , ")" ] , [ type ] , block ;
@@ -339,12 +344,21 @@ union_variant     = IDENT , [ "(" , type , { "," , type } , ")" ]
 variant_value     = IDENT , [ "[" , type_arg_list , "]" ] , "::" , IDENT , [ "(" , [ argument_list ] , ")" ] ;
                                                   (* `Option::Some(42)`, `Option::None`, `Option[int]::Some(1)` *)
 
-variant_pattern   = IDENT , [ "[" , type_arg_list , "]" ] , "::" , IDENT , [ "(" , pattern , { [ "," ] , pattern } , ")" ] ;
-pattern           = IDENT | variant_pattern ;      (* an IDENT binds the payload value *)
+(* D-169: match patterns on union variants. `when U::Pair` binds nothing; `when U::Pair(x, y)` binds by position under any
+   names and a prefix `when U::Pair(x)` is allowed; `when U::Pair(@b)` binds field `b` by name and `when U::Pair(@b: label)`
+   binds it as `label`. Labels bind any subset in any order and are valid only on variants with named fields. Positional and
+   label bindings cannot be mixed in one pattern, and a label that is not a field of the variant is an error. *)
+variant_pattern   = IDENT , [ "[" , type_list , "]" ] , "::" , IDENT , [ variant_bindings ] ;
+variant_bindings  = "(" , ( positional_bindings | label_bindings ) , ")" ;
+positional_bindings = pattern , { [ "," ] , pattern } ;    (* an IDENT binds the payload value at that position *)
+label_bindings    = label_binding , { [ "," ] , label_binding } ;
+label_binding     = "@" , IDENT , [ ":" , IDENT ] ;        (* `@b` binds field b as b, `@b: label` binds it as label *)
 
 when_branch       = "when" , variant_pattern , block ;    (* inside `match`; `else` block is the fallback *)
 
-is_expression     = expression , "is" , [ "not" ] , variant_pattern ;   (* also usable as a condition; bindings are scoped to the `if` block *)
+is_expression     = expression , "is" , [ "not" ] , is_pattern ;   (* also usable as a condition; bindings are scoped to the `if` block *)
+is_pattern        = IDENT , [ "[" , type_arg_list , "]" ] , "::" , IDENT , [ "(" , pattern , { [ "," ] , pattern } , ")" ] ;
+                                                  (* D-169 governs `match` patterns only; `is` keeps its positional form *)
 
 (* === section: gen (owner 008) === *)
 generic_decorator = "@@Generic" , "[" , generic_param , { [ "," ] , generic_param } , "]" ;

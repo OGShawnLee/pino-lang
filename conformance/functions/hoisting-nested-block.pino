@@ -1,0 +1,14 @@
+# covers: FN-26
+fn outer() {
+  println(inner(3))
+  fn inner(n int) int {
+    return n + 1
+  }
+}
+outer()
+if true {
+  println(helper())
+  fn helper() int {
+    return 7
+  }
+}

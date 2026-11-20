@@ -1,6 +1,6 @@
 # D-012: Explicit type annotation syntax for variables
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/variables.md
 
@@ -36,4 +36,4 @@ println(x)
 3. `val x int = 10`: consistent with parameter and field syntax (`name type`); needs a parser change.
 
 ## Decision
-_Pending: owner decides._
+Option 3, decided by the owner on 2026-11-20: a variable declaration may carry a type written after the name, with no colon: `val n int = 12`, `var p Person[string] = Person { ... }`, `var x Option[string] = Option::None` (owner's root `main.pino:14-20`). The initializer stays required. The declared type is the variable's type, and an initializer whose type is not assignable to it is a checker error. `grammar.ebnf` `variable_decl` and `program_item` both use `( "val" | "var" ) , IDENT , [ type ] , "=" , expression`.

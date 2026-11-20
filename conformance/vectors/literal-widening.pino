@@ -1,0 +1,4 @@
+# covers: VEC-18
+val xs = [1, 2.5]
+println(xs)
+println(type(xs[0]))

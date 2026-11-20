@@ -1,0 +1,9 @@
+# covers: IFACE-E6
+interface Greeter {
+  fn greet(name string)
+}
+struct User {
+  fn greet(n int) {}
+}
+fn run_greet(g Greeter) {}
+run_greet(User {})

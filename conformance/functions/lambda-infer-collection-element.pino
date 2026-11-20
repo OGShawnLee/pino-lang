@@ -1,0 +1,4 @@
+# covers: FN-30
+val fs []fn (int) -> int = [fn (x) -> x + 1, fn (x) -> x * 2]
+println(fs[0](5))
+println(fs[1](5))

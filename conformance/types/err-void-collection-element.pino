@@ -1,0 +1,3 @@
+# covers: TYPE-E2
+val xs []void
+println("unreachable")

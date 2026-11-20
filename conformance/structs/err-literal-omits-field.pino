@@ -1,0 +1,7 @@
+# covers: STRUCT-E12
+struct Person {
+  name string
+  age int
+}
+val p = Person { name: "Ana" }
+println(p:name)

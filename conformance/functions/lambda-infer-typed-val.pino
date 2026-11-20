@@ -1,0 +1,3 @@
+# covers: FN-30
+val inc fn (int) -> int = fn (x) -> x + 1
+println(inc(4))

@@ -1,6 +1,6 @@
 # D-073: Implicit field access inside methods versus parameters and locals
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/structs.md
 
@@ -42,4 +42,4 @@ A local `val x = 100` inside a method behaves the same way (`local x: 100`, then
 3. Require `self:` for every field access and drop bare field names (a large breaking change for existing programs).
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20: a parameter or local shadows a field with the same name, and `self:x` reaches the field.

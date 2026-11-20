@@ -1,0 +1,23 @@
+# covers: VAR-10
+@@Generic[T]
+struct Person {
+  name string
+  data T
+}
+
+val p Person[string] = Person {
+  name: "Shawn"
+  data: "China"
+}
+var nullish Option[string] = Option::None
+println(p:name)
+println(p:data)
+match nullish {
+  when Option::Some(v) { println(v) }
+  else { println("empty") }
+}
+nullish = Option::Some("filled")
+match nullish {
+  when Option::Some(v) { println(v) }
+  else { println("empty") }
+}

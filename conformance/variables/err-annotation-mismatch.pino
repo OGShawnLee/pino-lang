@@ -1,0 +1,3 @@
+# covers: VAR-E6
+val n int = "x"
+println(n)

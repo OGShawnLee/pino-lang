@@ -13,3 +13,26 @@ VM err-from-import-unlisted-name.pino  # VM: RUNTIME ERROR 'Value is not callabl
 
 # --- C backend
 C from-import-no-commas.pino  # MOD-4: same parser limitation; TCC error: 'add' undeclared
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk err-from-import-unlisted-name.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'greet'
+C err-from-import-unlisted-name.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'greet'
+TreeWalk err-missing-struct.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Struct 'MissingStruct' is not defined in module 'Geometry''
+VM err-missing-struct.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Struct 'MissingStruct' is not defined in module 'Geometry''
+C err-missing-struct.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Struct 'MissingStruct' is not defined in module 'Geometry''
+TreeWalk err-private-field.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'is private'
+VM err-private-field.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'is private'
+C err-private-field.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'is private'
+TreeWalk err-private-interface.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Interface 'Geometry::Hidden' is not public'
+VM err-private-interface.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Interface 'Geometry::Hidden' is not public'
+C err-private-interface.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Interface 'Geometry::Hidden' is not public'
+TreeWalk err-private-struct.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Struct 'Geometry::Secret' is not public'
+VM err-private-struct.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Struct 'Geometry::Secret' is not public'
+C err-private-struct.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'Struct 'Geometry::Secret' is not public'
+TreeWalk field-visibility.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
+VM field-visibility.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
+C field-visibility.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
+TreeWalk from-import.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
+C from-import.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
+TreeWalk import-qualified.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
+C import-qualified.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)

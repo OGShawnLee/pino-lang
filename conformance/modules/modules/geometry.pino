@@ -1,8 +1,8 @@
 module Geometry
 
 pub struct Point {
-  x int
-  y int
+  pub x int
+  pub y int
 }
 
 pub fn add_coords(p Point) int {
@@ -26,7 +26,7 @@ interface Hidden {
 }
 
 pub struct Square {
-  side int
+  pub side int
 
   fn area() int {
     return side * side

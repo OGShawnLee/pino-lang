@@ -1,0 +1,10 @@
+# covers: FN-29
+fn pick(flag bool) {
+  if flag {
+    return 1
+  }
+  return 2.5
+}
+println(pick(true))
+println(pick(false))
+println(type(pick(true)))

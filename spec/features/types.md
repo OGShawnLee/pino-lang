@@ -4,7 +4,7 @@ Status: tree-walk 8/8 | VM 8/8 | C 5/8   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `type`.
-The primitive types are `bool`, `int`, `float`, `rune` and `string`. Values of these types are written as literals (see `lexical.md`) and combined with arithmetic, comparison and boolean operators. The builtin `type(value)` returns the name of the type of a value. Types are inferred; no explicit annotation syntax exists today (D-012).
+The primitive types are `bool`, `int`, `float`, `rune` and `string`. Values of these types are written as literals (see `lexical.md`) and combined with arithmetic, comparison and boolean operators. The builtin `type(value)` returns the name of the type of a value. Types are inferred, and a variable declaration may state its type (VAR-10). The integer operators are `+`, `-`, `*`, `/`, `//` (floor division) and `%` (floored modulo); `void` is a writable type in the positions listed by TYPE-17.
 
 ## Rules
 - TYPE-1: The primitive types are `bool`, `int`, `float`, `rune` and `string`, and `type(v)` returns the name of the type of `v` as a string: `"bool"`, `"int"`, `"float"`, `"rune"` or `"string"`. [src: LANGUAGE_REFERENCE.md §3 "Primitive Types"; LANGUAGE_REFERENCE.md §9 "`type(val)`"; StdlibTests.TestTypeFunction; ArithmeticTests.TestRuneConversionsAndUtilities]
@@ -22,12 +22,17 @@ The primitive types are `bool`, `int`, `float`, `rune` and `string`. Values of t
 
 - TYPE-13: `in` and `not in` bind at the relational comparison level (`<`, `<=`, `>`, `>=`), while `is` and `is not` bind at the equality level (`==`, `!=`, `===`, `!==`). [src: spec/decisions/D-141-assignment-and-relational-precedence.md]
 
+- TYPE-14: `//` is floor division and `%` is the matching floored modulo, so `a == (a // b) * b + a % b` holds for `int` operands: `-7 // 2` is `-4`, `-7 % 2` is `1`, `7 // -2` is `-4` and `7 % -2` is `-1`. [src: spec/decisions/D-164-floor-division-and-modulo.md]
+- TYPE-15: `//` on `float` operands returns the floored `float`, so `7.0 // 2` is `3.0`, and with one `int` and one `float` operand the `int` widens to `float` as in TYPE-9. [src: spec/decisions/D-164-floor-division-and-modulo.md; spec/decisions/D-019-int-float-mixing-and-division.md]
+- TYPE-16: `//` and `%` bind at the same level as `*` and `/` and group left to right, so `2 + 7 // 2 * 3` is `11`. [src: spec/decisions/D-164-floor-division-and-modulo.md]
+- TYPE-17: `void` may be written as the return type of a function, as the return type of a function type (`fn (int) -> void`) and as the success type of `Result` (`Result[void, E]`, a function that can only fail). [src: spec/decisions/D-162-void-as-a-writable-type.md]
+
 ## Errors
-None documented.
+- TYPE-E1: A division or modulo (`/`, `//` or `%`) whose divisor is a compile-time constant zero, such as the literal `0`, is rejected by the checker before execution with a message containing "Division by Zero". [src: spec/decisions/D-166-constant-diagnostics.md]
+- TYPE-E2: `void` written as the type of a parameter, a variable, a field or a collection element is rejected by the checker with a message containing "void". [src: spec/decisions/D-162-void-as-a-writable-type.md]
 
 ## Examples
 Conformance cases: `conformance/types/`.
 
 ## Open questions
-- D-012: How are explicit type annotations written (`val x: int = 10`, `val x int = 10`)? Today neither form parses.
-- D-019 (partial): How integer division is spelled remains open.
+None.

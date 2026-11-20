@@ -1,0 +1,13 @@
+# covers: STRUCT-19
+struct Rect {
+  w int
+  h int
+  fn area() int {
+    return w * h
+  }
+  fn doubled() int {
+    return area() * 2
+  }
+}
+val r = Rect { w: 3, h: 4 }
+println(r:doubled())

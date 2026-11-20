@@ -6,3 +6,11 @@
 VM err-non-bool-condition.pino  # D-032: legacy VM accepts non-bool if condition
 C err-non-bool-condition.pino  # D-032: legacy C backend accepts non-bool if condition
 TreeWalk err-non-bool-condition.pino  # D-032: legacy TreeWalk accepts non-bool if condition
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk err-branch-type-mismatch.pino  # D-033: legacy accepts the program (no error containing 'incompatible types')
+VM err-branch-type-mismatch.pino  # D-033: legacy accepts the program (no error containing 'incompatible types')
+C err-branch-type-mismatch.pino  # D-033: legacy fails with 'TCC compilation failed: / pino_output.c: error: cannot cast 'struct <anonymous>' to 'exter' instead of an error containing 'incompatible types'
+TreeWalk if-expression-widening.pino  # D-033: legacy prints '1 / 2.5' instead of '1.0 / 2.5'
+VM if-expression-widening.pino  # D-033: legacy prints '1 / 2.5' instead of '1.0 / 2.5'
+C if-expression-widening.pino  # D-033: legacy prints '1 / 2' instead of '1.0 / 2.5'

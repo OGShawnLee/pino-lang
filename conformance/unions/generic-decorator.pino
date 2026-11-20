@@ -6,7 +6,7 @@ union Option {
 }
 
 val o1 = Option::Some(42)
-val o2 = Option::None
+var o2 Option[int] = Option::None
 
 match o1 {
   when Option::Some(v) { println("Some:" + str(v)) }

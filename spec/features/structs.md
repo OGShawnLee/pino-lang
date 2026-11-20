@@ -4,7 +4,7 @@ Status: tree-walk 25/25 | VM 11/25 | C 19/25   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `struct`.
-A `struct` declaration lists fields (`name type`), embedded structs (a bare struct name) and methods (`fn`, optionally `static fn`). An instance is created with a struct literal that names its fields. Fields and instance methods are reached with `instance:member`; static methods with `Struct::member`. Inside an instance method the receiver is available as `self`, and the declared fields can also be used by their bare names.
+A `struct` declaration lists fields (`name type`), embedded structs (a bare struct name) and methods (`fn`, optionally `static fn`). An instance is created with a struct literal that names every field. Fields and instance methods are reached with `instance:member`; static methods with `Struct::member`. Inside an instance method the receiver is available as `self`, and the declared fields can also be used by their bare names.
 
 ## Rules
 - STRUCT-1: A `struct` declares a type with named, typed fields; `Name { field: value, ... }` creates an instance and `instance:field` reads a field. [src: LANGUAGE_REFERENCE.md §7 "Structs"]
@@ -26,6 +26,10 @@ A `struct` declaration lists fields (`name type`), embedded structs (a bare stru
 
 - STRUCT-17: Indexing a field directly, such as `r:items[1]`, parses as an index expression whenever `[...]` is not followed by `(`. [src: spec/decisions/D-076-index-after-field-access.md]
 
+- STRUCT-18: Inside a method, a parameter or local variable shadows a field with the same name, and `self:x` reaches the field. [src: spec/decisions/D-073-implicit-field-access-shadowing.md]
+- STRUCT-19: Inside a method, a sibling method can be called by its bare name, as in `area()`, just as a field is read by its bare name. [src: spec/decisions/D-075-bare-sibling-method-call.md]
+- STRUCT-20: Struct fields are private by default and module-private: code in the same module may access them, and a field written `pub name type` is also accessible from other modules. [src: spec/decisions/D-163-visibility-and-testable.md]
+
 ## Errors
 - STRUCT-E1: Reading a field that the struct does not declare is rejected with a message containing "does not have field or instance method". [src: CheckerTests.TestAccessOnMissingField]
 - STRUCT-E2: Calling a method that the struct does not declare is rejected with a message containing "does not have method". [src: CheckerTests.TestAccessOnMissingMethod]
@@ -39,10 +43,11 @@ A `struct` declaration lists fields (`name type`), embedded structs (a bare stru
 - STRUCT-E10: Calling a field that is not of a function type is rejected with a message containing "does not have method". [src: CheckerTests.TestTypeCheckerNonFunctionFieldCallThrows]
 - STRUCT-E11: Initialising a field with a value of an incompatible type is rejected with a message containing "Cannot assign type". [src: CheckerTests.TestGenericMapValueTypeMismatchThrows]
 
+- STRUCT-E12: A struct literal that omits a field is rejected by the checker with a message containing "Missing property", and the shorthand `Point { x }` counts as naming `x`. [src: spec/decisions/D-078-omitted-struct-fields.md; spec/decisions/D-104-struct-field-shorthand.md]
+- STRUCT-E13: Reading or assigning a private field of a struct from another module is rejected by the checker with a message containing "is private". [src: spec/decisions/D-163-visibility-and-testable.md]
+
 ## Examples
 Conformance cases: `conformance/structs/`.
 
 ## Open questions
-- D-073: Which name wins inside a method when a parameter or local has the same name as a field?
-- D-075: Can a method call a sibling method by its bare name, without `self:`?
-- D-078: What happens when a struct literal omits a field that is read later?
+None.

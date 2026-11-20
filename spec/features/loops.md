@@ -23,6 +23,8 @@ Every loop is introduced by the keyword `for` and has a braced body. The head is
 - LOOP-14: Loops may be nested, and each iteration of an outer loop runs an inner loop from its beginning. [src: ControlFlowTests.TestWhileLoopNested]
 - LOOP-15: The comma between the two bindings in `for i x in coll { ... }` is optional and means the same as `for i, x in coll { ... }`. [src: spec/decisions/D-001-loop-header-commas.md]
 
+- LOOP-16: `for false { ... }` is a checker warning because its body can never run, and warnings never change the exit status. [src: spec/decisions/D-166-constant-diagnostics.md] [no-case: warnings are not observable by the conformance runner]
+
 ## Errors
 None documented.
 

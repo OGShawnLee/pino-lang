@@ -56,3 +56,24 @@ VM numeric-underscores.pino  # D-092: legacy lexer enforces 3-digit underscore g
 C bool-literal.pino  # D-022: C backend prints True/False instead of true/false
 TreeWalk bool-literal.pino  # D-022: TreeWalk prints True/False instead of true/false
 VM bool-literal.pino  # D-022: VM prints True/False instead of true/false
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk err-lowercase-enum-member.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+VM err-lowercase-enum-member.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+C err-lowercase-enum-member.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+TreeWalk err-lowercase-enum-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+VM err-lowercase-enum-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+C err-lowercase-enum-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+TreeWalk err-lowercase-interface-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+VM err-lowercase-interface-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+C err-lowercase-interface-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+TreeWalk err-lowercase-struct-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+VM err-lowercase-struct-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+C err-lowercase-struct-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+TreeWalk err-lowercase-union-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+VM err-lowercase-union-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+C err-lowercase-union-name.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+TreeWalk err-lowercase-union-variant.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+VM err-lowercase-union-variant.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+C err-lowercase-union-variant.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
+VM naming-capitalized-types.pino  # D-014: legacy fails: RUNTIME ERROR: Value is not callable.

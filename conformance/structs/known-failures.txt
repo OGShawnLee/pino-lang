@@ -50,3 +50,16 @@ VM reference-semantics.pino  # D-070: VM has no struct support
 TreeWalk index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
 VM index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
 C index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
+
+# --- Checker, visibility and division decisions (ticket 029)
+TreeWalk bare-sibling-method.pino  # D-075: legacy fails: The given key 'area' was not present in the dictionary.
+VM bare-sibling-method.pino  # D-075: legacy fails: RUNTIME ERROR: Value is not callable.
+C bare-sibling-method.pino  # D-075: legacy fails: TCC compilation failed: / pino_output.c: warning: implicit declaration of function 'area' / tcc: err
+TreeWalk err-literal-omits-field.pino  # D-078: legacy accepts the program (no error containing 'Missing property')
+VM err-literal-omits-field.pino  # D-078: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'Missing property'
+C err-literal-omits-field.pino  # D-078: legacy accepts the program (no error containing 'Missing property')
+TreeWalk literal-shorthand-complete.pino  # D-078: legacy fails: RUNTIME ERROR: Invalid member access target.
+VM literal-shorthand-complete.pino  # D-078: legacy fails: Object reference not set to an instance of an object.
+C literal-shorthand-complete.pino  # D-078: legacy fails: TCC compilation failed: / pino_output.c: error: cannot cast 'typedef struct Point' to 'extern struct
+VM param-shadows-field.pino  # D-073: legacy fails: RUNTIME ERROR: Value is not callable.
+C param-shadows-field.pino  # D-073: legacy fails: TCC compilation failed: / pino_output.c: error: 'self' undeclared

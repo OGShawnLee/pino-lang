@@ -27,6 +27,8 @@ A program is a sequence of tokens: keywords, identifiers, literals (integer, flo
 - LEX-18: `->` is the canonical arrow token (used in lambdas, map entries, function types, and `match` arms); `=>` is not a token of the language. [src: spec/decisions/D-100-arrow-token.md]
 - LEX-19: Commas in comma-separated lists are optional when separated by whitespace, but a trailing comma after the last element is disallowed. [src: spec/decisions/D-108-trailing-commas-disallowed.md]
 
+- LEX-20: A struct, interface, enum, union, enum member or union variant name must begin with an ASCII capital letter (`A` to `Z`). [src: spec/decisions/D-014-naming-convention-enforcement.md]
+
 ## Errors
 - LEX-E1: Using a keyword such as `match` as a variable name is rejected with a message containing "Expected Identifier". [src: LexerTests.TestIdentifiersAndKeywords]
 - LEX-E2: In comma-optional element lists (vector literals, map literal entries, call argument lists, and `when` value lists), a `-` with whitespace on exactly one side (`a -b` or `a- b`) is rejected with a message containing "ambiguous '-'" and suggesting "write 'a - b' to subtract or 'a, -b' for two elements". [src: spec/decisions/D-010-optional-commas-vs-unary-minus.md]
@@ -34,8 +36,10 @@ A program is a sequence of tokens: keywords, identifiers, literals (integer, flo
 - LEX-E4: A comma after the last element of any comma-separated list (`[1, 2,]`, `f(a,)`, `map[K, V] { 1 -> 2, }`, parameter lists, struct literals, union variants, or generic lists) is rejected as a parse error. [src: spec/decisions/D-108-trailing-commas-disallowed.md]
 - LEX-E5: Using `=>` anywhere in source code is rejected as a lexer or parse error. [src: spec/decisions/D-100-arrow-token.md]
 
+- LEX-E6: A struct, interface, enum, union, enum member or union variant whose name does not begin with an ASCII capital letter is rejected by the checker with a message containing "capitalized". [src: spec/decisions/D-014-naming-convention-enforcement.md]
+
 ## Examples
 Conformance cases: `conformance/lexical/`.
 
 ## Open questions
-- D-014: The reference says `snake_case` and `PascalCase` naming is "strictly" adopted, but no engine rejects other spellings.
+- D-014 (partial): The owner enforces the naming convention as checker errors, but only the capital first letter of type-like names is recorded (LEX-20, LEX-E6), because that is all the self-host decides. Checks on the spelling of variable, property, function and method names, acronyms, digits, underscores and `SCREAMING_SNAKE_CASE` module constants (LEX-3 lists `GLOBAL_LIMIT` as an identifier) are undecided.

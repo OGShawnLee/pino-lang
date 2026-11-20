@@ -1,0 +1,5 @@
+# covers: TYPE-E1
+fn never_called() int {
+  return 10 / 0
+}
+println("start")

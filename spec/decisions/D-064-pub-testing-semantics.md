@@ -19,3 +19,5 @@ Should the spec define what `@pub_testing` does (make a declaration importable b
 
 ## Decision
 _Pending: owner decides._
+
+Note (2026-11-20): D-163 renamed the marker to `@@Testable` with the same parse rule (MOD-E5). This question, what the marker grants to test code, stays open; the spelling `@pub_testing` above is historical.

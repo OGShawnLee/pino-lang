@@ -1,0 +1,5 @@
+# covers: IF-7
+val r = if true then 1 else 2.5
+val q = if false then 1 else 2.5
+println(r)
+println(q)

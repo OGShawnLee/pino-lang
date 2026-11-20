@@ -1,0 +1,5 @@
+# covers: TYPE-15
+println(7.0 // 2)
+println(-7.0 // 2)
+println(7 // 2.0)
+println(7.5 // 2.0)

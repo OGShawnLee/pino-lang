@@ -1,0 +1,6 @@
+# covers: LEX-E6, LEX-20
+union shape {
+  Circle(int)
+  Dot
+}
+println("unreachable")

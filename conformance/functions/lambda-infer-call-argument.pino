@@ -1,0 +1,9 @@
+# covers: FN-30
+fn call_lambda_3(fun fn (int, int) -> int) int {
+  return fun(1, 2)
+}
+fn apply(f fn (int) -> int, v int) int {
+  return f(v)
+}
+println(call_lambda_3(fn (n, m) -> n + m))
+println(apply(fn (x) -> x - 1, 10))
