@@ -37,3 +37,6 @@ VM err-expression-type-mismatch.pino  # D-100: legacy parser uses => instead of 
 TreeWalk expr-block-return.pino  # D-143: legacy parser uses '=>' arms and rejects return in match expression
 VM expr-block-return.pino  # D-143: legacy parser uses '=>' arms and rejects return in match expression
 C expr-block-return.pino  # D-143: legacy parser uses '=>' arms and rejects return in match expression
+TreeWalk err-arrow-arm-in-statement.pino  # D-148: legacy parser uses => instead of -> and fails with 'Expected expression, got Operator: >' instead of Expected '{'
+VM err-arrow-arm-in-statement.pino  # D-148: legacy parser uses => instead of -> and fails with 'Expected expression, got Operator: >' instead of Expected '{'
+C err-arrow-arm-in-statement.pino  # D-148: legacy parser uses => instead of -> and fails with 'Expected expression, got Operator: >' instead of Expected '{'

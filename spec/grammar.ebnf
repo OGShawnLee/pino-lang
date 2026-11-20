@@ -164,15 +164,20 @@ break_statement    = "break" ;
 continue_statement = "continue" ;
 
 (* === section: match (owner 006) === *)
-(* `match` is both a statement and an expression: the same production is used wherever the parser expects
-   a statement or an expression. In expression position the arms yield the value of the match. *)
+(* `match` has separate statement and expression forms: statement arms are block-only, whereas expression
+   arms allow either a block or `->` with a single expression (D-148). *)
+match_statement  = "match" , expression , "{" , { stmt_when_arm } , [ stmt_else_arm ] , "}" ;
+stmt_when_arm    = "when" , pattern , { [ "," ] , pattern } , stmt_arm_body ;
+stmt_else_arm    = "else" , stmt_arm_body ;
+stmt_arm_body    = block ;                    (* D-148: arrow arms are a parse error in match statements (MATCH-E7) *)
+
 match_expression = "match" , expression , "{" , { when_arm } , [ else_arm ] , "}" ;
 
 when_arm         = "when" , pattern , { [ "," ] , pattern } , arm_body ;
                                               (* the commas between patterns are optional (MATCH-3) *)
 else_arm         = "else" , arm_body ;
 arm_body         = block                      (* block arm; in expression position it ends with `yield expr`, `return` or `panic(...)` (D-143) *)
-                 | "->" , expression ;        (* single-expression arm (D-100); `when X -> return` is a parse error (MATCH-E6); `->` before a block is a parse error (MATCH-E4) *)
+                 | "->" , expression ;        (* single-expression arm (D-100, D-148); `when X -> return` is a parse error (MATCH-E6); `->` before a block is a parse error (MATCH-E4) *)
 
 pattern          = variant_pattern
                  | IDENT                      (* D-034: parsed as a binding that matches any value *)

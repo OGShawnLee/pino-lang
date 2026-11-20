@@ -1,0 +1,8 @@
+# covers: MATCH-E7
+val x = 1
+match x {
+  when 1 -> println("one")
+  else {
+    println("other")
+  }
+}
