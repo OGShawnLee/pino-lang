@@ -27,6 +27,7 @@ A function is declared with `fn`, a name, a parameter list (`name Type` pairs, p
 - FN-18: A called function does not see the local variables of its caller. [src: ScopingExecutionTests.TestScopeLeakageFromCallerToCalleeExecution]
 - FN-19: A `val` declared in an inner block shadows an outer variable of the same name inside that block only, and the outer binding is visible again after the block. [src: ScopingExecutionTests.TestScopeShadowingInLocalBlocksExecution]
 - FN-20: In a function type, parentheses may be omitted when there are no parameters (`fn -> R`), and an omitted return type means `void`, so `fn` alone is `fn () -> void` and `fn (T)` is `fn (T) -> void`. [src: spec/decisions/D-101-function-type-syntax.md]
+- FN-21: Closures capture enclosing `var` bindings by reference per closure instance, so mutations persist across calls to that closure without affecting other instances. [src: spec/decisions/D-056-closure-mutable-capture.md]
 
 ## Errors
 - FN-E1: Calling a function with an argument of the wrong type is rejected with a type check error. [src: CheckerTests.TestEnumDefinitionAndTypeChecking; CheckerTests.TestRuneTypeChecker]
@@ -40,6 +41,5 @@ Conformance cases: `conformance/functions/`.
 - D-050: Is the return type of a function without a declared return type inferred, and from what?
 - D-054: The reference's `each` example names a parameter `val`, a keyword the parser rejects.
 - D-055: `fn_list[0](9)` is parsed as a generic call, not as a call of an indexed element.
-- D-056: Does a lambda capture a mutated `var` by reference or by value?
 - D-057: Should the argument-count and return-type errors be specified?
 - D-002: `it` inside a call argument turns the argument into a lambda even in a loop body (see loops).

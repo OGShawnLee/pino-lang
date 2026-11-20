@@ -1,0 +1,4 @@
+# covers: BUILTIN-15
+println(str(true))
+println(str(false))
+println(1.0)

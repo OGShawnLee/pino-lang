@@ -41,4 +41,4 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 Conformance cases: `conformance/unions/`. The predeclared `Option[T]` and `Result[T, E]` unions are specified in `spec/features/errors.md`.
 
 ## Open questions
-- D-071: `Option[T]` versus `null` for absence of a value.
+None.

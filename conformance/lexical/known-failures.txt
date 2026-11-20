@@ -51,3 +51,8 @@ VM err-fat-arrow.pino  # D-100: legacy parser still accepts =>
 VM err-numeric-underscore.pino  # D-092: legacy lexer enforces 3-digit underscore grouping
 VM err-trailing-comma.pino  # D-108: legacy parser allows trailing commas
 VM numeric-underscores.pino  # D-092: legacy lexer enforces 3-digit underscore grouping
+
+# --- Semantics decisions (ticket 015)
+C bool-literal.pino  # D-022: C backend prints True/False instead of true/false
+TreeWalk bool-literal.pino  # D-022: TreeWalk prints True/False instead of true/false
+VM bool-literal.pino  # D-022: VM prints True/False instead of true/false

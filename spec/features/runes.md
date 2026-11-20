@@ -14,13 +14,14 @@ A `rune` is a single Unicode code point written between single quotes. Runes com
 - RUNE-5: `rune(n)` with an `int` argument returns the rune whose code point is `n`. [src: LANGUAGE_REFERENCE.md §9 "`rune(val)`"; ArithmeticTests.TestRuneConversionsAndUtilities]
 - RUNE-6: `rune(s)` with a `string` argument returns the first character of `s`, including characters outside the Basic Multilingual Plane. [src: LANGUAGE_REFERENCE.md §9 "`rune(val)`"; ArithmeticTests.TestRuneConversionsAndUtilities]
 - RUNE-7: `str(r)` of a rune returns the one-character string for that rune. [src: ArithmeticTests.TestRuneConversionsAndUtilities]
+- RUNE-8: Indexing a string `s[i]` returns the `rune` at zero-based Unicode code-point index `i`, consistent with `s:len` and `for ch in s`. [src: spec/decisions/D-023-string-indexing.md]
 
 ## Errors
 - RUNE-E1: Raw NUL (`\u0000`) and other unescaped C0 control characters (except tab `\t`) inside a rune literal are rejected as a lexer error. [src: spec/decisions/D-091-control-chars-in-strings-and-runes.md]
+- RUNE-E2: Adding two runes (`a + b`) is a compile error whose message suggests `"$a$b"` or `str(a) + str(b)`. [src: spec/decisions/D-011-rune-plus-rune-result-type.md] [no-case: legacy C backend stack-overflows in ProcessStringAddition on rune + rune, crashing the dotnet test host process (see D-011)]
 
 ## Examples
 Conformance cases: `conformance/runes/`.
 
 ## Open questions
-- D-011: `'a' + 'b'` produces the string `"ab"`, `'A' + 32` produces a rune and `'c' - 'a'` produces an int: three result types for the same operator.
-- D-023: Indexing a string (`s[i]`) yields a rune in the tree-walk interpreter, but it addresses UTF-16 code units, so `"a🌲b"[1]` is half of a surrogate pair; the reference does not document string indexing.
+None.

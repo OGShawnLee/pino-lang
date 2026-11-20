@@ -1,0 +1,11 @@
+# covers: TYPE-11
+println(int(3.99))
+println(float(42))
+match int("123") {
+  when Result::Success(v) { println(v) }
+  when Result::Failure(e) { println("err") }
+}
+match float("bad") {
+  when Result::Success(v) { println("ok") }
+  when Result::Failure(e) { println("fail") }
+}

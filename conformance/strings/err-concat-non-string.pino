@@ -1,0 +1,2 @@
+# covers: STR-E5
+println("n=" + 1)

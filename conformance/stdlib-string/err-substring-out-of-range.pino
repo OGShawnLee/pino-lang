@@ -1,0 +1,2 @@
+# covers: STRLIB-E1
+println("hello":substring(3, 10))

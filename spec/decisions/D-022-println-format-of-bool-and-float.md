@@ -1,6 +1,6 @@
 # D-022: How `println` formats booleans and floats
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/types.md
 
@@ -33,4 +33,4 @@ println(2.50)
 3. Keep booleans as they are and print whole floats with `.0`: fixes only the float ambiguity.
 
 ## Decision
-_Pending: owner decides._
+Option 2, decided by the owner on 2026-11-19 (resolving [D-037](D-037-bool-text-form.md) as a duplicate): `println` and `str` print booleans as `true`/`false`, and whole floats keep a fractional part (`1.0`, `42.0`). Consequence: `spec/features/types.md`, `spec/features/strings.md` and `spec/stdlib/builtins.md` specify `true`/`false` and `.0` formatting, `.out` files are updated, and legacy `True`/`False`/`1` output is recorded as known failures.

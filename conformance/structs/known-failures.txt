@@ -44,3 +44,6 @@ VM err-fn-field-arg-count.pino  # D-100: legacy parser uses => and fn(T) R inste
 VM err-fn-field-arg-type.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
 VM err-fn-field-bad-lambda.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
 VM field-shorthand.pino  # D-104: legacy parser does not support struct field shorthand
+
+# --- Semantics decisions (ticket 015)
+VM reference-semantics.pino  # D-070: VM has no struct support

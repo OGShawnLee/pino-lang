@@ -4,7 +4,6 @@
 
 # --- C backend
 C println-args.pino  # C backend prints only the first argument of println with several arguments ("a" instead of "a b c")
-C println-returns-null.pino  # type() builtin is not supported by the C backend (implicit declaration of 'type'; TCC error "cannot cast 'int' to 'struct <anonymous>'")
 C rand-types.pino  # type() builtin is not supported by the C backend (implicit declaration of 'type')
 C time-type.pino  # type() builtin is not supported by the C backend (implicit declaration of 'type')
 C regex-value.pino  # type() builtin is not supported by the C backend (implicit declaration of 'type')
@@ -12,3 +11,11 @@ C time-value.pino  # runtime.c pino_time() uses QueryPerformanceCounter on Windo
 
 # --- VM (experimental)
 VM regex-value.pino  # VM: RUNTIME ERROR "Value is not callable" on the property access `r:pattern`
+
+# --- Semantics decisions (ticket 015)
+C bool-and-float-format.pino  # D-022: C backend prints True/False and omits .0 on whole floats
+TreeWalk int-float-conversions.pino  # D-015: legacy int()/float() wrap numeric arguments in Result
+C int-float-conversions.pino  # D-015: legacy int()/float() wrap numeric arguments in Result
+TreeWalk bool-and-float-format.pino  # D-022: TreeWalk prints True/False and omits .0 on whole floats
+VM bool-and-float-format.pino  # D-022: VM prints True/False and omits .0 on whole floats
+VM int-float-conversions.pino  # D-015: legacy int()/float() wrap numeric arguments in Result

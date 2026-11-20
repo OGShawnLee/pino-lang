@@ -1,0 +1,5 @@
+# covers: TYPE-10
+println(true)
+println(false)
+println(1.0)
+println(str(42.0))

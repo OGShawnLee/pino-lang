@@ -1,0 +1,13 @@
+# covers: FN-21
+fn make_counter() fn () -> int {
+  var count = 0
+  return fn () {
+    count = count + 1
+    return count
+  }
+}
+val c = make_counter()
+println(c())
+println(c())
+val d = make_counter()
+println(d())

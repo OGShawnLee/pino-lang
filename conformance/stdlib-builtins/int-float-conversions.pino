@@ -1,0 +1,7 @@
+# covers: BUILTIN-16
+println(int(3.5))
+println(float(7))
+match int("42") {
+  when Result::Success(v) { println(v) }
+  when Result::Failure(e) { println("err") }
+}

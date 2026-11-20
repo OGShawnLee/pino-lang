@@ -22,11 +22,10 @@ Grammar productions: see `spec/grammar.ebnf` section `match`.
 - MATCH-E2: A `match` over a union subject that does not cover every variant and has no `else` arm is rejected with a message containing "is not exhaustive". [src: LANGUAGE_REFERENCE.md §5 "Pattern Matching (`match-when`)"]
 - MATCH-E3: A `match` expression whose arms produce incompatible types is rejected with a message containing "incompatible types". [src: MatchExpressionTests.TestMatchExpressionCheckerTypeMismatch; proposals/006-match-expressions.md §4.3]
 - MATCH-E4: A block arm written with `->` before the block, such as `when 2 -> { ... }`, is rejected with a message containing "Expected expression". [src: LANGUAGE_REFERENCE.md §5 "Pattern Matching (`match-when`)"; spec/decisions/D-100-arrow-token.md]
-- MATCH-E5: A `match` expression whose subject is neither an enum nor a union and that has no `else` arm is rejected with a message containing "is not exhaustive". [src: proposals/006-match-expressions.md §4.3]
+- MATCH-E5: A `match` statement or expression whose subject is neither an enum nor a union and that has no `else` arm is rejected with a message containing "is not exhaustive". [src: proposals/006-match-expressions.md §4.3; spec/decisions/D-031-match-without-else-on-plain-subjects.md]
 
 ## Examples
 Conformance cases: `conformance/match/`.
 
 ## Open questions
-- D-031: Is `else` optional for a `match` statement over a non-enum, non-union subject? The reference says yes; the checker rejects it, and no source defines what happens at runtime when no arm matches.
 - D-034: What does an identifier in a `when` arm mean? The parser reads it as a binding that matches any value, not as a comparison with a variable.

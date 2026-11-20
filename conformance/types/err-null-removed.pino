@@ -1,0 +1,3 @@
+# covers: TYPE-12
+val x = null
+println(x)

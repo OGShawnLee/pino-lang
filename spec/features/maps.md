@@ -29,4 +29,3 @@ Conformance cases: `conformance/maps/`.
 
 ## Open questions
 - D-004: Iteration order of maps, which also leaves the order of the entries in `str(m)` unspecified (MAP-9).
-- D-061: The reference says keys cannot be null; no engine can exercise it, and the test that claims to is passing for another reason.

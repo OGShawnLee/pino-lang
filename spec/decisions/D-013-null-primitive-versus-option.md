@@ -1,6 +1,6 @@
 # D-013: `null` as a primitive type versus `Option[T]`
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/types.md
 
@@ -31,4 +31,4 @@ println(x)
 3. Keep `null` only as the "no value" result of functions without a return value, not as a literal: documents what the engines already do.
 
 ## Decision
-_Pending: owner decides._
+Option 2, decided by the owner on 2026-11-19 (resolving [D-071](D-071-null-vs-option.md) as a duplicate): `null` is removed from the language; absence is expressed only with `Option[T]`, and `pop`, `find` and `remove` return `Option[T]`. Consequence: `null` is removed from `spec/features/` and `spec/stdlib/`, `pop`/`find`/`remove` return `Option[T]`, and legacy `null` behavior is recorded as known failures.

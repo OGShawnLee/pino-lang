@@ -1,6 +1,6 @@
 # D-056: Closures that mutate a captured `var`
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -41,4 +41,4 @@ println(d())
 3. Forbid assigning a captured `var` inside a lambda.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: closures capture enclosing `var`s by reference, per closure instance (each `make_counter()` call gets its own variable; mutations persist across calls). Consequence: `spec/features/functions.md` adds `FN-21` documenting mutable capture by reference per closure instance.

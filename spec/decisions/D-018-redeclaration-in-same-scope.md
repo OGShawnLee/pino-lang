@@ -1,6 +1,6 @@
 # D-018: Redeclaring a name in the same scope
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/variables.md
 
@@ -32,4 +32,4 @@ println(a)
 3. Allow it only when the new type equals the old one: rejects the type-changing case only.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: redeclaring a name in the same scope is a checker error; shadowing in a nested block is still allowed. Consequence: `spec/features/variables.md` adds `VAR-E4` for same-scope redeclaration, and legacy acceptance is recorded as a known failure.

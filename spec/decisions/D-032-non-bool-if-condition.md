@@ -1,6 +1,6 @@
 # D-032: `if` conditions that are not `bool`
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/features/conditionals.md
 
@@ -39,4 +39,4 @@ Spec impact: IF-1 says "when `cond` is true"; it makes no claim about non-bool v
 3. Leave undefined: keep the current behavior but say in the reference that only `bool` conditions are supported.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: an `if` condition, and the condition of `if ... then ... else`, must have type `bool`; anything else is a checker error. Consequence: `spec/features/conditionals.md` adds `IF-E4`, and legacy truthiness acceptance is recorded as a known failure.

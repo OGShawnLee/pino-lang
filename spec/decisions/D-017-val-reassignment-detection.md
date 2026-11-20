@@ -1,6 +1,6 @@
 # D-017: Where is a `val` reassignment detected?
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/variables.md
 
@@ -32,4 +32,4 @@ println(name)
 3. Accept both: the checker reports it for straightforward cases and the run-time check stays as a safety net.
 
 ## Decision
-_Pending: owner decides._ VAR-E1 states only that the assignment is an error; the VM and C cases are recorded as known failures.
+Option 1, decided by the owner on 2026-11-19: assigning to a `val` is a checker (compile-time) error. Consequence: `VAR-E1` requires a checker error before execution, and VM/C acceptance (plus TreeWalk runtime-only detection) are recorded as known failures.

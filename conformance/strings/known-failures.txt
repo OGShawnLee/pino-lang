@@ -35,3 +35,11 @@ TreeWalk multiline-trailing-quotes.pino  # D-090: legacy lexer does not support 
 VM err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in string literals
 VM err-keyword-interpolation.pino  # D-093: legacy lexer accepts keyword spelling after $
 VM multiline-trailing-quotes.pino  # D-090: legacy lexer does not support triple-quoted multiline strings
+
+# --- Semantics decisions (ticket 015)
+C comparisons.pino  # D-022: C backend prints True/False instead of true/false
+C err-concat-non-string.pino  # D-025: C backend stack-overflows in ProcessStringAddition on string + int
+TreeWalk comparisons.pino  # D-025: legacy evaluator raises FormatException on string < string
+TreeWalk err-concat-non-string.pino  # D-025: legacy checker allows string + non-string
+VM comparisons.pino  # D-025: legacy evaluator raises FormatException on string < string
+VM err-concat-non-string.pino  # D-025: legacy checker/VM allows string + non-string

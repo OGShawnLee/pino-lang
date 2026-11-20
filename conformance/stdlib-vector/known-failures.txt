@@ -58,3 +58,8 @@ TreeWalk find-none.pino  # D-100: legacy parser uses => / k: v instead of ->
 TreeWalk map.pino  # D-100: legacy parser uses => / k: v instead of ->
 TreeWalk map-index.pino  # D-100: legacy parser uses => / k: v instead of ->
 TreeWalk predicate-index.pino  # D-100: legacy parser uses => / k: v instead of ->
+
+# --- Semantics decisions (ticket 015)
+C pop.pino  # D-013: C backend returns plain element instead of Option::Some
+TreeWalk pop.pino  # D-013: TreeWalk returns plain element instead of Option::Some
+TreeWalk pop-empty.pino  # D-013: TreeWalk returns null instead of Option::None

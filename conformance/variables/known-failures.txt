@@ -19,3 +19,11 @@ VM lambda-captures-scope.pino  # VM cannot call the lambda: RUNTIME ERROR "Value
 # --- Syntax decisions (ticket 014)
 C lambda-captures-scope.pino  # D-100: legacy parser uses => instead of ->
 TreeWalk lambda-captures-scope.pino  # D-100: legacy parser uses => instead of ->
+
+# --- Semantics decisions (ticket 015)
+C err-redeclare-same-scope.pino  # D-018: C backend TCC error does not satisfy .err case
+TreeWalk err-float-to-int.pino  # D-019: legacy checker allows assigning float to int variable
+VM err-redeclare-same-scope.pino  # D-018: legacy VM allows redeclaring a variable in the same scope
+C err-float-to-int.pino  # D-019: legacy checker allows assigning float to int variable
+TreeWalk err-redeclare-same-scope.pino  # D-018: legacy TreeWalk allows redeclaring a variable in the same scope
+VM err-float-to-int.pino  # D-019: legacy checker allows assigning float to int variable

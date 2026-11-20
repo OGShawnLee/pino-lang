@@ -11,11 +11,11 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 | `len` / `length` | property | `int`, the number of elements |
 | `cap` / `capacity` | property | `int`, the allocated capacity |
 | `push(item)` / `add(item)` | `fn (T)` | the vector itself (mutated) |
-| `pop()` | `fn ()` | the removed last element, or `null` when empty |
-| `each(fn)` | `fn (fn (T))` or `fn (fn (T, int))` | `null` |
+| `pop()` | `fn ()` | `Option[T]` (`Option::Some(last)` or `Option::None` when empty) |
+| `each(fn)` | `fn (fn (T))` or `fn (fn (T, int))` | `void` |
 | `map(fn)` | `fn (fn (T) -> R)` or `fn (fn (T, int) -> R)` | a new vector of the results |
 | `filter(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | a new vector of the matching elements |
-| `find(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | the first matching element, or `null` |
+| `find(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `Option[T]` (`Option::Some(first)` or `Option::None`) |
 | `find_index(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `int`, the index of the first match, or `-1` |
 | `any(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `bool` |
 | `all(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `bool` |
@@ -30,16 +30,16 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 - VECLIB-5: `v:push(x)` appends `x` to the end of `v`, modifying `v`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-6: `v:push(x)` returns the modified vector, so calls can be chained as `v:push(a):push(b)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-7: `v:add(x)` is an alias of `v:push(x)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
-- VECLIB-8: `v:pop()` removes the last element of `v` and returns it. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
-- VECLIB-9: `v:pop()` on an empty vector returns `null`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
+- VECLIB-8: `v:pop()` removes the last element `x` of `v` and returns `Option::Some(x)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-013-null-primitive-versus-option.md]
+- VECLIB-9: `v:pop()` on an empty vector returns `Option::None`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-013-null-primitive-versus-option.md]
 - VECLIB-10: `v:each(fn)` calls `fn` with each element in index order. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; StdlibTests.TestStringSplit]
 - VECLIB-11: A callback of `each` may take the index as a second parameter, `fn(item, index)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-12: `v:map(fn)` returns a new vector of the results of `fn` applied to each element in index order, and leaves `v` unchanged. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-13: A callback of `map` may take the index as a second parameter, `fn(item, index)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-14: `v:filter(fn)` returns a new vector of the elements for which `fn` is true, in their original order, and leaves `v` unchanged. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; StdlibTests.TestShorthandLambdaItResolution]
 - VECLIB-15: A callback of `filter` may take the index as a second parameter, `fn(item, index)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
-- VECLIB-16: `v:find(fn)` returns the first element for which `fn` is true. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
-- VECLIB-17: `v:find(fn)` returns `null` when no element satisfies `fn`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
+- VECLIB-16: `v:find(fn)` returns `Option::Some(x)` for the first element `x` for which `fn` is true. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-013-null-primitive-versus-option.md]
+- VECLIB-17: `v:find(fn)` returns `Option::None` when no element satisfies `fn`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-013-null-primitive-versus-option.md]
 - VECLIB-18: `v:find_index(fn)` returns the zero-based index of the first element for which `fn` is true. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-19: `v:find_index(fn)` returns `-1` when no element satisfies `fn`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-20: `v:any(fn)` is true when at least one element satisfies `fn`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
@@ -54,5 +54,4 @@ Conformance cases: `conformance/stdlib-vector/`.
 
 ## Open questions
 - D-065: `join` is asserted by a test but missing from the reference's vector method list.
-- D-059: Reading an element out of range is unspecified.
 - D-058: A statement that starts with a vector literal after an expression statement is parsed as an index access.

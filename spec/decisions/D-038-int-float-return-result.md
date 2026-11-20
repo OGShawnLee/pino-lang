@@ -1,6 +1,6 @@
 # D-038: Return type of `int(...)` and `float(...)`
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/stdlib/builtins.md
 
@@ -30,4 +30,4 @@ Spec impact: `spec/stdlib/builtins.md` lists the reference's `Returns` for these
 3. Keep both, with `int(x)` returning a plain number for numeric inputs and a `Result` only for strings: needs a new typing rule.
 
 ## Decision
-_Pending: owner decides._
+Resolved together with [D-015](D-015-int-float-return-result.md) (Option 3 here / Option 2 in D-015), decided by the owner on 2026-11-19: `int(v)` and `float(v)` return a plain `int`/`float` for numeric arguments and `Result[int, string]`/`Result[float, string]` only for string arguments; the checker knows the argument type statically. Consequence: `spec/stdlib/builtins.md` updates `int` and `float` signatures, and legacy returning `Result` for numeric arguments is recorded as a known failure.

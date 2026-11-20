@@ -1,6 +1,6 @@
 # D-070: Struct value versus reference semantics
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/structs.md
 
@@ -43,4 +43,4 @@ println(a:x)
 3. Both: structs are values, with an explicit reference form (a pointer or `ref` type) for sharing. Largest language change.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: structs have reference semantics; assignment and argument passing share the instance, and mutation through any name is visible everywhere. Consequence: `spec/features/structs.md` adds `STRUCT-16` for reference semantics.

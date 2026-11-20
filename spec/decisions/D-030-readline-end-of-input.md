@@ -1,6 +1,6 @@
 # D-030: Result of `readline()` at end of input
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/stdlib/builtins.md
 
@@ -45,4 +45,4 @@ println(n)
 3. End of input returns a `Result` or panics: forces callers to handle EOF explicitly; breaks the current `val name = readline(...)` usage in the reference.
 
 ## Decision
-_Pending: owner decides._
+Option 3 (`Result` variant), decided by the owner on 2026-11-19: `readline(prompt?)` returns `Result[string, string]`, returning `Result::Failure` at end of input and on read errors. **Not decided:** the exact error text is not decided, so `.err`/`.out` cases must not depend on it. Consequence: `spec/stdlib/builtins.md` updates `readline` (`BUILTIN-9`) to return `Result[string, string]` with `[no-case: ...]`.

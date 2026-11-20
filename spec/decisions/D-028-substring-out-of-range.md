@@ -1,6 +1,6 @@
 # D-028: `substring` with a range outside the string
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/stdlib/string.md
 
@@ -30,4 +30,4 @@ println("hello":substring(3, 10))
 3. Return a `Result`/`Option`: explicit in the type; changes the documented return type `string`.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: `s:substring(start, len)` out of range (negative `start`, or `start + len` past the end) panics at run time on every engine. Consequence: `spec/stdlib/string.md` adds `STRLIB-E1`, and C clamping / VM failure are recorded as known failures.

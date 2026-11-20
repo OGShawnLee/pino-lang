@@ -1,0 +1,4 @@
+# covers: IF-E4
+if 1 {
+  println("truthy")
+}

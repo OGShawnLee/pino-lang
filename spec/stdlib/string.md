@@ -45,13 +45,13 @@ Members are accessed with the `:` operator on a `string` value, for example `"PI
 - STRLIB-16: `s:trim_end()` returns a new string with all trailing whitespace removed and leading whitespace kept. [src: LANGUAGE_REFERENCE.md §10 "String Methods"; StdlibTests.TestStringTrimEnd]
 - STRLIB-17: `sub in s` is `true` when the string `sub` occurs in the string `s` and `false` otherwise. [src: StdlibTests.TestInOperatorString]
 - STRLIB-18: `s:substring(start, len)` is an O(1) zero-copy slice that shares the memory of `s` and allocates no heap memory in the native runtime. [src: LANGUAGE_REFERENCE.md §10 "String Methods"; proposals/013-immutable-string-slices-zero-copy.md] [no-case: memory sharing and allocation are not observable from a Pino program]
+- STRLIB-19: `s[i]` returns the `rune` at zero-based Unicode code-point index `i`, consistent with `s:len`. [src: spec/decisions/D-023-string-indexing.md]
 
 ## Errors
-None documented.
+- STRLIB-E1: `s:substring(start, len)` panics at run time when `start < 0` or `start + len > s:len`. [src: spec/decisions/D-028-substring-out-of-range.md]
 
 ## Examples
 Conformance cases: `conformance/stdlib-string/`.
 
 ## Open questions
-- D-023: Indexing a string (`s[i]`) is not documented, and the tree-walk interpreter addresses UTF-16 code units, which does not match the rune-based `len` of STRLIB-1.
-- D-028: The reference gives no behavior for `substring` with a range outside the string: the tree-walk interpreter raises an error and the C runtime clamps the range.
+None.

@@ -1,12 +1,12 @@
 # covers: ERR-7, ERR-16
-fn divide(a int, b int) Result[int, string] {
+fn divide(a int, b int) Result[float, string] {
   if b == 0 {
     return Result::Failure("Zero division")
   }
   return Result::Success(a / b)
 }
 
-fn compute(a int, b int) Result[int, string] {
+fn compute(a int, b int) Result[float, string] {
   val num = divide(a, b)?
   return Result::Success(num * 10)
 }

@@ -1,0 +1,4 @@
+# covers: STRLIB-19
+val s = "a🌲b"
+println(s:len)
+println(s[1] == '🌲')

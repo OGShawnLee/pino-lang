@@ -1,6 +1,6 @@
 # D-015: `int(v)` and `float(v)` return a `Result`
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/types.md
 
@@ -32,4 +32,4 @@ println(float(42))
 3. Return plain `int`/`float` and panic on invalid strings: matches the reference text; a failing conversion cannot be handled by the program.
 
 ## Decision
-_Pending: owner decides._ No spec rule describes `int(v)` or `float(v)` until then.
+Option 2, decided by the owner on 2026-11-19 (resolving [D-038](D-038-int-float-return-result.md) as a duplicate): `int(v)` and `float(v)` return a plain `int`/`float` for numeric arguments and `Result[int, string]`/`Result[float, string]` only for string arguments; the checker knows the argument type statically. Consequence: `spec/features/types.md` and `spec/stdlib/builtins.md` document both return forms, and legacy returning `Result` for numeric arguments is recorded as a known failure.

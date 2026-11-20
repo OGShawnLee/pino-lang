@@ -21,3 +21,37 @@ C identity-maps.pino  # D-100: legacy parser uses => / k: v instead of ->
 C maps-equal.pino  # D-100: legacy parser uses => / k: v instead of ->
 TreeWalk identity-maps.pino  # D-100: legacy parser uses => / k: v instead of ->
 TreeWalk maps-equal.pino  # D-100: legacy parser uses => / k: v instead of ->
+
+# --- Semantics decisions (ticket 015)
+C identity-structs.pino  # D-022: C backend prints True/False instead of true/false
+C regex-equal.pino  # D-022: C backend prints True/False instead of true/false
+C unions-equal.pino  # D-022: C backend prints True/False instead of true/false
+C unions-unit-variants-equal.pino  # D-022: C backend prints True/False instead of true/false
+C vectors-nested-equal.pino  # D-022: C backend prints True/False instead of true/false
+TreeWalk enums-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk identity-strings-and-floats.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk structs-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk unions-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk unions-unit-variants-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk vectors-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+VM identity-strings-and-floats.pino  # D-026: VM has no ===/!== support
+C enums-equal.pino  # D-022: C backend prints True/False instead of true/false
+C identity-primitives.pino  # D-022: C backend prints True/False instead of true/false
+C identity-strings-and-floats.pino  # D-026: C backend cannot compile === on strings
+C identity-vectors.pino  # D-022: C backend prints True/False instead of true/false
+C primitives-equal.pino  # D-022: C backend prints True/False instead of true/false
+C primitives-not-equal.pino  # D-022: C backend prints True/False instead of true/false
+C structs-equal.pino  # D-022: C backend prints True/False instead of true/false
+C structs-nested-equal.pino  # D-022: C backend prints True/False instead of true/false
+C vectors-equal.pino  # D-022: C backend prints True/False instead of true/false
+TreeWalk identity-primitives.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk identity-structs.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk identity-vectors.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk primitives-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk primitives-not-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk regex-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk structs-nested-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk vectors-nested-equal.pino  # D-022: TreeWalk prints True/False instead of true/false
+VM primitives-equal.pino  # D-022: VM prints True/False instead of true/false
+VM primitives-not-equal.pino  # D-022: VM prints True/False instead of true/false
+VM regex-equal.pino  # D-022: VM prints True/False instead of true/false

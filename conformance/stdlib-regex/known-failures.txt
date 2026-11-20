@@ -12,3 +12,7 @@ VM match-prefix.pino  # VM cannot call regex methods or read regex properties: R
 VM find.pino  # VM cannot call regex methods or read regex properties: RUNTIME ERROR "Value is not callable"
 VM find-all.pino  # VM cannot call regex methods or read regex properties: RUNTIME ERROR "Value is not callable"
 VM replace.pino  # VM cannot call regex methods or read regex properties: RUNTIME ERROR "Value is not callable"
+
+# --- Semantics decisions (ticket 015)
+TreeWalk has-match.pino  # D-022: TreeWalk prints True/False instead of true/false
+C has-match.pino  # D-022: C backend prints True/False instead of true/false

@@ -16,7 +16,7 @@ Grammar productions: see `spec/grammar.ebnf` section `eq`.
 - EQ-7: `==` on two enum values is `true` when they are the same enum member. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"; ArithmeticTests.TestEnumEquality]
 - EQ-8: `==` on two `regex` values is `true` when their pattern strings are equal. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
 - EQ-9: The comparison of EQ-3 to EQ-6 recurses into nested elements and fields, so vectors of vectors and structs holding vectors are compared by content. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
-- EQ-10: `===` on two primitive values or two enum values is `true` when the values are identical, and `!==` is its negation. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
+- EQ-10: `===` on two primitive values (including `string` and `float`) or two enum values is `true` when the values are identical, and `!==` is its negation. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"; spec/decisions/D-026-identity-of-strings-and-floats.md]
 - EQ-11: `===` on two heap objects (struct, vector, map or union values) is `true` only when both operands refer to the same object, and is `false` for distinct objects holding equal data. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
 - EQ-12: `!==` on two heap objects is `true` when they are different objects and `false` when they are the same object. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
 - EQ-13: `==` on two references to the same heap object is `true`. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
@@ -28,4 +28,4 @@ None documented.
 Conformance cases: `conformance/equality/`.
 
 ## Open questions
-- D-026: `===` on two equal string literals (`"a" === "a"`) and on two equal `float` values is `true` in the tree-walk interpreter; the reference describes strings as `{ data, len }` views whose identity is an address comparison and does not say what `===` means for them.
+None.

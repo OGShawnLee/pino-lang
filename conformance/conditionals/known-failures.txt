@@ -1,0 +1,8 @@
+# Known failures for conformance/conditionals/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- Semantics decisions (ticket 015)
+VM err-non-bool-condition.pino  # D-032: legacy VM accepts non-bool if condition
+C err-non-bool-condition.pino  # D-032: legacy C backend accepts non-bool if condition
+TreeWalk err-non-bool-condition.pino  # D-032: legacy TreeWalk accepts non-bool if condition

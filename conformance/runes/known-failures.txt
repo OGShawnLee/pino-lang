@@ -15,3 +15,15 @@ C str-of-rune-unicode.pino  # str() of a non-ASCII rune prints "2" (the rune is 
 C err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in rune literals
 TreeWalk err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in rune literals
 VM err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in rune literals
+
+# --- Semantics decisions (ticket 015)
+TreeWalk from-string.pino  # D-022: TreeWalk prints True/False instead of true/false
+VM from-string.pino  # D-022: VM prints True/False instead of true/false
+C comparisons.pino  # D-022: C backend prints True/False instead of true/false
+C string-index.pino  # D-023: C backend indexes UTF-8 bytes instead of Unicode code points
+TreeWalk comparisons.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk from-int.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk string-index.pino  # D-023: TreeWalk indexes UTF-16 code units instead of Unicode code points
+VM comparisons.pino  # D-022: VM prints True/False instead of true/false
+VM from-int.pino  # D-022: VM prints True/False instead of true/false
+VM string-index.pino  # D-023: VM does not support string indexing

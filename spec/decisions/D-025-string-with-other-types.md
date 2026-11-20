@@ -1,6 +1,6 @@
 # D-025: `+` and `<` on strings with other operands
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/strings.md
 
@@ -32,4 +32,4 @@ println("a" < "b")
 3. Keep `+` as is and reject string ordering with a checker error instead of a .NET exception.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: `"n=" + 1` (`string + non-string`, either order) is a checker error (use interpolation or `str`); strings support `<`, `<=`, `>`, `>=`, compared lexicographically by code point. Consequence: `spec/features/strings.md` adds `STR-10` for lexicographic comparison and `STR-E5` forbidding `string + non-string`, and legacy behavior is recorded as known failures.

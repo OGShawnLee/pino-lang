@@ -1,6 +1,6 @@
 # D-037: Text form of `bool` in `println` and `str`
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/stdlib/builtins.md
 
@@ -31,4 +31,4 @@ Spec impact: no conformance case in this ticket prints a `bool` directly; cases 
 2. Standardize on `True` / `False` and document it in the reference.
 
 ## Decision
-_Pending: owner decides._
+Resolved together with [D-022](D-022-println-format-of-bool-and-float.md) (Option 1 here / Option 2 in D-022), decided by the owner on 2026-11-19: `println` and `str` print booleans as `true`/`false`, and whole floats keep a fractional part (`1.0`, `42.0`). Consequence: `spec/stdlib/builtins.md` specifies `true`/`false` output, `.out` files are updated, and legacy `True`/`False` output is recorded as known failures.

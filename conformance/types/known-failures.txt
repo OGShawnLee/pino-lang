@@ -9,3 +9,29 @@ C int-64-bit.pino  # `int` is emitted as a 32-bit C int: 4_000_000_000 + 4_000_0
 
 # --- Syntax decisions (ticket 014)
 VM unary-postfix-precedence.pino  # D-107: VM lacks vector indexing support
+
+# --- Semantics decisions (ticket 015)
+C bool-and-float-format.pino  # D-022: C backend prints True/False and omits .0 on whole floats
+C bool-logic.pino  # D-022: C backend prints True/False instead of true/false
+C bool-not-precedence.pino  # D-022: C backend prints True/False instead of true/false
+C bool-short-circuit.pino  # D-022: C backend prints True/False instead of true/false
+C int-arithmetic.pino  # D-019: C backend evaluates 10 / 2 - 1 as int 4 instead of float 4.0
+TreeWalk bool-logic.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk int-arithmetic.pino  # D-019: TreeWalk evaluates 10 / 2 - 1 as int 4 instead of float 4.0
+TreeWalk int-float-widening.pino  # D-019: TreeWalk evaluates 5 / 2 as 2 and prints True
+TreeWalk numeric-conversions.pino  # D-015: legacy int()/float() return Result on numeric args and omit .0
+TreeWalk unary-postfix-precedence.pino  # D-022: TreeWalk prints True/False instead of true/false
+VM bool-and-float-format.pino  # D-022: VM prints True/False and omits .0 on whole floats
+VM bool-not-precedence.pino  # D-022: VM prints True/False instead of true/false
+VM err-null-removed.pino  # D-013: VM prints "null" for undeclared null without failing
+VM int-arithmetic.pino  # D-019: VM evaluates 10 / 2 - 1 as int 4 instead of float 4.0
+VM int-float-widening.pino  # D-019: VM evaluates 5 / 2 as 2 and prints True
+VM numeric-conversions.pino  # D-015: legacy int()/float() return Result on numeric args and omit .0
+C int-float-widening.pino  # D-019: C backend evaluates 5 / 2 as 2 and prints True
+C numeric-conversions.pino  # D-015: legacy int()/float() return Result on numeric args and omit .0
+C unary-postfix-precedence.pino  # D-022: C backend prints True/False instead of true/false
+TreeWalk bool-and-float-format.pino  # D-022: TreeWalk prints True/False and omits .0 on whole floats
+TreeWalk bool-not-precedence.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk bool-short-circuit.pino  # D-022: TreeWalk prints True/False instead of true/false
+VM bool-logic.pino  # D-022: VM prints True/False instead of true/false
+VM bool-short-circuit.pino  # D-022: VM prints True/False instead of true/false

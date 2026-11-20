@@ -29,3 +29,21 @@ VM trim-end.pino  # VM cannot call string methods or read string properties: RUN
 VM trim-start.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
 VM upper.pino  # VM cannot call string methods or read string properties: RUNTIME ERROR "Value is not callable"
 VM to-cstring.pino  # VM cannot call string methods: RUNTIME ERROR "Value is not callable"
+
+# --- Semantics decisions (ticket 015)
+C contains.pino  # D-022: C backend prints True/False instead of true/false
+C index-code-point.pino  # D-023: C backend indexes/measures UTF-8 bytes instead of Unicode code points
+C starts-with.pino  # D-022: C backend prints True/False instead of true/false
+C to-owned.pino  # D-022: C backend prints True/False instead of true/false
+TreeWalk contains.pino  # D-022: TreeWalk prints True/False instead of true/false
+C ends-with.pino  # D-022: C backend prints True/False instead of true/false
+C err-substring-out-of-range.pino  # D-028: C runtime clamps out-of-range substring instead of panicking
+C in-operator.pino  # D-022: C backend prints True/False instead of true/false
+TreeWalk ends-with.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk index-code-point.pino  # D-023: TreeWalk indexes UTF-16 code units instead of Unicode code points
+TreeWalk in-operator.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk starts-with.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk to-cstring.pino  # D-022: TreeWalk prints True/False instead of true/false
+TreeWalk to-owned.pino  # D-022: TreeWalk prints True/False instead of true/false
+VM err-substring-out-of-range.pino  # D-028: VM does not support string methods (fails with Value is not callable instead of out of range)
+VM index-code-point.pino  # D-023: VM does not support string indexing or len

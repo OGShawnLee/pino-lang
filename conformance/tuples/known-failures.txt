@@ -17,3 +17,17 @@ VM err-function-type-labels.pino  # D-101: legacy parser uses fn() R instead of 
 VM function-type-tuple.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
 VM function-type-tuple-order.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
 VM generic-substitution.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+
+# --- Semantics decisions (ticket 015)
+C shorthand-literal.pino  # D-015: legacy int(a / b) returns Result[int, string]
+TreeWalk basic-return-destructure.pino  # D-015: legacy int(a / b) returns Result[int, string]
+VM basic-return-destructure.pino  # D-015: legacy int(a / b) returns Result[int, string]
+C basic-return-destructure.pino  # D-015: legacy int(a / b) returns Result[int, string]
+C destructure-partial.pino  # D-015: legacy int(a / b) returns Result[int, string]
+C destructure-renaming.pino  # D-015: legacy int(a / b) returns Result[int, string]
+TreeWalk destructure-partial.pino  # D-015: legacy int(a / b) returns Result[int, string]
+TreeWalk destructure-renaming.pino  # D-015: legacy int(a / b) returns Result[int, string]
+TreeWalk shorthand-literal.pino  # D-015: legacy int(a / b) returns Result[int, string]
+VM destructure-partial.pino  # D-015: legacy int(a / b) returns Result[int, string]
+VM destructure-renaming.pino  # D-015: legacy int(a / b) returns Result[int, string]
+VM shorthand-literal.pino  # D-015: legacy int(a / b) returns Result[int, string]

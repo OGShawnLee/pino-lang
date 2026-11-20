@@ -1,0 +1,6 @@
+# covers: MATCH-E5
+var x = 3
+match x {
+  when 1 { println("one") }
+  when 2 { println("two") }
+}

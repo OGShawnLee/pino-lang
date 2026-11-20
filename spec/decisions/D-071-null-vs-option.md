@@ -1,6 +1,6 @@
 # D-071: `null` versus `Option[T]` for absence of a value
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/structs.md, spec/features/errors.md, spec/features/unions.md
 
@@ -44,4 +44,4 @@ val x = null
 3. Add nullable types (`T?`) as proposal 001 describes, keeping `null` for explicitly nullable fields.
 
 ## Decision
-_Pending: owner decides._
+Resolved together with [D-013](D-013-null-primitive-versus-option.md) (Option 2), decided by the owner on 2026-11-19: `null` is removed from the language; absence is expressed only with `Option[T]`, and `pop`, `find` and `remove` return `Option[T]`. Consequence: `spec/stdlib/vector.md` and `spec/stdlib/map.md` update `pop`, `find` and `remove` to return `Option[T]`.

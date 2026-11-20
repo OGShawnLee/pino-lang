@@ -22,6 +22,7 @@ A `struct` declaration lists fields (`name type`), embedded structs (a bare stru
 - STRUCT-13: A static method used as a value (`Struct::method`, no call) can be stored in a field of a matching function type and called through it. [src: DataStructureTests.TestStructStaticMethodReferencedAsField; CheckerTests.TestMethodCallOnMethodTypedStaticFieldThrows]
 - STRUCT-14: `instance:method` without a call yields a callable bound to that instance, and calling it affects the instance. [src: DataStructureTests.TestStructCallableFieldsAndBoundMethods; DataStructureTests.TestStructBoundMethodStateMutation]
 - STRUCT-15: In a struct literal, a bare field name `Point { x }` is shorthand for `Point { x: x }`. [src: spec/decisions/D-104-struct-field-shorthand.md]
+- STRUCT-16: Structs have reference semantics: assignment and argument passing share the same instance, and mutation through any name is visible everywhere. [src: spec/decisions/D-070-struct-value-vs-reference.md]
 
 ## Errors
 - STRUCT-E1: Reading a field that the struct does not declare is rejected with a message containing "does not have field or instance method". [src: CheckerTests.TestAccessOnMissingField]
@@ -40,8 +41,6 @@ A `struct` declaration lists fields (`name type`), embedded structs (a bare stru
 Conformance cases: `conformance/structs/`.
 
 ## Open questions
-- D-070: Do structs have value or reference semantics when assigned to a second variable or passed to a function?
-- D-071: Should absence of a value be `null` or `Option[T]`? Cross-reference: the ticket-005 decision on `null` as a primitive (range D-010 to D-029).
 - D-073: Which name wins inside a method when a parameter or local has the same name as a field?
 - D-075: Can a method call a sibling method by its bare name, without `self:`?
 - D-076: Why is `instance:field[index]` a parse error?

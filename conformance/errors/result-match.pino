@@ -1,12 +1,12 @@
 # covers: ERR-2
-fn divide(a int, b int) Result[int, string] {
+fn divide(a int, b int) Result[float, string] {
   if b == 0 {
     return Result::Failure("Cannot divide by zero")
   }
   return Result::Success(a / b)
 }
 
-fn show(r Result[int, string]) {
+fn show(r Result[float, string]) {
   match r {
     when Result::Success(value) {
       println("Result: $value")

@@ -45,4 +45,3 @@ Conformance cases: `conformance/errors/`.
 - D-079: The reference's own example calls `err:to_string()` on an `int`; no engine supports it. Should the method exist?
 - D-080: What exactly must the `main` failure handler print, and for `Option::None` too? Today the evaluator prints `Error: <payload>` and `Error: Option::None`, and the C backend leaves a garbage exit code.
 - D-081: What must the `panic` output look like, including the backtrace, and must the C backend print it?
-- D-071: `Option[T]` versus `null` for absence of a value.

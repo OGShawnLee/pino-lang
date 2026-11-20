@@ -1,6 +1,6 @@
 # covers: TUP-3
 fn divide(a int, b int) @(quotient int, remainder int) {
-  val quotient = a / b
+  val quotient = int(a / b)
   val remainder = a % b
   return @(quotient, remainder)
 }

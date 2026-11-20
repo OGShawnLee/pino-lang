@@ -1,0 +1,5 @@
+# covers: RUNE-8
+val s = "a🌲b"
+println(s[0] == 'a')
+println(s[1] == '🌲')
+println(s[2] == 'b')

@@ -1,6 +1,6 @@
 # D-011: `rune + rune` produces a string
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/runes.md
 
@@ -32,4 +32,4 @@ println('c' - 'a')
 3. Keep `rune + rune` but restrict it to concatenation with a string operand (`"x" + 'a'`): removes the mixed result types for two runes only.
 
 ## Decision
-_Pending: owner decides._ No spec rule describes `rune + rune` until then; RUNE-2 and RUNE-3 cover the other two operations.
+Option 2, decided by the owner on 2026-11-19: `rune + int` gives a `rune`; `rune - rune` gives an `int`; `rune + rune` is a compile error whose message suggests `"$a$b"` or `str(a) + str(b)`. Consequence: `spec/features/runes.md` adds `RUNE-E2` forbidding `rune + rune`, and legacy `rune + rune` concatenation is recorded as a known failure.

@@ -1,0 +1,3 @@
+# covers: VEC-E4
+val numbers = [1, 2, 3]
+println(numbers[5])

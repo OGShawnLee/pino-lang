@@ -1,5 +1,5 @@
 # covers: ERR-11
-fn divide(a int, b int) Result[int, string] {
+fn divide(a int, b int) Result[float, string] {
   if b == 0 {
     return Result::Failure("Zero division")
   }
@@ -8,10 +8,10 @@ fn divide(a int, b int) Result[int, string] {
 
 val result = divide(10, 0) or {
   println("Captured error: $err")
-  yield -1
+  yield -1.0
 }
 println(result)
 val good = divide(10, 2) or {
-  yield -1
+  yield -1.0
 }
 println(good)

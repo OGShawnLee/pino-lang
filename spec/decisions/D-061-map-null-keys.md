@@ -1,6 +1,6 @@
 # D-061: Null map keys
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/maps.md
 
@@ -39,4 +39,4 @@ println(m[k])
 3. Drop the sentence from the reference until null values exist.
 
 ## Decision
-_Pending: owner decides._
+Moot now that `null` is removed ([D-013](D-013-null-primitive-versus-option.md)), decided by the owner on 2026-11-19: no rule; map keys cannot be `null` because `null` does not exist. Consequence: `D-061` is removed from `spec/features/maps.md` open questions with no new rule added.

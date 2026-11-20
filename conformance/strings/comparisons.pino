@@ -1,0 +1,5 @@
+# covers: STR-10
+println("a" < "b")
+println("b" <= "b")
+println("c" > "b")
+println("a" >= "b")

@@ -32,3 +32,16 @@ C main-none.pino  # C backend: 'main' returning Result/Option leaves a garbage p
 C main-success.pino  # C backend: 'main' returning Result/Option leaves a garbage process exit code instead of 0/1, and writes no stderr message
 C or-failure-err-yield.pino  # C backend: TCC error "cannot cast 'struct <anonymous>' to 'void *'"
 C panic-as-value.pino  # C backend: TCC error "cannot cast from/to void"
+
+# --- Semantics decisions (ticket 015)
+C bubble-result-failure.pino  # D-019: legacy C backend types a / b as int instead of float
+C bubble-result-success.pino  # D-019: legacy C backend types a / b as int and prints without .0
+C err-bubble-second-call-mismatch.pino  # D-019: legacy C backend types a / b as int instead of float
+C or-call-result.pino  # D-019: legacy C backend types a / b as int and prints without .0
+C result-match.pino  # D-019: legacy C backend types a / b as int and prints without .0
+TreeWalk bubble-result-failure.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
+TreeWalk or-call-result.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
+TreeWalk result-match.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
+VM err-bubble-second-call-mismatch.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
+TreeWalk bubble-result-success.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]
+TreeWalk err-bubble-second-call-mismatch.pino  # D-019: legacy checker rejects Result::Success(int) for Result[float, string]

@@ -1,6 +1,6 @@
 # D-059: Reading a vector element out of range
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/vectors.md
 
@@ -31,4 +31,4 @@ println(numbers[5])
 3. Declare it unspecified and keep the spec silent.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: `v[i]` with `i < 0` or `i >= v:len` panics at run time on every engine. Consequence: `spec/features/vectors.md` adds `VEC-E4`, and VM/C silent out-of-range reads are recorded as known failures.

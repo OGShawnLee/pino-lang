@@ -1,6 +1,6 @@
 # D-031: `match` statement without `else` on a non-enum, non-union subject
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/features/match.md
 
@@ -36,4 +36,4 @@ println("after")
 3. As option 2, but panic at runtime when no arm matches a statement: stricter, matches the proposal's runtime wording.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-19: `match` needs `else` unless it is exhaustive over an enum or union (matching current checker behavior). Consequence: `MATCH-E5` in `spec/features/match.md` applies to both statement and expression forms.

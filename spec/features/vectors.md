@@ -29,11 +29,11 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 - VEC-E1: A literal negative `len`, such as `[]int { len: -5, init: 0 }`, is rejected before execution with a type check error whose message contains "cannot be negative". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]
 - VEC-E2: A literal negative `cap`, such as `[]int { cap: -10 }`, is rejected before execution with a type check error whose message contains "cannot be negative". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]
 - VEC-E3: A literal `cap` smaller than a literal `len`, such as `[]int { len: 20, init: 0, cap: 10 }`, is rejected before execution with a type check error whose message contains "cannot be less than". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]
+- VEC-E4: Indexing a vector `v[i]` with `i < 0` or `i >= v:len` panics at run time. [src: spec/decisions/D-059-vector-index-out-of-range.md]
 
 ## Examples
 Conformance cases: `conformance/vectors/`.
 
 ## Open questions
-- D-059: What does `v[i]` do when `i` is out of range? The reference is silent and the engines disagree.
 - D-060: The reference's validation messages differ from the checker's. VEC-E1 to VEC-E3 require only the words both share.
 - D-004: Iteration order of maps (loops); vector iteration is in index order (LOOP-5).

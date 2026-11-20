@@ -16,16 +16,17 @@ A string literal is text between double quotes. Inside it, `$name` inserts the v
 - STR-7: String literals support the escape sequences `\n`, `\t`, `\r`, `\"`, `\\` and `\$`. [src: spec/decisions/D-020]
 - STR-8: Multi-line string literals delimited by `"""..."""` may span lines and support escapes and `$name` / `$(expr)` interpolation. [src: LexerStringTests.MultilineStringSpansLines]
 - STR-9: In a run of 3–5 `"` characters at the end of a `"""..."""` multi-line string literal, the last three close it and one or two quotes stay inside the string. [src: spec/decisions/D-090-multiline-string-trailing-quotes.md]
+- STR-10: Strings support `<`, `<=`, `>`, `>=`, compared lexicographically by Unicode code point. [src: spec/decisions/D-025-string-with-other-types.md]
 
 ## Errors
 - STR-E1: Assigning to an element of a string (`s[0] = 'x'`) is rejected because strings are immutable. [src: LANGUAGE_REFERENCE.md §3 "Strings and Interpolation"]
 - STR-E2: Any escape sequence in a string literal other than `\n`, `\t`, `\r`, `\"`, `\\` and `\$` is a compile error. [src: spec/decisions/D-020]
 - STR-E3: Raw NUL (`\u0000`) and other unescaped C0 control characters inside a string literal are rejected as a lexer error; tab (`\t`) is allowed, and line breaks are allowed only inside `"""..."""`. [src: spec/decisions/D-091-control-chars-in-strings-and-runes.md]
 - STR-E4: A keyword spelling directly after `$` in a string literal (`"$if"`) is rejected with a message suggesting `\$` for a literal dollar or `$(...)` for an expression. [src: spec/decisions/D-093-keyword-in-simple-interpolation.md]
+- STR-E5: Concatenating a `string` with a non-`string` using `+` (in either order) is rejected by the checker; use string interpolation or `str(v)` instead. [src: spec/decisions/D-025-string-with-other-types.md]
 
 ## Examples
 Conformance cases: `conformance/strings/`.
 
 ## Open questions
-- D-023: Indexing a string (`s[i]`) is not documented; the tree-walk interpreter yields a rune addressed by UTF-16 code unit.
-- D-025: `+` between a string and a non-string (`"n=" + 1`, `1 + "n"`) concatenates, and `"a" < "b"` raises a .NET `FormatException` in the tree-walk interpreter; the reference documents neither.
+None.

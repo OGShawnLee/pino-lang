@@ -1,6 +1,6 @@
 # D-019: Mixing `int` and `float`, and integer division
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/variables.md
 
@@ -35,4 +35,4 @@ println(1 == 1.0)
 3. Keep today's behavior and document it: the C backend must then promote like the interpreters.
 
 ## Decision
-_Pending: owner decides._
+Option 2, decided by the owner on 2026-11-19: `int` widens implicitly to `float` in arithmetic and comparison (`1 + 2.5` is `3.5`; `1 == 1.0` is `true`); `/` always returns a `float` (`5 / 2` is `2.5`); assigning a `float` to an `int` variable is an error. **Still open:** how integer division is spelled remains open and no spec rule is written for it. Consequence: `spec/features/types.md` and `spec/features/variables.md` add widening, float `/` and narrowing-assignment error rules, and legacy behavior is recorded as known failures.

@@ -1,6 +1,6 @@
 # D-026: `===` on strings and floats
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/equality.md
 
@@ -34,4 +34,4 @@ println(s === t)
 3. Reject `===` on strings and floats with a checker error: removes the ambiguity.
 
 ## Decision
-_Pending: owner decides._ EQ-10 and EQ-11 therefore cover integers, enums and heap objects only.
+Option 1, decided by the owner on 2026-11-19: `===` and `!==` on strings and floats compare values, like the other scalars. Consequence: `EQ-10` in `spec/features/equality.md` applies to all primitive values including `string` and `float`, and VM/C failures are recorded as known failures.

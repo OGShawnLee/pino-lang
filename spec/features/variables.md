@@ -17,15 +17,14 @@ A variable is declared with `val name = expression` (immutable) or `var name = e
 - VAR-8: A lambda reads the variables of its enclosing scopes, including variables declared in enclosing blocks. [src: ScopingExecutionTests.TestLambdaCaptureScopingExecution; CheckerTests.TestLambdaCaptureScoping]
 
 ## Errors
-- VAR-E1: Assigning to a `val` after its declaration (with `=` or a compound assignment) is an error. [src: LANGUAGE_REFERENCE.md §2 "Variables and Constants"]
+- VAR-E1: Assigning to a `val` after its declaration (with `=` or a compound assignment) is rejected by the checker before execution. [src: LANGUAGE_REFERENCE.md §2 "Variables and Constants"; spec/decisions/D-017-val-reassignment-detection.md]
 - VAR-E2: Assigning a value of a different type, such as a string to an `int` variable, is rejected by the checker. [src: LANGUAGE_REFERENCE.md §2 "Variables and Constants"]
 - VAR-E3: Using a variable whose inferred type is `string` where an `int` is required is rejected by the checker. [src: LANGUAGE_REFERENCE.md §3 "Type System and Data Types"]
+- VAR-E4: Redeclaring a name in the same scope is rejected by the checker, while shadowing in a nested block remains allowed. [src: spec/decisions/D-018-redeclaration-in-same-scope.md]
+- VAR-E5: Assigning a `float` value to an `int` variable is rejected as a type error. [src: spec/decisions/D-019-int-float-mixing-and-division.md]
 
 ## Examples
 Conformance cases: `conformance/variables/`.
 
 ## Open questions
 - D-012: How are explicit type annotations written (`val x: int = 10`, `val x int = 10`)? Today neither form parses.
-- D-017: The reference calls a `val` reassignment a "Compiler/Checker ERROR", but only the tree-walk interpreter raises it, at run time; the checker, the VM and the C backend accept it.
-- D-018: Redeclaring a name in the same scope (`var a = 1` then `var a = "s"`) is accepted by every engine and may change the type; the reference is silent.
-- D-019: A `var` of type `int` accepts a `float` assignment (and the reverse), and `int` and `float` mix in arithmetic; the reference says a `var` holds values "of the same type" and is silent on numeric promotion.

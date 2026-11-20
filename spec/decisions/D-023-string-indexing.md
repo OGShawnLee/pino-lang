@@ -1,6 +1,6 @@
 # D-023: Indexing a string
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/features/runes.md
 
@@ -34,4 +34,4 @@ println(s[2] == 'b')
 3. Do not allow `s[i]`; use iteration and `substring`: removes the question, at the cost of a common idiom.
 
 ## Decision
-_Pending: owner decides._ No spec rule describes `s[i]` until then.
+Option 1, decided by the owner on 2026-11-19: `s[i]` returns the i-th rune (Unicode code point), consistent with `len` and `for ch in s`. Consequence: `spec/features/runes.md` adds `RUNE-8` for code-point string indexing, and legacy UTF-16/byte/VM failures are recorded as known failures.

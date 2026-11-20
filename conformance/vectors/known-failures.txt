@@ -28,3 +28,7 @@ C newline-before-bracket.pino  # D-058: legacy parser continues expression acros
 TreeWalk nested-types.pino  # D-100: legacy parser uses k: v and fn(T) R instead of ->
 TreeWalk newline-before-bracket.pino  # D-058: legacy parser continues expression across newline before [
 VM newline-before-bracket.pino  # D-058: legacy parser continues expression across newline before [
+
+# --- Semantics decisions (ticket 015)
+VM err-index-out-of-range.pino  # D-059: VM prints null instead of panicking on out-of-range index
+C err-index-out-of-range.pino  # D-059: C backend reads garbage out of range instead of panicking

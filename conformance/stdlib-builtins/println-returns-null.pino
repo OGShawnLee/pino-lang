@@ -1,3 +1,0 @@
-# covers: BUILTIN-4
-val result = println("printed")
-println(type(result))
