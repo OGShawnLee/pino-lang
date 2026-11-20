@@ -22,3 +22,9 @@ VM nested-types.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM canno
 C clamp-minimum-capacity.pino  # C: the clamping [WARNING] goes to stdout instead of stderr (VEC-15); actual stdout starts with "[WARNING] Invalid vector parameters"
 C clamp-negative-len.pino  # C: the clamping [WARNING] goes to stdout instead of stderr (VEC-15); actual stdout starts with "[WARNING] Invalid vector parameters"
 C nested-types.pino  # C: TCC error: operation on a struct
+
+# --- Syntax decisions (ticket 014)
+C newline-before-bracket.pino  # D-058: legacy parser continues expression across newline before [
+TreeWalk nested-types.pino  # D-100: legacy parser uses k: v and fn(T) R instead of ->
+TreeWalk newline-before-bracket.pino  # D-058: legacy parser continues expression across newline before [
+VM newline-before-bracket.pino  # D-058: legacy parser continues expression across newline before [

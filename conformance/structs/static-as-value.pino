@@ -6,7 +6,7 @@ struct Calculator {
 }
 
 struct Client {
-  op fn(int, int) int
+  op fn (int, int) -> int
 }
 
 val client = Client { op: Calculator::multiply }

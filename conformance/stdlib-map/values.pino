@@ -1,5 +1,5 @@
 # covers: MAPLIB-4
-val m = map[string, int] { "a": 1, "b": 2 }
+val m = map[string, int] { "a" -> 1, "b" -> 2 }
 val vs = m:values()
 println(vs:len)
 var total = 0

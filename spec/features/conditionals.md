@@ -15,8 +15,9 @@ Grammar productions: see `spec/grammar.ebnf` section `if`.
 - IF-6: An `if ... then ... else ...` expression may be used as the initializer of a `val` or `var` declaration. [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"]
 
 ## Errors
-- IF-E1: An `if` statement whose block is not enclosed in braces, such as `if x > 1 println("a")`, is rejected with a message containing "Expected '{'". [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"]
+- IF-E1: An `if` statement whose block is not enclosed in braces, such as `if x > 1 println("a")`, is rejected with a message containing "Expected '{'". [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"; spec/decisions/D-106-braced-if-else-branches.md]
 - IF-E2: An `if ... then ...` expression without an `else` part is rejected with a message containing "Expected 'else' in ternary expression". [src: LANGUAGE_REFERENCE.md §5 "Conditionals (`if-else`)"]
+- IF-E3: An arrow `else` (`else -> expr` or `else => expr`) after an `if` block is rejected as a parse error. [src: spec/decisions/D-035-else-arrow-after-if-block.md]
 
 ## Examples
 Conformance cases: `conformance/conditionals/`.
@@ -24,4 +25,3 @@ Conformance cases: `conformance/conditionals/`.
 ## Open questions
 - D-032: Must an `if` condition have type `bool`? Today any value, including `0` and `""`, is accepted and treated as true.
 - D-033: Must both branches of `if ... then a else b` have the same type? Today `if true then 1 else "x"` is accepted, while a `match` expression with incompatible arms is rejected.
-- D-035: Is the arrow form `else => expr` part of the `if` statement? The parser accepts it, the reference does not mention it.

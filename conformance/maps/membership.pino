@@ -1,5 +1,5 @@
 # covers: MAP-7
-val m = map[string, int] { "a": 1, "b": 2 }
+val m = map[string, int] { "a" -> 1, "b" -> 2 }
 if "a" in m {
   println("a in")
 }

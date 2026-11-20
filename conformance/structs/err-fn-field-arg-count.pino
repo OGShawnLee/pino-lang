@@ -1,7 +1,7 @@
 # covers: STRUCT-E9
 struct Incrementer {
-  increment fn(int) int
+  increment fn (int) -> int
 }
 
-val i = Incrementer { increment: fn(n int) => n + 1 }
+val i = Incrementer { increment: fn(n int) -> n + 1 }
 println(i:increment(12, 34))

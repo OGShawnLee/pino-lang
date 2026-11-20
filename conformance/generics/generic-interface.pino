@@ -1,5 +1,5 @@
 # covers: GEN-10
-@generic[T]
+@@Generic[T]
 interface Repository {
   fn find_by_id(id string) T
   fn save(entity T)

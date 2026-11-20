@@ -18,3 +18,19 @@ C function-in-variable.pino  # C: TCC error: cannot cast 'int(int)' to 'extern s
 C function-parameter-named.pino  # C: TCC error: cannot cast 'int(int)' to 'struct <anonymous>'
 C implicit-it-argument.pino  # C: TCC error: identifier expected
 C returns-function.pino  # C: TCC error: cannot cast 'extern int(int)' to 'struct <anonymous>'
+
+# --- Syntax decisions (ticket 014)
+C closure-capture.pino  # D-100: legacy parser uses => instead of ->
+C function-parameter-lambda.pino  # D-100: legacy parser uses => instead of ->
+C function-type-shorthand.pino  # D-101: legacy parser does not support fn -> R or paren-less fn types
+TreeWalk arrow-lambda.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk closure-capture.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk curried-lambda-map.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk function-in-variable.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk function-parameter-lambda.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk function-parameter-named.pino  # D-101: legacy parser uses fn(T) R instead of fn (T) -> R
+TreeWalk function-type-shorthand.pino  # D-101: legacy parser does not support fn -> R or paren-less fn types
+TreeWalk returns-function.pino  # D-101: legacy parser uses fn(T) R instead of fn (T) -> R
+VM function-parameter-named.pino  # D-101: legacy parser uses fn(T) R instead of fn (T) -> R
+VM function-type-shorthand.pino  # D-101: legacy parser does not support fn -> R or paren-less fn types
+VM returns-function.pino  # D-101: legacy parser uses fn(T) R instead of fn (T) -> R

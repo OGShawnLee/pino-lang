@@ -1,5 +1,5 @@
 # covers: GEN-5
-@generic[T]
+@@Generic[T]
 fn identity(v T) T {
   return v
 }

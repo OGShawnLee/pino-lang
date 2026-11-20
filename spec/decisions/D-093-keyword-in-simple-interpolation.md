@@ -1,6 +1,6 @@
 # D-093: Keyword spellings in simple `$name` string interpolation
 
-Status: open
+Status: accepted
 Raised by: 012
 Feature: spec/features/strings.md
 
@@ -17,4 +17,4 @@ Is a keyword spelling after `$` inside a string literal (such as `"$if"`) lexed 
 2. Reject keyword spellings directly after `$` (requiring `$(...)` or rejecting `"$if"` as invalid interpolation syntax matching `"$" , IDENT`).
 
 ## Decision
-_Pending: owner decides._
+Option 2: a keyword spelling right after `$` in a string (`"$if"`) is an error whose message suggests `\$` for a literal dollar or `$(...)` for an expression, decided by the owner on 2026-11-19. Consequence: simple interpolation `$name` accepts only non-keyword identifiers.

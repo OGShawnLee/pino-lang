@@ -1,5 +1,6 @@
 # covers: GEN-1, GEN-2
-struct Pair[Key Value] {
+@@Generic[Key Value]
+struct Pair {
   key Key
   value Value
 }

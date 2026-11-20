@@ -1,2 +1,2 @@
 # covers: VECLIB-22
-println([1, 2, 4, 6, 8, 10]:count(fn(n int) => n % 2 == 0))
+println([1, 2, 4, 6, 8, 10]:count(fn(n int) -> n % 2 == 0))

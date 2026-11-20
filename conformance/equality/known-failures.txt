@@ -15,3 +15,9 @@ VM identity-primitives.pino  # VM has no enum support: RUNTIME ERROR "Value is n
 VM identity-vectors.pino  # VM has no `===`/`!==` support: RUNTIME ERROR "Value is not callable"
 VM identity-structs.pino  # VM has no struct support: RUNTIME ERROR "Value is not callable"
 VM identity-maps.pino  # VM has no map support: RUNTIME ERROR "Value is not callable"
+
+# --- Syntax decisions (ticket 014)
+C identity-maps.pino  # D-100: legacy parser uses => / k: v instead of ->
+C maps-equal.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk identity-maps.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk maps-equal.pino  # D-100: legacy parser uses => / k: v instead of ->

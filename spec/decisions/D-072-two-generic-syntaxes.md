@@ -1,6 +1,6 @@
 # D-072: Two generic syntaxes (`@generic[T]` decorator and inline `[T]`)
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/generics.md, spec/features/unions.md
 
@@ -30,4 +30,4 @@ Snippets and results (the same on tree-walk and C unless noted; the VM crashes o
 3. Inline only: needs new syntax for function, method and interface generics and for bounds.
 
 ## Decision
-_Pending: owner decides._
+Decorator only, spelled `@@Generic[T]` (the self-host's spelling); the `@generic[...]` spelling and the inline form `struct Pair[A, B]` / `union Option[T]` are removed, decided by the owner on 2026-11-19. Interpretation: only the decorator's spelling changes, so everything the old decorator could do (generic functions, methods, structs, unions, interfaces, and bounds `T is Shape`) is written `@@Generic[...]` with the same structure. Consequence: all generic declarations use `@@Generic[...]` and legacy `@generic[...]` / inline `[T]` conformance cases are rewritten to `@@Generic[...]`.

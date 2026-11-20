@@ -1,6 +1,6 @@
 # covers: GEN-7
 struct Printer {
-  @generic[T]
+  @@Generic[T]
   fn show(v T) string {
     return "<" + str(v) + ">"
   }

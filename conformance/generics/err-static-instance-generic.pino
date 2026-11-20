@@ -1,4 +1,5 @@
 # covers: GEN-E9
-struct Library[Doc] {
+@@Generic[Doc]
+struct Library {
   static fn read(d Doc) {}
 }

@@ -1,5 +1,5 @@
 # covers: VECLIB-14
 val source = [1, 2, 3, 4]
-val evens = source:filter(fn(x int) => x % 2 == 0)
+val evens = source:filter(fn(x int) -> x % 2 == 0)
 println(evens)
 println(source)

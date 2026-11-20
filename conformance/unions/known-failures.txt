@@ -25,3 +25,27 @@ VM pub-union.pino  # VM has no union support (RUNTIME ERROR: Value is not callab
 # --- C
 C generic-decorator.pino  # C backend: TCC error "struct or union expected"
 C is-in-generic-fn.pino  # C backend: TCC error "identifier expected"
+
+# --- Syntax decisions (ticket 014)
+C err-generic-arg-mismatch.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+C err-generic-mismatch.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+C err-mixed-payloads.pino  # D-103: legacy parser does not support named union payloads
+C generic-inferred-type.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+C generic-inline.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+C generic-multi-param.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+C generic-recursive.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+C is-as-value.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk err-generic-arg-mismatch.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk err-generic-mismatch.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk err-mixed-payloads.pino  # D-103: legacy parser does not support named union payloads
+TreeWalk generic-decorator.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk generic-inferred-type.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk generic-inline.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk generic-multi-param.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk generic-recursive.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk is-as-value.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+TreeWalk is-in-generic-fn.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+VM err-generic-arg-mismatch.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+VM err-generic-mismatch.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+VM err-mixed-payloads.pino  # D-103: legacy parser does not support named union payloads
+VM positional-payloads.pino  # D-103: VM has no union support

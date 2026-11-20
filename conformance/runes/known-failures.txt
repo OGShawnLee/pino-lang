@@ -10,3 +10,8 @@ C from-int.pino  # the rune() builtin is not supported by the C backend (implici
 C from-int-type.pino  # the rune() and type() builtins are not supported by the C backend
 C from-string.pino  # the rune() builtin is not supported by the C backend (undefined symbol 'rune')
 C str-of-rune-unicode.pino  # str() of a non-ASCII rune prints "2" (the rune is not converted to its UTF-8 text)
+
+# --- Syntax decisions (ticket 014)
+C err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in rune literals
+TreeWalk err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in rune literals
+VM err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in rune literals

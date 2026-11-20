@@ -4,5 +4,5 @@ fn inc(n int) int {
 }
 var f = inc
 println(f(1))
-f = fn (n int) => n * 10
+f = fn (n int) -> n * 10
 println(f(1))

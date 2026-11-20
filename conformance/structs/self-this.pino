@@ -5,7 +5,7 @@ struct Vector2 {
 
   fn distance_to(other Vector2) int {
     val dx = self:x - other:x
-    val dy = this:y - other:y
+    val dy = self:y - other:y
     return dx * dx + dy * dy
   }
 
@@ -14,7 +14,7 @@ struct Vector2 {
   }
 
   fn get_y() int {
-    return this:y
+    return self:y
   }
 }
 

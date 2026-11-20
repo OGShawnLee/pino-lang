@@ -1,2 +1,2 @@
 # covers: MAP-E3
-val m = map[string, int] { "a": "hello" }
+val m = map[string, int] { "a" -> "hello" }

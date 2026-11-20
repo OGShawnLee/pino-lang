@@ -1,5 +1,5 @@
 # covers: GEN-4
-@generic[T]
+@@Generic[T]
 struct Box {
   item T
 }

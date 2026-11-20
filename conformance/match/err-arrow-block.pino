@@ -1,10 +1,10 @@
 # covers: MATCH-E4
 val level = 2
 val label = match level {
-  when 1 => "Beginner"
-  when 2 => {
+  when 1 -> "Beginner"
+  when 2 -> {
     yield "Intermediate"
   }
-  else => "Advanced"
+  else -> "Advanced"
 }
 println(label)

@@ -1,5 +1,5 @@
 # covers: UNION-16, UNION-19
-@generic[Value]
+@@Generic[Value]
 fn if_present(option Option[Value], default Value) Value {
   if option is Option::Some(value) {
     return value

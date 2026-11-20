@@ -1,6 +1,6 @@
 # D-051: Optional commas in function parameters and arguments
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -37,4 +37,4 @@ println(f(x -y))
 3. Make commas required in function calls only: contradicts the reference.
 
 ## Decision
-_Pending: owner decides. Follow the 005 decision on commas vs. unary minus._
+Accepted as following D-010: no new rules (`LEX-17`/`LEX-E2` already cover call arguments), decided by the owner on 2026-11-19. Consequence: commas remain optional in parameter and call-argument lists, and asymmetric `-` spacing in call arguments is governed by `LEX-17` and `LEX-E2`.

@@ -1,0 +1,2 @@
+# covers: FN-E2
+fn double(n int) int -> n * 2

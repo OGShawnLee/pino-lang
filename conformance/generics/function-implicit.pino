@@ -1,10 +1,10 @@
 # covers: GEN-6
-@generic[T]
+@@Generic[T]
 fn identity(v T) T {
   return v
 }
 
-@generic[T, U]
+@@Generic[T, U]
 fn first_of(a T, b U) T {
   return a
 }

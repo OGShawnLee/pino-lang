@@ -1,5 +1,5 @@
 # covers: UNION-E3
-@generic[T]
+@@Generic[T]
 union Option {
   Some(T)
   None

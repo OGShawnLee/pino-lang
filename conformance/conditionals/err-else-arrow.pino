@@ -1,0 +1,4 @@
+# covers: IF-E3
+if 1 > 2 {
+  println("no")
+} else -> println("arrow else")

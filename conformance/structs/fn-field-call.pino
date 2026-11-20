@@ -1,10 +1,10 @@
 # covers: STRUCT-12
 struct Incrementer {
-  increment fn(int) int
+  increment fn (int) -> int
 }
 
-val add_one = fn(n int) => n + 1
+val add_one = fn(n int) -> n + 1
 val a = Incrementer { increment: add_one }
-val b = Incrementer { increment: fn (n int) => n + 100 }
+val b = Incrementer { increment: fn (n int) -> n + 100 }
 println(a:increment(12))
 println(b:increment(10))

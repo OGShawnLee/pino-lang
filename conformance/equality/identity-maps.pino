@@ -1,6 +1,6 @@
 # covers: EQ-11,EQ-12,EQ-13
-val m1 = map[string, int] { "a": 1 }
-val m2 = map[string, int] { "a": 1 }
+val m1 = map[string, int] { "a" -> 1 }
+val m2 = map[string, int] { "a" -> 1 }
 val m3 = m1
 println(m1 == m2)
 println(m1 === m3)

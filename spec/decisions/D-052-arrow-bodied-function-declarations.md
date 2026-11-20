@@ -1,6 +1,6 @@
 # D-052: Arrow bodies on function declarations
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -36,4 +36,4 @@ struct Dog {
 2. Keep declarations block-only and correct the reference's interface example.
 
 ## Decision
-_Pending: owner decides._
+Option 2: named functions and methods have block bodies only (`{ ... }`); there is no `fn name(...) T -> expr`, while lambdas keep arrow bodies, decided by the owner on 2026-11-19. Consequence: named functions and methods must use `{ ... }` bodies (D-074 is a duplicate resolved by this decision).

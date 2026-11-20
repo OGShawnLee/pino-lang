@@ -1,0 +1,5 @@
+# covers: TYPE-8
+val arr = [10, 20]
+val flags = [true, false]
+println(-arr[0])
+println(not flags[1])

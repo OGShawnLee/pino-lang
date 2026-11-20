@@ -10,6 +10,6 @@ struct Library {
 
 val library_invalid = Library {
   catalog: map[string, string] {
-    "001": "What"
+    "001" -> "What"
   }
 }

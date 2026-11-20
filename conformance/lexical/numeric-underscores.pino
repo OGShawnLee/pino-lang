@@ -1,0 +1,3 @@
+# covers: LEX-4, LEX-5
+println(1_0)
+println(1_000.000_1)

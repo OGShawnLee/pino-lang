@@ -1,0 +1,5 @@
+# covers: UNION-E8
+union BadUnion {
+  Int(n int)
+  Text(string)
+}

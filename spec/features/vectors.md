@@ -12,7 +12,7 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 - VEC-3: `v[i]` reads the element at zero-based index `i`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"]
 - VEC-4: `v[i] = x` replaces the element at index `i`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"]
 - VEC-5: `[]T` creates an empty vector of element type `T`, without curly braces. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"; DataStructureTests.TestVectorEmptyInitialization]
-- VEC-6: The element type of `[]T` may itself be a vector, a map or a function type, as in `[][]int`, `[]map[string, int]` and `[]fn (int) int`. [src: DataStructureTests.TestVectorEmptyInitializationComplex]
+- VEC-6: The element type of `[]T` may itself be a vector, a map or a function type, as in `[][]int`, `[]map[string, int]` and `[]fn (int) -> int`. [src: DataStructureTests.TestVectorEmptyInitializationComplex; spec/decisions/D-101-function-type-syntax.md]
 - VEC-7: `[]T { cap: n }` creates an empty vector of length 0 whose capacity is `n`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"; DataStructureTests.TestVectorCapacityInitialization]
 - VEC-8: `[]T { len: n, init: expr }` creates a vector of length `n` whose element `i` is the value of `expr` with the implicit constant `it` bound to `i`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"]
 - VEC-9: `[]T { len: n, init: expr, cap: m }` creates the same vector as VEC-8 with capacity `m`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"]
@@ -23,6 +23,7 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 - VEC-14: Clamping a dynamic length or capacity does not terminate the program. [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"]
 - VEC-15: Clamping a dynamic length or capacity writes a `[WARNING]` message describing the adjusted bounds to standard error and nothing to standard output. [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"]
 - VEC-16: `println` of an integer vector writes its elements in order between square brackets, separated by a comma and a space, for example `[1, 2, 3]`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods" (`map`, `filter`)]
+- VEC-17: A line break before `[` ends the expression, so a `[` at the start of a new line begins a new statement (a vector literal) rather than indexing the previous expression; indexing must be on the same line as its operand. [src: spec/decisions/D-058-bracket-starts-line-after-expression.md]
 
 ## Errors
 - VEC-E1: A literal negative `len`, such as `[]int { len: -5, init: 0 }`, is rejected before execution with a type check error whose message contains "cannot be negative". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]
@@ -33,7 +34,6 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 Conformance cases: `conformance/vectors/`.
 
 ## Open questions
-- D-058: A `[` at the start of a line continues the previous expression as an index access, so a vector literal cannot begin a statement after an expression statement.
 - D-059: What does `v[i]` do when `i` is out of range? The reference is silent and the engines disagree.
 - D-060: The reference's validation messages differ from the checker's. VEC-E1 to VEC-E3 require only the words both share.
 - D-004: Iteration order of maps (loops); vector iteration is in index order (LOOP-5).

@@ -3,17 +3,17 @@ enum Planet { Mercury, Venus, Earth, Mars }
 
 fn rank(p Planet) int {
   return match p {
-    when Planet::Mercury => 1
-    when Planet::Venus => 2
-    when Planet::Earth => 3
-    when Planet::Mars => 4
+    when Planet::Mercury -> 1
+    when Planet::Venus -> 2
+    when Planet::Earth -> 3
+    when Planet::Mars -> 4
   }
 }
 println(rank(Planet::Earth))
 println(rank(Planet::Mars))
 
 val doubled = match rank(Planet::Venus) {
-  when 2 => 40
-  else => 0
+  when 2 -> 40
+  else -> 0
 }
 println(doubled)

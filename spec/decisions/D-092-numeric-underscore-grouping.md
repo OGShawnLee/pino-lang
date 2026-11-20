@@ -1,6 +1,6 @@
 # D-092: Numeric underscore grouping rules
 
-Status: open
+Status: accepted
 Raised by: 012
 Feature: spec/features/lexical.md
 
@@ -24,4 +24,4 @@ println(1_000.000_1)
 2. Enforce 3-digit grouping (`_[0-9]{3}`) matching legacy regexes (and update `grammar.ebnf` `FLOAT` to agree or disallow fractional underscores): stricter readability check, breaks existing `-re` test `1_000.000_1` and `1_0`.
 
 ## Decision
-_Pending: owner decides._
+Option 1: a single `_` between any two digits in the integer and fractional parts is allowed, and a leading, trailing or doubled `_`, or a `_` next to `.`, is an error, decided by the owner on 2026-11-19. Consequence: literals such as `1_0` and `1_000.000_1` are valid, while `_1`, `1_`, `1__0`, `1_.0`, and `1._0` are rejected by the lexer.

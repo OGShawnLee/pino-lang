@@ -1,0 +1,12 @@
+# covers: UNION-7
+union Value {
+  Int(int)
+  Text(string)
+  Empty
+}
+val v = Value::Int(7)
+match v {
+  when Value::Int(n) { println(n) }
+  when Value::Text(s) { println(s) }
+  when Value::Empty { println("empty") }
+}

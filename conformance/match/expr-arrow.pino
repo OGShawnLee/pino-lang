@@ -1,14 +1,14 @@
 # covers: MATCH-6, MATCH-7
 val level = 2
 val label = match level {
-  when 1 => "Beginner"
-  when 2 => "Intermediate"
-  else => "Advanced"
+  when 1 -> "Beginner"
+  when 2 -> "Intermediate"
+  else -> "Advanced"
 }
 println(label)
 val other = match 9 {
-  when 1 => "Beginner"
-  when 2 => "Intermediate"
-  else => "Advanced"
+  when 1 -> "Beginner"
+  when 2 -> "Intermediate"
+  else -> "Advanced"
 }
 println(other)

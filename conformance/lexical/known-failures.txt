@@ -32,3 +32,22 @@ VM minus-leading-unary.pino  # VM prints "null" for vector literals
 VM minus-ambiguous-vector.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
 VM minus-ambiguous-trailing.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
 VM minus-ambiguous-call.pino  # legacy parser has no D-010 check; frozen per AD-001, enforced by the pino-csharp-re parser
+
+# --- Syntax decisions (ticket 014)
+C arrow-token.pino  # D-100: legacy parser uses => instead of ->
+C err-fat-arrow.pino  # D-100: legacy parser still accepts =>
+C err-numeric-underscore.pino  # D-092: legacy lexer enforces 3-digit underscore grouping
+C err-trailing-comma.pino  # D-108: legacy parser allows trailing commas
+C numeric-underscores.pino  # D-092: legacy lexer enforces 3-digit underscore grouping
+C optional-commas-map.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
+TreeWalk arrow-token.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk err-fat-arrow.pino  # D-100: legacy parser still accepts =>
+TreeWalk err-numeric-underscore.pino  # D-092: legacy lexer enforces 3-digit underscore grouping
+TreeWalk err-trailing-comma.pino  # D-108: legacy parser allows trailing commas
+TreeWalk numeric-underscores.pino  # D-092: legacy lexer enforces 3-digit underscore grouping
+TreeWalk optional-commas-map.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
+VM arrow-token.pino  # D-100: legacy parser uses => instead of ->
+VM err-fat-arrow.pino  # D-100: legacy parser still accepts =>
+VM err-numeric-underscore.pino  # D-092: legacy lexer enforces 3-digit underscore grouping
+VM err-trailing-comma.pino  # D-108: legacy parser allows trailing commas
+VM numeric-underscores.pino  # D-092: legacy lexer enforces 3-digit underscore grouping

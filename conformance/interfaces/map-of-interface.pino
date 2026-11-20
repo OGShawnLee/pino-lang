@@ -16,7 +16,7 @@ struct Registry {
 val u = User {}
 val reg = Registry {
   clients: map[string, User] {
-    "client1": u
+    "client1" -> u
   }
 }
 val clients = reg:clients

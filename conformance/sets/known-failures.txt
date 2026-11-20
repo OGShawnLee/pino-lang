@@ -1,0 +1,7 @@
+# Known failures for conformance/sets/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+
+# --- Syntax decisions (ticket 014)
+C basic-set.pino  # D-102: legacy compiler has no set[T] type or literal
+TreeWalk basic-set.pino  # D-102: legacy compiler has no set[T] type or literal
+VM basic-set.pino  # D-102: legacy compiler has no set[T] type or literal

@@ -1,6 +1,6 @@
 # D-001: Commas in the loop header
 
-Status: open
+Status: accepted
 Raised by: 004
 Feature: spec/features/loops.md
 
@@ -42,4 +42,4 @@ Note: `for idx, char in "Pi"` (with `char` as the variable name) also prints `0`
 3. Keep the comma required and make the error message mention the comma, for example `Expected ',' or 'in' in loop declaration`. No change in what is accepted.
 
 ## Decision
-_Pending: owner decides._
+Option 2: the loop-header comma is optional; `for i x in v` equals `for i, x in v`, decided by the owner on 2026-11-19. Consequence: both `for i, x in coll` and `for i x in coll` are valid two-variable loop headers, and the legacy parser's rejection of the comma-less form is a known failure.

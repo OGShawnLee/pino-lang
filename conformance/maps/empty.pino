@@ -1,5 +1,5 @@
 # covers: MAP-3, MAP-5
-val empty = map[string, int] {}
+val empty = map[string, int]
 println(empty:len)
 empty["k"] = 1
 println(empty["k"])

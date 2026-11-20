@@ -1,6 +1,6 @@
 # D-091: Raw NUL and control characters inside strings and runes
 
-Status: open
+Status: accepted
 Raised by: 012
 Feature: spec/features/strings.md
 
@@ -17,4 +17,4 @@ Are unescaped raw NUL (`\u0000`) and other C0/C1 control characters (aside from 
 2. Reject raw NUL (`\u0000`) and/or unescaped C0 control characters (other than `\t`, and `\r`/`\n` inside `"""..."""`) with a lexer diagnostic, keeping strings and runes safe for terminals and C FFI.
 
 ## Decision
-_Pending: owner decides._
+Option 2: raw NUL and other C0 control characters inside string and rune literals are a lexer error; tab is allowed, and line breaks are allowed only inside `"""`, decided by the owner on 2026-11-19. Consequence: unescaped C0 control characters other than `\t` (and `\r`/`\n` inside `"""..."""`) must be rejected by the lexer.

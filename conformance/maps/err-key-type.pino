@@ -1,2 +1,2 @@
 # covers: MAP-E2
-val m = map[string, int] { 123: 1 }
+val m = map[string, int] { 123 -> 1 }

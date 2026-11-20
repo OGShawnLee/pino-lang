@@ -1,0 +1,2 @@
+# covers: SET-E1
+val s = { 1, 2, 3 }

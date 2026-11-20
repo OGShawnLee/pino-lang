@@ -15,3 +15,7 @@ C compound-assign-string.pino  # `+=` on strings is not supported: TCC error "op
 VM compound-assign.pino  # `%=` is evaluated wrongly: prints 7 instead of 3 for `n %= 4` with n = 7
 VM global-val-in-function.pino  # VM has no struct support: RUNTIME ERROR "Value is not callable"
 VM lambda-captures-scope.pino  # VM cannot call the lambda: RUNTIME ERROR "Value is not callable"
+
+# --- Syntax decisions (ticket 014)
+C lambda-captures-scope.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk lambda-captures-scope.pino  # D-100: legacy parser uses => instead of ->

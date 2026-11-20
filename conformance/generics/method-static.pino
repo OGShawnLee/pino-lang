@@ -1,6 +1,6 @@
 # covers: GEN-7
 struct Reader {
-  @generic[T]
+  @@Generic[T]
   static fn read(v T) T {
     return v
   }

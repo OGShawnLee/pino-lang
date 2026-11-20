@@ -1,6 +1,6 @@
 # D-053: Return type on a lambda
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -30,4 +30,4 @@ println(sq(5))
 2. Allow an optional return type between the parameter list and `=>` or `{`: parser change, rules and cases.
 
 ## Decision
-_Pending: owner decides._
+Option 1: lambdas take no return type; it is inferred, decided by the owner on 2026-11-19. Consequence: lambda syntax has no return-type annotation slot between the parameter list and `->` or `{`.

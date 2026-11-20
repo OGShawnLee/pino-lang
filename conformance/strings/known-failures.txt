@@ -24,3 +24,14 @@ VM str-struct.pino  # VM prints "null" for str() of a struct
 VM escape-unknown.pino  # legacy keeps unknown escapes literally; frozen per AD-001 (D-020)
 VM interpolate-adjacent.pino  # legacy treats '$' as an identifier char so "$x$y" reads x$y; frozen per AD-001 (D-021)
 VM multiline.pino  # legacy lexer has no triple-quoted multi-line string syntax; frozen per AD-001
+
+# --- Syntax decisions (ticket 014)
+C err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in string literals
+C err-keyword-interpolation.pino  # D-093: legacy lexer accepts keyword spelling after $
+C multiline-trailing-quotes.pino  # D-090: legacy lexer does not support triple-quoted multiline strings
+TreeWalk err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in string literals
+TreeWalk err-keyword-interpolation.pino  # D-093: legacy lexer accepts keyword spelling after $
+TreeWalk multiline-trailing-quotes.pino  # D-090: legacy lexer does not support triple-quoted multiline strings
+VM err-control-char.pino  # D-091: legacy lexer allows raw C0 control characters in string literals
+VM err-keyword-interpolation.pino  # D-093: legacy lexer accepts keyword spelling after $
+VM multiline-trailing-quotes.pino  # D-090: legacy lexer does not support triple-quoted multiline strings

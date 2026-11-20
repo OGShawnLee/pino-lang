@@ -1,6 +1,6 @@
 # D-090: How does `"""` close when more than three quotes follow?
 
-Status: open
+Status: accepted
 Raised by: 012
 Feature: spec/features/strings.md
 
@@ -20,4 +20,4 @@ How does a multi-line `"""..."""` string close when four or five consecutive `"`
 2. Close on the last 3 quotes of a 3..5-quote run so 1 or 2 trailing quotes stay inside the `StringPart` (and 6 quotes still means `""""""` empty string or error): matches Python/Kotlin triple-quoted trailing-quote rules without needing `\"`.
 
 ## Decision
-_Pending: owner decides._
+Option 2: in a run of 3–5 quotes at the end of a `"""` string, the last three close it; one or two quotes stay inside the string, decided by the owner on 2026-11-19. Consequence: `"""a""""` and `"""a"""""` are valid multi-line string literals whose contents end with `"` and `""` respectively.

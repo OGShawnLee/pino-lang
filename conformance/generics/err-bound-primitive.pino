@@ -3,11 +3,11 @@ interface DocumentShape {
   name string
 }
 
-@generic[Doc is DocumentShape]
+@@Generic[Doc is DocumentShape]
 struct Library {
   catalog map[string, Doc]
 }
 
 val lib = Library[int] {
-  catalog: map[string, int] {}
+  catalog: map[string, int]
 }

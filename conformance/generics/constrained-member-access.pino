@@ -3,7 +3,7 @@ interface DocumentShape {
   name string
 }
 
-@generic[D is DocumentShape]
+@@Generic[D is DocumentShape]
 fn reading(doc D) {
   println(doc:name)
 }

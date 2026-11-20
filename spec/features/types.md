@@ -14,6 +14,7 @@ The primitive types are `bool`, `int`, `float`, `rune` and `string`. Values of t
 - TYPE-5: `bool` values combine with `and`, `or` and `not` and compare with `==` and `!=`. [src: ArithmeticTests.TestBooleanLogic]
 - TYPE-6: `and` and `or` evaluate their right operand only when the left operand does not already decide the result. [src: ArithmeticTests.TestBooleanShortCircuit]
 - TYPE-7: `not` binds tighter than `and`, so `not true and false` is `false` while `not (true and false)` is `true`. [src: ArithmeticTests.TestUnaryOperators]
+- TYPE-8: Postfix `[i]`, `:` member access and calls bind tighter than unary `-` and `not`, so `-arr[0]` is `-(arr[0])`. [src: spec/decisions/D-107-postfix-tighter-than-unary.md]
 
 ## Errors
 None documented.

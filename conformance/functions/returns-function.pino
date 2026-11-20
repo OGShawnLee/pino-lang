@@ -1,5 +1,5 @@
 # covers: FN-13, FN-14
-fn get_adder() fn(int) int {
+fn get_adder() fn (int) -> int {
   fn add_one(n int) int {
     return n + 1
   }

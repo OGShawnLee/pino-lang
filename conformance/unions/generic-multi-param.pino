@@ -1,5 +1,5 @@
 # covers: UNION-10
-@generic[A, B, C, D]
+@@Generic[A, B, C, D]
 union Tuple4 {
   First(A)
   Second(B)

@@ -25,3 +25,22 @@ C fn-field-call.pino  # C backend: TCC error "operation on a struct"
 C self-compound-assign.pino  # C backend: TCC error "'self' undeclared"
 C self-this.pino  # C backend: TCC error "'self' undeclared"
 C static-as-value.pino  # C backend: TCC error "operation on a struct"
+
+# --- Syntax decisions (ticket 014)
+C err-field-type-mismatch.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+C err-fn-field-arg-count.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+C err-fn-field-arg-type.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+C err-fn-field-bad-lambda.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+C field-shorthand.pino  # D-104: legacy parser does not support struct field shorthand
+TreeWalk err-field-type-mismatch.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+TreeWalk err-fn-field-arg-count.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+TreeWalk err-fn-field-arg-type.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+TreeWalk err-fn-field-bad-lambda.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+TreeWalk field-shorthand.pino  # D-104: legacy parser does not support struct field shorthand
+TreeWalk fn-field-call.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+TreeWalk static-as-value.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+VM err-field-type-mismatch.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+VM err-fn-field-arg-count.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+VM err-fn-field-arg-type.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+VM err-fn-field-bad-lambda.pino  # D-100: legacy parser uses => and fn(T) R instead of ->
+VM field-shorthand.pino  # D-104: legacy parser does not support struct field shorthand

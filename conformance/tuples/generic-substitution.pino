@@ -1,5 +1,5 @@
 # covers: TUP-9
-@generic[T]
+@@Generic[T]
 fn return_tuple(v T) @(value T, label string) {
   return @(label: "generic", value: v)
 }

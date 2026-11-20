@@ -1,0 +1,2 @@
+# covers: LEX-E5
+val f = fn (x int) => x + 1

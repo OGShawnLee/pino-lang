@@ -1,2 +1,2 @@
 # covers: VECLIB-13
-println([10, 20, 30]:map(fn(v int, i int) => v + i))
+println([10, 20, 30]:map(fn(v int, i int) -> v + i))

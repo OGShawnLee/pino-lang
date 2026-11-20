@@ -1,5 +1,5 @@
 # covers: GEN-E7
-@generic[T]
+@@Generic[T]
 interface Repository {
   fn find_by_id(id string) T
   fn save(entity T)
@@ -16,7 +16,7 @@ struct IncompatibleRepository {
   }
 }
 
-@generic[Repo is Repository[Person]]
+@@Generic[Repo is Repository[Person]]
 fn process(r Repo) Person {
   return r:find_by_id("123")
 }

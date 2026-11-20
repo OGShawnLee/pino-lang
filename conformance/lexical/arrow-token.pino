@@ -1,0 +1,4 @@
+# covers: LEX-18, LEX-19
+val double = fn (x int) -> x * 2
+val xs = [1 2 3]
+println(double(xs[1]))

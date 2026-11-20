@@ -9,9 +9,9 @@ Members are called on a map with `:`, for example `m:len` for a property and `m:
 | Member | Signature | Returns |
 | :--- | :--- | :--- |
 | `len` / `length` | property | `int`, the number of entries |
-| `keys()` | `fn()` | `[]K`, a new vector of the keys |
-| `values()` | `fn()` | `[]V`, a new vector of the values, in the order of their keys |
-| `remove(key)` | `fn(K)` | the removed value, or `null` when the key is absent |
+| `keys()` | `fn ()` | `[]K`, a new vector of the keys |
+| `values()` | `fn ()` | `[]V`, a new vector of the values, in the order of their keys |
+| `remove(key)` | `fn (K)` | the removed value, or `null` when the key is absent |
 
 ## Rules
 - MAPLIB-1: `m:len` returns the number of entries of `m`. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; StdlibTests.TestMapLength]

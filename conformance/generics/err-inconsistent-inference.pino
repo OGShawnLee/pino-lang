@@ -1,5 +1,6 @@
 # covers: GEN-E1
-struct Quad[T] {
+@@Generic[T]
+struct Quad {
   a T
   b T
 }

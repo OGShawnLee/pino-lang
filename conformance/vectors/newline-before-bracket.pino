@@ -1,0 +1,3 @@
+# covers: VEC-17
+println("a")
+[3, 4]:each(println)

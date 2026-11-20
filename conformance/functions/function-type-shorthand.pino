@@ -1,0 +1,14 @@
+# covers: FN-20
+fn run_void(cb fn) {
+  cb()
+}
+fn run_unary(cb fn (int)) {
+  cb(5)
+}
+fn make_zero() fn -> int {
+  return fn () -> 42
+}
+run_void(fn () { println("ok") })
+run_unary(fn (n int) { println(n) })
+val g = make_zero()
+println(g())

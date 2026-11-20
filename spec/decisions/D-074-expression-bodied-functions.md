@@ -1,6 +1,6 @@
 # D-074: Expression-bodied methods and functions (`fn f() T => expr`)
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/interfaces.md, spec/features/structs.md
 
@@ -40,4 +40,4 @@ struct Dog {
 2. Keep the parser and change the reference examples to block bodies.
 
 ## Decision
-_Pending: owner decides._
+Duplicate resolved by D-052 (Option 2: named functions and methods have block bodies only), decided by the owner on 2026-11-19. Consequence: expression-bodied named functions and methods are not part of the language; see [D-052](D-052-arrow-bodied-function-declarations.md).

@@ -1,11 +1,11 @@
 # covers: VAR-8
 fn run_test() {
   val x = 5
-  var f = fn() => x
+  var f = fn() -> x
   println(f())
   if true {
     val y = 10
-    f = fn() => x + y
+    f = fn() -> x + y
   }
   println(f())
 }

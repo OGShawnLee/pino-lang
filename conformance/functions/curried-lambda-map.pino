@@ -1,4 +1,4 @@
 # covers: FN-8, FN-15, VEC-8, VECLIB-12
 val numbers = []int { len: 3, init: it + 1 }
-val times = fn (multiplier int) => fn (it int) => it * multiplier
+val times = fn (multiplier int) -> fn (it int) -> it * multiplier
 println(numbers:map(times(2)))

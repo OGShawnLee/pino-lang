@@ -1,6 +1,6 @@
 # D-058: A line starting with `[` after an expression statement
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/vectors.md
 
@@ -32,4 +32,4 @@ The reference's own examples, such as `[10, 20]:each(...)` (`LANGUAGE_REFERENCE.
 2. End the expression at a line break before `[` (as many newline-sensitive languages do): parser change.
 
 ## Decision
-_Pending: owner decides._
+Option 2: a line break before `[` ends the expression, so a `[` at the start of a line begins a new statement (a vector literal), decided by the owner on 2026-11-19. Consequence: indexing must be on the same line as its operand, and a statement starting with `[` on a new line is parsed as a vector literal rather than index access.

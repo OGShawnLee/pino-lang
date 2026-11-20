@@ -10,7 +10,7 @@ C times-it-call-argument.pino  # D-002: TCC error "cannot cast 'struct <anonymou
 # --- C backend
 C in-string-char-keyword.pino  # D-005: `char` is emitted unmangled; TCC error "too many basic types"
 C in-string-rune-type.pino  # type() builtin is not supported by the C backend (implicit declaration of 'type')
-C in-string-unicode.pino  # C backend iterates string bytes, not code points: 8 iterations for "🌲Pino" instead of 5
+C in-string-unicode.pino  # C backend iterates string bytes, not code points: 8 iterations for "ðŸŒ²Pino" instead of 5
 
 # --- VM (experimental; no vector/map support, no break/continue compilation)
 VM in-vector.pino  # VM: NullReferenceException iterating a vector literal
@@ -20,3 +20,12 @@ VM in-map-keys.pino  # VM: map loop body never runs (prints 0)
 VM in-map-pairs.pino  # VM: map loop body never runs (prints 0)
 VM continue-times.pino  # VM compiler has no `continue`: skipped iterations still run (prints 15 instead of 9)
 VM infinite-break.pino  # VM compiler has no `break`: loop never ends (timeout)
+
+# --- Syntax decisions (ticket 014)
+C in-map-keys.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
+C in-map-pairs.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
+C two-var-no-comma.pino  # D-001: legacy parser requires comma in two-variable loop header
+TreeWalk in-map-keys.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
+TreeWalk in-map-pairs.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
+TreeWalk two-var-no-comma.pino  # D-001: legacy parser requires comma in two-variable loop header
+VM two-var-no-comma.pino  # D-001: legacy parser requires comma in two-variable loop header

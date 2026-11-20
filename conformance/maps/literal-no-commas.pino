@@ -1,9 +1,9 @@
 # covers: MAP-2
-val spaced = map[string, int] { "x": 10 "y": 20 }
+val spaced = map[string, int] { "x" -> 10 "y" -> 20 }
 println(spaced["x"])
 println(spaced["y"])
 val multi = map[string, int] {
-  "a": 1
-  "b": 2
+  "a" -> 1
+  "b" -> 2
 }
 println(multi["b"])

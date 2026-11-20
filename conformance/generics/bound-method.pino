@@ -4,7 +4,7 @@ interface DocumentShape {
 }
 
 struct Printer {
-  @generic[Doc is DocumentShape]
+  @@Generic[Doc is DocumentShape]
   fn print_doc(d Doc) string {
     return d:name
   }

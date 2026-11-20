@@ -31,6 +31,7 @@ Decisions live in [`decisions/`](decisions/README.md) and are made only by the p
 | Labeled tuples | `features/tuples.md` | `TUP` | 007 | migrated |
 | Vectors | `features/vectors.md` | `VEC` | 007 | migrated |
 | Maps | `features/maps.md` | `MAP` | 007 | migrated |
+| Sets | `features/sets.md` | `SET` | 014 | migrated |
 | Modules and imports | `features/modules.md` | `MOD` | 007 | migrated |
 | Structs and embedding | `features/structs.md` | `STRUCT` | 008 | migrated |
 | Interfaces | `features/interfaces.md` | `IFACE` | 008 | migrated |

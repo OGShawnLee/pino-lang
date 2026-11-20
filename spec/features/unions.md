@@ -7,13 +7,13 @@ Grammar productions: see `spec/grammar.ebnf` section `union`.
 A `union` declares tagged variants, each optionally carrying a payload of one or more types. A variant is created with `Union::Variant(args)` (or `Union::Variant` when it has no payload) and consumed with `match`/`when` patterns or the `is` / `is not` operators. Unions may be generic; generic syntax is described in `spec/features/generics.md`.
 
 ## Rules
-- UNION-1: `union Name { Variant(T1, T2) Other Plain }` declares a tagged union whose variants carry zero or more payload types, and the declaration may be prefixed with `pub`. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; ParserUnionsTests.TestParseUnionDeclaration]
+- UNION-1: `union Name { Variant(T1, T2) Other Plain }` or `union Name { Variant(a T1, b T2) Other Plain }` declares a tagged union whose variants carry zero or more payload types or named payload fields, and the declaration may be prefixed with `pub`. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; ParserUnionsTests.TestParseUnionDeclaration; spec/decisions/D-103-union-payload-forms.md]
 - UNION-2: A variant is instantiated with `Union::Variant(args)`, or `Union::Variant` when it has no payload. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"]
 - UNION-3: In `match`, `when Union::Variant(a, b)` selects the branch for that variant and binds the payload values, in order, to the names `a`, `b` inside the branch. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; UnionTests.TestBasicUnionMatchExecution; ParserUnionsTests.TestParseWhenPattern]
 - UNION-4: `when Union::Variant` without parentheses matches a variant that has no payload. [src: UnionTests.TestBasicUnionMatchExecution]
 - UNION-5: An `else` branch in a `match` over a union handles every variant that no `when` branch lists. [src: LANGUAGE_REFERENCE.md §7 "Unions (Sum Types / Tagged Unions)"; UnionTests.TestUnionMatchElseFallbackExecution]
-- UNION-6: A union is made generic by the `@generic[T, ...]` decorator before the `union` keyword, and its type parameters can be used in variant payload types. [src: LANGUAGE_REFERENCE.md §7 "Generic Unions"; proposals/005-tagged-unions-and-patterns-roadmap.md; UnionTests.TestGenericUnionMatchExecution]
-- UNION-7: A union can also be made generic with inline brackets after its name (`union Maybe[T] { ... }`). [src: LANGUAGE_REFERENCE.md §7 "Generic Unions"; proposals/005-tagged-unions-and-patterns-roadmap.md]
+- UNION-6: A union is made generic by the `@@Generic[T, ...]` decorator before the `union` keyword, and its type parameters can be used in variant payload types. [src: LANGUAGE_REFERENCE.md §7 "Generic Unions"; proposals/005-tagged-unions-and-patterns-roadmap.md; UnionTests.TestGenericUnionMatchExecution; spec/decisions/D-072-two-generic-syntaxes.md]
+- UNION-7: Positional payload types in a union declaration are allowed only when every variant of that union is positional. [src: spec/decisions/D-103-union-payload-forms.md]
 - UNION-8: The generic arguments of a union value are inferred from the payload, so `Option::Some(42)` has type `Option[int]` and is accepted where `Option[int]` is expected. [src: LANGUAGE_REFERENCE.md §7 "Monomorphization & Type Inference"; CheckerTests.TestGenericUnionMonomorphizationSuccess]
 - UNION-9: When a variant constructor alone cannot determine the generic arguments (for example `Option::None` or `Result::Failure("x")`), they are taken from the expected type of the context, such as a parameter type or a function return type. [src: proposals/005-tagged-unions-and-patterns-roadmap.md; UnionTests.TestGenericUnionAssignmentAndArgDisambiguation; UnionTests.TestGenericResultDisambiguation]
 - UNION-10: A generic union may have several type parameters, each used by a different variant. [src: LANGUAGE_REFERENCE.md §7 "Generic Unions"; UnionTests.TestMultiGenericUnionExpectedType]
@@ -35,10 +35,10 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 - UNION-E5: `is` with a variant the union does not have is rejected with a message containing "has no variant". [src: CheckerTests.TestUnionIsExpressionErrors]
 - UNION-E6: `is` on a value that is not a union or enum is rejected with a message containing "Cannot match union pattern". [src: CheckerTests.TestUnionIsExpressionErrors]
 - UNION-E7: `is` with explicit generic arguments that differ from the value's type is rejected with a message containing "Cannot match union pattern". [src: LANGUAGE_REFERENCE.md §7 "Variant Testing (`is` and `is not`)"; CheckerTests.TestUnionIsExpressionErrors]
+- UNION-E8: Mixing named payload fields (`Int(n int)`) and positional payload types (`Str(string)`) in the same union declaration is rejected as a compile error. [src: spec/decisions/D-103-union-payload-forms.md]
 
 ## Examples
 Conformance cases: `conformance/unions/`. The predeclared `Option[T]` and `Result[T, E]` unions are specified in `spec/features/errors.md`.
 
 ## Open questions
-- D-072: Keep both generic syntaxes (`@generic[T]` decorator and inline `[T]`), or pick one?
 - D-071: `Option[T]` versus `null` for absence of a value.

@@ -1,8 +1,8 @@
 # covers: VECLIB-21
-if [2, 4, 6]:all(fn(x int) => x % 2 == 0) {
+if [2, 4, 6]:all(fn(x int) -> x % 2 == 0) {
   println("all even")
 }
-if [2, 4, 7]:all(fn(x int) => x % 2 == 0) {
+if [2, 4, 7]:all(fn(x int) -> x % 2 == 0) {
   println("all even")
 } else {
   println("not all even")

@@ -17,3 +17,20 @@ VM expr-return-and-init.pino  # VM: RUNTIME ERROR "Value is not callable" evalua
 
 # --- C backend
 C expr-block-yield-local.pino  # C backend emits `factor = 10;` without declaring `factor` for a `val` inside a yield block of a top-level match expression (TCC: 'factor' undeclared)
+
+# --- Syntax decisions (ticket 014)
+C err-enum-expression.pino  # D-100: legacy parser uses => instead of ->
+C err-expression-no-else.pino  # D-100: legacy parser uses => instead of ->
+C err-expression-type-mismatch.pino  # D-100: legacy parser uses => instead of ->
+C expr-arrow.pino  # D-100: legacy parser uses => instead of ->
+C expr-block-yield.pino  # D-100: legacy parser uses => instead of ->
+C expr-return-and-init.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk err-enum-expression.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk err-expression-no-else.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk err-expression-type-mismatch.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk expr-arrow.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk expr-block-yield.pino  # D-100: legacy parser uses => instead of ->
+TreeWalk expr-return-and-init.pino  # D-100: legacy parser uses => instead of ->
+VM err-enum-expression.pino  # D-100: legacy parser uses => instead of ->
+VM err-expression-no-else.pino  # D-100: legacy parser uses => instead of ->
+VM err-expression-type-mismatch.pino  # D-100: legacy parser uses => instead of ->

@@ -6,3 +6,6 @@
 C type-names.pino  # the type() builtin is not supported by the C backend (implicit declaration of 'type')
 C type-names-of-variables.pino  # the type() builtin is not supported by the C backend (implicit declaration of 'type')
 C int-64-bit.pino  # `int` is emitted as a 32-bit C int: 4_000_000_000 + 4_000_000_000 prints -589934592 instead of 8000000000
+
+# --- Syntax decisions (ticket 014)
+VM unary-postfix-precedence.pino  # D-107: VM lacks vector indexing support

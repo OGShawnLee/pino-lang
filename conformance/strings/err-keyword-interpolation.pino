@@ -1,0 +1,2 @@
+# covers: STR-E4
+val s = "$if"

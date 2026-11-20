@@ -1,6 +1,6 @@
 # covers: GEN-5, GEN-6
-@generic[T, U]
-fn map_all(list []T, transform fn(T) U) []U {
+@@Generic[T, U]
+fn map_all(list []T, transform fn (T) -> U) []U {
   val out = []U
   for x in list {
     out:push(transform(x))
@@ -9,7 +9,7 @@ fn map_all(list []T, transform fn(T) U) []U {
 }
 
 val numbers = [1, 2, 3]
-val strings = map_all[int, string](numbers, fn(n int) => "n" + str(n))
-val doubled = map_all(numbers, fn(n int) => n * 2)
+val strings = map_all[int, string](numbers, fn(n int) -> "n" + str(n))
+val doubled = map_all(numbers, fn(n int) -> n * 2)
 println(strings:join(","))
 println(doubled:join(","))

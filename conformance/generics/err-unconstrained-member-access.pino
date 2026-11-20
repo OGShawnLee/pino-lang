@@ -1,5 +1,5 @@
 # covers: GEN-E8
-@generic[D]
+@@Generic[D]
 fn reading(doc D) {
   println(doc:name)
 }

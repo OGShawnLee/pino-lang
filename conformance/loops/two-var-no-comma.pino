@@ -1,0 +1,4 @@
+# covers: LOOP-15
+for i x in ["a", "b"] {
+  println("$i:$x")
+}

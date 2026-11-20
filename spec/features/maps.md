@@ -4,12 +4,12 @@ Status: tree-walk 14/14 | VM 4/14 | C 11/14   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `map`.
-A map associates unique keys with values. It is created with `map[KeyType, ValueType] { key: value, ... }`, read and written with `m[key]`, and tested for a key with `in`. The methods of a map are in `spec/stdlib/map.md`.
+A map associates unique keys with values. It is created with `map[KeyType, ValueType] { key -> value, ... }`, or `map[KeyType, ValueType]` with no braces for an empty map, read and written with `m[key]`, and tested for a key with `in`. The methods of a map are in `spec/stdlib/map.md`.
 
 ## Rules
-- MAP-1: `map[K, V] { k1: v1, k2: v2 }` creates a map from keys of type `K` to values of type `V`. [src: LANGUAGE_REFERENCE.md §4 "Maps (Dictionaries)"]
+- MAP-1: `map[K, V] { k1 -> v1, k2 -> v2 }` creates a map from keys of type `K` to values of type `V`. [src: LANGUAGE_REFERENCE.md §4 "Maps (Dictionaries)"; spec/decisions/D-100-arrow-token.md]
 - MAP-2: The entries of a map literal may be separated by whitespace or newlines instead of commas. [src: LANGUAGE_REFERENCE.md §1 "Syntax Guidelines"]
-- MAP-3: `map[K, V] {}` creates an empty map. [src: ParserTests.TestMapParserEdgeCases]
+- MAP-3: `map[K, V]` with no braces creates an empty map. [src: ParserTests.TestMapParserEdgeCases; spec/decisions/D-102-set-type-and-literal.md]
 - MAP-4: `m[key]` reads the value associated with `key`. [src: LANGUAGE_REFERENCE.md §4 "Maps (Dictionaries)"]
 - MAP-5: `m[key] = value` inserts the entry when `key` is absent and replaces the value when `key` is present. [src: LANGUAGE_REFERENCE.md §4 "Maps (Dictionaries)"; DataStructureTests.TestMapEvaluatorRuntimeBehavior]
 - MAP-6: `m[key] += n` adds `n` to the value stored under `key`. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior; StdlibTests.TestMapCompoundAssignment]
@@ -22,7 +22,7 @@ A map associates unique keys with values. It is created with `map[KeyType, Value
 - MAP-E1: Reading a key that is not in the map with `m[key]` fails at run time; the engines share the wording "not found in map", which the conformance case checks. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior]
 - MAP-E2: A key in a map literal whose type is not the declared key type is rejected before execution with a type check error. [src: CheckerTests.TestMapTypeCheckerSemanticValidation]
 - MAP-E3: A value in a map literal whose type is not the declared value type is rejected before execution with a type check error. [src: CheckerTests.TestMapTypeCheckerSemanticValidation]
-- MAP-E4: A map type with only one type argument, or a map literal entry without `: value`, is rejected as a parse error. [src: ParserTests.TestMapParserEdgeCases]
+- MAP-E4: A map type with only one type argument, or a map literal entry without `-> value`, is rejected as a parse error. [src: ParserTests.TestMapParserEdgeCases; spec/decisions/D-100-arrow-token.md]
 
 ## Examples
 Conformance cases: `conformance/maps/`.

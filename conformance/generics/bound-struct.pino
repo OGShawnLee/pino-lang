@@ -3,7 +3,7 @@ interface DocumentShape {
   name string
 }
 
-@generic[Doc is DocumentShape]
+@@Generic[Doc is DocumentShape]
 struct Library {
   catalog map[string, Doc]
 }
@@ -13,7 +13,7 @@ struct Book {
 }
 
 val lib = Library[Book] {
-  catalog: map[string, Book] { "a": Book { name: "Dune" } }
+  catalog: map[string, Book] { "a" -> Book { name: "Dune" } }
 }
 val catalog = lib:catalog
 println(catalog["a"]:name)

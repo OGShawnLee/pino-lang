@@ -1,6 +1,6 @@
 # D-035: `else => expr` after an `if` statement
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/features/conditionals.md
 
@@ -29,4 +29,4 @@ if 1 > 2 {
 2. Restrict the arrow form to `match` and make the parser reject it after an `if` block.
 
 ## Decision
-_Pending: owner decides._
+Option 2: the arrow `else` exists only in `match` (spelled `else -> expr`, see D-100); after an `if` block it is a parse error, decided by the owner on 2026-11-19. Consequence: `else -> expr` (and `else => expr`) after an `if` block is rejected, and the legacy parser's acceptance of `else => expr` after `if` is a known failure.

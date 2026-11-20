@@ -1,5 +1,6 @@
-# covers: UNION-7
-union Maybe[T] {
+# covers: UNION-6
+@@Generic[T]
+union Maybe {
   Just(T)
   Nothing
 }

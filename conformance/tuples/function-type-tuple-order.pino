@@ -1,5 +1,5 @@
 # covers: TUP-10
-fn get_factory() fn() @(x int, y int) {
+fn get_factory() fn () -> @(x int, y int) {
   fn generate() @(y int, x int) {
     return @(y: 2, x: 1)
   }

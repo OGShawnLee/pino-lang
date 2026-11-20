@@ -3,6 +3,6 @@ struct BadStruct {
   x int
 
   static fn bad() int {
-    return this:x
+    return self:x
   }
 }

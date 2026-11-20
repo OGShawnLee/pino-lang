@@ -10,17 +10,17 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 | :--- | :--- | :--- |
 | `len` / `length` | property | `int`, the number of elements |
 | `cap` / `capacity` | property | `int`, the allocated capacity |
-| `push(item)` / `add(item)` | `fn(T)` | the vector itself (mutated) |
-| `pop()` | `fn()` | the removed last element, or `null` when empty |
-| `each(fn)` | `fn(fn(T))` or `fn(fn(T, int))` | `null` |
-| `map(fn)` | `fn(fn(T) R)` or `fn(fn(T, int) R)` | a new vector of the results |
-| `filter(fn)` | `fn(fn(T) bool)` or `fn(fn(T, int) bool)` | a new vector of the matching elements |
-| `find(fn)` | `fn(fn(T) bool)` or `fn(fn(T, int) bool)` | the first matching element, or `null` |
-| `find_index(fn)` | `fn(fn(T) bool)` or `fn(fn(T, int) bool)` | `int`, the index of the first match, or `-1` |
-| `any(fn)` | `fn(fn(T) bool)` or `fn(fn(T, int) bool)` | `bool` |
-| `all(fn)` | `fn(fn(T) bool)` or `fn(fn(T, int) bool)` | `bool` |
-| `count(fn)` | `fn(fn(T) bool)` or `fn(fn(T, int) bool)` | `int` |
-| `join(separator)` | `fn(string)` | `string` |
+| `push(item)` / `add(item)` | `fn (T)` | the vector itself (mutated) |
+| `pop()` | `fn ()` | the removed last element, or `null` when empty |
+| `each(fn)` | `fn (fn (T))` or `fn (fn (T, int))` | `null` |
+| `map(fn)` | `fn (fn (T) -> R)` or `fn (fn (T, int) -> R)` | a new vector of the results |
+| `filter(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | a new vector of the matching elements |
+| `find(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | the first matching element, or `null` |
+| `find_index(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `int`, the index of the first match, or `-1` |
+| `any(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `bool` |
+| `all(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `bool` |
+| `count(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | `int` |
+| `join(separator)` | `fn (string)` | `string` |
 
 ## Rules
 - VECLIB-1: `v:len` returns the number of elements of `v`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]

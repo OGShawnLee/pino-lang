@@ -15,3 +15,6 @@ C map-of-interface.pino  # C backend: TCC error "';' expected (got "Greeter")"
 C method-with-params.pino  # C backend: TCC error "',' expected (got "g")"
 C properties.pino  # C backend: TCC error "',' expected (got "h")"
 C structural-dispatch.pino  # C backend: TCC error "',' expected (got "s")"
+
+# --- Syntax decisions (ticket 014)
+TreeWalk map-of-interface.pino  # D-100: legacy parser uses => / k: v instead of ->

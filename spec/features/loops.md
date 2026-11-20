@@ -21,6 +21,7 @@ Every loop is introduced by the keyword `for` and has a braced body. The head is
 - LOOP-12: `continue` skips the rest of the current iteration and proceeds to the next one, and in an indexed `for i, x in s` loop over a string the index still advances for the skipped element. [src: ControlFlowTests.TestStringLoopWithContinueIncrementsIndex]
 - LOOP-13: `for cond { ... }` with a boolean expression `cond` evaluates `cond` before every iteration and executes the body while it is true. [src: ControlFlowTests.TestWhileLoopSimpleCondition; ControlFlowTests.TestWhileLoopBooleanVariable]
 - LOOP-14: Loops may be nested, and each iteration of an outer loop runs an inner loop from its beginning. [src: ControlFlowTests.TestWhileLoopNested]
+- LOOP-15: The comma between the two bindings in `for i x in coll { ... }` is optional and means the same as `for i, x in coll { ... }`. [src: spec/decisions/D-001-loop-header-commas.md]
 
 ## Errors
 None documented.
@@ -29,7 +30,6 @@ None documented.
 Conformance cases: `conformance/loops/`.
 
 ## Open questions
-- D-001: Are commas optional in the loop header (`for i x in v`)? The reference says commas are optional in lists and parameters; the parser rejects the comma-less header.
 - D-002: Should `it` inside `for N { ... }` stay a loop variable when it is (part of) a call argument such as `println("$it")`? Today the parser turns such an argument into an implicit lambda.
 - D-003: Should the reference document the condition form `for cond { ... }` (LOOP-13)? It is asserted by tests but absent from the reference's "4 syntactic variants".
 - D-004: Should the reference document iteration over maps (LOOP-9, LOOP-10) and fix or leave open the iteration order?

@@ -1,0 +1,7 @@
+# covers: SET-1, SET-2, SET-3
+val s1 = set[int] { 1, 2, 3 }
+val s2 = set[int] { 4 5 }
+val empty = set[int]
+println(2 in s1)
+println(5 in s2)
+println(1 in empty)

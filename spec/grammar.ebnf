@@ -25,23 +25,24 @@ keyword         = "var" | "val" | "fn" | "if" | "else" | "match" | "when" | "for
                   (* the lexer reserves more words (import, from, module, pub, static, union, yield, is, as, in,
                      then, test, assert, interface); only the ones asserted by LexerTests are normative here *)
 
-INT             = digit , { digit | "_" , digit , digit , digit } ;   (* 42, 1_000_000 *)
-FLOAT           = INT , "." , digit , { digit } ;                     (* 3.14159; a leading "-" is the unary operator *)
+INT             = digit , { [ "_" ] , digit } ;                       (* 42, 1_000_000, 1_0; D-092 *)
+FLOAT           = INT , "." , digit , { [ "_" ] , digit } ;           (* 3.14159, 1_000.000_1; D-092 *)
 BOOL            = "true" | "false" ;
 STRING          = '"' , { string_char | interpolation } , '"'
-                | '"""' , { string_char | interpolation } , '"""' ; (* see section str *)
-RUNE            = "'" , ( rune_char | "\n" | "\t" | "\r" | "\'" | "\\" ) , "'" ; (* one Unicode code point *)
+                | '"""' , { string_char | interpolation } , '"""' ; (* see section str; D-090, D-091 *)
+RUNE            = "'" , ( rune_char | "\n" | "\t" | "\r" | "\'" | "\\" ) , "'" ; (* one Unicode code point; no raw C0 controls except \t (D-091) *)
 
-(* Optional commas (reference section 1). In every list below a separator is "," or nothing:
+(* Optional commas (reference section 1). In every list below a separator is "," or nothing;
+   trailing commas after the last element are disallowed (D-108).
    D-010: in comma-optional element lists (vector_literal, map_literal, arg_list, when_values),
    a `-` with whitespace on exactly one side (`a -b` or `a- b`) is an error; `a - b` and `a-b`
    subtract, `a, -b` is two elements, and leading `[-b]` or `f(-1)` is unary minus. *)
 list_sep        = [ "," ] ;
 vector_literal  = "[" , [ expression , { list_sep , expression } ] , "]" ;
-map_literal     = "map" , "[" , type_expr , "," , type_expr , "]" , "{" , [ map_entry , { list_sep , map_entry } ] , "}" ;
-map_entry       = expression , ":" , expression ;
+map_literal     = "map" , "[" , type_expr , "," , type_expr , "]" , [ "{" , [ map_entry , { list_sep , map_entry } ] , "}" ] ;
+map_entry       = expression , "->" , expression ;                    (* D-100 *)
 struct_init     = IDENT , "{" , [ field_init , { list_sep , field_init } ] , "}" ;
-field_init      = IDENT , ":" , expression ;
+field_init      = IDENT , ":" , expression | IDENT ;                  (* D-104 *)
 import_stmt     = "from" , IDENT , "import" , IDENT , { list_sep , IDENT } ;
 when_values     = "when" , expression , { list_sep , expression } ;
 param_list      = "(" , [ param , { list_sep , param } ] , ")" ;
@@ -76,7 +77,8 @@ cmp_expr        = add_expr , { ( "<" | "<=" | ">" | ">=" ) , add_expr } ;
 add_expr        = mul_expr , { ( "+" | "-" ) , mul_expr } ;
 mul_expr        = unary_expr , { ( "*" | "/" | "%" ) , unary_expr } ;
 unary_expr      = ( "-" | "not" ) , unary_expr
-                | primary_expr ;
+                | postfix_expr ;                          (* D-107: postfix [i], :, and calls bind tighter than unary - and not *)
+postfix_expr    = primary_expr , { "[" , expression , "]" | ":" , IDENT , [ arg_list ] } ;
 primary_expr    = INT | FLOAT | BOOL | STRING | RUNE | IDENT | "(" , expression , ")" | call_expr ;
 call_expr       = IDENT , arg_list ;                      (* includes the builtins type(v), int(v), float(v), rune(v), str(v) *)
 
@@ -94,8 +96,11 @@ str_call        = "str" , "(" , expression , ")" ;            (* see section str
 
 (* === section: str (owner 005) === *)
 (* A string literal is lexed into text pieces and interpolations. Single-line `"..."` literals
-   do not span lines; triple-quoted `"""..."""` literals may span lines (`LexerStringTests.MultilineStringSpansLines`).
-   D-020: escape sequences are `\n`, `\t`, `\r`, `\"`, `\\`, `\$`. D-021: `$` is not an identifier char. *)
+   do not span lines; triple-quoted `"""..."""` literals may span lines (`LexerStringTests.MultilineStringSpansLines`),
+   and in a run of 3-5 trailing quotes the last three close the literal (D-090). Raw NUL and other C0 control
+   characters other than `\t` (and `\r`/`\n` inside `"""..."""`) are lexer errors (D-091).
+   D-020: escape sequences are `\n`, `\t`, `\r`, `\"`, `\\`, `\$`. D-021: `$` is not an identifier char.
+   D-093: keyword spellings right after `$` (`"$if"`) are rejected. *)
 string_literal  = '"' , { string_piece } , '"'
                 | '"""' , { string_piece } , '"""' ;
 string_piece    = string_text
@@ -113,10 +118,8 @@ structural_eq   = expression , ( "==" | "!=" ) , expression ;      (* primitives
 identity_eq     = expression , ( "===" | "!==" ) , expression ;    (* scalars by value, heap objects by reference *)
 
 (* === section: if (owner 006) === *)
-if_statement  = "if" , expression , block , [ "else" , ( if_statement | else_body ) ] ;
-else_body     = block
-              | "=>" , expression ;           (* D-035: the parser also accepts `else => expr` after an `if` block;
-                                                 the reference documents only `else { ... }` *)
+if_statement  = "if" , expression , block , [ "else" , ( if_statement | block ) ] ;
+                                              (* D-035, D-106: `if`/`else` branches always require braces; `else -> expr` is rejected after `if` *)
 
 if_expression = "if" , expression , "then" , expression , "else" , expression ;
                                               (* value-producing form; the `else` part is mandatory (IF-E2).
@@ -134,8 +137,7 @@ loop_head       = (* empty: infinite loop, `for { ... }` *)
    re-classifies it as the condition form when the expression has type bool. *)
 
 loop_binding    = IDENT
-                | IDENT , "," , IDENT ;       (* key/index first, then value. D-001: the reference says commas are
-                                                 optional in lists, but the parser requires the comma here. *)
+                | IDENT , [ "," ] , IDENT ;   (* key/index first, then value; comma is optional (D-001) *)
 
 break_statement    = "break" ;
 continue_statement = "continue" ;
@@ -149,7 +151,7 @@ when_arm         = "when" , pattern , { [ "," ] , pattern } , arm_body ;
                                               (* the commas between patterns are optional (MATCH-3) *)
 else_arm         = "else" , arm_body ;
 arm_body         = block                      (* block arm; in expression position it ends with `yield expr` *)
-                 | "=>" , expression ;        (* single-expression arm; `=>` before a block is a parse error (MATCH-E4) *)
+                 | "->" , expression ;        (* single-expression arm (D-100); `->` before a block is a parse error (MATCH-E4) *)
 
 pattern          = variant_pattern
                  | IDENT                      (* D-034: parsed as a binding that matches any value *)
@@ -191,15 +193,16 @@ parameter       = IDENT , type ;              (* a parameter named like a keywor
 
 return_type     = type | tuple_type ;         (* tuple_type: section tup *)
 
-lambda_expression = "fn" , parameters , ( "=>" , expression | block ) ;
-                                              (* D-052: `fn name(...) => expr` and D-053: a lambda return type are not accepted *)
+lambda_expression = "fn" , parameters , ( "->" , expression | block ) ;
+                                              (* D-052: `fn name(...) -> expr`, D-053: a lambda return type, and D-100: `=>` are not accepted *)
 
-function_type   = "fn" , "(" , [ type , { [ "," ] , type } ] , ")" , [ type | tuple_type ] ;
+function_type   = "fn" , [ "(" , [ type , { [ "," ] , type } ] , ")" ] , [ "->" , ( type | tuple_type ) ] ;
+                                              (* D-101: `()` optional when empty; omitted return type means `void` *)
 
 call_expression = IDENT , [ "[" , type , { [ "," ] , type } , "]" ] , "(" , [ argument , { [ "," ] , argument } ] , ")" ;
 
 argument        = expression ;                (* an argument that uses an undeclared `it` becomes an implicit
-                                                 one-parameter lambda `fn (it) => <argument>`; D-002 *)
+                                                 one-parameter lambda `fn (it) -> <argument>`; D-002 *)
 
 return_statement = "return" , [ expression ] ;
 
@@ -226,17 +229,22 @@ vector_expression = "[" , [ expression , { [ "," ] , expression } ] , "]"    (* 
 vector_property = ( "len" | "length" | "init" | "cap" | "capacity" ) , ":" , expression ;
                                               (* valid combinations: `cap` alone, or `len` with `init`, optionally with `cap` *)
 
-index_expression = expression , "[" , expression , "]" ;   (* shared with maps; D-058 for a `[` that starts a new line *)
+index_expression = expression , "[" , expression , "]" ;   (* shared with maps; D-058: must be on same line as operand; newline before `[` ends the expression *)
 
 membership_expression = expression , ( "in" | "not" , "in" ) , expression ;   (* vectors, maps and strings *)
 
 (* === section: map (owner 007) === *)
 map_type        = "map" , "[" , type , "," , type , "]" ;
 
-map_expression  = map_type , "{" , [ map_entry , { [ "," ] , map_entry } ] , "}" ;
-map_entry       = expression , ":" , expression ;
+map_expression  = map_type , [ "{" , [ map_entry , { [ "," ] , map_entry } ] , "}" ] ;
+map_entry       = expression , "->" , expression ;
 
 (* Lookup and assignment use `index_expression` (section vec). *)
+
+(* === section: set (owner 014) === *)
+set_type        = "set" , "[" , type , "]" ;
+
+set_expression  = set_type , [ "{" , [ expression , { [ "," ] , expression } ] , "}" ] ;
 
 (* === section: mod (owner 007) === *)
 module_declaration = "module" , IDENT ;       (* first statement of a module file *)
@@ -250,26 +258,26 @@ scope_access    = IDENT , "::" , IDENT ;      (* `Module::member`, also `Module:
 
 (* === section: struct (owner 008) === *)
 (* Productions below reference `type`, `expression`, `block` and `param_list`, which belong to other sections. *)
-struct_declaration = [ generic_decorator ] , [ "pub" ] , "struct" , IDENT , [ generic_params ] ,
+struct_declaration = [ generic_decorator ] , [ "pub" ] , "struct" , IDENT ,
                      "{" , { struct_member } , "}" ;
 
 struct_member      = field_declaration
                    | embedded_struct
                    | method_declaration ;
 
-field_declaration  = IDENT , type ;               (* `name string`, `increment fn(int) int` *)
+field_declaration  = IDENT , type ;               (* `name string`, `increment fn (int) -> int` *)
 embedded_struct    = IDENT ;                      (* a bare struct name embeds that struct *)
 method_declaration = [ generic_decorator ] , [ "static" ] , "fn" , IDENT ,
                      [ "(" , [ param_list ] , ")" ] , [ type ] , block ;
-                                                  (* the reference also shows `fn f() T => expr`; the parser rejects it. D-074 *)
+                                                  (* D-052/D-074: named functions and methods have block bodies only *)
 
 struct_literal     = IDENT , [ "[" , type_arg_list , "]" ] , "{" , [ field_init , { [ "," ] , field_init } ] , "}" ;
-field_init         = IDENT , ":" , expression ;
+field_init         = IDENT , ":" , expression | IDENT ;
 
 member_access      = expression , ":" , IDENT ;   (* field read, bound method value *)
 method_call        = expression , ":" , IDENT , "(" , [ argument_list ] , ")" ;
 static_access      = IDENT , "::" , IDENT ;       (* `Struct::static_fn(args)`, `Struct::static_fn` as a value *)
-self_reference     = "self" | "this" ;            (* both usable as `self:field`; D-076: `obj:field[i]` is a parse error *)
+self_reference     = "self" ;                     (* D-105: `self` only, `this` is not a keyword or binding; D-076: `obj:field[i]` is a parse error *)
 
 (* === section: iface (owner 008) === *)
 interface_declaration = [ generic_decorator ] , [ "pub" ] , "interface" , IDENT ,
@@ -290,10 +298,11 @@ enum_declaration = [ "pub" ] , "enum" , IDENT , "{" , [ IDENT , { [ "," ] , IDEN
 enum_member_ref  = IDENT , "::" , IDENT ;          (* `Direction::North` *)
 
 (* === section: union (owner 008) === *)
-union_declaration = [ generic_decorator ] , [ "pub" ] , "union" , IDENT , [ generic_params ] ,
+union_declaration = [ generic_decorator ] , [ "pub" ] , "union" , IDENT ,
                     "{" , { union_variant } , "}" ;
 
-union_variant     = IDENT , [ "(" , type , { [ "," ] , type } , ")" ] ;   (* `Some(T)`, `Animal(string, string)`, `None` *)
+union_variant     = IDENT , [ "(" , type , { [ "," ] , type } , ")" ]
+                  | IDENT , "(" , param , { [ "," ] , param } , ")" ;   (* positional `Some(T)` or named `Some(v T)`; mixing both in one union is a compile error (D-103) *)
 
 variant_value     = IDENT , [ "[" , type_arg_list , "]" ] , "::" , IDENT , [ "(" , [ argument_list ] , ")" ] ;
                                                   (* `Option::Some(42)`, `Option::None`, `Option[int]::Some(1)` *)
@@ -306,8 +315,7 @@ when_branch       = "when" , variant_pattern , block ;    (* inside `match`; `el
 is_expression     = expression , "is" , [ "not" ] , variant_pattern ;   (* also usable as a condition; bindings are scoped to the `if` block *)
 
 (* === section: gen (owner 008) === *)
-generic_decorator = "@generic" , "[" , generic_param , { [ "," ] , generic_param } , "]" ;
-generic_params    = "[" , generic_param , { [ "," ] , generic_param } , "]" ;   (* inline form, accepted on struct and union only. D-072 *)
+generic_decorator = "@@Generic" , "[" , generic_param , { [ "," ] , generic_param } , "]" ;
 generic_param     = IDENT , [ "is" , type ] ;      (* `T`, `Doc is DocumentShape`, `Repo is Repository[Person]` *)
 
 type_arg_list     = type , { [ "," ] , type } ;
@@ -315,7 +323,8 @@ generic_call      = IDENT , "[" , type_arg_list , "]" , "(" , [ argument_list ] 
 generic_method_call = expression , ":" , IDENT , "[" , type_arg_list , "]" , "(" , [ argument_list ] , ")" ;
 generic_static_call = IDENT , "::" , IDENT , "[" , type_arg_list , "]" , "(" , [ argument_list ] , ")" ;
 
-(* `@generic[...]` may precede `fn`, `struct`, `interface`, `union` and a method inside a struct.
+(* `@@Generic[...]` may precede `fn`, `struct`, `interface`, `union` and a method inside a struct.
+   Inline `struct Name[T]` / `union Name[T]` and `@generic[...]` are removed (D-072).
    Type arguments are optional at a call or literal: they are inferred when omitted. *)
 
 (* === section: err (owner 008) === *)

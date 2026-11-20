@@ -1,7 +1,7 @@
 # covers: MAP-1, MAP-4
 var scores = map[string, int] {
-  "Shawn": 100,
-  "Re-l": 95
+  "Shawn" -> 100,
+  "Re-l" -> 95
 }
 println(scores["Shawn"])
 println(scores["Re-l"])

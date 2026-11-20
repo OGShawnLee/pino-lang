@@ -24,5 +24,4 @@ An `interface` lists method signatures (`fn name(params) type`, no body) and may
 Conformance cases: `conformance/interfaces/`. Generic interfaces are specified in `spec/features/generics.md`.
 
 ## Open questions
-- D-074: Should the expression-bodied method form `fn make_sound() string => "Woof"`, used by the reference's own interface example, be accepted?
 - D-083: Must a method signature (parameter and return types) match exactly for a struct to satisfy a non-generic interface?

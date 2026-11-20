@@ -1,5 +1,5 @@
 # covers: FN-11, FN-12
-fn apply(f fn(int) int, x int) int {
+fn apply(f fn (int) -> int, x int) int {
   return f(x)
 }
 fn inc(n int) int {

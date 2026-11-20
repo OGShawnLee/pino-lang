@@ -1,8 +1,8 @@
 # covers: MATCH-6, MATCH-8
 val level = 3
 val label = match level {
-  when 1 => "Beginner"
-  when 2 => "Intermediate"
+  when 1 -> "Beginner"
+  when 2 -> "Intermediate"
   else {
     println("Advanced level detected")
     yield "Expert"

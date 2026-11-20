@@ -1,5 +1,5 @@
 # covers: MAPLIB-5
-val m = map[string, int] { "a": 1, "bb": 2, "ccc": 3 }
+val m = map[string, int] { "a" -> 1, "bb" -> 2, "ccc" -> 3 }
 val ks = m:keys()
 val vs = m:values()
 var aligned = 0

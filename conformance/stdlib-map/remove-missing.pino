@@ -1,5 +1,5 @@
 # covers: MAPLIB-7
-val m = map[string, int] { "a": 1 }
+val m = map[string, int] { "a" -> 1 }
 val removed = m:remove("zzz")
 println(removed)
 println(m:len)

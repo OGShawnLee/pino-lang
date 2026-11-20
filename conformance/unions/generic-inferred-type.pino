@@ -1,5 +1,5 @@
 # covers: UNION-8
-@generic[T]
+@@Generic[T]
 union Option {
   Some(T)
   None

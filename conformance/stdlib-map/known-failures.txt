@@ -12,3 +12,18 @@ VM remove.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call
 VM values.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
 # --- C
 C remove-missing.pino  # C: wrong output, actual stdout "0 | 1"
+
+# --- Syntax decisions (ticket 014)
+C keys.pino  # D-100: legacy parser uses => / k: v instead of ->
+C keys-values-aligned.pino  # D-100: legacy parser uses => / k: v instead of ->
+C len.pino  # D-100: legacy parser uses => / k: v instead of ->
+C length.pino  # D-100: legacy parser uses => / k: v instead of ->
+C remove.pino  # D-100: legacy parser uses => / k: v instead of ->
+C values.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk keys.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk keys-values-aligned.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk len.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk length.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk remove.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk remove-missing.pino  # D-100: legacy parser uses => / k: v instead of ->
+TreeWalk values.pino  # D-100: legacy parser uses => / k: v instead of ->

@@ -4,7 +4,7 @@ Status: tree-walk 18/18 | VM 11/18 | C 11/18   (from conformance/STATUS.md)
 
 ## Syntax
 Grammar productions: see `spec/grammar.ebnf` section `fn`.
-A function is declared with `fn`, a name, a parameter list (`name Type` pairs, parentheses optional when empty), an optional return type and a braced body. A lambda is an anonymous function expression written `fn (params) => expr` or `fn (params) { ... }`. Function types are written `fn(T1, T2) R`. The reference has no dedicated functions section; the rules below come from the function syntax used in its other sections and from the tests.
+A function is declared with `fn`, a name, a parameter list (`name Type` pairs, parentheses optional when empty), an optional return type and a braced body. A lambda is an anonymous function expression written `fn (params) -> expr` or `fn (params) { ... }`. Function types are written `fn (T1, T2) -> R` (parentheses optional when empty, omitted return means `void`, so `fn` alone is `fn () -> void`). The reference has no dedicated functions section; the rules below come from the function syntax used in its other sections and from the tests.
 
 ## Rules
 - FN-1: `fn name(p1 T1, p2 T2) { ... }` declares a function with typed parameters, and `name(a1, a2)` calls it. [src: ParserTests.TestParseFunctionDeclaration; ScopingExecutionTests.TestScopeLeakageFromCallerToCalleeExecution]
@@ -14,30 +14,30 @@ A function is declared with `fn`, a name, a parameter list (`name Type` pairs, p
 - FN-5: Commas between parameters are optional. [src: LANGUAGE_REFERENCE.md §1 "Syntax Guidelines"]
 - FN-6: Commas between call arguments are optional. [src: LANGUAGE_REFERENCE.md §1 "Syntax Guidelines"]
 - FN-7: A function with an empty parameter list `()` is declared and called with empty parentheses. [src: ScopingExecutionTests.TestScopeLeakageFromCallerToCalleeExecution; CheckerTests.TestTypeCheckerTupleValid]
-- FN-8: `fn (params) => expr` is an expression whose value is a function that returns `expr`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods" (`map`); DataStructureTests.TestStructLambdaFieldExecution]
+- FN-8: `fn (params) -> expr` is an expression whose value is a function that returns `expr`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods" (`map`); DataStructureTests.TestStructLambdaFieldExecution; spec/decisions/D-100-arrow-token.md]
 - FN-9: `fn (params) { ... }` is an expression whose value is a function with a block body that uses `return`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods" (`each`)]
-- FN-10: A lambda with no parameters is written `fn () => expr`. [src: ScopingExecutionTests.TestLambdaCaptureScopingExecution]
+- FN-10: A lambda with no parameters is written `fn () -> expr`. [src: ScopingExecutionTests.TestLambdaCaptureScopingExecution; spec/decisions/D-100-arrow-token.md]
 - FN-11: A function value, whether a lambda or the name of a declared function, can be stored in a variable, passed as an argument and called through that variable or parameter. [src: ScopingExecutionTests.TestLambdaCaptureScopingExecution; DataStructureTests.TestStructCallableFieldsAndBoundMethods; CheckerTests.TestTypeCheckerTupleReturningFunction]
-- FN-12: The type of a function value is written `fn(T1, T2) R`, and a parameter may have such a type. [src: DataStructureTests.TestStructCallableFieldsAndBoundMethods; StdlibTests.TestCustomGenericShorthandLambda]
-- FN-13: A function may declare a function type as its return type and return a function value, as in `fn get_adder() fn(int) int { ... }`. [src: CheckerTests.TestTypeCheckerTupleReturningFunction; LANGUAGE_REFERENCE.md §3 "Labeled Tuples (Return-Exclusive)"]
+- FN-12: The type of a function value is written `fn (T1, T2) -> R`, and a parameter may have such a type. [src: DataStructureTests.TestStructCallableFieldsAndBoundMethods; StdlibTests.TestCustomGenericShorthandLambda; spec/decisions/D-101-function-type-syntax.md]
+- FN-13: A function may declare a function type as its return type and return a function value, as in `fn get_adder() fn (int) -> int { ... }`. [src: CheckerTests.TestTypeCheckerTupleReturningFunction; LANGUAGE_REFERENCE.md §3 "Labeled Tuples (Return-Exclusive)"; spec/decisions/D-101-function-type-syntax.md]
 - FN-14: A function declaration may appear inside another function's body, and it is callable from that body. [src: CheckerTests.TestTypeCheckerTupleReturningFunction]
 - FN-15: A lambda can read the variables of the scopes enclosing it, including the locals of the enclosing function and of an enclosing block. [src: ScopingExecutionTests.TestLambdaCaptureScopingExecution]
 - FN-16: A call argument that uses the undeclared name `it` is an implicit lambda with the single parameter `it`, so `xs:filter(it:len <= 4)` filters by that expression. [src: ParserTests.TestImplicitLambdaArgumentWrapping; StdlibTests.TestShorthandLambdaItResolution; LANGUAGE_REFERENCE.md §10 "Vector Methods" (`count`)]
 - FN-17: When `it` is declared as a parameter of the enclosing function, an argument using `it` refers to that parameter and is not turned into a lambda. [src: ParserTests.TestNoImplicitLambdaWrappingWhenDeclared]
 - FN-18: A called function does not see the local variables of its caller. [src: ScopingExecutionTests.TestScopeLeakageFromCallerToCalleeExecution]
 - FN-19: A `val` declared in an inner block shadows an outer variable of the same name inside that block only, and the outer binding is visible again after the block. [src: ScopingExecutionTests.TestScopeShadowingInLocalBlocksExecution]
+- FN-20: In a function type, parentheses may be omitted when there are no parameters (`fn -> R`), and an omitted return type means `void`, so `fn` alone is `fn () -> void` and `fn (T)` is `fn (T) -> void`. [src: spec/decisions/D-101-function-type-syntax.md]
 
 ## Errors
 - FN-E1: Calling a function with an argument of the wrong type is rejected with a type check error. [src: CheckerTests.TestEnumDefinitionAndTypeChecking; CheckerTests.TestRuneTypeChecker]
+- FN-E2: Named functions and methods must have block bodies (`{ ... }`); an arrow body on a named function or method (`fn f() int -> 1`) is rejected as a parse error. [src: spec/decisions/D-052-arrow-bodied-function-declarations.md]
+- FN-E3: A lambda with an explicit return type (`fn (n int) int -> n`) is rejected as a parse error. [src: spec/decisions/D-053-lambda-return-type-annotation.md]
 
 ## Examples
 Conformance cases: `conformance/functions/`.
 
 ## Open questions
 - D-050: Is the return type of a function without a declared return type inferred, and from what?
-- D-051: Commas are optional in parameter and argument lists (FN-5, FN-6); does that hold for a minus-prefixed argument (`f(x -y)`)? Follows the ticket-005 decision on commas vs. unary minus.
-- D-052: The reference declares a method with an arrow body (`fn make_sound() string => "Woof"`); the parser rejects `=>` on declarations.
-- D-053: Can a lambda state its return type (`fn (n int) int => ...`)? The parser rejects it.
 - D-054: The reference's `each` example names a parameter `val`, a keyword the parser rejects.
 - D-055: `fn_list[0](9)` is parsed as a generic call, not as a call of an indexed element.
 - D-056: Does a lambda capture a mutated `var` by reference or by value?

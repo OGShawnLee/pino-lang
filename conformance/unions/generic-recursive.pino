@@ -1,5 +1,5 @@
 # covers: UNION-11
-@generic[T]
+@@Generic[T]
 union List {
   Cons(T, List[T])
   Nil

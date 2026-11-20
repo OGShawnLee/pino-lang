@@ -1,0 +1,2 @@
+# covers: FN-E3
+val sq = fn (n int) int -> n * n

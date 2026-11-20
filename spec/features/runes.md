@@ -16,7 +16,7 @@ A `rune` is a single Unicode code point written between single quotes. Runes com
 - RUNE-7: `str(r)` of a rune returns the one-character string for that rune. [src: ArithmeticTests.TestRuneConversionsAndUtilities]
 
 ## Errors
-None documented.
+- RUNE-E1: Raw NUL (`\u0000`) and other unescaped C0 control characters (except tab `\t`) inside a rune literal are rejected as a lexer error. [src: spec/decisions/D-091-control-chars-in-strings-and-runes.md]
 
 ## Examples
 Conformance cases: `conformance/runes/`.
