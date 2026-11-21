@@ -365,7 +365,11 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - PN2022 for `mut pub`, `static mut` and `mut static`.
       - 44 parser tests.
       - Router verification in main: `-re` 3932/3932, 0 warnings, format clean, `main.pino` 0 errors; both new errors probed and rendered.
-    - [ ] **047-re-checker-mut-symbols-types-and-memory-facts** (Gemini 4 Hydrogen High) and **048-conformance-migrate-mut-out-cases** (Gemini 4 Hydrogen Medium): dispatched in parallel, in worktrees.
+    - [x] **048-conformance-migrate-mut-out-cases** (`d4b6486`, Gemini 4 Hydrogen Medium).
+      - 20 `.out` cases migrated. Renamed: `push-chain` → `push-void`, `reference-semantics` → `value-semantics` (`.out` now `1`, `99`, `500`). `bound-method` wraps `m:increment` in a lambda.
+      - Known failures: TreeWalk 7, VM 1 (plus 1 renamed), C 3, with 0 `CRASH` lines.
+      - Router verification in main: legacy 2051/2051, `-re` 3932/3932.
+    - [ ] **047-re-checker-mut-symbols-types-and-memory-facts** (Gemini 4 Hydrogen High, worktree): running.
     - The IR design follows 049.
   - [ ] **Pending: a "values, not objects" user guide.** It covers:
     - the linked-data caveat (a stored struct is a copy)
