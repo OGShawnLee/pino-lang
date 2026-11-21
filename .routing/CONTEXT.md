@@ -25,7 +25,7 @@ Central routing directory for all agents. Read this first.
 
 ## Stack
 - **Compiler & Tooling:** C# (.NET 10.0 SDK), xUnit.
-- **Native Runtime:** Tiny C Compiler (TCC), Boehm GC (`gc.h`).
+- **Native Runtime:** Tiny C Compiler (TCC) and a GC behind `gc.h`. In this checkout that is the home-grown `tooling/gc/gc.c` (gitignored, stack-only roots), not Boehm; the release workflow builds bdwgc. See ticket 032.
 - **Web Playground:** C# compiled to WebAssembly (`WASMBridge.cs`).
 
 ## Ground rules
