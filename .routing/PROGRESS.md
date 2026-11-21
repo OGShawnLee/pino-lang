@@ -272,6 +272,14 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       1. `string + rune`: STR-E5 rejects it, but `conformance/loops/in-string-runes.pino`, `loops/indexed-string.pino`, the self-host (`test/rune_test.pino`), `projects/c-compiler` and `pino.games/sable.pino` build strings with `s + ch`.
       2. `n /= 2` on an `int`: rejected (`/` is always `float`, D-019), but `conformance/variables/compound-assign.pino` expects an integer result (`7 /= 2` → `3`).
       3. Can `pub val`/`pub var` be imported? The spec doesn't say; `from M import v` currently reports PN3006.
+    - **Owner answers (2026-11-21):**
+      - 1a: `string + rune` gives a `string`
+      - 2a: `/=` on an `int` is an error suggesting `//=`
+      - 3b: only `pub val` is importable ("export only what is stable"); `pub var` is an error
+      - Recorded by draft ticket **`042-spec-record-036-answers`** (Hydrogen Medium, not dispatched yet).
+      - The checker side (allowing `string + rune`, the `/=` help, exporting `pub val`, rejecting `pub var`) goes into 039's or 040's router notes once 042 is integrated.
+- [ ] **Owner idea (2026-11-21): a `mut` keyword like V's**, as an extra safety layer. Router view: `val`/`var` already cover bindings, so `mut` would only add something for **struct fields** (fields immutable unless marked, unlike today's STRUCT-7) and **parameters** (a callee may mutate an argument only when it's marked `mut`). Both would reopen STRUCT-7 and the D-070 aliasing story. A bonus for AD-002: types whose fields are all immutable can't form cycles, so the cycle collector would watch far fewer types. It deserves its own design ticket after the checker; not decided.
+- **Owner (2026-11-21): pause after 038.** Integrate 038, then dispatch nothing (not 039, not 042) until the owner says go.
   - [x] **037** (`1582a82`, Gemini 4 Hydrogen High): struct method scopes (D-073, D-075, static rules), struct literals (D-078 + embedded fields, shorthand, cross-module private fields), member access and visibility, memoized structural interface checks with `StructToInterface` conversions, enums, labeled tuples, and direct/method/indexed/stdlib calls with exact `IntrinsicId`s. 4 new test classes. Router: `-re` 3245/3245 in main, 0 warnings, format clean; `pino-re check main.pino` gives 0 errors.
   - [ ] **038** dispatched (Gemini 4 Neon High): SCC return inference, contextual lambdas, implicit `it`, captures.
 - Owner priority (2026-11-20): **`-re` first.** The legacy GC fix (032-Q1) is deferred.
