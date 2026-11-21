@@ -398,7 +398,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - Router decisions made in writing 051 (the owner may override):
     - passing a `val mut` as a `mut` argument is allowed
     - `val mut @(...)`, `var mut` and `mut val` are PN2022 parse errors
-    - `val mut` on a scalar is allowed, with no warning (logged as open)
+    - ~~`val mut` on a scalar is allowed~~ Owner overrode this: `val mut` on a type with nothing mutable inside is error VAR-E13 (scalars, enums, unions, tuples, functions, structs and interfaces without `mut` members). 051 was steered mid-run.
   - [ ] **051-val-mut-and-module-state-facts** (Gemini 4 Neon High, worktree): spec (D-183, VAR-12, VAR-13, VAR-E12), `-re` parser and checker, purity facts, cases. Dispatched.
   - [ ] **052-docs-pino-guide-quirks-and-values** (Claude Sonnet 5.5 High, draft, after 051): `docs/guide/values-and-mutation.md`, `docs/guide/surprises.md` and an index. The owner asked for a ticket documenting all of Pino's quirks. `docs/guide/` is a new folder chosen by the router; the owner may move it.
   - Then: the IR design.
