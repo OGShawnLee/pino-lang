@@ -31,6 +31,7 @@ A variable is declared with `val name = expression` (immutable) or `var name = e
 - VAR-E6: An initializer whose type is not assignable to the declared type, such as `val n int = "x"`, is rejected by the checker with a message containing "Cannot assign". [src: spec/decisions/D-012-explicit-type-annotation-syntax.md]
 - VAR-E7: A `val` whose initializer is `Option::None`, such as `val x Option[int] = Option::None`, is rejected by the checker with a message containing "Option::None" because it can never hold a value; `var x Option[int] = Option::None` is the form for an empty variable. [src: spec/decisions/D-160-option-none-in-val.md]
 - VAR-E8: A function or method that reads a top-level `val` or `var` declared below it, in script mode and in program mode alike, is rejected by the checker with a message containing "is not declared", even when the function is only called after the `val` or `var` has been initialized. [src: spec/decisions/D-165-declaration-hoisting.md]
+- VAR-E9: Using `/=` on an `int` target is rejected by the checker because `/` produces a `float` that cannot be stored into an `int` variable, with a message suggesting `//=` for integer division; `/=` on a `float` target is unchanged. [src: spec/decisions/D-019-int-float-mixing-and-division.md]
 
 ## Examples
 Conformance cases: `conformance/variables/`.

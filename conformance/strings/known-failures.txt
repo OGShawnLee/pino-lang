@@ -43,3 +43,6 @@ TreeWalk comparisons.pino  # D-025: legacy evaluator raises FormatException on s
 TreeWalk err-concat-non-string.pino  # D-025: legacy checker allows string + non-string
 VM comparisons.pino  # D-025: legacy evaluator raises FormatException on string < string
 VM err-concat-non-string.pino  # D-025: legacy checker/VM allows string + non-string
+
+# --- 036 follow-up answers (ticket 042)
+C concat-rune.pino  # D-025: C backend fails on += for string + rune: TCC error "operation on a struct"

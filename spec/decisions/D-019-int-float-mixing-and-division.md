@@ -38,3 +38,5 @@ println(1 == 1.0)
 Option 2, decided by the owner on 2026-11-19: `int` widens implicitly to `float` in arithmetic and comparison (`1 + 2.5` is `3.5`; `1 == 1.0` is `true`); `/` always returns a `float` (`5 / 2` is `2.5`); assigning a `float` to an `int` variable is an error. **Still open:** how integer division is spelled remains open and no spec rule is written for it. Consequence: `spec/features/types.md` and `spec/features/variables.md` add widening, float `/` and narrowing-assignment error rules, and legacy behavior is recorded as known failures.
 
 Integer division is now closed by D-164: `//` is floor division and `%` the matching floored modulo.
+
+Extended on 2026-11-21 (036 follow-up), decided by the owner: `/=` on an `int` target is a checker error because `/` always produces a `float` and a `float` cannot be stored into an `int` variable (VAR-E5); the diagnostic must include help text suggesting `//=` for integer division (VAR-E9). `/=` on a `float` target is unchanged.

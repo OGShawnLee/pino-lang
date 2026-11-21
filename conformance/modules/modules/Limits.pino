@@ -1,0 +1,8 @@
+module Limits
+
+pub val max_items = 10
+val secret_offset = 3
+
+pub fn next_limit() int {
+  return max_items + secret_offset
+}

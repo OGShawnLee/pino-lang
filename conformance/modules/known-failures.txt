@@ -50,3 +50,9 @@ VM import-capitalized-file.pino  # D-063: legacy fails: RUNTIME ERROR: Value is 
 TreeWalk testable-import_test.pino  # D-064: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
 VM testable-import_test.pino  # D-064: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
 C testable-import_test.pino  # D-064: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
+
+# --- 036 follow-up answers (ticket 042)
+VM import-pub-val.pino  # D-163: legacy fails: RUNTIME ERROR: Value is not callable.
+TreeWalk err-pub-var.pino  # D-163: legacy accepts 'pub var' instead of failing with an error containing 'pub val'
+VM err-pub-var.pino  # D-163: legacy accepts 'pub var' instead of failing with an error containing 'pub val'
+C err-pub-var.pino  # D-163: legacy accepts 'pub var' instead of failing with an error containing 'pub val'

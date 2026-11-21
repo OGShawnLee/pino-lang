@@ -1,0 +1,7 @@
+# covers: STR-11, VAR-4
+val s = "hi"
+val ch = '!'
+println(s + ch)
+var t = "ab"
+t += 'c'
+println(t)

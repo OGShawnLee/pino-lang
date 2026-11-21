@@ -25,3 +25,5 @@ Option 1, decided by the owner on 2026-11-20:
 - The `@pub_testing` marker is renamed **`@@Testable`**, with the same meaning as the previous `@pub_testing` rules in `spec/features/modules.md`: combining `pub` and `@@Testable` is rejected (MOD-E5). What `@@Testable` grants to test code remains D-064.
 
 **Extended on 2026-11-20 (ticket 031, OQ-31), Option 1, decided by the owner:** a struct literal in another module that names a private field is a checker error, as reading or assigning one is. Code outside the module builds such a struct through a `pub` function or static method of the declaring module. Normative rule: STRUCT-E13.
+
+Extended on 2026-11-21 (036 follow-up), decided by the owner: only `pub val` top-level variables can be imported (`import M` with `M::limit`, and `from M import limit`; MOD-5), following the principle to export only what is stable. A top-level `var` cannot be marked `pub`: writing `pub var` is a checker error with a message suggesting `pub val` or a `pub fn` (MOD-E9).

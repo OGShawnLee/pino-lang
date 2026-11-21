@@ -57,3 +57,10 @@ C err-function-reads-later-val.pino  # D-165: legacy fails with 'TCC error canno
 TreeWalk err-function-reads-later-var.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
 VM err-function-reads-later-var.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
 C err-function-reads-later-var.pino  # D-165: legacy fails with 'TCC error cannot cast 'void *' to 'struct <anonymous>'' instead of an error containing 'is not declared'
+
+# --- 036 follow-up answers (ticket 042)
+TreeWalk compound-assign.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: /= (DivisionAssignment)
+C compound-assign.pino  # D-164: legacy fails: PARSER: Expected expression, got Operator: /= (DivisionAssignment)
+TreeWalk err-compound-divide-int.pino  # D-019: legacy accepts /= on int target instead of failing with an error containing '//='
+VM err-compound-divide-int.pino  # D-019: legacy accepts /= on int target instead of failing with an error containing '//='
+C err-compound-divide-int.pino  # D-019: legacy accepts /= on int target instead of failing with an error containing '//='
