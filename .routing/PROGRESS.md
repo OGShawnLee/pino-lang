@@ -341,7 +341,14 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - `projects/pino-compiler/`: 9 of 28 files (the owner fixes these by hand)
     - 18 owner questions (`MQ-1` to `MQ-18`) and a 4-ticket plan: spec, then the `-re` parser, then the `-re` checker, then the conformance migration.
     - **Owner answers (2026-11-21):** every recommendation, except MQ-4 → option 2 (`===`/`!==` removed). Recorded as AD-003.
-    - The 043 Neon designer drafts the implementation tickets (045+), and the router reviews them. The IR design follows the checker ticket.
+    - The 043 Neon designer drafted tickets 045–050, and the router reviewed them.
+      - Order: 045 spec → 046 `-re` parser (`mut`, `===`/`!==` removed, PN2022/PN2023) → 047 checker foundations ∥ 048 `.out` migration → 049 checker enforcement (Neon High) → 050 `.err`/value-semantics cases and STATUS.
+      - **OQ-043-1 resolved by the router** from MQ-10's wording ("overlapping `mut` arguments"; the owner may override):
+        - PN3226/FN-E16 rejects only `mut`+`mut` on the same root, where a mutating receiver counts as `mut`.
+        - `mut`+read is allowed, such as `f(mut a, a)` and `v:push(v[0])`. New positive rule FN-31, with a case in 050.
+      - Review notes: the `===` hits in `pino.games/` and `pino-csharp/*.pino` are only string banners, so nothing breaks. The new rule IDs are free, and D-177 is the next decision number.
+    - [ ] **045-spec-record-mut-and-deep-immutability** (Gemini 4 Hydrogen High, worktree): dispatched.
+    - The IR design follows 049.
   - [ ] **Pending: a "values, not objects" user guide.** It covers:
     - the linked-data caveat (a stored struct is a copy)
     - the index/ID pattern
