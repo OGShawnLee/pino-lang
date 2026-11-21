@@ -1,0 +1,17 @@
+# covers: FN-E5
+interface Shape {
+  fn area() int
+}
+struct Square {
+  side int
+  fn area() int {
+    return side * side
+  }
+}
+fn pick(s Shape, b bool) {
+  if b {
+    return s
+  }
+  return Square { side: 1 }
+}
+println(pick(Square { side: 2 }, true):area())

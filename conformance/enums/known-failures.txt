@@ -13,3 +13,7 @@ VM str-and-type.pino  # VM has no enum support (RUNTIME ERROR: Value is not call
 
 # --- C
 C str-and-type.pino  # C backend: TCC error "cannot cast 'int' to 'struct <anonymous>'"
+
+# --- Checker design answers (ticket 033)
+VM err-unknown-member.pino  # D-077: legacy accepts the program and prints 'reached' instead of failing with an error containing 'has no member'
+C err-unknown-member.pino  # D-077: legacy fails with 'TCC error 'Direction_Up' undeclared' instead of an error containing 'has no member'

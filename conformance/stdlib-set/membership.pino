@@ -1,0 +1,6 @@
+# covers: SETLIB-8
+val s = set[int] { 1, 2, 3 }
+println(2 in s)
+println(5 in s)
+println(5 not in s)
+println(2 not in s)

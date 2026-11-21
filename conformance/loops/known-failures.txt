@@ -29,3 +29,14 @@ TreeWalk in-map-keys.pino  # D-100: legacy parser uses k: v instead of k -> v fo
 TreeWalk in-map-pairs.pino  # D-100: legacy parser uses k: v instead of k -> v for map entries
 TreeWalk two-var-no-comma.pino  # D-001: legacy parser requires comma in two-variable loop header
 VM two-var-no-comma.pino  # D-001: legacy parser requires comma in two-variable loop header
+
+# --- Checker design answers (ticket 033)
+TreeWalk err-break-outside-loop.pino  # D-174: legacy fails with 'Exception of type 'Pino.PinoBreakException' was thrown.' instead of an error containing 'outside of a loop'
+VM err-break-outside-loop.pino  # D-174: legacy accepts the program and prints nothing instead of failing with an error containing 'outside of a loop'
+C err-break-outside-loop.pino  # D-174: legacy fails with 'TCC error cannot break' instead of an error containing 'outside of a loop'
+TreeWalk err-continue-outside-loop.pino  # D-174: legacy fails with 'Exception of type 'Pino.PinoContinueException' was thrown.' instead of an error containing 'outside of a loop'
+VM err-continue-outside-loop.pino  # D-174: legacy accepts the program and prints 'before' instead of failing with an error containing 'outside of a loop'
+C err-continue-outside-loop.pino  # D-174: legacy fails with 'TCC error cannot continue' instead of an error containing 'outside of a loop'
+TreeWalk times-it-in-call-argument.pino  # D-002: legacy prints 'Pino.PinoLambda Pino.PinoLambda Pino.PinoLambda Pino.PinoLambda Pino.PinoLambda' instead of the expected output
+VM times-it-in-call-argument.pino  # D-002: legacy prints 'null null null null null' instead of the expected output
+C times-it-in-call-argument.pino  # D-002: legacy fails: TCC error cannot cast 'struct <anonymous>' to 'struct <anonymous>'

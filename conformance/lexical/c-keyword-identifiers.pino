@@ -1,0 +1,11 @@
+# covers: LEX-22
+val char = 65
+val double = 2
+fn register(short int) int {
+  return short + double
+}
+println(char)
+println(register(3))
+for long in 2 {
+  println(long)
+}

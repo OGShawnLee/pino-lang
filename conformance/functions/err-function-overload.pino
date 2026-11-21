@@ -1,0 +1,8 @@
+# covers: FN-E13
+fn add(a int, b int) int {
+  return a + b
+}
+fn add(a int, b int, c int) int {
+  return a + b + c
+}
+println(add(1, 2))

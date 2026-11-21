@@ -1,6 +1,6 @@
 # D-054: Reserved words as parameter names (`val`)
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -33,4 +33,4 @@ The conformance case `conformance/stdlib-vector/each-index.pino` uses `item` ins
 2. Allow keywords in parameter position: parser change, and it needs a rule for which keywords.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-3): keywords stay disallowed as parameter names (LEX-2). The examples in `LANGUAGE_REFERENCE.md` (the vector `each` example) and `README.md` that name a parameter `val` must be changed; neither file was edited by ticket 033 (hand-off to the owner). Normative rule: FN-E8.

@@ -19,7 +19,7 @@ Grammar productions: see `spec/grammar.ebnf` section `match`.
 
 - MATCH-10: A block arm of a `match` expression may execute `return`, which exits the enclosing function without producing a value for the `match` and requires no `yield`. [src: spec/decisions/D-143-return-in-match-and-yield-scope.md]
 
-- MATCH-11: A statically unreachable arm of a `match` is a checker warning, and warnings never change the exit status. [src: spec/decisions/D-166-constant-diagnostics.md] [no-case: warnings are not observable by the conformance runner]
+- MATCH-11: A statically unreachable arm of a `match` is a checker warning, and warnings never change the exit status; an arm is statically unreachable when it is (a) a duplicate literal, enum or union pattern, (b) after the `else` arm or after every enum member or union variant is already covered, or (c) a pattern that can never equal a constant-folded subject, as `when 2` in `match 1 { ... }`. [src: spec/decisions/D-166-constant-diagnostics.md] [no-case: warnings are not observable by the conformance runner]
 
 ## Errors
 - MATCH-E1: A `match` over an enum subject that does not cover every member and has no `else` arm is rejected with a message containing "is not exhaustive", in both statement and expression form. [src: LANGUAGE_REFERENCE.md §5 "Pattern Matching (`match-when`)"; MatchExpressionTests.TestMatchExpressionCheckerExhaustiveness]
@@ -30,9 +30,10 @@ Grammar productions: see `spec/grammar.ebnf` section `match`.
 
 - MATCH-E6: An arrow arm `when X -> return` or `else -> return` is rejected as a parse error because `->` arms accept only an expression. [src: spec/decisions/D-143-return-in-match-and-yield-scope.md]
 - MATCH-E7: An arrow arm (`when v -> expr` or `else -> expr`) in a `match` statement is rejected as a parse error. [src: spec/decisions/D-148-arrow-arms-only-in-match-expressions.md]
+- MATCH-E8: A bare identifier as the value of a `when` arm, such as `when k { ... }`, is rejected by the checker with a message containing "bare identifier"; it neither compares with a variable nor binds a name, and `else` is the catch-all. [src: spec/decisions/D-34-identifier-pattern-in-when.md]
 
 ## Examples
 Conformance cases: `conformance/match/`.
 
 ## Open questions
-- D-034: What does an identifier in a `when` arm mean? The parser reads it as a binding that matches any value, not as a comparison with a variable.
+None.

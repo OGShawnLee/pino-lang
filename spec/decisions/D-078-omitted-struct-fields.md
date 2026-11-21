@@ -36,3 +36,5 @@ println(p:age)
 
 ## Decision
 Option 2, decided by the owner on 2026-11-20: a struct literal must name every field, and an omitted field is a checker error. The shorthand `Point { x }` still counts as naming `x` (D-104).
+
+**Extended on 2026-11-20 (ticket 031, OQ-29), Option 1, decided by the owner:** a struct literal must also name every field of all the structs the struct embeds (STRUCT-8), so an omitted embedded field is a checker error like any other omitted field. Field names that collide between an outer struct and an embedded struct are a checker error. Normative rules: STRUCT-E12 and STRUCT-E14.

@@ -1,0 +1,8 @@
+# covers: FN-E5
+fn pick(b bool) {
+  if b {
+    return 1
+  }
+  return "x"
+}
+println(pick(true))

@@ -1,0 +1,5 @@
+# covers: ERR-E8
+fn save() Result[void, string] {
+  return Result::Success
+}
+println("unreachable")

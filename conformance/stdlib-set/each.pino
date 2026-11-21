@@ -1,0 +1,7 @@
+# covers: SETLIB-7
+val s = set[int] { 1, 2, 3 }
+var total = 0
+s:each(fn (x int) {
+  total = total + x
+})
+println(total)

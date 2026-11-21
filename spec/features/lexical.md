@@ -28,6 +28,8 @@ A program is a sequence of tokens: keywords, identifiers, literals (integer, flo
 - LEX-19: Commas in comma-separated lists are optional when separated by whitespace, but a trailing comma after the last element is disallowed. [src: spec/decisions/D-108-trailing-commas-disallowed.md]
 
 - LEX-20: A struct, interface, enum, union, enum member or union variant name must begin with an ASCII capital letter (`A` to `Z`). [src: spec/decisions/D-014-naming-convention-enforcement.md]
+- LEX-21: Beyond LEX-20 the spelling of a name is not checked: `snake_case`, `SCREAMING_SNAKE_CASE`, acronyms such as `HTTPServer`, digits and underscores are accepted in the names of variables, properties, functions, methods and constants, and in type-like names after the first capital letter. [src: spec/decisions/D-14-naming-convention-enforcement.md]
+- LEX-22: An identifier that is also a C keyword, such as `char`, `double` or `register`, is a valid identifier for a variable, a parameter or a loop variable and is not reserved by the checker; a backend that needs to renames it. [src: LANGUAGE_REFERENCE.md §5 "The Universal Loop (`for`)"; spec/decisions/D-5-c-keyword-identifiers.md]
 
 ## Errors
 - LEX-E1: Using a keyword such as `match` as a variable name is rejected with a message containing "Expected Identifier". [src: LexerTests.TestIdentifiersAndKeywords]
@@ -42,4 +44,4 @@ A program is a sequence of tokens: keywords, identifiers, literals (integer, flo
 Conformance cases: `conformance/lexical/`.
 
 ## Open questions
-- D-014 (partial): The owner enforces the naming convention as checker errors, but only the capital first letter of type-like names is recorded (LEX-20, LEX-E6), because that is all the self-host decides. Checks on the spelling of variable, property, function and method names, acronyms, digits, underscores and `SCREAMING_SNAKE_CASE` module constants (LEX-3 lists `GLOBAL_LIMIT` as an identifier) are undecided.
+None.

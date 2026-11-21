@@ -1,0 +1,5 @@
+# covers: TYPE-E3
+fn twice(n int) int {
+  return n * 2
+}
+println(twice(1.5))

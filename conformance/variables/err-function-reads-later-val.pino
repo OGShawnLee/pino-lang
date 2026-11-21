@@ -1,0 +1,6 @@
+# covers: VAR-E8
+fn get_limit() int {
+  return LIMIT
+}
+val LIMIT = 10
+println(get_limit())

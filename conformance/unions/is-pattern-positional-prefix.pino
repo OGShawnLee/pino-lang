@@ -1,0 +1,15 @@
+# covers: UNION-23
+union U {
+  Pair(a int, b string)
+  Empty
+}
+val u = U::Pair(1, "x")
+if u is U::Pair(first) {
+  println(first)
+}
+if u is U::Pair {
+  println("pair")
+}
+if u is not U::Empty {
+  println("not empty")
+}

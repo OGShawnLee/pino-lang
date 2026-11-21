@@ -1,6 +1,6 @@
 # D-079: `to_string()` on values (reference example `err:to_string()`)
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/errors.md
 
@@ -32,4 +32,4 @@ println("status: " + n:to_string())
 2. Change the reference example to `str(err)` or interpolation.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-40): built-in values have no `to_string()` method; `str(v)` and string interpolation are the conversions (TYPE-10, STR rules). The reference's error-handling example (`err:to_string()`) must change to `str(err)` or interpolation; `LANGUAGE_REFERENCE.md` was not edited by ticket 033 (hand-off to the owner). No new rule is needed: the spec never defined the method.

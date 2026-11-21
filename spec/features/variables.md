@@ -13,7 +13,7 @@ A variable is declared with `val name = expression` (immutable) or `var name = e
 - VAR-4: A compound assignment `target op= value` with `op` one of `+`, `-`, `*`, `/`, `//` and `%` stores the result of `target op value` in `target`. [src: LexerTests.TestOperators; StdlibTests.TestMapCompoundAssignment; spec/decisions/D-164-floor-division-and-modulo.md]
 - VAR-5: A declaration inside a block (`if`, `for`, function body) is visible only in that block and shadows a same-named outer variable until the block ends, without changing the outer variable. [src: CheckerTests.TestScopeShadowingInLocalBlocks; ScopingExecutionTests.TestScopeShadowingInLocalBlocksExecution]
 - VAR-6: A function body does not see the local variables of its caller, and its own locals do not affect the caller's locals of the same name. [src: CheckerTests.TestScopeLeakageFromCallerToCallee; ScopingExecutionTests.TestScopeLeakageFromCallerToCalleeExecution]
-- VAR-7: Functions and struct methods can read top-level `val` declarations. [src: CheckerTests.TestScopeLeakageGlobalPreservation; ScopingExecutionTests.TestDeeplyNestedCallerScopesExecution]
+- VAR-7: Functions and struct methods can read the top-level `val` declarations that appear above them in the file; a top-level `val` declared below a function is not visible to it (VAR-E8). [src: CheckerTests.TestScopeLeakageGlobalPreservation; ScopingExecutionTests.TestDeeplyNestedCallerScopesExecution; spec/decisions/D-165-declaration-hoisting.md]
 - VAR-8: A lambda reads the variables of its enclosing scopes, including variables declared in enclosing blocks. [src: ScopingExecutionTests.TestLambdaCaptureScopingExecution; CheckerTests.TestLambdaCaptureScoping]
 
 - VAR-9: Assignment (`=`, `+=`, `-=`, `*=`, `/=`, `%=`) is a right-associative expression at the loosest precedence level, so `a = b = 0` assigns `0` to `b` and then to `a`. [src: spec/decisions/D-141-assignment-and-relational-precedence.md]
@@ -30,6 +30,7 @@ A variable is declared with `val name = expression` (immutable) or `var name = e
 
 - VAR-E6: An initializer whose type is not assignable to the declared type, such as `val n int = "x"`, is rejected by the checker with a message containing "Cannot assign". [src: spec/decisions/D-012-explicit-type-annotation-syntax.md]
 - VAR-E7: A `val` whose initializer is `Option::None`, such as `val x Option[int] = Option::None`, is rejected by the checker with a message containing "Option::None" because it can never hold a value; `var x Option[int] = Option::None` is the form for an empty variable. [src: spec/decisions/D-160-option-none-in-val.md]
+- VAR-E8: A function or method that reads a top-level `val` declared below it, in script mode and in program mode alike, is rejected by the checker with a message containing "is not declared", even when the function is only called after the `val` has been initialized. [src: spec/decisions/D-165-declaration-hoisting.md]
 
 ## Examples
 Conformance cases: `conformance/variables/`.

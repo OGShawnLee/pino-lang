@@ -1,0 +1,15 @@
+# covers: ERR-23, TYPE-17
+fn save(ok bool) Result[void, string] {
+  if ok {
+    return Result::Success()
+  }
+  return Result::Failure("disk full")
+}
+match save(true) {
+  when Result::Success { println("saved") }
+  when Result::Failure(e) { println("failed: $e") }
+}
+match save(false) {
+  when Result::Success { println("saved") }
+  when Result::Failure(e) { println("failed: $e") }
+}

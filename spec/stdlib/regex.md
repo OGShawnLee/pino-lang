@@ -26,10 +26,10 @@ A regular expression is a value of type `regex` created with the global function
 - RGX-7: `r:replace(text, repl)` returns a new string in which every match of the pattern in `text` is replaced by `repl`. [src: LANGUAGE_REFERENCE.md §10 "Regex Methods"; StdlibTests.TestRegexReplace]
 
 ## Errors
-None documented.
+- RGX-E1: `regex(pattern)` with an invalid pattern, such as `"["` (an unterminated character class), panics with a message containing "Invalid pattern". [src: spec/decisions/D-29-regex-syntax-and-invalid-patterns.md]
 
 ## Examples
 Conformance cases: `conformance/stdlib-regex/`.
 
 ## Open questions
-- D-029: The reference does not say which regular expression syntax `regex(pattern)` accepts (the tree-walk interpreter uses .NET regular expressions, the C runtime its own matcher `runtime/re.c`) or what an invalid pattern does.
+- D-029: Which regular expression syntax, or portable subset, `regex(pattern)` accepts is still open (the tree-walk interpreter uses .NET regular expressions, the C runtime its own matcher `runtime/re.c`); only the failure mode is decided (RGX-E1).

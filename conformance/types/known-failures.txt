@@ -72,3 +72,37 @@ C floored-modulo.pino  # D-164: legacy fails: PARSER: Expected expression, got O
 TreeWalk void-allowed-positions.pino  # D-162: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
 VM void-allowed-positions.pino  # D-162: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
 C void-allowed-positions.pino  # D-162: legacy fails: PARSER: Expected Identifier, got Operator: - (Subtraction)
+
+# --- Checker design answers (ticket 033)
+TreeWalk err-const-division-by-zero-expression.pino  # D-166: legacy fails with 'Attempted to divide by zero.' instead of an error containing 'Division by Zero'
+VM err-const-division-by-zero-expression.pino  # D-166: legacy fails with 'Attempted to divide by zero.' instead of an error containing 'Division by Zero'
+C err-const-division-by-zero-expression.pino  # D-166: legacy fails with 'exit code -1073741676' instead of an error containing 'Division by Zero'
+TreeWalk err-const-division-by-zero-val.pino  # D-166: legacy fails with 'Attempted to divide by zero.' instead of an error containing 'Division by Zero'
+VM err-const-division-by-zero-val.pino  # D-166: legacy fails with 'Attempted to divide by zero.' instead of an error containing 'Division by Zero'
+C err-const-division-by-zero-val.pino  # D-166: legacy fails with 'exit code -1073741676' instead of an error containing 'Division by Zero'
+TreeWalk err-float-to-int-annotation.pino  # D-172: legacy fails with 'PARSER: Expected '=', got Identifier: int' instead of an error containing 'float'
+VM err-float-to-int-annotation.pino  # D-172: legacy fails with 'PARSER: Expected '=', got Identifier: int' instead of an error containing 'float'
+C err-float-to-int-annotation.pino  # D-172: legacy fails with 'PARSER: Expected '=', got Identifier: int' instead of an error containing 'float'
+TreeWalk err-float-to-int-argument.pino  # D-172: legacy accepts the program and prints '3' instead of failing with an error containing 'float'
+VM err-float-to-int-argument.pino  # D-172: legacy fails with 'Unable to cast object of type 'System.Double' to type 'System.Int64'.' instead of an error containing 'float'
+C err-float-to-int-argument.pino  # D-172: legacy accepts the program and prints '2' instead of failing with an error containing 'float'
+TreeWalk err-float-to-int-return.pino  # D-172: legacy accepts the program and prints '1.5' instead of failing with an error containing 'float'
+VM err-float-to-int-return.pino  # D-172: legacy accepts the program and prints '1.5' instead of failing with an error containing 'float'
+C err-float-to-int-return.pino  # D-172: legacy accepts the program and prints '1.5' instead of failing with an error containing 'float'
+TreeWalk err-runtime-division-by-zero-float.pino  # D-170: legacy accepts the program and prints 'before Infinity after' instead of failing with an error containing 'divide by zero'
+VM err-runtime-division-by-zero-float.pino  # D-170: legacy accepts the program and prints 'before Infinity after' instead of failing with an error containing 'divide by zero'
+C err-runtime-division-by-zero-float.pino  # D-170: legacy accepts the program and prints 'before 1.INF after' instead of failing with an error containing 'divide by zero'
+C err-runtime-division-by-zero-int.pino  # D-170: legacy fails with 'exit code -1073741676' instead of an error containing 'divide by zero'
+TreeWalk err-runtime-float-modulo-by-zero.pino  # D-170: legacy accepts the program and prints 'before NaN after' instead of failing with an error containing 'divide by zero'
+VM err-runtime-float-modulo-by-zero.pino  # D-170: legacy accepts the program and prints 'before NaN after' instead of failing with an error containing 'divide by zero'
+C err-runtime-float-modulo-by-zero.pino  # D-170: legacy fails with 'TCC error invalid operands for binary operation' instead of an error containing 'divide by zero'
+TreeWalk err-runtime-floor-division-by-zero.pino  # D-170: legacy fails with 'PARSER: Expected expression, got Operator: / (Division)' instead of an error containing 'divide by zero'
+VM err-runtime-floor-division-by-zero.pino  # D-170: legacy fails with 'PARSER: Expected expression, got Operator: / (Division)' instead of an error containing 'divide by zero'
+C err-runtime-floor-division-by-zero.pino  # D-170: legacy fails with 'PARSER: Expected expression, got Operator: / (Division)' instead of an error containing 'divide by zero'
+C err-runtime-modulo-by-zero.pino  # D-170: legacy fails with 'exit code -1073741676' instead of an error containing 'divide by zero'
+TreeWalk float-modulo.pino  # D-171: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+VM float-modulo.pino  # D-171: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+C float-modulo.pino  # D-171: legacy fails: PARSER: Expected expression, got Operator: / (Division)
+TreeWalk float-widening-annotated.pino  # D-172: legacy fails: PARSER: Expected '=', got Identifier: float
+VM float-widening-annotated.pino  # D-172: legacy fails: PARSER: Expected '=', got Identifier: float
+C float-widening-annotated.pino  # D-172: legacy fails: PARSER: Expected '=', got Identifier: float

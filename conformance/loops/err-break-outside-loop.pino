@@ -1,0 +1,5 @@
+# covers: LOOP-E1
+fn stop() {
+  break
+}
+stop()

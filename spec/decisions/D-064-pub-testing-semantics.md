@@ -1,6 +1,6 @@
 # D-064: Meaning of `@pub_testing`
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/modules.md
 
@@ -18,6 +18,6 @@ Should the spec define what `@pub_testing` does (make a declaration importable b
 2. Keep only the parse-level rule MOD-E5 until the feature is implemented and tested.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-34): a `@@Testable` declaration (D-163) is importable from test files (a file named `*_test.pino` or a file inside a `test/` directory) and is rejected, as a private declaration is, when imported from any other file. Normative rules: MOD-8 and MOD-E8. Proposal 012 remains `Proposed`; marking it `Implemented` is not part of ticket 033.
 
 Note (2026-11-20): D-163 renamed the marker to `@@Testable` with the same parse rule (MOD-E5). This question, what the marker grants to test code, stays open; the spelling `@pub_testing` above is historical.

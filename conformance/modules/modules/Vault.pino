@@ -1,0 +1,9 @@
+module Vault
+
+pub fn deposit(balance int, amount int) int {
+  return balance + amount
+}
+
+fn hidden_fee() int {
+  return 3
+}

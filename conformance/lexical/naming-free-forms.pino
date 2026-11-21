@@ -1,0 +1,25 @@
+# covers: LEX-21
+val SCREAMING_LIMIT = 3
+val hero_name2 = "Ada"
+val myVar = 1
+struct HTTPServer {
+  port int
+}
+struct Http2Client {
+  id int
+}
+enum Level2 { Low_Priority High }
+fn parse_HTML(text string) string {
+  return text
+}
+val server = HTTPServer { port: 80 }
+val client = Http2Client { id: 7 }
+println(SCREAMING_LIMIT)
+println(hero_name2)
+println(myVar)
+println(server:port)
+println(client:id)
+if Level2::Low_Priority == Level2::Low_Priority {
+  println("same")
+}
+println(parse_HTML("ok"))

@@ -46,14 +46,18 @@ A function is declared with `fn`, a name, a parameter list (`name Type` pairs, p
 - FN-E3: A lambda with an explicit return type (`fn (n int) int -> n`) is rejected as a parse error. [src: spec/decisions/D-053-lambda-return-type-annotation.md]
 
 - FN-E4: Recursion in an unannotated function with no non-recursive `return` is rejected by the checker with a message containing "explicit return type". [src: spec/decisions/D-050-function-return-type-inference.md]
-- FN-E5: `return` statements of an unannotated function that yield different struct types are rejected by the checker with a message containing "conflicting return types", suggesting a declared interface return type. [src: spec/decisions/D-050-function-return-type-inference.md]
+- FN-E5: `return` statements of an unannotated function whose types differ, apart from `int` with `float` (FN-29), are rejected by the checker with a message containing "conflicting return types": `int` with `string`, `bool` with `int`, two different struct types, and a struct with an interface alike; a declared return type is how a function returns an interface. [src: spec/decisions/D-50-function-return-type-inference.md]
 - FN-E6: A function whose return type is not `void` and that does not return on every path is rejected by the checker with a message containing "always return". [src: spec/decisions/D-050-function-return-type-inference.md]
-- FN-E7: A bare `return` in a function whose return type is not `void` is rejected by the checker with a message containing "must return a value". [src: spec/decisions/D-050-function-return-type-inference.md]
+- FN-E7: A bare `return` in a function whose return type is not `void`, whether it is declared or inferred from the function's other `return`s, as in `fn f(b bool) { if b { return } return 1 }`, is rejected by the checker with a message containing "must return a value". [src: spec/decisions/D-50-function-return-type-inference.md]
+- FN-E8: A keyword used as a parameter name, such as `val`, is rejected as a parse error with a message containing "Expected Identifier". [src: spec/decisions/D-54-keyword-parameter-names.md; LEX-2]
+- FN-E9: Calling a function with the wrong number of arguments is rejected by the checker with a message containing "expected N arguments" with the real count, as in "expected 2 arguments". [src: spec/decisions/D-57-function-call-error-checks.md]
+- FN-E10: A `return` whose value does not match the declared return type is rejected by the checker with a message containing "declared return type". [src: spec/decisions/D-57-function-call-error-checks.md]
+- FN-E11: A lambda with an untyped parameter and no typed context to infer it from, such as `val f = fn (x) -> x + 1`, is rejected by the checker with a message containing "Cannot infer parameter type". [src: spec/decisions/D-167-lambda-parameter-inference.md]
+- FN-E12: A default value on a parameter, typed (`x int = 1`) or typeless (`x = 1`), is rejected by the checker with a message containing "default value", until the feature is designed. [src: spec/decisions/D-173-parameter-default-values.md]
+- FN-E13: Declaring a second function with a name already declared in the same scope is rejected by the checker with a message containing "already declared", even when its parameter list differs, because Pino has no user-defined overloading. [src: spec/decisions/D-176-no-user-overloading.md; spec/decisions/D-018-redeclaration-in-same-scope.md]
 
 ## Examples
 Conformance cases: `conformance/functions/`.
 
 ## Open questions
-- D-054: The reference's `each` example names a parameter `val`, a keyword the parser rejects.
-- D-057: Should the argument-count and return-type errors be specified?
-- D-002: `it` inside a call argument turns the argument into a lambda even in a loop body (see loops).
+None.

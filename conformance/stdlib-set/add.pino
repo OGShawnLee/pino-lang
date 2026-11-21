@@ -1,0 +1,6 @@
+# covers: SETLIB-3
+var s = set[int] { 1, 2 }
+s:add(3)
+s:add(2)
+println(s:len)
+println(3 in s)

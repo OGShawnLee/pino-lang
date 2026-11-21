@@ -21,7 +21,7 @@ A set holds unique elements of a single type. It is created with `set[T] { elem1
 - SET-E2: Attempting to index a variable named `set` in expression position (such as `set[0]`) is rejected as a parse error because `set[...]` is always a set form there. [src: spec/decisions/D-147-set-map-expression-forms.md]
 
 ## Examples
-Conformance cases: `conformance/sets/`.
+Conformance cases: `conformance/sets/`. The members of a set (`len`, `add`, `remove`, `any`, `all`, `each`, `in`) are specified in `spec/stdlib/set.md`.
 
 ## Open questions
 None.

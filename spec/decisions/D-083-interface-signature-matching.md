@@ -36,3 +36,5 @@ run_greet(User {})
 
 ## Decision
 Option 1, decided by the owner on 2026-11-20: a struct satisfies a non-generic interface only when its methods' parameter and return types match exactly.
+
+**Extended on 2026-11-20 (ticket 031, OQ-30), Option 1, decided by the owner:** parameter names are ignored when a struct is matched against an interface: only the number of parameters, their types and the return type are compared. Normative rule: IFACE-6.

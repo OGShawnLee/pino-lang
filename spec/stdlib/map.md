@@ -26,4 +26,4 @@ Members are called on a map with `:`, for example `m:len` for a property and `m:
 Conformance cases: `conformance/stdlib-map/`.
 
 ## Open questions
-- D-004: The iteration order of a map is unspecified, so the order of `keys()` and `values()` is too; only their alignment is specified (MAPLIB-5).
+None.

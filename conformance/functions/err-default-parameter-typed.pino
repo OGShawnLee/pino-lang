@@ -1,0 +1,5 @@
+# covers: FN-E12
+fn scale(x int, factor int = 2) int {
+  return x * factor
+}
+println(scale(3))

@@ -1,0 +1,6 @@
+# covers: MATCH-E8
+val k = 5
+match 3 {
+  when k { println("k matched") }
+  else { println("else") }
+}

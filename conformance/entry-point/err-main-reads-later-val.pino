@@ -1,0 +1,8 @@
+# covers: MAIN-3, VAR-E8
+fn main() {
+  println(get_limit())
+}
+fn get_limit() int {
+  return LIMIT
+}
+val LIMIT = 10

@@ -1,0 +1,23 @@
+# Known failures for conformance/stdlib-set/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- Checker design answers (ticket 033)
+TreeWalk add.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM add.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
+C add.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.
+TreeWalk any-all.pino  # D-175: legacy fails: PARSER: Expected '{'
+VM any-all.pino  # D-175: legacy fails: PARSER: Expected '{'
+C any-all.pino  # D-175: legacy fails: PARSER: Expected '{'
+TreeWalk each.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM each.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
+C each.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.
+TreeWalk membership.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM membership.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
+C membership.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.
+TreeWalk remove.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM remove.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
+C remove.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.
+TreeWalk size.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM size.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
+C size.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.

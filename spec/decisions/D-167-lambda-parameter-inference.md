@@ -19,3 +19,5 @@ In which positions do untyped lambda parameters take their types from context?
 
 ## Decision
 Option 1, decided by the owner on 2026-11-20: untyped lambda parameters infer their types from every typed context, not just call arguments: a typed `val`/`var`, a `return` in a function with a known return type, struct field types, collection element types and call arguments.
+
+**Extended on 2026-11-20 (ticket 031, OQ-14), Option 1, decided by the owner:** an untyped lambda with no typed context at all (`val f = fn (x) -> x + 1`) is a checker error with a message containing "Cannot infer parameter type", asking for a type annotation. Lambdas do not become implicitly polymorphic. Normative rule: FN-E11.

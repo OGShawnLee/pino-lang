@@ -63,3 +63,11 @@ VM literal-shorthand-complete.pino  # D-078: legacy fails: Object reference not 
 C literal-shorthand-complete.pino  # D-078: legacy fails: TCC compilation failed: / pino_output.c: error: cannot cast 'typedef struct Point' to 'extern struct
 VM param-shadows-field.pino  # D-073: legacy fails: RUNTIME ERROR: Value is not callable.
 C param-shadows-field.pino  # D-073: legacy fails: TCC compilation failed: / pino_output.c: error: 'self' undeclared
+
+# --- Checker design answers (ticket 033)
+TreeWalk err-embedded-field-collision.pino  # D-078: legacy accepts the program and prints '3' instead of failing with an error containing 'collides with'
+VM err-embedded-field-collision.pino  # D-078: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'collides with'
+C err-embedded-field-collision.pino  # D-078: legacy accepts the program and prints '3' instead of failing with an error containing 'collides with'
+TreeWalk err-literal-omits-embedded-field.pino  # D-078: legacy accepts the program and prints '5' instead of failing with an error containing 'Missing property'
+VM err-literal-omits-embedded-field.pino  # D-078: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'Missing property'
+C err-literal-omits-embedded-field.pino  # D-078: legacy accepts the program and prints '5' instead of failing with an error containing 'Missing property'

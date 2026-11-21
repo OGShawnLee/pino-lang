@@ -30,6 +30,7 @@ Pino has no exceptions. Unrecoverable failures call the global `panic(message)`.
 - ERR-21: A `panic` prints a stack backtrace of the calling frames to `stderr`. [src: LANGUAGE_REFERENCE.md §8 "The `panic` Mechanism"; ErrorHandlingTests.TestPanicHaltAndBacktrace] [no-case: the backtrace goes to stderr, which the conformance runner does not capture for the in-process engines; see D-081]
 
 - ERR-22: `or { ... }` is a postfix recovery operator binding at the same precedence level as `?`, so `a + b or { yield 0 }` recovers only `b`. [src: spec/decisions/D-140-or-recovery-precedence.md]
+- ERR-23: The success value of a `Result[void, E]` is written `Result::Success()`, with empty parentheses, as in `return Result::Success()` in a function declared `Result[void, E]`. [src: spec/decisions/D-162-void-as-a-writable-type.md]
 
 ## Errors
 - ERR-E1: Using `?` outside a function body is rejected with a message containing "without a declared Result or Option return type". [src: LANGUAGE_REFERENCE.md §8 "The Bubble Operator (`?`)"; ErrorHandlingTests.TestCheckerEnforcesSafetyRules]
@@ -39,11 +40,11 @@ Pino has no exceptions. Unrecoverable failures call the global `panic(message)`.
 - ERR-E5: `yield` outside an `or` recovery block or a `match` expression block arm is rejected as a compile error. [src: ErrorHandlingTests.TestCheckerEnforcesSafetyRules; spec/decisions/D-143-return-in-match-and-yield-scope.md]
 - ERR-E6: Yielding a value whose type differs from the success type of the recovered expression is rejected with a message containing "Yield statement expected type". [src: LANGUAGE_REFERENCE.md §8 "Suffix Recovery Blocks (`or`)"; CheckerTests.TestUnionYieldMismatchingType]
 - ERR-E7: Using `?` on an expression that is neither a `Result` nor an `Option` is rejected with a message containing "non-union type". [src: LANGUAGE_REFERENCE.md §8 "The Bubble Operator (`?`)"]
+- ERR-E8: The bare form `Result::Success` (no parentheses) for a `Result[void, E]` is rejected by the checker with a message containing "Result::Success()". [src: spec/decisions/D-162-void-as-a-writable-type.md]
 
 ## Examples
 Conformance cases: `conformance/errors/`.
 
 ## Open questions
-- D-079: The reference's own example calls `err:to_string()` on an `int`; no engine supports it. Should the method exist?
 - D-080: What exactly must the `main` failure handler print, and for `Option::None` too? Today the evaluator prints `Error: <payload>` and `Error: Option::None`, and the C backend leaves a garbage exit code.
 - D-081: What must the `panic` output look like, including the backtrace, and must the C backend print it?

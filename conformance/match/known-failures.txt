@@ -40,3 +40,8 @@ C expr-block-return.pino  # D-100: legacy parser uses '=>' arms instead of '->' 
 TreeWalk err-arrow-arm-in-statement.pino  # D-148: legacy parser uses => instead of -> and fails with 'Expected expression, got Operator: >' instead of Expected '{'
 VM err-arrow-arm-in-statement.pino  # D-148: legacy parser uses => instead of -> and fails with 'Expected expression, got Operator: >' instead of Expected '{'
 C err-arrow-arm-in-statement.pino  # D-148: legacy parser uses => instead of -> and fails with 'Expected expression, got Operator: >' instead of Expected '{'
+
+# --- Checker design answers (ticket 033)
+TreeWalk err-bare-identifier-pattern.pino  # D-034: legacy accepts the program and prints 'k matched' instead of failing with an error containing 'bare identifier'
+VM err-bare-identifier-pattern.pino  # D-034: legacy accepts the program and prints nothing instead of failing with an error containing 'bare identifier'
+C err-bare-identifier-pattern.pino  # D-034: legacy accepts the program and prints 'k matched' instead of failing with an error containing 'bare identifier'

@@ -23,3 +23,5 @@ Option 1, decided by the owner on 2026-11-20:
 - `pub` on a top-level declaration makes it importable by other modules.
 - Struct fields are **private by default**, and privacy is **module-private**: code in the same module may access them. `pub` on a field makes it accessible from other modules.
 - The `@pub_testing` marker is renamed **`@@Testable`**, with the same meaning as the previous `@pub_testing` rules in `spec/features/modules.md`: combining `pub` and `@@Testable` is rejected (MOD-E5). What `@@Testable` grants to test code remains D-064.
+
+**Extended on 2026-11-20 (ticket 031, OQ-31), Option 1, decided by the owner:** a struct literal in another module that names a private field is a checker error, as reading or assigning one is. Code outside the module builds such a struct through a `pub` function or static method of the declaring module. Normative rule: STRUCT-E13.

@@ -53,5 +53,4 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 Conformance cases: `conformance/stdlib-vector/`.
 
 ## Open questions
-- D-065: `join` is asserted by a test but missing from the reference's vector method list.
 - D-058: A statement that starts with a vector literal after an expression statement is parsed as an index access.

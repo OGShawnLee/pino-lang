@@ -1,0 +1,7 @@
+# covers: TYPE-E4
+fn ratio(a float, b float) float {
+  return a / b
+}
+println("before")
+println(ratio(1.5, 0.0))
+println("after")

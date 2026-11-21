@@ -1,6 +1,6 @@
 # D-034: Meaning of a bare identifier in a `when` arm
 
-Status: open
+Status: accepted
 Raised by: 006
 Feature: spec/features/match.md
 
@@ -32,4 +32,4 @@ match 3 {
 3. Reject bare identifiers in `when` arms until a meaning is chosen.
 
 ## Decision
-_Pending: owner decides._
+Option 3, decided by the owner on 2026-11-20 (ticket 031, OQ-24): a bare identifier in a `when` arm (`when k { ... }`) is a checker error, so it can neither compare with a variable nor silently bind a new name. `else` is the catch-all. Normative rule: MATCH-E8.

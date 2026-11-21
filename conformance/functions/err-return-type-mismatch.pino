@@ -1,0 +1,5 @@
+# covers: FN-E10
+fn ret_str() string {
+  return 5
+}
+println(ret_str())

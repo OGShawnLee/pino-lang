@@ -1,0 +1,4 @@
+# covers: ENUM-E2
+enum Direction { North South }
+val d = Direction::Up
+println("reached")

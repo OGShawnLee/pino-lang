@@ -1,0 +1,3 @@
+# covers: FN-E11
+val f = fn (x) -> x + 1
+println(f(1))

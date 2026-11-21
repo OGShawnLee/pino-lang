@@ -16,3 +16,6 @@ VM replace.pino  # VM cannot call regex methods or read regex properties: RUNTIM
 # --- Semantics decisions (ticket 015)
 TreeWalk has-match.pino  # D-022: TreeWalk prints True/False instead of true/false
 C has-match.pino  # D-022: C backend prints True/False instead of true/false
+
+# --- Checker design answers (ticket 033)
+C err-invalid-pattern.pino  # D-029: legacy accepts the program and prints 'False' instead of failing with an error containing 'Invalid pattern'

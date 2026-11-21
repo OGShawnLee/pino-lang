@@ -186,7 +186,7 @@ arm_body         = block                      (* block arm; in expression positi
                  | "->" , expression ;        (* single-expression arm (D-100, D-148); `when X -> return` is a parse error (MATCH-E6); `->` before a block is a parse error (MATCH-E4) *)
 
 pattern          = variant_pattern
-                 | IDENT                      (* D-034: parsed as a binding that matches any value *)
+                 | IDENT                      (* D-034: parses, but a bare identifier pattern is a checker error (MATCH-E8) *)
                  | "true" | "false"
                  | expression ;               (* literal value, for example `1`, `"start"` *)
 
@@ -198,8 +198,8 @@ type_name        = IDENT ;                    (* simplified; full type syntax be
 (* The entry point is an ordinary function named `main`; no dedicated syntax exists.
    Productions for functions belong to section `fn` (owner 007). *)
 main_declaration = "fn" , "main" , [ "(" , [ parameter_list ] , ")" ] , [ type_name ] , block ;
-                                              (* `fn main() { ... }` or `fn main { ... }`. Parameters are parsed
-                                                 but the automatic call is skipped for them (D-036). *)
+                                              (* `fn main() { ... }` or `fn main { ... }`. Parameters are parsed,
+                                                 but the checker rejects them until D-036 is designed (MAIN-E4). *)
 
 (* Script mode: the file contains no `main_declaration`; every top-level item runs in order (MAIN-1). *)
 script_file      = { statement } ;
@@ -220,7 +220,8 @@ visibility      = "pub" | "@@Testable" ;      (* mutually exclusive; see section
 parameters      = (* empty: only when the next token is "{" *)
                 | "(" , [ parameter , { [ "," ] , parameter } ] , ")" ;   (* commas optional, see D-051 *)
 
-parameter       = IDENT , type ;              (* a parameter named like a keyword, e.g. `val`, is rejected: D-054 *)
+parameter       = IDENT , type , [ "=" , expression ]     (* a parameter named like a keyword, e.g. `val`, is rejected: D-054 *)
+                | IDENT , "=" , expression ;               (* default values parse, but the checker rejects them (FN-E12, D-173) *)
 
 return_type     = type | tuple_type ;         (* tuple_type: section tup *)
 
@@ -237,7 +238,7 @@ call_expression = postfix_expr , "(" , [ argument , { [ "," ] , argument } ] , "
                                               (* `(` must be on same line as callee (D-144); `fns[0](9)` is index+call when `[...]` holds an expression (D-055) *)
 
 argument        = expression ;                (* an argument that uses an undeclared `it` becomes an implicit
-                                                 one-parameter lambda `fn (it) -> <argument>`; D-002 *)
+                                                 one-parameter lambda `fn (it) -> <argument>`; inside a `for N` body `it` is declared, so no lambda is made (LOOP-17, D-002) *)
 
 return_statement = "return" , [ expression ] ;   (* D-142: `return` at EOL continues onto the next line; bare only before `}` or EOF *)
 

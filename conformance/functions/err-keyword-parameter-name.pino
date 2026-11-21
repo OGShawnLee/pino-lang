@@ -1,0 +1,5 @@
+# covers: FN-E8
+fn identity(val int) int {
+  return val
+}
+println(identity(1))

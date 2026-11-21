@@ -1,0 +1,4 @@
+# covers: SETLIB-1, SETLIB-2
+val s = set[int] { 1, 2, 3 }
+println(s:len)
+println(s:length)

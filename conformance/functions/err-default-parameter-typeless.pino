@@ -1,0 +1,5 @@
+# covers: FN-E12
+fn bump(x = 1) int {
+  return x + 1
+}
+println(bump())

@@ -1,0 +1,3 @@
+# covers: TYPE-E3
+val n int = 1.5
+println(n)

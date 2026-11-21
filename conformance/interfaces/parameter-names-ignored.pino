@@ -1,0 +1,13 @@
+# covers: IFACE-6
+interface Greeter {
+  fn greet(name string) string
+}
+struct Polite {
+  fn greet(who string) string {
+    return "good day " + who
+  }
+}
+fn welcome(g Greeter, person string) {
+  println(g:greet(person))
+}
+welcome(Polite {}, "Ana")

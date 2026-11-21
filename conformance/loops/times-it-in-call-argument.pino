@@ -1,0 +1,7 @@
+# covers: LOOP-17
+for 3 {
+  println(it * 2)
+}
+for 2 {
+  println("Implicit iteration: $it")
+}

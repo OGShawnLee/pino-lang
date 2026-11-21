@@ -13,7 +13,7 @@ An `interface` lists method signatures (`fn name(params) type`, no body) and may
 - IFACE-4: An interface may declare properties (`name type`); a struct satisfies them by declaring a field with the same name and type. [src: CheckerTests.TestInterfacePropertiesCompatibilityPasses]
 - IFACE-5: An interface type may be used as the type of a struct field or as the value type of a map, and such a field or entry accepts, and may be reassigned to, any satisfying struct. [src: CheckerTests.TestMapInterfaceCompatibilityPasses; DataStructureTests.TestStructStatePattern]
 
-- IFACE-6: A struct satisfies a non-generic interface only when each method's parameter types and return type match the interface's signature exactly. [src: spec/decisions/D-083-interface-signature-matching.md]
+- IFACE-6: A struct satisfies a non-generic interface only when each method's number of parameters, parameter types and return type match the interface's signature exactly; parameter names are ignored. [src: spec/decisions/D-83-interface-signature-matching.md]
 
 ## Errors
 - IFACE-E1: Passing a struct that lacks a method required by the interface is rejected with a message containing "expected type" and the interface name. [src: CheckerTests.TestTypeCheckerInvalidInterfaceThrows]

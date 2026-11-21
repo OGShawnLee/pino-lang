@@ -19,3 +19,5 @@ What is the type of a literal that mixes `int` and `float` elements, such as `[1
 
 ## Decision
 Option 1, decided by the owner on 2026-11-20: a vector literal mixing `int` and `float` elements is `[]float` (`[1, 2.5]`), consistent with D-019. The same goes for sets (`set[float] { 1, 2.5 }`) and map values (`map[string, float] { "a" -> 1, "b" -> 2.5 }`).
+
+**Confirmed on 2026-11-20 (ticket 031, OQ-10), Option 1, decided by the owner:** the reading recorded in SET-5 and MAP-12 is right: in a `set[float]` or `map[K, float]` literal, `int` elements and values widen to `float`.

@@ -47,3 +47,8 @@ C err-annotation-mismatch.pino  # D-012: legacy fails with 'PARSER: Expected '='
 TreeWalk err-val-option-none.pino  # D-160: legacy fails with 'PARSER: Expected '=', got Identifier: Option' instead of an error containing 'Option::None'
 VM err-val-option-none.pino  # D-160: legacy fails with 'PARSER: Expected '=', got Identifier: Option' instead of an error containing 'Option::None'
 C err-val-option-none.pino  # D-160: legacy fails with 'PARSER: Expected '=', got Identifier: Option' instead of an error containing 'Option::None'
+
+# --- Checker design answers (ticket 033)
+TreeWalk err-function-reads-later-val.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
+VM err-function-reads-later-val.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
+C err-function-reads-later-val.pino  # D-165: legacy fails with 'TCC error cannot cast 'void *' to 'struct <anonymous>'' instead of an error containing 'is not declared'

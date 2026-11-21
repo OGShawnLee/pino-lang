@@ -48,3 +48,7 @@ Option 1, refined and decided by the owner on 2026-11-20. Return-type inference 
 - `return`s of different struct types are an error suggesting a declared interface return type.
 - A non-`void` function must return on every path (definite return); a checker error otherwise.
 - A bare `return` is allowed only in `void` functions.
+
+**Extended on 2026-11-20 (ticket 031, OQ-12 and OQ-13), Option 1 for each, decided by the owner:**
+- Any mix of `return` types other than `int` with `float` is a checker error with a message containing "conflicting return types": `int` with `string`, `bool` with `int`, two different struct types, and a struct with an interface. A declared return type is how a function returns an interface. Normative rule: FN-E5.
+- In an unannotated function that also has value-returning `return`s, the return type is inferred from the value-returning `return`s (`fn f(b bool) { if b { return } return 1 }` infers `int`), and the bare `return` is rejected as the bare-return rule says ("must return a value"). Normative rule: FN-E7.

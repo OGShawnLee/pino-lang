@@ -1,6 +1,6 @@
 # D-004: Iterating over maps
 
-Status: open
+Status: accepted
 Raised by: 004
 Feature: spec/features/loops.md
 
@@ -35,4 +35,4 @@ Spec impact: LOOP-9 and LOOP-10 are written from the tests (source rule (b)) and
 3. Do not document it and treat it as internal: the two tests stay, but the rules would have to be removed from the spec.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-26): iteration over maps stays with an unspecified order. LOOP-9 and LOOP-10 are unchanged; the checker types `for v in m` and `for k, v in m` the same way whatever the order.

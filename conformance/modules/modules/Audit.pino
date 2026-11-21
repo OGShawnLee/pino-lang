@@ -1,0 +1,9 @@
+module Audit
+
+pub fn label() string {
+  return "audit"
+}
+
+@@Testable fn audit_total(balance int) int {
+  return balance * 100
+}

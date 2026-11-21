@@ -1,0 +1,9 @@
+# covers: TYPE-18
+println(-7.5 % 2)
+println(7.5 % -2)
+println(7.5 % 2)
+println(-7.5 % -2)
+println(7 % 2.5)
+val a = -7.5
+val b = 2.0
+println((a // b) * b + a % b)

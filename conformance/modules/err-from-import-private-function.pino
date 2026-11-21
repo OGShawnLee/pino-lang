@@ -1,0 +1,3 @@
+# covers: MOD-E7
+from Vault import hidden_fee
+println(hidden_fee())

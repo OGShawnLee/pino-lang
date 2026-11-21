@@ -92,3 +92,23 @@ C lambda-infer-struct-field.pino  # D-167: legacy fails: PARSER: Expected Identi
 TreeWalk lambda-infer-typed-val.pino  # D-167: legacy fails: PARSER: Expected '=', got Keyword: fn (Function)
 VM lambda-infer-typed-val.pino  # D-167: legacy fails: PARSER: Expected '=', got Keyword: fn (Function)
 C lambda-infer-typed-val.pino  # D-167: legacy fails: PARSER: Expected '=', got Keyword: fn (Function)
+
+# --- Checker design answers (ticket 033)
+TreeWalk err-bare-return-with-value.pino  # D-050: legacy accepts the program and prints 'null' instead of failing with an error containing 'must return a value'
+VM err-bare-return-with-value.pino  # D-050: legacy accepts the program and prints 'null' instead of failing with an error containing 'must return a value'
+C err-bare-return-with-value.pino  # D-050: legacy fails with 'TCC error cannot cast 'void *' to 'struct <anonymous>'' instead of an error containing 'must return a value'
+TreeWalk err-default-parameter-typed.pino  # D-173: legacy fails with 'PARSER: Expected Identifier, got Operator: = (Assignment)' instead of an error containing 'default value'
+VM err-default-parameter-typed.pino  # D-173: legacy fails with 'PARSER: Expected Identifier, got Operator: = (Assignment)' instead of an error containing 'default value'
+C err-default-parameter-typed.pino  # D-173: legacy fails with 'PARSER: Expected Identifier, got Operator: = (Assignment)' instead of an error containing 'default value'
+TreeWalk err-default-parameter-typeless.pino  # D-173: legacy fails with 'PARSER: Expected Typing, got Operator: = (Assignment)' instead of an error containing 'default value'
+VM err-default-parameter-typeless.pino  # D-173: legacy fails with 'PARSER: Expected Typing, got Operator: = (Assignment)' instead of an error containing 'default value'
+C err-default-parameter-typeless.pino  # D-173: legacy fails with 'PARSER: Expected Typing, got Operator: = (Assignment)' instead of an error containing 'default value'
+TreeWalk err-function-overload.pino  # D-176: legacy fails with 'TYPE CHECK ERROR: Function 'add' expected 3 arguments, but got 2.' instead of an error containing 'already declared'
+VM err-function-overload.pino  # D-176: legacy fails with 'TYPE CHECK ERROR: Function 'add' expected 3 arguments, but got 2.' instead of an error containing 'already declared'
+C err-function-overload.pino  # D-176: legacy fails with 'TYPE CHECK ERROR: Function 'add' expected 3 arguments, but got 2.' instead of an error containing 'already declared'
+TreeWalk err-mixed-return-struct-interface.pino  # D-050: legacy accepts the program and prints '4' instead of failing with an error containing 'conflicting return types'
+VM err-mixed-return-struct-interface.pino  # D-050: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'conflicting return types'
+C err-mixed-return-struct-interface.pino  # D-050: legacy fails with 'TCC error ';' expected (got "pick")' instead of an error containing 'conflicting return types'
+TreeWalk err-untyped-lambda-no-context.pino  # D-167: legacy fails with 'PARSER: Expected Typing, got Marker: ) (ParenthesisEnd)' instead of an error containing 'Cannot infer parameter type'
+VM err-untyped-lambda-no-context.pino  # D-167: legacy fails with 'PARSER: Expected Typing, got Marker: ) (ParenthesisEnd)' instead of an error containing 'Cannot infer parameter type'
+C err-untyped-lambda-no-context.pino  # D-167: legacy fails with 'PARSER: Expected Typing, got Marker: ) (ParenthesisEnd)' instead of an error containing 'Cannot infer parameter type'

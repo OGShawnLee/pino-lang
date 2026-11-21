@@ -1,6 +1,6 @@
 # D-029: Regular expression syntax and invalid patterns
 
-Status: open
+Status: accepted
 Raised by: 005
 Feature: spec/stdlib/regex.md
 
@@ -31,4 +31,6 @@ println(r:has_match("a"))
 3. Return a `Result[regex, string]` from `regex(pattern)`: explicit failure; changes the documented return type.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-38): `regex(pattern string)` keeps returning `regex` (BUILTIN-8, RGX-1 are unchanged), and an invalid pattern panics (RGX-E1).
+
+**Not decided, so no rule is written (logged for the owner):** which regular expression syntax (or portable subset) `regex(pattern)` accepts. The tree-walk interpreter uses .NET regular expressions and the C runtime its own matcher (`runtime/re.c`), so what counts as an invalid pattern beyond the plain cases (an unterminated `[`) is still open.

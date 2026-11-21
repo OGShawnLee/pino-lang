@@ -1,0 +1,3 @@
+# covers: MOD-E6
+import Vault
+println(Vault::hidden_fee())

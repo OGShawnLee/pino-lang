@@ -1,0 +1,7 @@
+# covers: TYPE-E4
+fn divide(a int, b int) float {
+  return a / b
+}
+println("before")
+println(divide(1, 0))
+println("after")

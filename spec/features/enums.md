@@ -19,9 +19,10 @@ An `enum` declaration names a closed set of members, separated by newlines or co
 
 ## Errors
 - ENUM-E1: A `match` over an enum that omits a member and has no `else` is rejected with a message containing "is not exhaustive". [src: proposals/005-tagged-unions-and-patterns-roadmap.md]
+- ENUM-E2: Naming an enum member that the enum does not declare, as `Direction::Up` for an enum without `Up`, is rejected by the checker with a message containing "has no member". [src: spec/decisions/D-77-unknown-enum-member.md]
 
 ## Examples
 Conformance cases: `conformance/enums/`.
 
 ## Open questions
-- D-077: What should happen when a program names an enum member that the enum does not declare (`Direction::Up`)? Today only the tree-walk evaluator fails, and only at run time.
+None.

@@ -1,6 +1,6 @@
 # D-077: Referencing an enum member that does not exist
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/enums.md
 
@@ -29,4 +29,4 @@ println("reached")
 2. Leave it as a run-time error and specify only that the program fails.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-28): naming an enum member that the enum does not declare (`Direction::Up`) is a checker error. Normative rule: ENUM-E2.

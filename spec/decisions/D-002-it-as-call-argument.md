@@ -1,6 +1,6 @@
 # D-002: `it` as a call argument inside `for N`
 
-Status: open
+Status: accepted
 Raised by: 004
 Feature: spec/features/loops.md
 
@@ -40,4 +40,4 @@ println(sum)
 3. Forbid the implicit-lambda shorthand inside a `for N` body: removes the ambiguity, at the cost of a restriction that must be specified and diagnosed.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-17): `it` is declared in the scope of a `for N { ... }` body. Inside that body, including inside call arguments such as `println("$it")`, `it` is the loop's zero-based index and the argument is not turned into an implicit lambda (FN-17). To pass a lambda inside a `for N` body, write an explicit one (`xs:map(fn (x) -> x * 2)`) or use `for i in N`. Normative rule: LOOP-17.

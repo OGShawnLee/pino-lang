@@ -21,3 +21,10 @@ Option 1, decided by the owner on 2026-11-20. For `union U { Pair(a int, b strin
 - **Positional:** `when U::Pair(x, y)` binds fields by position under any names. A **prefix** is allowed: `when U::Pair(x)` binds only the first field.
 - **Label:** `when U::Pair(@b)` binds field `b` by its name, and `when U::Pair(@b: label)` binds it under another name. Labels can bind any subset in any order and are valid only on variants with named fields. A label that is not a field of the variant is a checker error.
 - **No mixing:** positional and label bindings cannot be mixed in one pattern (`when U::Pair(x, @b)` is an error).
+
+**Extended on 2026-11-20 (ticket 031, OQ-21, OQ-22 and OQ-23), Option 1 for each, decided by the owner:**
+- More positional bindings than the variant has fields (`when U::Pair(a, b, c)`) is a checker error. Normative rule: UNION-E12.
+- The same label bound twice (`when U::Pair(@a, @a: x)`) is a checker error. Normative rule: UNION-E13.
+- `is` patterns stay positional-only: `x is U::Pair(a)` (a prefix) and `x is U::Pair` (no bindings) are allowed, and a `@label` in an `is` pattern is a parse error. Normative rules: UNION-23 and UNION-E14.
+
+**Not decided, so no rule is written (logged for the owner):** whether more positional bindings than fields in an `is` pattern (`x is U::Pair(a, b, c)`) is also a checker error. UNION-E12 is written for `when` patterns only.

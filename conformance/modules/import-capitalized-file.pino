@@ -1,0 +1,3 @@
+# covers: MOD-7
+import Vault
+println(Vault::deposit(10, 5))

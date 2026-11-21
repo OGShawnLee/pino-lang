@@ -22,3 +22,7 @@ TreeWalk map-of-interface.pino  # D-100: legacy parser uses => / k: v instead of
 # --- Checker, visibility and division decisions (ticket 029)
 VM exact-signature-match.pino  # D-083: legacy fails: RUNTIME ERROR: Value is not callable.
 C exact-signature-match.pino  # D-083: legacy fails: TCC compilation failed: / pino_output.c: error: ',' expected (got "g")
+
+# --- Checker design answers (ticket 033)
+VM parameter-names-ignored.pino  # D-083: legacy fails: RUNTIME ERROR: Value is not callable.
+C parameter-names-ignored.pino  # D-083: legacy fails: TCC error ',' expected (got "g")

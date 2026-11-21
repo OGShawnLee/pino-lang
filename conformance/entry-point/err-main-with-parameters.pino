@@ -1,0 +1,4 @@
+# covers: MAIN-E4
+fn main(a int) {
+  println("main ran")
+}

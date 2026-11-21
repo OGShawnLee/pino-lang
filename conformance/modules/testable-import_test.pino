@@ -1,0 +1,3 @@
+# covers: MOD-8
+from Audit import audit_total
+println(audit_total(2))

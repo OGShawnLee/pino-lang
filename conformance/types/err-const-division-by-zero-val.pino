@@ -1,0 +1,3 @@
+# covers: TYPE-E1
+val z = 0
+println(1 / z)

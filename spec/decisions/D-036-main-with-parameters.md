@@ -31,3 +31,5 @@ fn main(a int) {
 
 ## Decision
 _Pending: owner decides._
+
+Note (2026-11-20, ticket 031, OQ-18): the design of `main` arguments is still wanted, so this decision stays **open**. Interim rule decided by the owner: a `fn main` with parameters is a checker error until D-036 is designed (MAIN-E4). Option 1 above is therefore in force as a stopgap, and relaxing it is part of the future design.

@@ -1,6 +1,6 @@
 # D-063: How `import Name` finds the module file
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/modules.md
 
@@ -29,4 +29,6 @@ All three engines fail with `TYPE CHECK ERROR: Module 'DoesNotExist' not found. 
 3. Keep the lookup out of the language spec (project tooling, reference §12).
 
 ## Decision
-_Pending: owner decides._
+Option 2, decided by the owner on 2026-11-20 (ticket 031, OQ-33): `import Name` first tries the case-preserving file `modules/<Name>.pino` and then falls back to `modules/<Name lowercased>.pino`, searching the `modules/` directory of the importing file's directory and then those of its parent directories. Normative rule: MOD-7.
+
+**Not decided, so the rule does not say (logged for the owner):** whether the case-preserving name is tried in every parent directory before the lowercased name is tried anywhere (two passes), or both names are tried in each directory before moving up (one pass). MOD-7 only states that `<Name>.pino` wins over `<lowercased>.pino` inside one `modules/` directory, and the cases only use one directory. The error for a module whose file is found in neither spelling is not part of this answer either, so no rule is written for it.

@@ -1,0 +1,12 @@
+# covers: STRUCT-E14
+struct Shape {
+  x int
+  y int
+}
+struct Circle {
+  Shape
+  x int
+  radius int
+}
+val c = Circle { x: 1, y: 2, radius: 3 }
+println(c:radius)

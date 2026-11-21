@@ -1,0 +1,5 @@
+# covers: FN-E9
+fn two(a int, b int) int {
+  return a + b
+}
+println(two(1))

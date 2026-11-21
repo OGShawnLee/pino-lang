@@ -1,6 +1,6 @@
 # D-005: Identifiers that are C keywords
 
-Status: open
+Status: accepted
 Raised by: 004
 Feature: spec/features/loops.md
 
@@ -34,4 +34,4 @@ Spec impact: `conformance/loops/in-string-char-keyword.pino` is recorded as a kn
 3. Document the limitation for the C backend only: no compiler change, but engines then disagree for a valid program.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-2): a C keyword such as `char` is a valid Pino identifier and the checker does not reject it; the C emitter mangles such names in the generated C. The lexical rules stay backend-independent. Normative rule: LEX-22.

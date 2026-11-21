@@ -77,3 +77,7 @@ TreeWalk err-lowercase-union-variant.pino  # D-014: legacy accepts the program (
 VM err-lowercase-union-variant.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
 C err-lowercase-union-variant.pino  # D-014: legacy accepts the program (no error containing 'capitalized')
 VM naming-capitalized-types.pino  # D-014: legacy fails: RUNTIME ERROR: Value is not callable.
+
+# --- Checker design answers (ticket 033)
+C c-keyword-identifiers.pino  # D-005: legacy fails: TCC error too many basic types
+VM naming-free-forms.pino  # D-014: legacy fails: RUNTIME ERROR: Value is not callable.

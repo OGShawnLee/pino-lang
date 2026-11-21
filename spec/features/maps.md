@@ -32,4 +32,4 @@ A map associates unique keys with values. It is created with `map[KeyType, Value
 Conformance cases: `conformance/maps/`.
 
 ## Open questions
-- D-004: Iteration order of maps, which also leaves the order of the entries in `str(m)` unspecified (MAP-9).
+None.

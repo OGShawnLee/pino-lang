@@ -51,6 +51,11 @@ Stdlib files have a `## Signatures` table (`Member | Signature | Returns`) follo
 | `stdlib/builtins.md` | `BUILTIN` | 006 | migrated |
 | `stdlib/vector.md` | `VECLIB` | 007 | migrated |
 | `stdlib/map.md` | `MAPLIB` | 007 | migrated |
+| `stdlib/set.md` | `SETLIB` | 033 | migrated |
+
+## Memory
+
+When the memory of a value is freed is not observable to a Pino program, and the spec defines no rule for it: the language has no destructors or finalizers. [src: owner decision of 2026-11-20, ticket 032; the memory model itself is architecture decision AD-002 and is not part of `spec/`] [no-case: freeing time is not observable]
 
 ## Conventions
 

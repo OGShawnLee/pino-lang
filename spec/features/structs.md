@@ -43,8 +43,9 @@ A `struct` declaration lists fields (`name type`), embedded structs (a bare stru
 - STRUCT-E10: Calling a field that is not of a function type is rejected with a message containing "does not have method". [src: CheckerTests.TestTypeCheckerNonFunctionFieldCallThrows]
 - STRUCT-E11: Initialising a field with a value of an incompatible type is rejected with a message containing "Cannot assign type". [src: CheckerTests.TestGenericMapValueTypeMismatchThrows]
 
-- STRUCT-E12: A struct literal that omits a field is rejected by the checker with a message containing "Missing property", and the shorthand `Point { x }` counts as naming `x`. [src: spec/decisions/D-078-omitted-struct-fields.md; spec/decisions/D-104-struct-field-shorthand.md]
-- STRUCT-E13: Reading or assigning a private field of a struct from another module is rejected by the checker with a message containing "is private". [src: spec/decisions/D-163-visibility-and-testable.md]
+- STRUCT-E12: A struct literal that omits a field is rejected by the checker with a message containing "Missing property", including a field of an embedded struct (STRUCT-8), and the shorthand `Point { x }` counts as naming `x`. [src: spec/decisions/D-78-omitted-struct-fields.md; spec/decisions/D-104-struct-field-shorthand.md]
+- STRUCT-E13: Reading or assigning a private field of a struct from another module, or naming it in a struct literal from another module, is rejected by the checker with a message containing "is private"; another module builds such a struct through a `pub` function or static method. [src: spec/decisions/D-163-visibility-and-testable.md]
+- STRUCT-E14: A field name declared both by a struct and by a struct it embeds is rejected by the checker with a message containing "collides with". [src: spec/decisions/D-78-omitted-struct-fields.md]
 
 ## Examples
 Conformance cases: `conformance/structs/`.

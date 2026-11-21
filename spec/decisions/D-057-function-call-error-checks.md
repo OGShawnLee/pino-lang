@@ -1,6 +1,6 @@
 # D-057: Errors for wrong argument count and wrong return type
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/functions.md
 
@@ -37,4 +37,4 @@ fn ret_str() string {
 3. Leave them unspecified.
 
 ## Decision
-_Pending: owner decides._
+Option 2, decided by the owner on 2026-11-20 (ticket 031, OQ-19): the checker rejects a call with the wrong number of arguments and a `return` whose value does not match the declared return type, with flexible wording: the message contains `expected N arguments` (with the real count) and `declared return type`. Normative rules: FN-E9 and FN-E10.

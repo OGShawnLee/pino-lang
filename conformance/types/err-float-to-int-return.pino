@@ -1,0 +1,5 @@
+# covers: TYPE-E3, FN-E10
+fn truncated() int {
+  return 1.5
+}
+println(truncated())

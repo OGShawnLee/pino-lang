@@ -22,17 +22,15 @@ Every loop is introduced by the keyword `for` and has a braced body. The head is
 - LOOP-13: `for cond { ... }` with a boolean expression `cond` evaluates `cond` before every iteration and executes the body while it is true. [src: ControlFlowTests.TestWhileLoopSimpleCondition; ControlFlowTests.TestWhileLoopBooleanVariable]
 - LOOP-14: Loops may be nested, and each iteration of an outer loop runs an inner loop from its beginning. [src: ControlFlowTests.TestWhileLoopNested]
 - LOOP-15: The comma between the two bindings in `for i x in coll { ... }` is optional and means the same as `for i, x in coll { ... }`. [src: spec/decisions/D-001-loop-header-commas.md]
+- LOOP-17: `it` is declared in the scope of a `for N { ... }` body, so inside the body it always refers to the loop's index, also inside call arguments such as `println("$it")`, which are therefore not turned into implicit lambdas (FN-17); a lambda passed inside such a body is written explicitly. [src: spec/decisions/D-2-it-as-call-argument.md]
 
 - LOOP-16: `for false { ... }` is a checker warning because its body can never run, and warnings never change the exit status. [src: spec/decisions/D-166-constant-diagnostics.md] [no-case: warnings are not observable by the conformance runner]
 
 ## Errors
-None documented.
+- LOOP-E1: A `break` or `continue` that is not inside a loop is rejected by the checker with a message containing "outside of a loop". [src: spec/decisions/D-174-break-continue-outside-loop.md]
 
 ## Examples
 Conformance cases: `conformance/loops/`.
 
 ## Open questions
-- D-002: Should `it` inside `for N { ... }` stay a loop variable when it is (part of) a call argument such as `println("$it")`? Today the parser turns such an argument into an implicit lambda.
-- D-003: Should the reference document the condition form `for cond { ... }` (LOOP-13)? It is asserted by tests but absent from the reference's "4 syntactic variants".
-- D-004: Should the reference document iteration over maps (LOOP-9, LOOP-10) and fix or leave open the iteration order?
-- D-005: How must identifiers that are C keywords (for example `char`, the reference's own loop variable) behave on the C backend?
+None.

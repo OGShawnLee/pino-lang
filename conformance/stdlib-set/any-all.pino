@@ -1,0 +1,6 @@
+# covers: SETLIB-5, SETLIB-6
+val s = set[int] { 1, 2, 3 }
+println(s:any(fn (x int) -> x > 2))
+println(s:any(fn (x int) -> x > 5))
+println(s:all(fn (x int) -> x > 0))
+println(s:all(fn (x int) -> x > 1))

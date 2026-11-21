@@ -1,6 +1,6 @@
 # D-003: Condition loops are not in the reference
 
-Status: open
+Status: accepted
 Raised by: 004
 Feature: spec/features/loops.md
 
@@ -20,4 +20,4 @@ Spec impact: LOOP-13 is written from the tests alone (source rule (b)). Cases `w
 3. Remove the form from the language and migrate callers to `for { if !cond { break } ... }`: needs a compiler change and a rewrite of the three tests.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-25): the condition loop `for cond { ... }` stays in the language and is documented as one of its loop forms; LOOP-13 is unchanged. `LANGUAGE_REFERENCE.md` §5 should list it as a fifth variant; the reference was not edited by ticket 033 (hand-off to the owner).

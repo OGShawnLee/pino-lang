@@ -1,6 +1,6 @@
 # D-065: `join` is missing from the reference's vector methods
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/stdlib/vector.md
 
@@ -19,4 +19,4 @@ VECLIB-25 records `join` from the test (source-of-truth rule (b)); the C failure
 2. Remove it from the language (the test and the evaluator) and delete VECLIB-25.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-39): `v:join(sep string) -> string` stays in the standard library and VECLIB-25 is unchanged. `LANGUAGE_REFERENCE.md` §10 "Vector Methods" should list `join`; the reference was not edited by ticket 033 (hand-off to the owner).

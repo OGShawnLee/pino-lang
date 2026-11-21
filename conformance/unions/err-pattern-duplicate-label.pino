@@ -1,0 +1,10 @@
+# covers: UNION-E13
+union U {
+  Pair(a int, b string)
+  Empty
+}
+val u = U::Pair(1, "x")
+match u {
+  when U::Pair(@a, @a: again) { println(again) }
+  else { println("other") }
+}

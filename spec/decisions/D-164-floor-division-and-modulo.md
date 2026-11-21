@@ -26,3 +26,5 @@ Option 1, decided by the owner on 2026-11-20:
 - `//` also works on floats and returns the floored float (`7.0 // 2` is `3.0`); with mixed `int`/`float` operands the operands widen per D-019.
 - Division or modulo by zero follows the existing `/`/`%` rules (D-166 for a constant zero divisor).
 - This changes `%` on negative operands to the floored result.
+
+**Note on 2026-11-20 (ticket 031, OQ-6):** the overflow case `INT64_MIN // -1` is deferred together with the sized numeric types and the integer overflow policy. No rule is written for it. Run-time division or modulo by zero is D-170, and `%` on floats is D-171.

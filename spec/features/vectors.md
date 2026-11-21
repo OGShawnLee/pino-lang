@@ -37,5 +37,4 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 Conformance cases: `conformance/vectors/`.
 
 ## Open questions
-- D-060: The reference's validation messages differ from the checker's. VEC-E1 to VEC-E3 require only the words both share.
-- D-004: Iteration order of maps (loops); vector iteration is in index order (LOOP-5).
+None.

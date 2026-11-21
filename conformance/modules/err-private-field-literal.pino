@@ -1,0 +1,4 @@
+# covers: STRUCT-E13
+import Ledger
+val e = Ledger::Entry { label: "rent", amount: 900 }
+println(e:label)

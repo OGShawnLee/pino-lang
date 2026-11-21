@@ -1,6 +1,6 @@
 # D-060: Wording of the vector validation errors
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/vectors.md
 
@@ -28,4 +28,4 @@ The rules VEC-E1 to VEC-E3 only require the `TYPE CHECK ERROR` prefix plus the w
 3. Keep requiring only the common words (current rules).
 
 ## Decision
-_Pending: owner decides._
+Option 3, decided by the owner on 2026-11-20 (ticket 031, OQ-11): the spec keeps requiring only the phrases both wordings share (`cannot be negative`, `cannot be less than`). VEC-E1 to VEC-E3 are unchanged.

@@ -1,0 +1,3 @@
+# covers: RGX-E1
+val r = regex("[")
+println(r:has_match("a"))

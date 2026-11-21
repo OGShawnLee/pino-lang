@@ -1,0 +1,6 @@
+# covers: SETLIB-4
+var s = set[string] { "a", "b" }
+s:remove("a")
+println(s:len)
+println("a" in s)
+println("b" in s)

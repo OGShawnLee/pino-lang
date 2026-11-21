@@ -36,3 +36,17 @@ TreeWalk from-import.pino  # D-163: legacy fails: PARSER: Expected Identifier, g
 C from-import.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
 TreeWalk import-qualified.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
 C import-qualified.pino  # D-163: legacy fails: PARSER: Expected Identifier, got Keyword: pub (Pub)
+
+# --- Checker design answers (ticket 033)
+TreeWalk err-private-field-literal.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'is private'
+VM err-private-field-literal.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'is private'
+C err-private-field-literal.pino  # D-163: legacy fails with 'PARSER: Expected Identifier, got Keyword: pub (Pub)' instead of an error containing 'is private'
+VM err-private-function-call.pino  # D-062: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'is private'
+C err-private-function-call.pino  # D-062: legacy accepts the program and prints '3' instead of failing with an error containing 'is private'
+TreeWalk err-testable-import-from-non-test.pino  # D-064: legacy fails with 'PARSER: Expected Identifier, got Marker: @ (At)' instead of an error containing 'does not export'
+VM err-testable-import-from-non-test.pino  # D-064: legacy fails with 'PARSER: Expected Identifier, got Marker: @ (At)' instead of an error containing 'does not export'
+C err-testable-import-from-non-test.pino  # D-064: legacy fails with 'PARSER: Expected Identifier, got Marker: @ (At)' instead of an error containing 'does not export'
+VM import-capitalized-file.pino  # D-063: legacy fails: RUNTIME ERROR: Value is not callable.
+TreeWalk testable-import_test.pino  # D-064: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
+VM testable-import_test.pino  # D-064: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)
+C testable-import_test.pino  # D-064: legacy fails: PARSER: Expected Identifier, got Marker: @ (At)

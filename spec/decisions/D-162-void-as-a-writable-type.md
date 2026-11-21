@@ -19,3 +19,5 @@ Where may the type `void` be written?
 
 ## Decision
 Option 1, decided by the owner on 2026-11-20: `void` is a writable type. It is allowed as a function return type, as the return type of a function type (`fn (int) -> void`), and as the success type of `Result` (`Result[void, E]`, a function that can only fail). It is a checker error as a parameter, variable, field or collection element type.
+
+**Extended on 2026-11-20 (ticket 031, OQ-15), Option 2, decided by the owner:** the success value of a `Result[void, E]` is written `Result::Success()`, with empty parentheses, and that is the only form. No unit literal is added to the language. Normative rules: ERR-23 and ERR-E8.

@@ -1,0 +1,8 @@
+# covers: FN-E7
+fn f(b bool) {
+  if b {
+    return
+  }
+  return 1
+}
+println(f(true))

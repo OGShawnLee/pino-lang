@@ -1,6 +1,6 @@
 # D-062: Calling a non-`pub` module function
 
-Status: open
+Status: accepted
 Raised by: 007
 Feature: spec/features/modules.md
 
@@ -32,4 +32,4 @@ println(Geometry::hidden_helper(1))
 2. Leave functions out of the visibility rules and document that `pub` applies to types only.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-32): a qualified call `Module::name(...)` to a function that is not `pub` is a checker error on every engine, and so is `from Module import name` for such a function (as MOD-5 and D-163 say, a non-`pub` top-level declaration is private to its module). Normative rules: MOD-E6 and MOD-E7.

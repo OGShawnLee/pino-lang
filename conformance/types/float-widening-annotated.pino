@@ -1,0 +1,15 @@
+# covers: TYPE-19
+fn half(x float) float {
+  return x / 2
+}
+fn make() float {
+  return 3
+}
+val a float = 1
+var b float = 2
+val c = half(5)
+println(a)
+println(b)
+println(c)
+println(make())
+println(a + b)
