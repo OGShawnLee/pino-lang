@@ -213,7 +213,21 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - **Amends 031:** the checker stays neutral but must also record four facts: each lambda's capture set, whether each binding is ever assigned, a type reachability graph, and which types contain no pointers.
   - 6 owner questions (research §8). **Owner answers (2026-11-20): Q2–Q6 as recommended (recorded as AD-002); Q1, the legacy GC fix, is deferred because `-re` is the top priority.**
 - [ ] **`033-spec-record-checker-design-answers`** (Claude Sonnet 5.5 High, worktree): records the owner's answers to 031's 42 questions in `spec/` and `conformance/` (D-170 onward, plus accepting open decisions D-002, D-003, D-004, D-005, D-029, D-034, D-054, D-057, D-060, D-062, D-063, D-064, D-065, D-077 and D-079; D-036 stays open with an interim "no parameters on `main`" rule). Adds `spec/stdlib/set.md` and the "freeing time is not observable" sentence.
-- [ ] **Checker implementation tickets 034–038, drafted by the 031 Neon designer** (owner's idea, 2026-11-20: it holds the full design context). Drafts only; the router reviews and edits each before dispatch, picks the models, and keeps verification and integration. 034 starts after 033 is integrated.
+- [ ] **Checker implementation tickets 034–040** (drafted by the 031 Neon designer, router-reviewed; status `draft`, models chosen at dispatch). Sequential: each starts after the previous one is integrated, and 034 after 033.
+  - 034 types/symbols/prelude/`StdlibCatalog`/`PN3xxx` codes (design §7.2 is authoritative for code numbers)
+  - 035 hoisting, type resolution, visibility, module loading (OQ-33 lookup), AD-002 reachability and pointer-free analysis
+  - 036 variables, operators, collections, `if`/`for`, `AssignedBindings`
+  - 037 structs, interfaces, enums, tuples, direct and stdlib calls
+  - 038 SCC return inference, contextual lambdas, implicit `it`, capture lists
+  - 039 generics, `D-055`, `?`/`or`, `Result::Success()`, `main.pino` test (`PINO_MAIN_PINO`)
+  - 040 patterns, flow, constants, CLI wiring, conformance/snapshot/fuzz/edit-locality suites
+  - Router review fixes applied:
+    - `PinoVoice.cs` only checked as untouched
+    - checker messages must contain the conformance `.err` texts
+    - union payload edges are treated as mutable unless a rule says otherwise
+    - deterministic `.err` classification with a `RuntimeErrCases` allowlist
+    - a 5 s fuzz hang guard
+  - Suggested models: Neon High for 038 and 039; Sonnet High for 036; Hydrogen High for 034, 035, 037 and 040.
 - Owner priority (2026-11-20): **`-re` first.** The legacy GC fix (032-Q1) is deferred.
 - [ ] **Deferred by owner (2026-11-20): sized numeric types** (`i8`…`i64`, `u8`…`u64`, `f16`, `f32`, `f64`). Pino stays simple for now (`int`, `float`). Raised by the owner while discussing data science (tensors, images, ML). Needs its own design before any rule: explicit conversion/casting syntax, the widening matrix (generalizing D-019), context-typed literals (Go-style: `val x f32 = 1.5`), overflow policy (wrap, panic, or debug-panic/release-wrap) and `u*` ↔ `i*` conversions. Router suggestion when revisited: keep `int` = `i64` and `float` = `f64` as the everyday names, with sized types opt-in by annotation. Ties in with the Data Science & FFI item below.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
