@@ -310,7 +310,18 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - `rune + string` gives a `string` (decided).
   - Owner: bundle small tech debt into one ticket so it's worth a worker's time.
   - The IR design waits for 043, because value vs reference semantics shapes the IR.
-  - [ ] **043-mut-and-deep-immutability-design** (Gemini 4 Neon High, read-only design, main checkout): `val` depth, aliasing options (value semantics with copy-on-write vs mutability in the type vs borrowing vs shallow), field and receiver `mut`, parameters, captures, stdlib mutating methods, AD-002 cycle impact, migration counts. Owner questions are `MQ-n`.
+  - [x] **043-mut-and-deep-immutability-design** (Gemini 4 Neon High; router-verified): `.tickets/043-mut-and-deep-immutability-design/design.md`.
+    - Recommends option (a): value semantics with copy-on-write plus `mut` modifiers. This reopens D-070 and STRUCT-16.
+      - `val` becomes deep; `var` stays.
+      - `mut` is a modifier on fields (`mut`, `pub mut`), methods (`mut fn`), interface members, parameters (`mut p T`) and call-site arguments (`f(mut a)`).
+    - AD-002 win: pure data (structs, collections, unions) becomes acyclic. Only closures capturing `var`s (D-056) can form cycles.
+    - Stdlib: 5 of 74 intrinsics mutate their receiver.
+    - Migration cost:
+      - `main.pino`: 0 lines
+      - conformance: 23 of 397 `.out` cases, 0 `.err` cases; about 60–81 legacy known-failure lines
+      - `projects/pino-compiler/`: 9 of 28 files (the owner fixes these by hand)
+    - 18 owner questions (`MQ-1` to `MQ-18`) and a 4-ticket plan: spec, then the `-re` parser, then the `-re` checker, then the conformance migration.
+    - Waiting for the owner's answers. The IR design follows the checker ticket.
   - [x] **044-small-debt-rune-string-and-runner** (`23404d4`, Gemini 4 Hydrogen High).
     - STR-12 `rune + string` added in spec, conformance and `-re`. All three legacy engines already pass it.
     - Known-failure lines whose reason starts with `CRASH` are never run. This fixes the RUNE-E2 tech debt above.
