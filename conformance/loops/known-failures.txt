@@ -40,3 +40,8 @@ C err-continue-outside-loop.pino  # D-174: legacy fails with 'TCC error cannot c
 TreeWalk times-it-in-call-argument.pino  # D-002: legacy prints 'Pino.PinoLambda Pino.PinoLambda Pino.PinoLambda Pino.PinoLambda Pino.PinoLambda' instead of the expected output
 VM times-it-in-call-argument.pino  # D-002: legacy prints 'null null null null null' instead of the expected output
 C times-it-in-call-argument.pino  # D-002: legacy fails: TCC error cannot cast 'struct <anonymous>' to 'struct <anonymous>'
+
+# --- 033 follow-up answers (ticket 041)
+TreeWalk err-break-in-lambda-inside-loop.pino  # D-174: legacy accepts the program instead of failing with an error containing 'outside of a loop'
+VM err-break-in-lambda-inside-loop.pino  # D-174: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'outside of a loop'
+C err-break-in-lambda-inside-loop.pino  # D-174: legacy fails with 'TCC error: f undeclared' instead of an error containing 'outside of a loop'

@@ -1,0 +1,6 @@
+# covers: SETLIB-9
+var s = set[string] { "a", "b" }
+s:remove("missing")
+println(s:len)
+println("a" in s)
+println("b" in s)

@@ -33,3 +33,5 @@ match 3 {
 
 ## Decision
 Option 3, decided by the owner on 2026-11-20 (ticket 031, OQ-24): a bare identifier in a `when` arm (`when k { ... }`) is a checker error, so it can neither compare with a variable nor silently bind a new name. `else` is the catch-all. Normative rule: MATCH-E8.
+
+**Extended on 2026-11-20 (033 follow-up), decided by the owner:** confirmed that `else` is the only catch-all arm in `match` (MATCH-11, D-166).

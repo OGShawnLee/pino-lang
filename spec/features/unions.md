@@ -49,6 +49,7 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 - UNION-E12: A `when` pattern with more positional bindings than the variant has fields, such as `when U::Pair(a, b, c)` for `Pair(int, string)`, is rejected by the checker with a message containing "too many bindings". [src: spec/decisions/D-169-union-variant-match-patterns.md]
 - UNION-E13: A `when` pattern that binds the same label twice, such as `when U::Pair(@a, @a: x)`, is rejected by the checker with a message containing "duplicate label". [src: spec/decisions/D-169-union-variant-match-patterns.md]
 - UNION-E14: A `@label` binding in an `is` pattern, such as `value is U::Pair(@a)`, is rejected as a parse error with a message containing "label". [src: spec/decisions/D-169-union-variant-match-patterns.md]
+- UNION-E15: An `is` pattern with more positional bindings than the variant has fields, such as `value is U::Pair(a, b, c)` for `Pair(int, string)`, is rejected by the checker with a message containing "too many bindings". [src: spec/decisions/D-169-union-variant-match-patterns.md]
 
 ## Examples
 Conformance cases: `conformance/unions/`. The predeclared `Option[T]` and `Result[T, E]` unions are specified in `spec/features/errors.md`.

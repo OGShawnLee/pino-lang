@@ -9,15 +9,15 @@ Members are called on a map with `:`, for example `m:len` for a property and `m:
 | Member | Signature | Returns |
 | :--- | :--- | :--- |
 | `len` / `length` | property | `int`, the number of entries |
-| `keys()` | `fn ()` | `[]K`, a new vector of the keys |
-| `values()` | `fn ()` | `[]V`, a new vector of the values, in the order of their keys |
+| `keys()` | `fn ()` | `[]K`, a new vector of the keys in insertion order |
+| `values()` | `fn ()` | `[]V`, a new vector of the values in insertion order |
 | `remove(key)` | `fn (K)` | `Option[V]` (`Option::Some(v)` or `Option::None` when absent) |
 
 ## Rules
 - MAPLIB-1: `m:len` returns the number of entries of `m`. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; StdlibTests.TestMapLength]
 - MAPLIB-2: `m:length` is an alias of `m:len`. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; StdlibTests.TestMapLength]
-- MAPLIB-3: `m:keys()` returns a new vector containing every key of `m`. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; StdlibTests.TestMapKeys]
-- MAPLIB-4: `m:values()` returns a new vector containing every value of `m`. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; DataStructureTests.TestMapEvaluatorRuntimeBehavior]
+- MAPLIB-3: `m:keys()` returns a new vector containing every key of `m` in insertion order (assigning to an existing key keeps its position; removing a key and inserting it again puts it at the end). [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; StdlibTests.TestMapKeys; spec/decisions/D-004-map-iteration.md]
+- MAPLIB-4: `m:values()` returns a new vector containing every value of `m` in insertion order. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; DataStructureTests.TestMapEvaluatorRuntimeBehavior; spec/decisions/D-004-map-iteration.md]
 - MAPLIB-5: The vector returned by `m:values()` is in the order of the keys returned by `m:keys()`, so element `i` of one belongs to element `i` of the other. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"]
 - MAPLIB-6: `m:remove(k)` removes the entry for `k` from `m` and returns `Option::Some(v)` with the value `v` it had. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; StdlibTests.TestMapRemove; spec/decisions/D-013-null-primitive-versus-option.md]
 - MAPLIB-7: `m:remove(k)` returns `Option::None` and leaves `m` unchanged when `k` is not in `m`. [src: LANGUAGE_REFERENCE.md §10 "Map Methods"; spec/decisions/D-013-null-primitive-versus-option.md]

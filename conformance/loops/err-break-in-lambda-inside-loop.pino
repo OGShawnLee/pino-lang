@@ -1,0 +1,7 @@
+# covers: LOOP-E1
+for i in 3 {
+  val f = fn () {
+    break
+  }
+  f()
+}

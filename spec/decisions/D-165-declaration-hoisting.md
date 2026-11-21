@@ -20,3 +20,5 @@ May `fn`, `struct`, `enum`, `union` and `interface` be used before their textual
 Option 1, decided by the owner on 2026-11-20: declarations (`fn`, `struct`, `enum`, `union`, `interface`) are hoisted at module level and inside nested blocks, so they can be used before their textual position in the same scope. `val` and `var` are not hoisted.
 
 **Extended on 2026-11-20 (ticket 031, OQ-16), Option 2, decided by the owner:** top-level `val`s follow strict textual order in both Script Mode and Program Mode. A function (or a method) never sees a top-level `val` declared below it, even when the function is only called after the `val` has been initialized; reading it is a checker error. Hoisting covers declarations only, never `val` or `var`. Normative rules: VAR-7, VAR-E8 and MAIN-3.
+
+**Extended on 2026-11-20 (033 follow-up), decided by the owner:** top-level `var`s follow strict textual order in both Script Mode and Program Mode, the same as top-level `val`s. A function declared above a top-level `var` cannot read it (checker error). Normative rules: VAR-7 and VAR-E8.

@@ -13,7 +13,7 @@ A source file used as a module starts with `module Name`. Another file loads it 
 - MOD-4: Commas between the names of a `from` import are optional. [src: LANGUAGE_REFERENCE.md §1 "Syntax Guidelines"]
 - MOD-5: A top-level declaration marked `pub` is importable by other modules and visible to the importing file; one that is not marked `pub` is private to its module. [src: TranspilerCTests.TestTranspilerModuleCompilation; CheckerTests.TestNamespacedEntityVisibility; spec/decisions/D-163-visibility-and-testable.md]
 - MOD-6: A name that is not listed in a `from` import is not brought into the importing scope. [src: LANGUAGE_REFERENCE.md §6 "Modules and Imports"]
-- MOD-7: `import Name` and `from Name import ...` load the module from a file `modules/<Name>.pino` or, when there is none, from `modules/<name lowercased>.pino`, searching the `modules/` directory of the importing file's directory and then those of its parent directories; when one `modules/` directory has both spellings, `<Name>.pino` is used. [src: spec/decisions/D-63-module-file-lookup.md]
+- MOD-7: `import Name` and `from Name import ...` search the `modules/` directory of the importing file's directory and then each parent directory in turn; at each directory, they try `modules/<Name>.pino` first and then `modules/<name lowercased>.pino` before moving to the parent directory. [src: spec/decisions/D-063-module-file-lookup.md]
 - MOD-8: A declaration marked `@@Testable` can be imported from a test file (a file named `*_test.pino` or a file inside a `test/` directory) and is private to its module for every other importing file. [src: spec/decisions/D-64-pub-testing-semantics.md; spec/decisions/D-163-visibility-and-testable.md]
 
 ## Errors

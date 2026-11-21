@@ -1,0 +1,6 @@
+# covers: VAR-E8
+fn get_count() int {
+  return count
+}
+var count = 10
+println(get_count())

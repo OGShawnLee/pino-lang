@@ -50,3 +50,8 @@ C empty-no-braces-and-member.pino  # D-100: legacy parser rejects '->' in lambda
 TreeWalk value-widening.pino  # D-168: legacy fails: PARSER: Expected expression, got Operator: > (GreaterThan)
 VM value-widening.pino  # D-168: legacy fails: PARSER: Expected expression, got Operator: > (GreaterThan)
 C value-widening.pino  # D-168: legacy fails: PARSER: Expected expression, got Operator: > (GreaterThan)
+
+# --- 033 follow-up answers (ticket 041)
+TreeWalk insertion-order.pino  # D-004: legacy parser uses k: v instead of k -> v for map entries
+VM insertion-order.pino  # D-004: legacy parser uses k: v instead of k -> v for map entries
+C insertion-order.pino  # D-004: legacy parser uses k: v instead of k -> v for map entries

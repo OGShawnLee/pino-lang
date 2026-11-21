@@ -36,3 +36,5 @@ Spec impact: LOOP-9 and LOOP-10 are written from the tests (source rule (b)) and
 
 ## Decision
 Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-26): iteration over maps stays with an unspecified order. LOOP-9 and LOOP-10 are unchanged; the checker types `for v in m` and `for k, v in m` the same way whatever the order.
+
+**Extended on 2026-11-20 (033 follow-up), decided by the owner (supersedes the OQ-26 answer above):** maps iterate in insertion order. This covers `for v in m`, `for k, v in m`, `keys()`, `values()`, and `str(m)`. Removing a key and inserting it again puts it at the end; assigning to an existing key keeps its position. Normative rules: MAP-9, LOOP-9, LOOP-10, MAPLIB-3, MAPLIB-4.

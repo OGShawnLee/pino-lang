@@ -52,3 +52,8 @@ C err-val-option-none.pino  # D-160: legacy fails with 'PARSER: Expected '=', go
 TreeWalk err-function-reads-later-val.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
 VM err-function-reads-later-val.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
 C err-function-reads-later-val.pino  # D-165: legacy fails with 'TCC error cannot cast 'void *' to 'struct <anonymous>'' instead of an error containing 'is not declared'
+
+# --- 033 follow-up answers (ticket 041)
+TreeWalk err-function-reads-later-var.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
+VM err-function-reads-later-var.pino  # D-165: legacy accepts the program and prints '10' instead of failing with an error containing 'is not declared'
+C err-function-reads-later-var.pino  # D-165: legacy fails with 'TCC error cannot cast 'void *' to 'struct <anonymous>'' instead of an error containing 'is not declared'

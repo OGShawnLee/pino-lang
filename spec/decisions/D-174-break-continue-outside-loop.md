@@ -18,3 +18,5 @@ What happens to a `break` or `continue` that is not inside a loop?
 Option 1, decided by the owner on 2026-11-20 (ticket 031, OQ-27): `break` or `continue` outside a loop is a checker error. Normative rule: LOOP-E1.
 
 **Not decided, so the rule does not say (logged for the owner):** whether a `break` or `continue` inside a lambda or nested function that is itself declared inside a loop counts as inside a loop. The cases use a `break` and a `continue` with no enclosing loop at all.
+
+**Extended on 2026-11-20 (033 follow-up), decided by the owner:** `break` and `continue` cannot cross a function boundary: inside a lambda or nested function declared inside a loop, `break` and `continue` do not refer to the outer loop and are a checker error unless a loop encloses them inside that function. Normative rule: LOOP-E1.

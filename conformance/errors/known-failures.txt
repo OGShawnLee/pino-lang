@@ -50,9 +50,11 @@ VM or-postfix-precedence.pino  # D-140: legacy parser handles 'or { ... }' at le
 C or-postfix-precedence.pino  # D-140: legacy parser handles 'or { ... }' at level 2 instead of postfix level 9
 
 # --- Checker design answers (ticket 033)
-TreeWalk err-result-void-bare-success.pino  # D-162: legacy fails with 'TYPE CHECK ERROR: Function declared return type 'Result[void, string]', but returned 'fn(void) Resul' instead of an error containing 'Result::Success()'
-VM err-result-void-bare-success.pino  # D-162: legacy fails with 'TYPE CHECK ERROR: Function declared return type 'Result[void, string]', but returned 'fn(void) Resul' instead of an error containing 'Result::Success()'
-C err-result-void-bare-success.pino  # D-162: legacy fails with 'TYPE CHECK ERROR: Function declared return type 'Result[void, string]', but returned 'fn(void) Resul' instead of an error containing 'Result::Success()'
 TreeWalk result-void-success.pino  # D-162: legacy fails: TYPE CHECK ERROR: Variant constructor 'Success' of union 'Result_void_string' expected 1 arguments, but got 0.
 VM result-void-success.pino  # D-162: legacy fails: TYPE CHECK ERROR: Variant constructor 'Success' of union 'Result_void_string' expected 1 arguments, but got 0.
 C result-void-success.pino  # D-162: legacy fails: TYPE CHECK ERROR: Variant constructor 'Success' of union 'Result_void_string' expected 1 arguments, but got 0.
+
+# --- 033 follow-up answers (ticket 041)
+TreeWalk err-result-void-success-parens.pino  # D-162: legacy fails with 'Variant constructor Success ... expected 1 arguments, but got 0' instead of help text 'write `Result::Success`'
+VM err-result-void-success-parens.pino  # D-162: legacy fails with 'Variant constructor Success ... expected 1 arguments, but got 0' instead of help text 'write `Result::Success`'
+C err-result-void-success-parens.pino  # D-162: legacy fails with 'Variant constructor Success ... expected 1 arguments, but got 0' instead of help text 'write `Result::Success`'

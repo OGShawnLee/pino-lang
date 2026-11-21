@@ -1,0 +1,14 @@
+# covers: MAP-9, LOOP-9, LOOP-10, MAPLIB-3, MAPLIB-4
+var m = map[string, int] { "b" -> 2, "a" -> 1, "c" -> 3 }
+m["b"] = 20
+m:remove("a")
+m["a"] = 10
+println(str(m))
+println(m:keys())
+println(m:values())
+for v in m {
+  println(v)
+}
+for k, v in m {
+  println("$k=$v")
+}

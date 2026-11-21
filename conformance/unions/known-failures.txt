@@ -88,3 +88,8 @@ C err-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK ERR
 TreeWalk is-pattern-positional-prefix.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
 VM is-pattern-positional-prefix.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
 C is-pattern-positional-prefix.pino  # D-169: legacy fails: TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.
+
+# --- 033 follow-up answers (ticket 041)
+TreeWalk err-is-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.' instead of an error containing 'too many bindings'
+VM err-is-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.' instead of an error containing 'too many bindings'
+C err-is-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.' instead of an error containing 'too many bindings'

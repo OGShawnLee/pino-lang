@@ -21,13 +21,14 @@ Members are called on a set with `:`, for example `s:len` for a property and `s:
 - SETLIB-2: `s:length` is an alias of `s:len`. [src: spec/decisions/D-175-set-library-api.md]
 - SETLIB-3: `s:add(x)` adds the element `x` of type `T` to `s` and returns `void`; adding an element that is already in `s` leaves `s` unchanged, because a set holds unique elements (SET-1). [src: spec/decisions/D-175-set-library-api.md]
 - SETLIB-4: `s:remove(x)` removes the element `x` from `s` and returns `void`. [src: spec/decisions/D-175-set-library-api.md]
-- SETLIB-5: `s:any(f)` is true when `f` returns true for at least one element of `s` and false otherwise, where `f` takes one parameter of the element type. [src: spec/decisions/D-175-set-library-api.md]
-- SETLIB-6: `s:all(f)` is true when `f` returns true for every element of `s` and false otherwise, where `f` takes one parameter of the element type. [src: spec/decisions/D-175-set-library-api.md]
-- SETLIB-7: `s:each(f)` calls `f`, which takes one parameter of the element type, once with every element of `s` and returns `void`. [src: spec/decisions/D-175-set-library-api.md]
+- SETLIB-5: `s:any(f)` visits the elements of `s` in insertion order, returning true when `f` returns true for at least one element and false otherwise, where `f` takes one parameter of the element type. [src: spec/decisions/D-175-set-library-api.md]
+- SETLIB-6: `s:all(f)` visits the elements of `s` in insertion order, returning true when `f` returns true for every element and false otherwise, where `f` takes one parameter of the element type. [src: spec/decisions/D-175-set-library-api.md]
+- SETLIB-7: `s:each(f)` calls `f`, which takes one parameter of the element type, once with every element of `s` in insertion order (removing an element and inserting it again puts it at the end) and returns `void`. [src: spec/decisions/D-175-set-library-api.md]
 - SETLIB-8: `x in s` is true exactly when `x` is an element of `s`, and `x not in s` is its negation. [src: spec/decisions/D-175-set-library-api.md; spec/decisions/D-141-assignment-and-relational-precedence.md]
+- SETLIB-9: `s:remove(x)` for an element `x` that is not in `s` silently does nothing and returns `void`, leaving `s` unchanged. [src: spec/decisions/D-175-set-library-api.md]
 
 ## Examples
 Conformance cases: `conformance/stdlib-set/`.
 
 ## Open questions
-None. (What `remove` does for an absent element, and the order in which `any`, `all` and `each` visit elements, are not specified; see D-175.)
+None. (Exact `str(s)` formatting syntax is not specified; see `SET-6`.)

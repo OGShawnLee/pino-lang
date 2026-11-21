@@ -15,7 +15,7 @@ A map associates unique keys with values. It is created with `map[KeyType, Value
 - MAP-6: `m[key] += n` adds `n` to the value stored under `key`. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior; StdlibTests.TestMapCompoundAssignment]
 - MAP-7: `k in m` is true when `m` has an entry for `k`, and `k not in m` is its negation. [src: DataStructureTests.TestMapAndVectorInNotInOperators; StdlibTests.TestInOperatorMap]
 - MAP-8: The value type of a map may be a vector or another composite type, as in `map[string, []int]`. [src: ParserTests.TestMapParserEdgeCases]
-- MAP-9: `str(m)` of a map with one entry has the form `map[K, V] { key: value }` with string keys and values shown in double quotes; with several entries the entries are separated by a comma and a space in an unspecified order. [src: StdlibTests.TestMapFormatting]
+- MAP-9: `str(m)` of a map with one entry has the form `map[K, V] { key: value }` with string keys and values shown in double quotes; with several entries the entries are separated by a comma and a space in insertion order (assigning to an existing key keeps its position; removing a key and inserting it again puts it at the end). [src: StdlibTests.TestMapFormatting; spec/decisions/D-004-map-iteration.md]
 - MAP-10: `type(m)` of a map is the string `map`. [src: StdlibTests.TestMapDeclarationAndAccess]
 
 - MAP-11: In expression position, `map[...]` is always parsed as a map form (including brace-less empty `map[K, V]`) rather than indexing a variable named `map`, while member calls such as `xs:map(f)` remain unaffected. [src: spec/decisions/D-147-set-map-expression-forms.md]

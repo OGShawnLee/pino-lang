@@ -1,7 +1,7 @@
 # covers: ERR-23, TYPE-17
 fn save(ok bool) Result[void, string] {
   if ok {
-    return Result::Success()
+    return Result::Success
   }
   return Result::Failure("disk full")
 }

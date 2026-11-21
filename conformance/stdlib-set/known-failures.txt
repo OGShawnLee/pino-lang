@@ -21,3 +21,8 @@ C remove.pino  # D-175: legacy fails: Map or custom index access is not implemen
 TreeWalk size.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
 VM size.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
 C size.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.
+
+# --- 033 follow-up answers (ticket 041)
+TreeWalk remove-absent.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM remove-absent.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
+C remove-absent.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.

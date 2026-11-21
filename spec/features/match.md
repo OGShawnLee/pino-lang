@@ -19,7 +19,7 @@ Grammar productions: see `spec/grammar.ebnf` section `match`.
 
 - MATCH-10: A block arm of a `match` expression may execute `return`, which exits the enclosing function without producing a value for the `match` and requires no `yield`. [src: spec/decisions/D-143-return-in-match-and-yield-scope.md]
 
-- MATCH-11: A statically unreachable arm of a `match` is a checker warning, and warnings never change the exit status; an arm is statically unreachable when it is (a) a duplicate literal, enum or union pattern, (b) after the `else` arm or after every enum member or union variant is already covered, or (c) a pattern that can never equal a constant-folded subject, as `when 2` in `match 1 { ... }`. [src: spec/decisions/D-166-constant-diagnostics.md] [no-case: warnings are not observable by the conformance runner]
+- MATCH-11: A statically unreachable arm of a `match` is a checker warning, and warnings never change the exit status; an arm is statically unreachable when it is (a) a duplicate literal, enum or union pattern, (b) after the catch-all `else` arm (`else` is the only catch-all arm) or after every enum member or union variant is already covered, or (c) a pattern that can never equal a constant-folded subject, as `when 2` in `match 1 { ... }`. [src: spec/decisions/D-166-constant-diagnostics.md; spec/decisions/D-034-identifier-pattern-in-when.md] [no-case: warnings are not observable by the conformance runner]
 
 ## Errors
 - MATCH-E1: A `match` over an enum subject that does not cover every member and has no `else` arm is rejected with a message containing "is not exhaustive", in both statement and expression form. [src: LANGUAGE_REFERENCE.md §5 "Pattern Matching (`match-when`)"; MatchExpressionTests.TestMatchExpressionCheckerExhaustiveness]

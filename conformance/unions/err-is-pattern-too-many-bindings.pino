@@ -1,0 +1,9 @@
+# covers: UNION-E15
+union U {
+  Pair(a int, b string)
+  Empty
+}
+val u = U::Pair(1, "x")
+if u is U::Pair(x, y, z) {
+  println(x)
+}

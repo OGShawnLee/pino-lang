@@ -19,3 +19,5 @@ Which members does a `set[T]` have, and what do they return?
 Option 2, decided by the owner on 2026-11-20 (ticket 031, OQ-36): a set has `len` and its alias `length` (`int`), `add(T)` and `remove(T)` (both return `void`), `any`, `all` and `each` (each takes a callback with one parameter of the element type), and the operators `in` and `not in`. Normative rules: `spec/stdlib/set.md` (SETLIB-1 to SETLIB-8).
 
 **Not decided, so no rule is written (logged for the owner):** what `remove` does when the element is absent, and the order in which `each`, `any` and `all` visit the elements of a set (D-004 leaves the order of maps unspecified). The cases avoid both.
+
+**Extended on 2026-11-20 (033 follow-up), decided by the owner:** `s:remove(x)` for an absent element silently does nothing (returns `void` and leaves `s` unchanged), and sets iterate in insertion order (covering `for x in s`, `any`/`all`/`each`, and `str(s)`; removing an element and inserting it again puts it at the end). Normative rules: SETLIB-5 to SETLIB-7, SETLIB-9, SET-6, LOOP-18.

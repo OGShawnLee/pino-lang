@@ -28,3 +28,5 @@ Option 1, decided by the owner on 2026-11-20. For `union U { Pair(a int, b strin
 - `is` patterns stay positional-only: `x is U::Pair(a)` (a prefix) and `x is U::Pair` (no bindings) are allowed, and a `@label` in an `is` pattern is a parse error. Normative rules: UNION-23 and UNION-E14.
 
 **Not decided, so no rule is written (logged for the owner):** whether more positional bindings than fields in an `is` pattern (`x is U::Pair(a, b, c)`) is also a checker error. UNION-E12 is written for `when` patterns only.
+
+**Extended on 2026-11-20 (033 follow-up), decided by the owner:** an `is` pattern with more positional bindings than the variant has fields (such as `x is U::Pair(a, b, c)`) is also a checker error, the same as in `when` patterns. Normative rule: UNION-E15.

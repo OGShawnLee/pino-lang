@@ -16,3 +16,8 @@ C err-index-set-var.pino  # D-147: legacy parser allows indexing a variable name
 TreeWalk literal-widening.pino  # D-168: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
 VM literal-widening.pino  # D-168: legacy fails: RUNTIME ERROR: Value is not callable.
 C literal-widening.pino  # D-168: legacy fails: Map or custom index access is not implemented in transpilation.
+
+# --- 033 follow-up answers (ticket 041)
+TreeWalk insertion-order.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
+VM insertion-order.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
+C insertion-order.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.

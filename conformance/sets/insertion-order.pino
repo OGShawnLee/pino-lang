@@ -1,0 +1,10 @@
+# covers: LOOP-18, SETLIB-7
+var s = set[int] { 30, 10, 20 }
+s:remove(10)
+s:add(10)
+for x in s {
+  println(x)
+}
+s:each(fn (x int) {
+  println(x)
+})

@@ -14,6 +14,7 @@ A set holds unique elements of a single type. It is created with `set[T] { elem1
 - SET-4: In expression position, `set[...]` is always parsed as a set form rather than indexing a variable named `set`, while member calls such as `xs:map(f)` remain unaffected. [src: spec/decisions/D-147-set-map-expression-forms.md]
 
 - SET-5: A set literal `set[float] { ... }` whose elements mix `int` and `float` has the element type `float`, and the `int` elements widen to `float`. [src: spec/decisions/D-168-literal-widening.md]
+- SET-6: `str(s)` formats the elements of `s` in insertion order (removing an element and inserting it again puts it at the end). [src: spec/decisions/D-175-set-library-api.md] [no-case: exact str(s) formatting syntax is not yet specified]
 
 ## Errors
 - SET-E1: A bare brace literal `{ 1, 2, 3 }` without `set[T]` is rejected as a parse error. [src: spec/decisions/D-102-set-type-and-literal.md]
