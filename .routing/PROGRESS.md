@@ -224,8 +224,14 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - **Owner answers (2026-11-20):**
     - D-063: at **each** directory, walking up, try `modules/<Name>.pino` and then `modules/<lowercased>.pino` before moving to the parent. Pending idea (owner): make capitalized module file names mandatory, so a file's casing matches the module name in `import`.
     - Confirmed: `else` is the only catch-all arm (MATCH-11).
-    - `Result[void, E]`: the owner wants the **bare `Result::Success`** (cleaner). This replaces 033's `Result::Success()` rule (ERR-E8); every reference must be updated by a spec follow-up ticket. Exact form (bare only, or bare plus `()`) asked.
-    - The five undecided points: options sent to the owner.
+    - `Result[void, E]`: **bare `Result::Success` only** (3a); `Result::Success()` becomes the error. Replaces 033's ERR-23/ERR-E8.
+    - The five undecided points:
+      - too many `is` bindings is an error
+      - `break`/`continue` can't cross a function boundary
+      - removing an absent set element does nothing
+      - **sets and maps iterate in insertion order** (revises D-004)
+      - top-level `var`s follow strict textual order, like `val`
+- [ ] **`041-spec-record-033-follow-up-answers`** (draft, Claude Sonnet 5.5 High suggested): records the answers above in `spec/` and `conformance/`. Ticket 039 is updated to the bare `Result::Success` and now also waits for 041. **Not dispatched: the owner is on a break; dispatch only on the owner's go.**
 - [ ] **Checker implementation tickets 034–040** (drafted by the 031 Neon designer, router-reviewed; status `draft`, models chosen at dispatch). Sequential: each starts after the previous one is integrated, and 034 after 033.
   - 034 types/symbols/prelude/`StdlibCatalog`/`PN3xxx` codes (design §7.2 is authoritative for code numbers)
   - 035 hoisting, type resolution, visibility, module loading (OQ-33 lookup), AD-002 reachability and pointer-free analysis
