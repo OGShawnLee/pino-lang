@@ -46,11 +46,14 @@ public enum LoopKind : byte {
   ForInString,
   ForInMap,
   ForInSet,
+  ForInRange,
 }
 
 public sealed record LoopInfo(
     LoopKind Kind,
-    LocalSymbol? ImplicitItSymbol = null);
+    LocalSymbol? ImplicitItSymbol = null,
+    LocalSymbol? FirstBinding = null,
+    LocalSymbol? SecondBinding = null);
 
 public sealed record PatternBindingEntry(
     int FieldOrdinal,

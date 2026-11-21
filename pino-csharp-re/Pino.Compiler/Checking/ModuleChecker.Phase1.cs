@@ -790,6 +790,7 @@ internal sealed partial class CheckerSession {
             DiagnosticCodes.ModuleMemberNotFound,
             nameToken.Span,
             $"Module '{moduleName}' does not export '{memberName}'.");
+        DeclareFailedImport(targetScope, nameToken, memberName, state);
         continue;
       }
 
@@ -805,6 +806,7 @@ internal sealed partial class CheckerSession {
             DiagnosticCodes.SymbolNotPublic,
             nameToken.Span,
             reason);
+        DeclareFailedImport(targetScope, nameToken, memberName, state);
         continue;
       }
 
@@ -815,6 +817,15 @@ internal sealed partial class CheckerSession {
       }
     }
   }
+
+  /// <summary>
+  /// A name that failed to import is bound to an <see cref="ErrorSymbol"/> so that later uses
+  /// resolve silently instead of cascading into undeclared-identifier errors (Amendment A4).
+  /// </summary>
+  private static void DeclareFailedImport(Scope targetScope, Token nameToken, string memberName, ModuleCheckState state) =>
+      targetScope.TryDeclare(
+          new ErrorSymbol(memberName, -1, nameToken.Span, state.FilePath),
+          out _);
 
   private static Symbol? FindModuleDeclaration(ModuleSymbol module, string name) {
     if (module.TryGetExport(name, out Symbol? exported)) {

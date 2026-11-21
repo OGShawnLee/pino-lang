@@ -53,7 +53,9 @@ public sealed class CheckerScopeAndHoistingTests {
     Scope? moduleScope = model.GetScope(compilation.RootTree.Root);
     Assert.NotNull(moduleScope);
     Assert.Equal(["helper", "Box", "Color", "Item", "HasColor"], moduleScope!.HoistedDeclarations.Select(static s => s.Name));
-    Assert.False(moduleScope.TryLookupLocal("top", out _));
+    // `val`/`var` are never hoisted: Phase 3 declares them only when reached in textual order.
+    Assert.True(moduleScope.TryLookupLocal("top", out Symbol? topSymbol));
+    Assert.IsType<LocalSymbol>(topSymbol);
 
     var helperDecl = Assert.IsType<FunctionDeclarationSyntax>(compilation.RootTree.Root.Items[1]);
     Symbol? helperSym = model.GetDeclaredSymbol(helperDecl);
@@ -62,7 +64,8 @@ public sealed class CheckerScopeAndHoistingTests {
     Scope? helperBodyScope = model.GetScope(helperDecl.Body);
     Assert.NotNull(helperBodyScope);
     Assert.Equal(["local_fn"], helperBodyScope!.HoistedDeclarations.Select(static s => s.Name));
-    Assert.False(helperBodyScope.TryLookupLocal("inner", out _));
+    Assert.True(helperBodyScope.TryLookupLocal("inner", out Symbol? innerSymbol));
+    Assert.IsType<LocalSymbol>(innerSymbol);
   }
 
   [Fact]

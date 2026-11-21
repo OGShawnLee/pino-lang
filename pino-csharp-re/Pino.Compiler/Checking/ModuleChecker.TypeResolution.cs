@@ -6,7 +6,7 @@ using Pino.Compiler.Syntax;
 namespace Pino.Compiler.Checking;
 
 internal sealed partial class CheckerSession {
-  private TypeSymbol ResolveType(
+  internal TypeSymbol ResolveType(
       ModuleCheckState state,
       TypeSyntax typeSyntax,
       Scope scope,

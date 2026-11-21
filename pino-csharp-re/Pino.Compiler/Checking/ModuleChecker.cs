@@ -82,6 +82,8 @@ internal sealed class ModuleCheckState {
 
   public List<Scope> AllScopes { get; } = [];
 
+  public HashSet<Symbol> AssignedSymbols { get; } = new(ReferenceEqualityComparer.Instance);
+
   public TypeSymbol?[] NodeTypes { get; }
 
   public Symbol?[] ReferencedSymbols { get; }
@@ -140,7 +142,7 @@ internal sealed class ModuleCheckState {
         Module,
         IsProgramMode,
         Diagnostics.ToImmutableSorted(),
-        AssignedBindings.Empty,
+        AssignedSymbols.Count == 0 ? AssignedBindings.Empty : new AssignedBindings(AssignedSymbols),
         NodeTypes,
         ReferencedSymbols,
         DeclaredSymbols,
@@ -245,6 +247,7 @@ internal sealed partial class CheckerSession {
     try {
       RunPhase1(state);
       RunPhase2(state);
+      new BodyChecker(this, state, _cancellationToken).Run();
     } finally {
       _activeModulePaths.Remove(canonicalKey);
     }
@@ -302,7 +305,7 @@ internal sealed partial class CheckerSession {
     return fallbackName;
   }
 
-  private static bool IsMissingToken(Token token) => (token.Flags & TokenFlags.Missing) != 0;
+  internal static bool IsMissingToken(Token token) => (token.Flags & TokenFlags.Missing) != 0;
 
   private static SymbolVisibility GetVisibility(VisibilitySyntax? visibility) {
     if (visibility is null) {
@@ -315,7 +318,7 @@ internal sealed partial class CheckerSession {
   private static bool IsAsciiCapitalized(string name) =>
       name.Length > 0 && name[0] is >= 'A' and <= 'Z';
 
-  private static void ReportDuplicate(
+  internal static void ReportDuplicate(
       ModuleCheckState state,
       string name,
       SourceSpan newSpan,
