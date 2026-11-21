@@ -409,7 +409,18 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - The changelog lists 9 top-level and 73 local `val mut` candidates in the self-host, for the owner's hand migration.
     - Nit: the PN3220 help still says only "declare 'v' with 'var'". It could also suggest `val mut` when the value is mutated but never reassigned. Small; batch it with the next checker ticket.
     - Open (generics design): should instantiating `val mut x T` with an immutable `T` be diagnosed after monomorphization? It's allowed at declaration time for now.
-  - [ ] **052-docs-pino-guide-quirks-and-values** (Claude Sonnet 5.5 High, in progress): `docs/guide/values-and-mutation.md`, `docs/guide/surprises.md` and an index. The owner asked for a ticket documenting all of Pino's quirks. `docs/guide/` is a new folder chosen by the router; the owner may move it.
+  - [x] **052-docs-pino-guide-quirks-and-values** (`b001607`, Claude Sonnet 5.5 High): `docs/guide/values-and-mutation.md`, `docs/guide/surprises.md` (33 entries in 7 themes) and `docs/guide/README.md`. `docs/guide/` is a router-chosen location; the owner may move it.
+    - Each example has a `<!-- check: ok|PNxxxx -->` marker. The router re-extracted and re-checked all 76: 39 valid with 0 errors, and 37 error examples each giving exactly the claimed code.
+    - Router review fixes, amended into the commit: "rename" → "reassign" (3 places), no claimed optimization that doesn't exist yet, and no "owner" mention in user-facing text.
+    - Spec points found (for a later spec-cleanup ticket; none block):
+      - Ticket error: only top-level `val` and `var` are strictly ordered; `fn`, `struct`, `enum`, `union` and `interface` are hoisted (FN-26, D-165). The guide follows the spec.
+      - `-re` rejects passing a concrete struct as `mut` to an interface-typed `mut` parameter (PN3102). The spec is silent.
+      - No rule says whether a `mut` parameter can itself be reassigned. `-re` allows it.
+      - `spec/stdlib/vector.md` (open question, D-058) contradicts VEC-17 on a statement that starts with a vector literal.
+      - The D-178 rejected option 1 cites PN3229, which is now VAR-E12. Reword it to avoid confusion.
+      - A bare `mut x = ...` gives PN2003, not PN2022 (fine, but undocumented).
+      - `str(set)` and `str(map)` forms are unspecified (SET-6), which ties into the pending `str(m)` question.
+      - MOD-7's lookup order couldn't be shown on a case-insensitive file system.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
