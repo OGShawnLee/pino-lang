@@ -347,7 +347,19 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
         - PN3226/FN-E16 rejects only `mut`+`mut` on the same root, where a mutating receiver counts as `mut`.
         - `mut`+read is allowed, such as `f(mut a, a)` and `v:push(v[0])`. New positive rule FN-31, with a case in 050.
       - Review notes: the `===` hits in `pino.games/` and `pino-csharp/*.pino` are only string banners, so nothing breaks. The new rule IDs are free, and D-177 is the next decision number.
-    - [ ] **045-spec-record-mut-and-deep-immutability** (Gemini 4 Hydrogen High, worktree): dispatched.
+    - [x] **045-spec-record-mut-and-deep-immutability** (`bc677c4`, Gemini 4 Hydrogen High).
+      - Decisions:
+        - D-177 (value semantics; its Consequences carry the target domains, arena escape points, threads, the linked-data caveat, and where Pino shines)
+        - D-178 (`===`/`!==` removed)
+        - D-179 (fields and methods)
+        - D-180 (parameters, calls and closures; FN-31)
+        - D-181 (`push` returns `void`)
+        - D-182 (unions, loops, top level, evaluation order)
+        - 10 decisions extended or reversed, including D-070 reversed
+      - The 5 `identity-*` cases are retired.
+      - 20 rules are tagged `[no-case: pending … (ticket 050)]`.
+      - Router verification in main: legacy 2051/2051, `-re` 3886/3886, `main.pino` 0 errors.
+    - [ ] **046-re-parser-mut-and-remove-identity-ops** (Gemini 4 Hydrogen High, worktree): dispatched.
     - The IR design follows 049.
   - [ ] **Pending: a "values, not objects" user guide.** It covers:
     - the linked-data caveat (a stored struct is a copy)
