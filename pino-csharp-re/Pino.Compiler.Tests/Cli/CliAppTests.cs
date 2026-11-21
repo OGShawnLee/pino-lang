@@ -39,6 +39,43 @@ public sealed class CliAppTests : IDisposable {
   }
 
   [Fact]
+  public void CheckOnACheckerErrorReportsPN3xxxAndExitsOne() {
+    string file = WriteFile("bad_type.pino", "val x int = \"oops\"\n");
+
+    RunResult result = Run(["check", file, "--color", "never"]);
+
+    Assert.Equal(1, result.ExitCode);
+    Assert.Contains("error[PN3102]", result.Stdout, StringComparison.Ordinal);
+    Assert.Contains($"--> {Display(file)}:1:", result.Stdout, StringComparison.Ordinal);
+    Assert.EndsWith("checked 1 file(s): 1 error(s), 0 warning(s)\n", result.Stdout, StringComparison.Ordinal);
+    Assert.Equal("", result.Stderr);
+  }
+
+  [Fact]
+  public void CheckOnAWarningOnlyFileExitsZeroAndCountsWarning() {
+    string file = WriteFile("warn.pino", "for false {\n  println(\"never\")\n}\n");
+
+    RunResult result = Run(["check", file, "--color", "never"]);
+
+    Assert.Equal(0, result.ExitCode);
+    Assert.Contains("warning[PN3550]", result.Stdout, StringComparison.Ordinal);
+    Assert.EndsWith("checked 1 file(s): 0 error(s), 1 warning(s)\n", result.Stdout, StringComparison.Ordinal);
+    Assert.Equal("", result.Stderr);
+  }
+
+  [Fact]
+  public void CheckOnModuleImportErrorReportsDiagnosticOnceAcrossFiles() {
+    WriteFile(Path.Combine("modules", "BadHelper.pino"), "pub fn main() int {\n  return 1\n}\n");
+    string entry = WriteFile("entry.pino", "import BadHelper\nprintln(BadHelper::main())\n");
+
+    RunResult result = Run(["check", entry, "--color", "never"]);
+
+    Assert.Equal(1, result.ExitCode);
+    Assert.Contains("error[PN3008]", result.Stdout, StringComparison.Ordinal);
+    Assert.EndsWith("checked 1 file(s): 1 error(s), 0 warning(s)\n", result.Stdout, StringComparison.Ordinal);
+  }
+
+  [Fact]
   public void CheckOnALexerErrorRendersTheDiagnostic() {
     string file = WriteFile("lex.pino", LexerErrorSource);
 

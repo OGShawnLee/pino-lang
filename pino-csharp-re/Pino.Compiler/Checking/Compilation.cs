@@ -50,6 +50,8 @@ public sealed class Compilation {
 
   public ImmutableArray<GenericInstantiation> GenericInstantiations { get; }
 
+  public IEnumerable<SemanticModel> SemanticModels => _modelsByTree.Values;
+
   public static Compilation Create(
       ParseResult rootTree,
       IModuleSource? moduleSource = null,

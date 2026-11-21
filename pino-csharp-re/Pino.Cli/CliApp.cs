@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 
+using Pino.Compiler.Checking;
 using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Lexing;
 using Pino.Compiler.Parsing;
@@ -17,8 +19,8 @@ public static class CliApp {
       pino-re: the Pino front-end checker
 
       Usage:
-        pino-re check <path>...   Lex and parse .pino files (or directories, searched
-                                  recursively) and print their diagnostics.
+        pino-re check <path>...   Lex, parse, and check .pino files (or directories,
+                                  searched recursively) and print their diagnostics.
         pino-re tree <file>       Print the syntax tree of one file, then its diagnostics.
         pino-re --help            Show this help (also -h, or no arguments).
 
@@ -139,26 +141,60 @@ public static class CliApp {
       sources.Add(new SourceText(ReadFile(file.FullPath, file.DisplayPath), file.DisplayPath));
     }
 
+    var inputFullPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    foreach (InputFile file in files) {
+      inputFullPaths.Add(file.FullPath);
+    }
+
+    var reportedExternalFullPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     int errors = 0;
     int warnings = 0;
     bool wroteFile = false;
 
     foreach (SourceText source in sources) {
       ParseResult result = Parser.Parse(source);
-      (int fileErrors, int fileWarnings) = Count(result);
+      Compilation compilation = Compilation.Create(result, FileSystemModuleSource.Instance);
+      SemanticModel rootModel = compilation.RootModel;
+      (int fileErrors, int fileWarnings) = Count(rootModel.Diagnostics);
       errors += fileErrors;
       warnings += fileWarnings;
 
-      if (result.Diagnostics.IsEmpty) {
-        continue;
+      if (!rootModel.Diagnostics.IsEmpty) {
+        if (wroteFile) {
+          stdout.Write('\n');
+        }
+
+        stdout.Write(DiagnosticRenderer.RenderAll(rootModel.Diagnostics, source, options));
+        wroteFile = true;
       }
 
-      if (wroteFile) {
-        stdout.Write('\n');
-      }
+      foreach (SemanticModel depModel in compilation.SemanticModels
+          .OrderBy(static m => m.Tree.Source.FilePath ?? string.Empty, StringComparer.Ordinal)) {
+        if (ReferenceEquals(depModel, rootModel) || depModel.Diagnostics.IsEmpty) {
+          continue;
+        }
 
-      stdout.Write(DiagnosticRenderer.RenderAll(result.Diagnostics, source, options));
-      wroteFile = true;
+        string? depPath = depModel.Tree.Source.FilePath;
+        if (string.IsNullOrEmpty(depPath)) {
+          continue;
+        }
+
+        string depFullPath = Path.GetFullPath(depPath);
+        if (inputFullPaths.Contains(depFullPath) || !reportedExternalFullPaths.Add(depFullPath)) {
+          continue;
+        }
+
+        (int depErrors, int depWarnings) = Count(depModel.Diagnostics);
+        errors += depErrors;
+        warnings += depWarnings;
+
+        if (wroteFile) {
+          stdout.Write('\n');
+        }
+
+        stdout.Write(DiagnosticRenderer.RenderAll(depModel.Diagnostics, depModel.Tree.Source, options));
+        wroteFile = true;
+      }
     }
 
     stdout.Write(string.Create(
@@ -201,10 +237,13 @@ public static class CliApp {
     return Count(result).Errors > 0 ? 1 : 0;
   }
 
-  private static (int Errors, int Warnings) Count(ParseResult result) {
+  private static (int Errors, int Warnings) Count(ParseResult result) =>
+      Count(result.Diagnostics);
+
+  private static (int Errors, int Warnings) Count(ImmutableArray<Diagnostic> diagnostics) {
     int errors = 0;
     int warnings = 0;
-    foreach (Diagnostic diagnostic in result.Diagnostics) {
+    foreach (Diagnostic diagnostic in diagnostics) {
       if (diagnostic.Severity == DiagnosticSeverity.Error) {
         errors++;
       } else if (diagnostic.Severity == DiagnosticSeverity.Warning) {

@@ -831,6 +831,7 @@ internal sealed partial class BodyChecker {
         CallKind.UnionVariantConstructor,
         TargetSymbol: variant,
         ConstructedUnionType: unionType);
+    _state.SetNodeType(staticAccess, unionType);
     if (!typeArgs.IsEmpty) {
       RecordGenericInstantiation(unionSym, typeArgs);
     }

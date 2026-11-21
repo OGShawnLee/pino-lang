@@ -541,6 +541,7 @@ internal sealed partial class BodyChecker {
         InterfaceSymbol => "Interface",
         EnumSymbol => "Enum",
         UnionSymbol => "Union",
+        LocalSymbol => "Variable",
         _ => "Symbol",
       };
       Report(
@@ -553,6 +554,7 @@ internal sealed partial class BodyChecker {
     _state.SetReferencedSymbol(access, member);
     return member switch {
       FunctionSymbol fnSym => FunctionValueType(fnSym),
+      LocalSymbol localSym => localSym.Type,
       _ => _types.Error,
     };
   }

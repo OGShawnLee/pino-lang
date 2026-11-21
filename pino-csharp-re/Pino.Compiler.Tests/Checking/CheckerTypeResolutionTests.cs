@@ -63,7 +63,9 @@ public sealed class CheckerTypeResolutionTests {
   [Fact]
   public void FunctionAndTupleTypes_ResolveAndStoreSideTables() {
     const string Code = """
-      fn make(a fn, b fn (int), c fn -> int, d fn (int, string) -> bool) @(x int, y string) {}
+      fn make(a fn, b fn (int), c fn -> int, d fn (int, string) -> bool) @(x int, y string) {
+        return @(x: 1, y: "a")
+      }
       """;
 
     Compilation compilation = CompileSource(Code);

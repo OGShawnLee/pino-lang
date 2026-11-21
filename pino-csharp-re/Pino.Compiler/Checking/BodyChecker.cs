@@ -44,17 +44,6 @@ internal sealed partial class BodyChecker {
   public void Run() {
     CompilationUnitSyntax root = _state.Tree.Root;
 
-    // Flow-sensitive `is` bindings (ticket 040) are not modelled yet: when top-level statements
-    // contain an `is` pattern, unresolved names are not reported rather than guessed at.
-    foreach (SyntaxNode item in root.Items) {
-      if (item is not (FunctionDeclarationSyntax or StructDeclarationSyntax or InterfaceDeclarationSyntax
-          or EnumDeclarationSyntax or UnionDeclarationSyntax or TestDeclarationSyntax)
-          && ContainsIsPattern(item)) {
-        _tolerantNames = 1;
-        break;
-      }
-    }
-
     foreach (SyntaxNode item in root.Items) {
       _cancellationToken.ThrowIfCancellationRequested();
       CheckItem(item);
@@ -79,6 +68,9 @@ internal sealed partial class BodyChecker {
     foreach (TypeSymbol resolved in _state.ResolvedTypes) {
       RecordInstantiationsInType(resolved);
     }
+
+    RunPhase4DefiniteReturns();
+    FillMissingExpressionTypes(root);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -132,9 +124,16 @@ internal sealed partial class BodyChecker {
         CheckYield(yieldStatement);
         break;
 
+      case BreakStatementSyntax breakStatement:
+        CheckBreak(breakStatement);
+        break;
+
+      case ContinueStatementSyntax continueStatement:
+        CheckContinue(continueStatement);
+        break;
+
       case MatchStatementSyntax matchStatement:
-        // Arms bind pattern variables (ticket 040); only the subject is typed here.
-        Synthesize(matchStatement.Subject);
+        CheckMatchStatement(matchStatement);
         break;
 
       case TupleDestructuringStatementSyntax destructuring:
@@ -190,28 +189,28 @@ internal sealed partial class BodyChecker {
     }
 
     Scope testScope = ScopeOf(test, ScopeKind.Block);
-    int tolerant = ContainsIsPattern(test.Body) ? 1 : 0;
-    _tolerantNames += tolerant;
     Symbol? prevCallable = _currentCallable;
     StructSymbol? prevStruct = _currentStruct;
     bool prevStatic = _isStaticMethod;
     ReturnCollector? prevCollector = _activeReturnCollector;
     YieldContext? prevYield = _activeYieldContext;
+    int prevLoopDepth = _loopDepth;
     _currentCallable = null;
     _currentStruct = null;
     _isStaticMethod = false;
     _activeReturnCollector = null;
     _activeYieldContext = null;
+    _loopDepth = 0;
     try {
       using ScopeRestore _ = EnterScope(testScope);
       CheckBlock(test.Body);
     } finally {
+      _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
       _isStaticMethod = prevStatic;
       _currentStruct = prevStruct;
       _currentCallable = prevCallable;
-      _tolerantNames -= tolerant;
     }
   }
 
@@ -223,21 +222,21 @@ internal sealed partial class BodyChecker {
   }
 
   private void CheckIfStatement(IfStatementSyntax ifStatement) {
-    CheckCondition(ifStatement.Condition, "'if' condition");
+    CheckCondition(ifStatement.Condition, "'if' condition", out List<LocalSymbol> trueBindings);
 
-    int tolerant = ContainsIsPattern(ifStatement.Condition) ? 1 : 0;
-    _tolerantNames += tolerant;
-    try {
-      Scope ifScope = ScopeOf(ifStatement, ScopeKind.Block);
-      using (EnterScope(ifScope)) {
-        CheckBlock(ifStatement.ThenBranch);
+    Scope ifScope = ScopeOf(ifStatement, ScopeKind.Block);
+    foreach (LocalSymbol binding in trueBindings) {
+      if (!ifScope.TryDeclare(binding, out Symbol? existing)) {
+        CheckerSession.ReportDuplicate(_state, binding.Name, binding.NameSpan, existing!);
       }
+    }
 
-      if (ifStatement.ElseBranch is { } elseBranch) {
-        CheckItem(elseBranch);
-      }
-    } finally {
-      _tolerantNames -= tolerant;
+    using (EnterScope(ifScope)) {
+      CheckBlock(ifStatement.ThenBranch);
+    }
+
+    if (ifStatement.ElseBranch is { } elseBranch) {
+      CheckItem(elseBranch);
     }
   }
 
@@ -245,6 +244,31 @@ internal sealed partial class BodyChecker {
     bool isVal = declaration.KeywordToken.Kind == TokenKind.ValKeyword;
     bool nameMissing = IsMissing(declaration.NameToken);
     string name = nameMissing ? "<unknown>" : NameOf(declaration.NameToken);
+
+    SymbolVisibility visibility = SymbolVisibility.Private;
+    if (declaration.Visibility is { } vis) {
+      if (_scope.Kind != ScopeKind.Module) {
+        Report(
+            DiagnosticCodes.SymbolNotPublic,
+            vis.Span,
+            $"Visibility modifier '{(vis.IsPub ? "pub" : "@@Testable")}' is only allowed on top-level declarations.");
+      } else if (!isVal) {
+        if (vis.IsPub) {
+          Report(
+              DiagnosticCodes.SymbolNotPublic,
+              vis.Span,
+              "Top-level 'var' cannot be marked 'pub'; use 'pub val' or expose it through a 'pub fn'.",
+              help: "use 'pub val' for an exported constant, or keep 'var' private and expose a 'pub fn'");
+        } else {
+          Report(
+              DiagnosticCodes.SymbolNotPublic,
+              vis.Span,
+              "Top-level 'var' cannot be marked '@@Testable'; use '@@Testable val' or a '@@Testable fn'.");
+        }
+      } else {
+        visibility = vis.IsPub ? SymbolVisibility.Public : SymbolVisibility.Testable;
+      }
+    }
 
     TypeSymbol? declared = declaration.Type is { } annotation
         ? _session.ResolveType(_state, annotation, _scope, TypePosition.VariableAnnotation)
@@ -303,10 +327,25 @@ internal sealed partial class BodyChecker {
         declaration.Id,
         declaration.NameToken.Span,
         _state.FilePath,
-        _scope.Owner);
+        _scope.Owner,
+        visibility);
+
+    if (isVal && TryEvalConstant(declaration.Initializer) is { } folded) {
+      if (folded.Kind == ConstantValueKind.Int && ReferenceEquals(bindingType, _types.Float)) {
+        folded = ConstantValue.FromFloat(folded.IntValue);
+      }
+      symbol.ConstantValue = folded;
+      if ((uint) declaration.Id < (uint) _state.ConstantValues.Length) {
+        _state.ConstantValues[declaration.Id] = folded;
+      }
+    }
 
     if (!_scope.TryDeclare(symbol, out Symbol? existing)) {
       CheckerSession.ReportDuplicate(_state, name, declaration.NameToken.Span, existing!);
+    }
+
+    if (_scope.Kind == ScopeKind.Module && _inPhase3a == 0) {
+      _state.AddTopLevelValue(symbol);
     }
 
     _state.SetDeclaredSymbol(declaration, symbol);
@@ -330,18 +369,30 @@ internal sealed partial class BodyChecker {
         break;
     }
 
-    using ScopeRestore _ = EnterScope(loopScope);
-    CheckBlock(forStatement.Body);
+    _loopDepth++;
+    try {
+      using ScopeRestore _ = EnterScope(loopScope);
+      CheckBlock(forStatement.Body);
+    } finally {
+      _loopDepth--;
+    }
   }
 
   private void CheckForCondition(ForStatementSyntax forStatement, ForConditionHeaderSyntax header, Scope loopScope) {
-    TypeSymbol conditionType = Synthesize(header.Condition);
+    var condBindings = new List<LocalSymbol>();
+    TypeSymbol conditionType = CheckConditionWithBindings(header.Condition, condBindings);
     if (conditionType.IsError || conditionType.IsNever || conditionType is PendingReturnType) {
       return;
     }
 
     if (ReferenceEquals(conditionType, _types.Bool)) {
       // LOOP-13 / D-003 (OQ-25): `for cond { ... }` is a condition loop.
+      foreach (LocalSymbol binding in condBindings) {
+        if (!loopScope.TryDeclare(binding, out Symbol? existing)) {
+          CheckerSession.ReportDuplicate(_state, binding.Name, binding.NameSpan, existing!);
+        }
+      }
+      CheckConstantFalseLoop(header);
       _state.LoopInfos[forStatement.Id] = new LoopInfo(LoopKind.ConditionLoop);
       return;
     }
@@ -529,22 +580,22 @@ internal sealed partial class BodyChecker {
     return false;
   }
 
-  private static bool ContainsIsPattern(SyntaxNode root) {
+  private void FillMissingExpressionTypes(CompilationUnitSyntax root) {
     var stack = new Stack<SyntaxNode>();
     stack.Push(root);
     while (stack.Count > 0) {
-      SyntaxNode node = stack.Pop();
-      if (node is IsPatternExpressionSyntax) {
-        return true;
+      SyntaxNode current = stack.Pop();
+      if (current is ExpressionSyntax expr
+          && (uint) expr.Id < (uint) _state.NodeTypes.Length
+          && _state.NodeTypes[expr.Id] is null) {
+        _state.SetNodeType(expr, _types.Error);
       }
 
-      foreach (SyntaxElement element in node.GetChildren()) {
-        if (element.IsNode) {
-          stack.Push(element.AsNode());
+      foreach (SyntaxElement elem in current.GetChildren()) {
+        if (elem.IsNode) {
+          stack.Push(elem.AsNode());
         }
       }
     }
-
-    return false;
   }
 }

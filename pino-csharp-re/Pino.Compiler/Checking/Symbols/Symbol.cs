@@ -101,8 +101,9 @@ public sealed class LocalSymbol : Symbol {
       int declaringNodeId,
       SourceSpan nameSpan,
       string? filePath,
-      Symbol? containingSymbol = null)
-      : base(name, SymbolVisibility.Private, declaringNodeId, nameSpan, filePath, containingSymbol) {
+      Symbol? containingSymbol = null,
+      SymbolVisibility visibility = SymbolVisibility.Private)
+      : base(name, visibility, declaringNodeId, nameSpan, filePath, containingSymbol) {
     Type = type;
     IsMutable = isMutable;
     Kind = kind;
@@ -113,6 +114,8 @@ public sealed class LocalSymbol : Symbol {
   public bool IsMutable { get; }
 
   public LocalKind Kind { get; }
+
+  internal ConstantValue? ConstantValue { get; set; }
 }
 
 public sealed class ParameterSymbol : Symbol {

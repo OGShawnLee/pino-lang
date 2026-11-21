@@ -193,6 +193,8 @@ internal sealed partial class BodyChecker {
     CaptureFrame? captureFrame = _inPhase3a == 0
         ? PushCaptureFrame(lambda, lambdaScope)
         : null;
+    int prevLoopDepth = _loopDepth;
+    _loopDepth = 0;
     try {
       using (EnterScope(lambdaScope)) {
         if (lambda.BodyExpression is { } bodyExpr) {
@@ -240,11 +242,23 @@ internal sealed partial class BodyChecker {
           }
 
           returnType = FinalizeCollectedReturns(lambdaCollector, emitDiagnostics: _inPhase3a == 0);
+          if (_inPhase3a == 0) {
+            CheckDefiniteReturn(
+                null,
+                "lambda",
+                "Lambda",
+                string.Empty,
+                lambda.FnKeyword.Span,
+                bodyBlock,
+                returnType,
+                hasMissingHeader: false);
+          }
         } else {
           returnType = _types.Void;
         }
       }
     } finally {
+      _loopDepth = prevLoopDepth;
       if (captureFrame is not null) {
         PopCaptureFrame(captureFrame);
       }
@@ -321,7 +335,9 @@ internal sealed partial class BodyChecker {
         ? PushCaptureFrame(argExpression, itScope)
         : null;
     YieldContext? prevYield = _activeYieldContext;
+    int prevLoopDepth = _loopDepth;
     _activeYieldContext = null;
+    _loopDepth = 0;
     try {
       using (EnterScope(itScope)) {
         if (expectedReturn is not null && !expectedReturn.IsVoid && !expectedReturn.IsError) {
@@ -357,6 +373,7 @@ internal sealed partial class BodyChecker {
         }
       }
     } finally {
+      _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       if (captureFrame is not null) {
         PopCaptureFrame(captureFrame);

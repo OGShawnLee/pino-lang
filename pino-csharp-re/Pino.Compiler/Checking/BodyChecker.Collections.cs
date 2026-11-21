@@ -69,14 +69,18 @@ internal sealed partial class BodyChecker {
         _scope,
         TypePosition.CollectionElement);
 
+    ExpressionSyntax? lenExpr = null;
+    ExpressionSyntax? capExpr = null;
     foreach (VectorPropertySyntax property in initializer.Properties) {
       string name = IsMissing(property.NameToken) ? string.Empty : NameOf(property.NameToken);
       switch (name) {
         case "len":
+          lenExpr ??= property.Value;
           Check(property.Value, _types.Int, "vector length");
           break;
 
         case "cap":
+          capExpr ??= property.Value;
           Check(property.Value, _types.Int, "vector capacity");
           break;
 
@@ -105,6 +109,7 @@ internal sealed partial class BodyChecker {
       }
     }
 
+    CheckVectorInitializerConstants(initializer, lenExpr, capExpr);
     return elementType.IsError ? _types.Error : _types.GetVector(elementType);
   }
 

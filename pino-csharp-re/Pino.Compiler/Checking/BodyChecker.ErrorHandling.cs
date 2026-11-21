@@ -7,9 +7,14 @@ internal sealed partial class BodyChecker {
   private YieldContext? _activeYieldContext;
 
   private sealed class YieldContext {
-    public YieldContext(TypeSymbol? expectedType) => ExpectedType = expectedType;
+    public YieldContext(TypeSymbol? expectedType, bool isMatchArm = false) {
+      ExpectedType = expectedType;
+      IsMatchArm = isMatchArm;
+    }
 
     public TypeSymbol? ExpectedType { get; }
+
+    public bool IsMatchArm { get; }
 
     public List<(YieldStatementSyntax Statement, ExpressionSyntax Expression, TypeSymbol Type)> Yields { get; } = [];
   }
@@ -247,6 +252,16 @@ internal sealed partial class BodyChecker {
           DiagnosticCodes.YieldOutsideValidContext,
           yieldStatement.Span,
           "'yield' is only allowed inside a recovery block or match expression arm.");
+      return;
+    }
+
+    if (_activeYieldContext.IsMatchArm) {
+      TypeSymbol armType = _activeYieldContext.ExpectedType is { } armExpected
+          && !armExpected.IsError
+          && !armExpected.IsVoid
+          ? CheckWithContextualExpectation(yieldStatement.Expression, armExpected)
+          : Synthesize(yieldStatement.Expression);
+      _activeYieldContext.Yields.Add((yieldStatement, yieldStatement.Expression, armType));
       return;
     }
 

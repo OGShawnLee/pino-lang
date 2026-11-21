@@ -45,8 +45,16 @@ internal sealed partial class BodyChecker {
         }
 
       case IfExpressionSyntax ifExpression: {
-          CheckCondition(ifExpression.Condition, "'if' condition");
-          Check(ifExpression.ThenBranch, expected, targetDescription, targetSuffix);
+          CheckCondition(ifExpression.Condition, "'if' condition", out List<LocalSymbol> trueBindings);
+          Scope thenScope = ScopeOf(ifExpression, ScopeKind.Synthetic);
+          foreach (LocalSymbol binding in trueBindings) {
+            if (!thenScope.TryDeclare(binding, out Symbol? existing)) {
+              CheckerSession.ReportDuplicate(_state, binding.Name, binding.NameSpan, existing!);
+            }
+          }
+          using (EnterScope(thenScope)) {
+            Check(ifExpression.ThenBranch, expected, targetDescription, targetSuffix);
+          }
           Check(ifExpression.ElseBranch, expected, targetDescription, targetSuffix);
           _state.SetNodeType(ifExpression, expected);
           return expected;
@@ -89,8 +97,17 @@ internal sealed partial class BodyChecker {
         break;
 
       case IfExpressionSyntax ifExpression: {
-          CheckCondition(ifExpression.Condition, "'if' condition");
-          TypeSymbol thenType = CheckWithContextualExpectation(ifExpression.ThenBranch, expected);
+          CheckCondition(ifExpression.Condition, "'if' condition", out List<LocalSymbol> trueBindings);
+          Scope thenScope = ScopeOf(ifExpression, ScopeKind.Synthetic);
+          foreach (LocalSymbol binding in trueBindings) {
+            if (!thenScope.TryDeclare(binding, out Symbol? existing)) {
+              CheckerSession.ReportDuplicate(_state, binding.Name, binding.NameSpan, existing!);
+            }
+          }
+          TypeSymbol thenType;
+          using (EnterScope(thenScope)) {
+            thenType = CheckWithContextualExpectation(ifExpression.ThenBranch, expected);
+          }
           TypeSymbol elseType = CheckWithContextualExpectation(ifExpression.ElseBranch, expected);
           bool thenOk = TryConvert(ifExpression.ThenBranch, thenType, expected);
           bool elseOk = TryConvert(ifExpression.ElseBranch, elseType, expected);
@@ -99,6 +116,10 @@ internal sealed partial class BodyChecker {
               : JoinBranches(ifExpression, thenType, elseType);
           break;
         }
+
+      case MatchExpressionSyntax match:
+        type = CheckMatchExpression(match, expected);
+        break;
 
       case VectorLiteralExpressionSyntax vector when expected is VectorType expectedVector: {
           foreach (ExpressionSyntax element in vector.Elements) {
@@ -201,6 +222,25 @@ internal sealed partial class BodyChecker {
       }
     }
 
+    if (expected is MapType targetMap
+        && actual is MapType actualMap
+        && ReferenceEquals(actualMap.KeyType, targetMap.KeyType)
+        && targetMap.ValueType is InterfaceType targetMapValueIface
+        && actualMap.ValueType is StructType or InterfaceType or TypeParameterType) {
+      if (actualMap.ValueType is StructType actualMapValueStruct) {
+        EnsureStructMethodsResolved(actualMapValueStruct.Definition);
+      }
+
+      if (TypeCompatibility.SatisfiesInterface(
+          actualMap.ValueType,
+          targetMapValueIface,
+          _types,
+          _state.Module,
+          _session.InterfaceSatisfactionCache)) {
+        return true;
+      }
+    }
+
     // A4: if a FunctionType contains an ErrorType (for instance a broken body return) while all
     // non-error parameter/return components agree, suppress cascading mismatch errors.
     if (actual is FunctionType actualFn
@@ -232,15 +272,8 @@ internal sealed partial class BodyChecker {
       _state.Conversions[expression.Id] = new ConversionInfo(ConversionKind.IntToFloat, _types.Float);
 
   /// <summary>IF-E4 / D-032: a condition must be <c>bool</c>.</summary>
-  private void CheckCondition(ExpressionSyntax condition, string what) {
-    TypeSymbol type = Synthesize(condition);
-    if (!IsSilent(type) && type is not PendingReturnType && !ReferenceEquals(type, _types.Bool)) {
-      Report(
-          DiagnosticCodes.InvalidConditionType,
-          condition.Span,
-          $"The {what} must have type 'bool', but got '{type.DisplayName}'.");
-    }
-  }
+  private void CheckCondition(ExpressionSyntax condition, string what) =>
+      CheckCondition(condition, what, out _);
 
   private TypeSymbol SynthesizeCore(ExpressionSyntax expression) {
     switch (expression) {
@@ -310,8 +343,14 @@ internal sealed partial class BodyChecker {
       case LambdaExpressionSyntax lambda:
         return SynthesizeLambda(lambda);
 
+      case MatchExpressionSyntax match:
+        return CheckMatchExpression(match, expectedType: null);
+
+      case IsPatternExpressionSyntax isPattern:
+        return CheckIsPattern(isPattern, trueBindings: null);
+
       default:
-        return SynthesizeDeferred(expression);
+        return _types.Error;
     }
   }
 
@@ -453,8 +492,17 @@ internal sealed partial class BodyChecker {
   }
 
   private TypeSymbol SynthesizeIfExpression(IfExpressionSyntax ifExpression) {
-    CheckCondition(ifExpression.Condition, "'if' condition");
-    TypeSymbol thenType = Synthesize(ifExpression.ThenBranch);
+    CheckCondition(ifExpression.Condition, "'if' condition", out List<LocalSymbol> trueBindings);
+    Scope thenScope = ScopeOf(ifExpression, ScopeKind.Synthetic);
+    foreach (LocalSymbol binding in trueBindings) {
+      if (!thenScope.TryDeclare(binding, out Symbol? existing)) {
+        CheckerSession.ReportDuplicate(_state, binding.Name, binding.NameSpan, existing!);
+      }
+    }
+    TypeSymbol thenType;
+    using (EnterScope(thenScope)) {
+      thenType = Synthesize(ifExpression.ThenBranch);
+    }
     TypeSymbol elseType = Synthesize(ifExpression.ElseBranch);
     return JoinBranches(ifExpression, thenType, elseType);
   }
@@ -500,25 +548,5 @@ internal sealed partial class BodyChecker {
         ifExpression.Span,
         $"Conditional branches have incompatible types '{thenType.DisplayName}' and '{elseType.DisplayName}'.");
     return _types.Error;
-  }
-
-  /// <summary>
-  /// Expression forms owned by ticket 040 (<c>match</c>, <c>is</c>).
-  /// Their sub-expressions are visited so that names resolve and independent errors are still found,
-  /// and the node itself is <see cref="ErrorType"/> (or <c>bool</c> for <c>is</c>) without diagnostics.
-  /// </summary>
-  private TypeSymbol SynthesizeDeferred(ExpressionSyntax expression) {
-    switch (expression) {
-      case MatchExpressionSyntax match:
-        Synthesize(match.Subject);
-        return _types.Error;
-
-      case IsPatternExpressionSyntax isPattern:
-        Synthesize(isPattern.Expression);
-        return _types.Bool;
-
-      default:
-        return _types.Error;
-    }
   }
 }

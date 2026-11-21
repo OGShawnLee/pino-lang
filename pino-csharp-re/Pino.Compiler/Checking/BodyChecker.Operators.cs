@@ -55,12 +55,15 @@ internal sealed partial class BodyChecker {
   }
 
   private TypeSymbol SynthesizeBinary(BinaryExpressionSyntax binary) {
+    if (binary.OperatorToken.Kind == TokenKind.And) {
+      return CheckConditionWithBindings(binary, trueBindings: null);
+    }
+
     TypeSymbol left = Synthesize(binary.Left);
     TypeSymbol right = Synthesize(binary.Right);
     TokenKind kind = binary.OperatorToken.Kind;
 
     switch (kind) {
-      case TokenKind.And:
       case TokenKind.Or:
         return CheckLogical(binary, left, right);
 
@@ -88,6 +91,10 @@ internal sealed partial class BodyChecker {
       case TokenKind.Slash:
       case TokenKind.SlashSlash:
       case TokenKind.Percent: {
+          if (kind is TokenKind.Slash or TokenKind.SlashSlash or TokenKind.Percent) {
+            CheckConstantDivisionByZero(binary, binary.Right);
+          }
+
           if (left is PendingReturnType) {
             return left;
           }
@@ -336,6 +343,10 @@ internal sealed partial class BodyChecker {
           return new ArithmeticResult(_types.String, false, false, ArithmeticFailure.None);
         }
 
+        if (leftString && rightRune) {
+          return new ArithmeticResult(_types.String, false, false, ArithmeticFailure.None);
+        }
+
         if (leftString || rightString) {
           return Failed(ArithmeticFailure.StringWithNonString);
         }
@@ -569,6 +580,10 @@ internal sealed partial class BodyChecker {
     }
 
     TypeSymbol valueType = Synthesize(assignment.Value);
+    if (op is TokenKind.SlashAssign or TokenKind.SlashSlashAssign or TokenKind.PercentAssign) {
+      CheckConstantDivisionByZero(assignment, assignment.Value);
+    }
+
     if (IsSilent(valueType) || valueType is PendingReturnType) {
       return targetType;
     }
@@ -580,6 +595,15 @@ internal sealed partial class BodyChecker {
     }
 
     if (!ReferenceEquals(result.Type, targetType)) {
+      if (op == TokenKind.SlashAssign && ReferenceEquals(targetType, _types.Int)) {
+        Report(
+            DiagnosticCodes.TypeMismatch,
+            assignment.Span,
+            "Cannot use '/=' on an 'int' target because '/' produces a 'float'; use '//=' for integer division.",
+            help: "replace '/=' with '//=' for integer floor division");
+        return targetType;
+      }
+
       ReportCannotAssign(assignment.Value, result.Type, targetType, "target");
       return targetType;
     }

@@ -86,6 +86,20 @@ internal sealed class ModuleCheckState {
 
   public List<Symbol> TopLevelDeclarations { get; } = [];
 
+  public void AddTopLevelValue(LocalSymbol symbol) {
+    TopLevelDeclarations.Add(symbol);
+    var exports = new Dictionary<string, Symbol>(StringComparer.Ordinal);
+    foreach (Symbol decl in TopLevelDeclarations) {
+      if (decl.Visibility == SymbolVisibility.Public && !exports.ContainsKey(decl.Name)) {
+        exports.Add(decl.Name, decl);
+      }
+    }
+
+    Module.SetMembers(
+        exports.ToFrozenDictionary(StringComparer.Ordinal),
+        [.. TopLevelDeclarations]);
+  }
+
   public List<(TypeSymbol Symbol, Scope Scope)> DeclaredTypeItems { get; } = [];
 
   public List<(FunctionDeclarationSyntax Syntax, FunctionSymbol Symbol, Scope Scope)> Functions { get; } = [];

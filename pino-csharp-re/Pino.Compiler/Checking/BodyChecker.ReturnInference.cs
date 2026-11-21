@@ -484,18 +484,20 @@ internal sealed partial class BodyChecker {
   }
 
   private void CheckExplicitCallableBody(CallableEntry entry) {
-    int tolerant = (ContainsIsPattern(entry.Body) ? 1 : 0) + (entry.HasMissingHeader ? 1 : 0);
+    int tolerant = entry.HasMissingHeader ? 1 : 0;
     _tolerantNames += tolerant;
     Symbol? prevCallable = _currentCallable;
     StructSymbol? prevStruct = _currentStruct;
     bool prevStatic = _isStaticMethod;
     ReturnCollector? prevCollector = _activeReturnCollector;
     YieldContext? prevYield = _activeYieldContext;
+    int prevLoopDepth = _loopDepth;
     _currentCallable = entry.Symbol;
     _currentStruct = entry.EnclosingStruct;
     _isStaticMethod = entry.IsStaticMethod;
     _activeReturnCollector = null;
     _activeYieldContext = null;
+    _loopDepth = 0;
 
     CaptureFrame? captureFrame = entry.IsNestedFunction
         ? PushCaptureFrame(entry.DeclarationSyntax, entry.CallableScope)
@@ -508,6 +510,7 @@ internal sealed partial class BodyChecker {
         PopCaptureFrame(captureFrame);
       }
 
+      _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
       _isStaticMethod = prevStatic;
@@ -518,18 +521,20 @@ internal sealed partial class BodyChecker {
   }
 
   private void CheckUnannotatedBodyOnce(CallableEntry entry, ReturnCollector collector) {
-    int tolerant = (ContainsIsPattern(entry.Body) ? 1 : 0) + (entry.HasMissingHeader ? 1 : 0);
+    int tolerant = entry.HasMissingHeader ? 1 : 0;
     _tolerantNames += tolerant;
     Symbol? prevCallable = _currentCallable;
     StructSymbol? prevStruct = _currentStruct;
     bool prevStatic = _isStaticMethod;
     ReturnCollector? prevCollector = _activeReturnCollector;
     YieldContext? prevYield = _activeYieldContext;
+    int prevLoopDepth = _loopDepth;
     _currentCallable = entry.Symbol;
     _currentStruct = entry.EnclosingStruct;
     _isStaticMethod = entry.IsStaticMethod;
     _activeReturnCollector = collector;
     _activeYieldContext = null;
+    _loopDepth = 0;
 
     CaptureFrame? captureFrame = entry.IsNestedFunction && _inPhase3a == 0
         ? PushCaptureFrame(entry.DeclarationSyntax, entry.CallableScope)
@@ -542,6 +547,7 @@ internal sealed partial class BodyChecker {
         PopCaptureFrame(captureFrame);
       }
 
+      _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
       _isStaticMethod = prevStatic;
@@ -744,6 +750,8 @@ internal sealed partial class BodyChecker {
         _state.CapturesByCallableId[node.Id] = null;
         _state.LoopInfos[node.Id] = null;
         _state.ShorthandValueSymbols[node.Id] = null;
+        _state.ConstantValues[node.Id] = null;
+        _state.PatternBindings[node.Id] = null;
 
         if (node is VariableDeclarationSyntax or DestructureFieldSyntax
             || (node is ParameterSyntax && _state.ParentsByNodeId[node.Id] is LambdaExpressionSyntax)) {
