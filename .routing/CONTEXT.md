@@ -40,7 +40,7 @@ Central routing directory for all agents. Read this first.
   - Commas are optional in lists, collections, parameters, and struct literals.
   - Member access uses `:`; static/namespace access uses `::`.
   - Error handling uses suffix `?` and `or { yield fallback }`.
-  - No type-cast variable syntax (`val x int = 12`); never name identifiers `val`.
+  - Type annotations go after the name with no colon (`val n int = 12`, D-012); inference stays the default. Never name identifiers `val`.
 - **Windows / PowerShell:** Chain commands with `;` (not `&&`). If `pino-csharp.exe` is locked, run `Stop-Process -Name pino-csharp -Force`.
 - **C# Rewrite (`pino-csharp-re/`):** Use uppercase acronyms in C# symbols (e.g. `EOF`, `LSP`, `AST`, `IR`, `UTF16`), `net10.0`, `<Nullable>enable</Nullable>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`, error-tolerant diagnostics (never throw on invalid user code), and follow [`.editorconfig`](../.editorconfig) (2-space indent, same-line `{`, LF; checked via `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`).
 - **Multi-line Strings:** Use triple double-quotes (`"""..."""`), keeping single `"..."` strings single-line for LSP error recovery.

@@ -190,17 +190,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - an extra fix: `match {` with no subject no longer swallows its arms (exposed by the edit-locality test)
       - Main: `-re` 2890/2890, 0 warnings, format clean; `pino-re check main.pino` gives 0 errors.
 
-  **Next: the `-re` checker + stdlib design** (Neon suggested; Opus if the owner wants to spare Gemini quota). It must:
-  - use audit 028 as the baseline
-  - satisfy A4 (error tolerance)
-  - compare the hard-coded `Environment.pino` table with a Pino-source prelude
-  - fold in the open 029 sub-points as owner questions
-    - After 029: the `-re` checker + stdlib design (Neon suggested; the owner wants the stdlib designed together with the checker, and isn't sure the hard-coded `Environment.pino` table is right). Then the `-re` parser follow-up: annotations, `//`, `@@Testable`, `@name` patterns, and the message polish.
-      - Q10: a bare `return` is only allowed in `void` functions.
+  - Q10: a bare `return` is only allowed in `void` functions.
   - Deferred: D-036 (`main` args), typeless default parameters, named call arguments, the `LANGUAGE_REFERENCE.md` update, and the spacing of `:` member access (only affects old `k: v` maps).
   - Skipped: conformance-runner crash isolation (RUNE-E2 stays `[no-case]`).
-  - To do: the spec loose ends (`program_item` grammar, `assert` production, SET-4, D-100 known-failure reasons) and the `-re` message polish (PN1017 `$(if)`, PN2001 doubled quotes, multi-line tokens in `tree`).
-  - Note: the owner's uncommitted `main.pino` now uses annotations, so `ParserCorpusTests` fails on `main.pino` in the main checkout (4× `PN2001`) until the `-re` parser implements D-012.
+- [ ] **`031-re-checker-and-stdlib-design`** (Gemini 4 Neon High, design doc only, no code). Inputs: audit 028 as the baseline, design 016 A4 (error tolerance), the accepted decisions. It compares the hard-coded `Environment.pino` table with a Pino-source prelude, brings the open 029 sub-points back as owner questions, and stays memory-model-neutral (no GC assumption in the type system; leaves room for a later ownership/escape pass). Sized numeric types are out of scope (deferred below).
+- [ ] **`032-research-memory-model`** (Claude Opus 5.5 High, read-only research, runs in parallel with 031). The owner asked about Vale (generational references) and Goose (data stacks, no heap). It compares Boehm GC (today), Perceus, Swift-style ARC, Lobster's compile-time RC, Vale's generational references, regions/arenas and the Goose model against the decided semantics: full inference, no lifetime annotations, D-056 closures by reference, D-070 structs by reference, first-class functions (`fns[0](9)`), WASM and the C/TCC backend. It recommends one; the owner decides. Feeds the IR design. Router's prior view: Goose's restrictions contradict D-056 and first-class functions as a default model; Vale would add owning vs non-owning references to the surface and reopen D-070.
+- [ ] **Deferred by owner (2026-11-20): sized numeric types** (`i8`…`i64`, `u8`…`u64`, `f16`, `f32`, `f64`). Pino stays simple for now (`int`, `float`). Raised by the owner while discussing data science (tensors, images, ML). Needs its own design before any rule: explicit conversion/casting syntax, the widening matrix (generalizing D-019), context-typed literals (Go-style: `val x f32 = 1.5`), overflow policy (wrap, panic, or debug-panic/release-wrap) and `u*` ↔ `i*` conversions. Router suggestion when revisited: keep `int` = `i64` and `float` = `f64` as the everyday names, with sized types opt-in by annotation. Ties in with the Data Science & FFI item below.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
 - [ ] **Pending self-host corrections (owner, by hand; never ticketed to workers):**
   - D-020: double the backslashes in regex string literals (`"\+"` → `"\\+"`, etc.), because unknown escapes are now errors. Files: `projects/pino-compiler/modules/Lexer.pino` and `projects/c-compiler/modules/lexer.pino`. The `-re` corpus test skips exactly these two files until they are fixed.
@@ -258,7 +253,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - Delayed by owner: named call arguments `f(@name: expr)` (built in the self-host; the owner is unsure about the feature).
   - Pending from 013 (not yet decided): `pub` placement (fields vs top-level, `@pub_testing`), typeless parameter defaults, the `void` type, and `[]T { len/init/cap }` initializers.
   - **Ticket 013 inventory** (`.tickets/013-scan-self-host-syntax/inventory.md`) lists 19 remaining syntax questions. Note: the self-host parser accepts a *subset* (e.g. no comments, interpolation, imports, `?`, `or {}`), so a missing feature means "not implemented yet", not "removed". Only deliberate differences need decisions. What was decided from it and what is still pending are listed above.
-  - Deferred by owner: **D-012** (explicit variable type annotations). The owner prefers full inference and likes neither `val x: int` nor `val x int`; leave it open and revisit later.
+  - ~~Deferred by owner: D-012~~ Superseded 2026-11-20: D-012 accepted as `val n int = 12` (ticket 029).
 - [ ] **Modularize `TranspilerC.cs`** *(deprioritized by AD-001: legacy is replaced, not refactored)*: Split 235 KB single file into partial classes and resolve CS8604 nullable warnings.
 - [ ] **Update `ARCHITECTURE.md`:** Replace stale "transpiles to C#" references with the actual C99 + TCC + Boehm GC pipeline.
 - [ ] **Self-Host (`projects/pino-compiler/`):** Update stale test fixtures (`checker_test.pino`, `parser_test.pino`) for `Constant` union schema, and advance TACKY -> C codegen when requested.
@@ -270,5 +265,5 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 - [ ] **Checker error tolerance (design 016 A4):** the `-re` checker design must give error and missing nodes an `error` type that is compatible with everything and never produces further diagnostics, so intellisense keeps working past a mistake.
 - [ ] **`TranspilerC.cs` monolith:** 235 KB single file with CS8604/CS0184 compiler warnings.
 - [ ] **PinoVM parity** *(won't fix per AD-001; legacy VM frozen)*: VM lags behind Tree-Walk and C Transpiler on structs, unions, and complex stdlib methods.
-- [ ] **Language specs:** Decide on explicit variable type annotations (`val x: int = 10`), struct value-vs-reference semantics, and `null` deprecation vs `Option[T]`.
+- [x] **Language specs:** type annotations (D-012), struct reference semantics (D-070) and `null` removal in favor of `Option[T]` (D-013, D-071) are all decided.
 - [ ] **Self-host test drift:** `projects/pino-compiler/test/checker_test.pino` and `parser_test.pino` expect old `Expression::Constant(int)` instead of `Constant` union.
