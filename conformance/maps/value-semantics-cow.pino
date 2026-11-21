@@ -1,0 +1,9 @@
+# covers: MAP-13
+val m1 = map[string, int] { "a" -> 1 }
+var m2 = m1
+m2["a"] = 9
+m2["b"] = 2
+println(m1["a"])
+println("b" in m1)
+println(m2["a"])
+println(m2["b"])

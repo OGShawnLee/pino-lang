@@ -1,0 +1,20 @@
+# covers: TUP-4, TUP-5, TUP-6
+fn pair() @(a int, b int) {
+  return @(a: 1, b: 2)
+}
+
+var @(a, b) = pair()
+a += 10
+b += 20
+println(a)
+println(b)
+
+var @(a: x, b: y) = pair()
+x = 30
+y = 40
+println(x)
+println(y)
+
+var @(a: only_a) = pair()
+only_a = 99
+println(only_a)

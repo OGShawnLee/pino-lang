@@ -37,3 +37,8 @@ C err-index-out-of-range.pino  # D-059: C backend reads garbage out of range ins
 TreeWalk literal-widening.pino  # D-168: legacy prints '[1, 2.5] / int' instead of '[1.0, 2.5] / float'
 VM literal-widening.pino  # D-168: legacy prints 'null / null' instead of '[1.0, 2.5] / float'
 C literal-widening.pino  # D-168: legacy fails: TCC compilation failed: / pino_output.c: warning: implicit declaration of function 'type' / pino_out
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk value-semantics-cow.pino  # D-177: legacy uses reference semantics for vectors instead of CoW value semantics
+VM value-semantics-cow.pino  # D-177: VM prints 'null' and lacks vector/CoW support
+C value-semantics-cow.pino  # D-177: legacy C backend uses reference semantics for vectors instead of CoW value semantics

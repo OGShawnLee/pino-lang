@@ -1,0 +1,3 @@
+# covers: VAR-E10
+val v = [1]
+v:push(2)

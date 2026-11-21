@@ -1,0 +1,12 @@
+module Counter
+
+var count = 0
+
+pub fn next() int {
+  count += 1
+  return count
+}
+
+pub fn current() int {
+  return count
+}

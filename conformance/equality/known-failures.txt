@@ -40,3 +40,11 @@ TreeWalk vectors-nested-equal.pino  # D-022: TreeWalk prints True/False instead 
 VM primitives-equal.pino  # D-022: VM prints True/False instead of true/false
 VM primitives-not-equal.pino  # D-022: VM prints True/False instead of true/false
 VM regex-equal.pino  # D-022: VM prints True/False instead of true/false
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk copy-equal.pino  # D-177/D-179: legacy parser rejects 'mut' on struct fields
+VM copy-equal.pino  # D-177/D-179: legacy parser rejects 'mut' on struct fields
+C copy-equal.pino  # D-177/D-179: legacy parser rejects 'mut' on struct fields
+TreeWalk err-identity-operators.pino  # D-178: legacy still accepts '===' and prints 'True' instead of rejecting with 'Identity operator'
+VM err-identity-operators.pino  # D-178: legacy still accepts '===' and prints 'True' instead of rejecting with 'Identity operator'
+C err-identity-operators.pino  # D-178: legacy still accepts '===' and prints 'True' instead of rejecting with 'Identity operator'

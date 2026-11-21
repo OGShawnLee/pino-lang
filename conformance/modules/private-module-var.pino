@@ -1,0 +1,7 @@
+# covers: MOD-5
+import Counter
+
+println(Counter::current())
+println(Counter::next())
+println(Counter::next())
+println(Counter::current())

@@ -64,3 +64,16 @@ C compound-assign.pino  # D-164: legacy fails: PARSER: Expected expression, got 
 TreeWalk err-compound-divide-int.pino  # D-019: legacy accepts /= on int target instead of failing with an error containing '//='
 VM err-compound-divide-int.pino  # D-019: legacy accepts /= on int target instead of failing with an error containing '//='
 C err-compound-divide-int.pino  # D-019: legacy accepts /= on int target instead of failing with an error containing '//='
+
+# --- AD-003 new conformance cases (ticket 050)
+VM compound-index-eval-once.pino  # D-182: VM has no lambda/vector index assignment support
+C compound-index-eval-once.pino  # D-182: legacy C backend fails TCC compilation on lambda call
+TreeWalk err-val-deep-vec-push.pino  # D-177: legacy allows mutating val vector instead of failing with 'Cannot mutate immutable variable'
+VM err-val-deep-vec-push.pino  # D-177: legacy fails with 'Value is not callable' instead of 'Cannot mutate immutable variable'
+C err-val-deep-vec-push.pino  # D-177: legacy allows mutating val vector instead of failing with 'Cannot mutate immutable variable'
+TreeWalk err-val-deep-nested-field.pino  # D-177: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate immutable variable'
+VM err-val-deep-nested-field.pino  # D-177: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate immutable variable'
+C err-val-deep-nested-field.pino  # D-177: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate immutable variable'
+TreeWalk err-mutate-rvalue.pino  # D-177: legacy allows mutating temporary vector literal instead of failing with 'Cannot mutate immutable or temporary expression.'
+VM err-mutate-rvalue.pino  # D-177: legacy fails with 'Value is not callable' instead of 'Cannot mutate immutable or temporary expression.'
+C err-mutate-rvalue.pino  # D-177: legacy allows mutating temporary vector literal instead of failing with 'Cannot mutate immutable or temporary expression.'

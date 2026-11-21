@@ -23,7 +23,7 @@ An `interface` lists method signatures (`[mut] fn name(params) type`, no body) a
 - IFACE-E5: Calling a method that the interface does not declare, through a value of the interface type, is rejected with a message containing "does not have method or callable field". [src: CheckerTests.TestAccessOnMissingMethodThrows]
 
 - IFACE-E6: Passing a struct whose method has a different parameter type or return type than the interface's signature is rejected by the checker with a message containing "expected type" and the interface name. [src: spec/decisions/D-083-interface-signature-matching.md]
-- IFACE-E7: Passing a struct that fails an interface's `mut fn` or `mut` property requirement (such as implementing a non-`mut` interface method with a `mut fn` or implementing a `mut` interface property with a read-only field), or mutating a non-`mut` interface property, is rejected by the checker. [src: spec/decisions/D-179-struct-field-and-method-mutability.md] [no-case: pending conformance migration (ticket 050)]
+- IFACE-E7: Passing a struct that fails an interface's `mut fn` or `mut` property requirement (such as implementing a non-`mut` interface method with a `mut fn` or implementing a `mut` interface property with a read-only field), or mutating a non-`mut` interface property, is rejected by the checker. [src: spec/decisions/D-179-struct-field-and-method-mutability.md]
 
 ## Examples
 Conformance cases: `conformance/interfaces/`. Generic interfaces are specified in `spec/features/generics.md`.

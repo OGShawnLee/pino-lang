@@ -1,0 +1,8 @@
+# covers: SET-7
+val s1 = set[int] { 1 }
+var s2 = s1
+s2:add(2)
+println(s1:len)
+println(s2:len)
+println(2 in s1)
+println(2 in s2)

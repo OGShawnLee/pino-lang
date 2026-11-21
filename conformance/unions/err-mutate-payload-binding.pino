@@ -1,0 +1,12 @@
+# covers: UNION-24
+union Box {
+  Items([]int)
+  Empty
+}
+val b = Box::Items([1])
+match b {
+  when Box::Items(xs) {
+    xs:push(1)
+  }
+  else {}
+}

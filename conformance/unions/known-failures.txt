@@ -93,3 +93,8 @@ C is-pattern-positional-prefix.pino  # D-169: legacy fails: TYPE CHECK ERROR: Va
 TreeWalk err-is-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.' instead of an error containing 'too many bindings'
 VM err-is-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.' instead of an error containing 'too many bindings'
 C err-is-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK ERROR: Variant constructor 'Pair' of union 'U' expected 4 arguments, but got 2.' instead of an error containing 'too many bindings'
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk err-mutate-payload-binding.pino  # D-182: legacy allows mutating union payload binding instead of failing with 'Cannot mutate immutable pattern binding'
+VM err-mutate-payload-binding.pino  # D-182: legacy fails with 'Value is not callable' instead of 'Cannot mutate immutable pattern binding'
+C err-mutate-payload-binding.pino  # D-182: legacy allows mutating union payload binding instead of failing with 'Cannot mutate immutable pattern binding'

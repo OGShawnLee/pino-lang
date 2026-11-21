@@ -1,0 +1,13 @@
+# covers: EQ-13
+struct Pair {
+  mut x int
+  y string
+}
+
+val p1 = Pair { x: 1, y: "hi" }
+val p2 = p1
+println(p1 == p2)
+
+val v1 = [1, 2, 3]
+val v2 = v1
+println(v1 == v2)

@@ -1,0 +1,4 @@
+# covers: FN-E14
+fn f(x int) {
+  x = 2
+}

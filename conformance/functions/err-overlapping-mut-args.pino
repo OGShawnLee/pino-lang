@@ -1,0 +1,11 @@
+# covers: FN-E16
+struct Point {
+  mut x int
+}
+fn swap(mut a Point, mut b Point) {
+  val tmp = a:x
+  a:x = b:x
+  b:x = tmp
+}
+var a = Point { x: 1 }
+swap(mut a, mut a)

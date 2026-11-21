@@ -1,0 +1,1 @@
+Cannot mutate immutable variable 'val_a' of type 'Point'.

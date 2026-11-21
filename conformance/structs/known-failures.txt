@@ -82,3 +82,26 @@ TreeWalk bound-method.pino  # D-179: legacy parser/checker rejects 'mut' on stru
 TreeWalk value-semantics.pino  # D-177/D-180: legacy parser rejects 'mut' on struct field and 'mut' parameter
 VM value-semantics.pino  # D-177/D-180: legacy parser rejects 'mut' on struct field and 'mut' parameter
 C value-semantics.pino  # D-177/D-180: legacy parser rejects 'mut' on struct field and 'mut' parameter
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk pub-mut-field.pino  # D-179: legacy parser rejects 'pub mut' on struct fields
+VM pub-mut-field.pino  # D-179: legacy parser rejects 'pub mut' on struct fields
+C pub-mut-field.pino  # D-179: legacy parser rejects 'pub mut' on struct fields
+TreeWalk err-readonly-field-assign.pino  # D-179: legacy allows assigning non-mut struct fields instead of failing with 'Cannot mutate read-only field'
+VM err-readonly-field-assign.pino  # D-179: legacy fails with 'RUNTIME ERROR: Value is not callable' instead of 'Cannot mutate read-only field'
+C err-readonly-field-assign.pino  # D-179: legacy allows assigning non-mut struct fields instead of failing with 'Cannot mutate read-only field'
+TreeWalk err-readonly-field-deep-mutation.pino  # D-179: legacy allows mutating through non-mut struct fields instead of failing with 'Cannot mutate read-only field'
+VM err-readonly-field-deep-mutation.pino  # D-179: legacy fails with 'RUNTIME ERROR: Value is not callable' instead of 'Cannot mutate read-only field'
+C err-readonly-field-deep-mutation.pino  # D-179: legacy allows mutating through non-mut struct fields instead of failing with 'Cannot mutate read-only field'
+TreeWalk err-mutate-self-in-plain-fn.pino  # D-179: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate 'self' inside non-mutating method'
+VM err-mutate-self-in-plain-fn.pino  # D-179: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate 'self' inside non-mutating method'
+C err-mutate-self-in-plain-fn.pino  # D-179: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate 'self' inside non-mutating method'
+TreeWalk err-reassign-self-in-mut-fn.pino  # D-179: legacy parser rejects 'mut' field/method instead of failing with 'Cannot reassign 'self'.'
+VM err-reassign-self-in-mut-fn.pino  # D-179: legacy parser rejects 'mut' field/method instead of failing with 'Cannot reassign 'self'.'
+C err-reassign-self-in-mut-fn.pino  # D-179: legacy parser rejects 'mut' field/method instead of failing with 'Cannot reassign 'self'.'
+TreeWalk err-bind-mut-method.pino  # D-179: legacy parser rejects 'mut' field/method instead of failing with 'Cannot bind mutating method'
+VM err-bind-mut-method.pino  # D-179: legacy parser rejects 'mut' field/method instead of failing with 'Cannot bind mutating method'
+C err-bind-mut-method.pino  # D-179: legacy parser rejects 'mut' field/method instead of failing with 'Cannot bind mutating method'
+TreeWalk err-mut-modifier-placement.pino  # D-179: legacy fails with 'PARSER: Expected Typing, got Keyword: pub' instead of "'mut' must appear after 'pub'"
+VM err-mut-modifier-placement.pino  # D-179: legacy fails with 'PARSER: Expected Typing, got Keyword: pub' instead of "'mut' must appear after 'pub'"
+C err-mut-modifier-placement.pino  # D-179: legacy fails with 'PARSER: Expected Typing, got Keyword: pub' instead of "'mut' must appear after 'pub'"

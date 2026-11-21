@@ -1,0 +1,46 @@
+# covers: IFACE-1, IFACE-4, IFACE-6
+interface Stepper {
+  mut count int
+  label string
+  mut fn step(by int) int
+  fn value() int
+}
+
+struct MutableCounter {
+  mut count int
+  mut label string
+
+  mut fn step(by int) int {
+    count += by
+    return count
+  }
+
+  fn value() int {
+    return count
+  }
+}
+
+struct FixedStep {
+  mut count int
+  label string
+
+  fn step(by int) int {
+    return count + by
+  }
+
+  fn value() int {
+    return count
+  }
+}
+
+fn advance(mut s Stepper) {
+  s:count += 1
+  println(s:step(2))
+  println(s:label)
+  println(s:value())
+}
+
+var s1 Stepper = MutableCounter { count: 10, label: "mut" }
+var s2 Stepper = FixedStep { count: 10, label: "pure" }
+advance(mut s1)
+advance(mut s2)

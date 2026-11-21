@@ -1,0 +1,10 @@
+# covers: FN-E17
+struct Point {
+  mut x int
+}
+fn leak(mut p Point) fn () -> int {
+  return fn () {
+    p:x += 1
+    return p:x
+  }
+}

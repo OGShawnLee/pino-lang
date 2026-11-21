@@ -26,7 +26,7 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 - VEC-17: A line break before `[` ends the expression, so a `[` at the start of a new line begins a new statement (a vector literal) rather than indexing the previous expression; indexing must be on the same line as its operand. [src: spec/decisions/D-058-bracket-starts-line-after-expression.md]
 
 - VEC-18: A vector literal whose elements mix `int` and `float` has the type `[]float`, so `[1, 2.5]` holds the floats `1.0` and `2.5`. [src: spec/decisions/D-168-literal-widening.md; spec/decisions/D-019-int-float-mixing-and-division.md]
-- VEC-19: Vectors have value semantics with copy-on-write (CoW): assignment and non-`mut` argument passing produce logically independent vectors, and mutating a caller's vector requires a `mut` parameter and call-site `mut`. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md] [no-case: pending conformance migration (ticket 050)]
+- VEC-19: Vectors have value semantics with copy-on-write (CoW): assignment and non-`mut` argument passing produce logically independent vectors, and mutating a caller's vector requires a `mut` parameter and call-site `mut`. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md]
 
 ## Errors
 - VEC-E1: A literal negative `len`, such as `[]int { len: -5, init: 0 }`, is rejected before execution with a type check error whose message contains "cannot be negative". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]

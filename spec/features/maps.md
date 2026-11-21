@@ -21,7 +21,7 @@ A map associates unique keys with values. It is created with `map[KeyType, Value
 - MAP-11: In expression position, `map[...]` is always parsed as a map form (including brace-less empty `map[K, V]`) rather than indexing a variable named `map`, while member calls such as `xs:map(f)` remain unaffected. [src: spec/decisions/D-147-set-map-expression-forms.md]
 
 - MAP-12: A map literal `map[K, float] { ... }` whose values mix `int` and `float` has the value type `float`, and the `int` values widen to `float`. [src: spec/decisions/D-168-literal-widening.md]
-- MAP-13: Maps have value semantics with copy-on-write (CoW): assignment and non-`mut` argument passing produce logically independent maps, and mutating a caller's map requires a `mut` parameter and call-site `mut`. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md] [no-case: pending conformance migration (ticket 050)]
+- MAP-13: Maps have value semantics with copy-on-write (CoW): assignment and non-`mut` argument passing produce logically independent maps, and mutating a caller's map requires a `mut` parameter and call-site `mut`. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md]
 
 ## Errors
 - MAP-E1: Reading a key that is not in the map with `m[key]` fails at run time; the engines share the wording "not found in map", which the conformance case checks. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior]

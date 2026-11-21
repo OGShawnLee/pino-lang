@@ -1,0 +1,26 @@
+# covers: GEN-9
+interface Stepper {
+  mut fn step()
+  fn value() int
+}
+
+struct Counter {
+  mut n int
+
+  mut fn step() {
+    n += 1
+  }
+
+  fn value() int {
+    return n
+  }
+}
+
+@@Generic[T is Stepper]
+fn advance(mut s T) {
+  s:step()
+}
+
+var c = Counter { n: 5 }
+advance(mut c)
+println(c:value())

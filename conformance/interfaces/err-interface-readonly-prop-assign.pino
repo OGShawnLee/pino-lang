@@ -1,0 +1,9 @@
+# covers: IFACE-E7
+interface Named {
+  name string
+}
+struct Person {
+  mut name string
+}
+var n Named = Person { name: "a" }
+n:name = "b"

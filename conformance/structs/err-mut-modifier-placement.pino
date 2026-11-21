@@ -1,0 +1,7 @@
+# covers: STRUCT-E18
+struct Bad {
+  mut pub x int
+  static mut fn make() int {
+    return 0
+  }
+}

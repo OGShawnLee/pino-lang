@@ -112,3 +112,32 @@ C err-mixed-return-struct-interface.pino  # D-050: legacy fails with 'TCC error 
 TreeWalk err-untyped-lambda-no-context.pino  # D-167: legacy fails with 'PARSER: Expected Typing, got Marker: ) (ParenthesisEnd)' instead of an error containing 'Cannot infer parameter type'
 VM err-untyped-lambda-no-context.pino  # D-167: legacy fails with 'PARSER: Expected Typing, got Marker: ) (ParenthesisEnd)' instead of an error containing 'Cannot infer parameter type'
 C err-untyped-lambda-no-context.pino  # D-167: legacy fails with 'PARSER: Expected Typing, got Marker: ) (ParenthesisEnd)' instead of an error containing 'Cannot infer parameter type'
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk closure-var-interior-mutation.pino  # D-180/D-100: legacy parser rejects '->' in function type and block lambda
+VM closure-var-interior-mutation.pino  # D-180/D-100: legacy parser rejects '->' in function type and block lambda
+C closure-var-interior-mutation.pino  # D-180/D-100: legacy parser rejects '->' in function type and block lambda
+TreeWalk mut-and-read-same-root.pino  # D-180: legacy parser rejects 'mut' field, 'mut fn', and 'mut' parameter
+VM mut-and-read-same-root.pino  # D-180: legacy parser rejects 'mut' field, 'mut fn', and 'mut' parameter
+C mut-and-read-same-root.pino  # D-180: legacy parser rejects 'mut' field, 'mut fn', and 'mut' parameter
+TreeWalk err-reassign-param.pino  # D-180: legacy checker allows reassigning parameter instead of failing with 'Cannot reassign immutable parameter'
+VM err-reassign-param.pino  # D-180: legacy checker allows reassigning parameter instead of failing with 'Cannot reassign immutable parameter'
+C err-reassign-param.pino  # D-180: legacy checker allows reassigning parameter instead of failing with 'Cannot reassign immutable parameter'
+TreeWalk err-mutate-param-interior.pino  # D-180: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate immutable parameter'
+VM err-mutate-param-interior.pino  # D-180: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate immutable parameter'
+C err-mutate-param-interior.pino  # D-180: legacy parser rejects 'mut' field instead of failing with 'Cannot mutate immutable parameter'
+TreeWalk err-missing-call-site-mut.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'must be marked 'mut' at the call site'
+VM err-missing-call-site-mut.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'must be marked 'mut' at the call site'
+C err-missing-call-site-mut.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'must be marked 'mut' at the call site'
+TreeWalk err-unexpected-call-site-mut.pino  # D-180: legacy fails with argument count mismatch instead of 'remove 'mut' at the call site'
+VM err-unexpected-call-site-mut.pino  # D-180: legacy fails with argument count mismatch instead of 'remove 'mut' at the call site'
+C err-unexpected-call-site-mut.pino  # D-180: legacy fails with argument count mismatch instead of 'remove 'mut' at the call site'
+TreeWalk err-mut-arg-on-val.pino  # D-177/D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot mutate immutable variable'
+VM err-mut-arg-on-val.pino  # D-177/D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot mutate immutable variable'
+C err-mut-arg-on-val.pino  # D-177/D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot mutate immutable variable'
+TreeWalk err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'overlapping 'mut' arguments'
+VM err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'overlapping 'mut' arguments'
+C err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'overlapping 'mut' arguments'
+TreeWalk err-capture-mut-param.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot capture 'mut' parameter'
+VM err-capture-mut-param.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot capture 'mut' parameter'
+C err-capture-mut-param.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot capture 'mut' parameter'

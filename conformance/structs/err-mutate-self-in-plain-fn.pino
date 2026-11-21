@@ -1,0 +1,8 @@
+# covers: STRUCT-E16
+struct Counter {
+  mut value int
+
+  fn bump() {
+    self:value += 1
+  }
+}

@@ -1,0 +1,8 @@
+# covers: STRUCT-E16
+struct Point {
+  mut x int
+
+  mut fn reset() {
+    self = Point { x: 0 }
+  }
+}

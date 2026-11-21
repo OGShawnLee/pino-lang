@@ -1,0 +1,3 @@
+# covers: MOD-5, VAR-E10
+import Constants
+Constants::items:push(3)

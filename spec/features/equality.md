@@ -16,10 +16,10 @@ Grammar productions: see `spec/grammar.ebnf` section `eq`.
 - EQ-7: `==` on two enum values is `true` when they are the same enum member. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"; ArithmeticTests.TestEnumEquality]
 - EQ-8: `==` on two `regex` values is `true` when their pattern strings are equal. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
 - EQ-9: The comparison of EQ-3 to EQ-6 recurses into nested elements and fields, so vectors of vectors and structs holding vectors are compared by content. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
-- EQ-13: Because structs, vectors, maps, sets, and unions have value semantics (D-177), `val b = a` produces a logically independent value equal to `a` under `==` (`a == b` is `true`). [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; spec/decisions/D-178-remove-identity-operators.md] [no-case: pending conformance migration (ticket 050)]
+- EQ-13: Because structs, vectors, maps, sets, and unions have value semantics (D-177), `val b = a` produces a logically independent value equal to `a` under `==` (`a == b` is `true`). [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; spec/decisions/D-178-remove-identity-operators.md]
 
 ## Errors
-- EQ-E1: Using `===` or `!==` is rejected as a parse error because reference-identity operators are removed from the language (only `==` and `!=` remain). [src: spec/decisions/D-178-remove-identity-operators.md] [no-case: pending conformance migration (ticket 050)]
+- EQ-E1: Using `===` or `!==` is rejected as a parse error because reference-identity operators are removed from the language (only `==` and `!=` remain). [src: spec/decisions/D-178-remove-identity-operators.md]
 
 ## Examples
 Conformance cases: `conformance/equality/`.

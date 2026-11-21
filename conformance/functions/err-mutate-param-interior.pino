@@ -1,0 +1,7 @@
+# covers: FN-E14
+struct Point {
+  mut x int
+}
+fn f(p Point) {
+  p:x = 2
+}

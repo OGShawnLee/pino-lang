@@ -45,3 +45,8 @@ C times-it-in-call-argument.pino  # D-002: legacy fails: TCC error cannot cast '
 TreeWalk err-break-in-lambda-inside-loop.pino  # D-174: legacy accepts the program instead of failing with an error containing 'outside of a loop'
 VM err-break-in-lambda-inside-loop.pino  # D-174: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'outside of a loop'
 C err-break-in-lambda-inside-loop.pino  # D-174: legacy fails with 'TCC error: f undeclared' instead of an error containing 'outside of a loop'
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk err-mutate-loop-variable.pino  # D-182: legacy allows reassigning loop variable instead of failing with "Cannot reassign constant variable 'x'."
+VM err-mutate-loop-variable.pino  # D-182: legacy allows reassigning loop variable instead of failing with "Cannot reassign constant variable 'x'."
+C err-mutate-loop-variable.pino  # D-182: legacy allows reassigning loop variable instead of failing with "Cannot reassign constant variable 'x'."

@@ -1,0 +1,7 @@
+# covers: STRUCT-20
+import CounterBox
+
+var b = CounterBox::make_box("items", 1)
+b:count += 4
+println(b:label)
+println(b:count)

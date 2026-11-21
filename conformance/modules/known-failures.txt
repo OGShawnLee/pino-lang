@@ -56,3 +56,12 @@ VM import-pub-val.pino  # D-163: legacy fails: RUNTIME ERROR: Value is not calla
 TreeWalk err-pub-var.pino  # D-163: legacy accepts 'pub var' instead of failing with an error containing 'pub val'
 VM err-pub-var.pino  # D-163: legacy accepts 'pub var' instead of failing with an error containing 'pub val'
 C err-pub-var.pino  # D-163: legacy accepts 'pub var' instead of failing with an error containing 'pub val'
+
+# --- AD-003 new conformance cases (ticket 050)
+VM private-module-var.pino  # D-182: VM has no module support (RUNTIME ERROR: Value is not callable)
+TreeWalk err-testable-var.pino  # D-182: legacy fails with 'Expected Identifier, got Marker: @' instead of "Top-level 'var' cannot be marked '@@Testable'"
+VM err-testable-var.pino  # D-182: legacy fails with 'Expected Identifier, got Marker: @' instead of "Top-level 'var' cannot be marked '@@Testable'"
+C err-testable-var.pino  # D-182: legacy fails with 'Expected Identifier, got Marker: @' instead of "Top-level 'var' cannot be marked '@@Testable'"
+TreeWalk err-mutate-pub-val.pino  # D-177/D-182: legacy allows mutating imported pub val vector instead of failing with 'Cannot mutate immutable variable'
+VM err-mutate-pub-val.pino  # D-177/D-182: legacy fails with 'Value is not callable' instead of 'Cannot mutate immutable variable'
+C err-mutate-pub-val.pino  # D-177/D-182: legacy allows mutating imported pub val vector instead of failing with 'Cannot mutate immutable variable'

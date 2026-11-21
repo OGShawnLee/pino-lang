@@ -1,0 +1,10 @@
+# covers: STRUCT-E17
+struct Mutator {
+  mut value int
+
+  mut fn increment() {
+    value += 1
+  }
+}
+var m = Mutator { value: 0 }
+val f = m:increment

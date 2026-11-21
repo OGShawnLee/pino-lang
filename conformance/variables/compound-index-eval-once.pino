@@ -1,0 +1,12 @@
+# covers: VAR-4
+var calls = 0
+val next_idx = fn () {
+  calls += 1
+  println("idx $calls")
+  return 1
+}
+
+var v = [5, 10, 20]
+v[next_idx()] += 10
+println(v)
+println(calls)

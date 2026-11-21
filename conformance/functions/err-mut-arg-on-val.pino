@@ -1,0 +1,9 @@
+# covers: FN-E15, VAR-E10
+struct Point {
+  mut x int
+}
+fn bump(mut p Point) {
+  p:x += 1
+}
+val val_a = Point { x: 1 }
+bump(mut val_a)

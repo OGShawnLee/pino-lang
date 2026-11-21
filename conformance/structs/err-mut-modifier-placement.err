@@ -1,0 +1,1 @@
+'mut' must appear after 'pub' ('pub mut'), and cannot be combined with 'static'.

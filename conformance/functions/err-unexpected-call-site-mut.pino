@@ -1,0 +1,9 @@
+# covers: FN-E15
+struct Point {
+  x int
+}
+fn read(p Point) int {
+  return p:x
+}
+var a = Point { x: 1 }
+println(read(mut a))

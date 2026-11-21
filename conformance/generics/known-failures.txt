@@ -91,3 +91,8 @@ VM function-implicit.pino  # D-072: legacy parser uses @generic[...] instead of 
 TreeWalk bounded-generic-shape.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
 VM bounded-generic-shape.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
 C bounded-generic-shape.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk bounded-mut-method.pino  # D-179/D-180: legacy parser rejects 'mut fn' and 'mut' parameter
+VM bounded-mut-method.pino  # D-179/D-180: legacy parser rejects 'mut fn' and 'mut' parameter
+C bounded-mut-method.pino  # D-179/D-180: legacy parser rejects 'mut fn' and 'mut' parameter

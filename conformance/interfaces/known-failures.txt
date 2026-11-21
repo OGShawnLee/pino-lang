@@ -29,3 +29,17 @@ C parameter-names-ignored.pino  # D-083: legacy fails: TCC error ',' expected (g
 
 # --- AD-003 value semantics and mut (ticket 048)
 TreeWalk interface-typed-field.pino  # D-179: legacy parser/checker rejects 'mut' on struct field 'state'
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk mut-method-and-property.pino  # D-179: legacy parser rejects 'mut' on interface members and 'mut fn'
+VM mut-method-and-property.pino  # D-179: legacy parser rejects 'mut' on interface members and 'mut fn'
+C mut-method-and-property.pino  # D-179: legacy parser rejects 'mut' on interface members and 'mut fn'
+TreeWalk err-interface-mut-mismatch.pino  # D-179: legacy parser rejects 'mut fn' instead of failing with 'must not be 'mut''
+VM err-interface-mut-mismatch.pino  # D-179: legacy parser rejects 'mut fn' instead of failing with 'must not be 'mut''
+C err-interface-mut-mismatch.pino  # D-179: legacy parser rejects 'mut fn' instead of failing with 'must not be 'mut''
+TreeWalk err-interface-prop-mut-mismatch.pino  # D-179: legacy parser rejects 'mut' interface property instead of failing with 'must be 'mut''
+VM err-interface-prop-mut-mismatch.pino  # D-179: legacy parser rejects 'mut' interface property instead of failing with 'must be 'mut''
+C err-interface-prop-mut-mismatch.pino  # D-179: legacy parser rejects 'mut' interface property instead of failing with 'must be 'mut''
+TreeWalk err-interface-readonly-prop-assign.pino  # D-179: legacy parser rejects 'mut' struct field instead of failing with 'Cannot mutate read-only property'
+VM err-interface-readonly-prop-assign.pino  # D-179: legacy parser rejects 'mut' struct field instead of failing with 'Cannot mutate read-only property'
+C err-interface-readonly-prop-assign.pino  # D-179: legacy parser rejects 'mut' struct field instead of failing with 'Cannot mutate read-only property'

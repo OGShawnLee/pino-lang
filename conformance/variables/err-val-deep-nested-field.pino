@@ -1,0 +1,9 @@
+# covers: VAR-E10
+struct Player {
+  mut hp int
+}
+struct Game {
+  mut player Player
+}
+val g = Game { player: Player { hp: 10 } }
+g:player:hp -= 1

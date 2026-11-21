@@ -1,0 +1,16 @@
+# covers: VEC-19
+val a = [1]
+var b = a
+b:push(2)
+println(a)
+println(b)
+
+fn append_local(xs []int) []int {
+  var copy = xs
+  copy:push(3)
+  return copy
+}
+
+val c = append_local(a)
+println(a)
+println(c)

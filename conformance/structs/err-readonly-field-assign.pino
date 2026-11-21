@@ -1,0 +1,6 @@
+# covers: STRUCT-E15
+struct Point {
+  x int
+}
+var p = Point { x: 1 }
+p:x = 2

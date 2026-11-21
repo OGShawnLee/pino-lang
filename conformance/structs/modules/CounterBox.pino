@@ -1,0 +1,11 @@
+module CounterBox
+
+pub struct Box {
+  pub mut count int
+  pub label string
+  secret int
+}
+
+pub fn make_box(label string, count int) Box {
+  return Box { count: count, label: label, secret: 99 }
+}

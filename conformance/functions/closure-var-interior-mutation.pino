@@ -1,0 +1,14 @@
+# covers: FN-21
+fn make_appender() fn (int) -> []int {
+  var items = []int
+  return fn (x int) {
+    items:push(x)
+    return items
+  }
+}
+
+val a = make_appender()
+println(a(1))
+println(a(2))
+val b = make_appender()
+println(b(9))

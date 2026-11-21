@@ -32,7 +32,7 @@ A `union` declares tagged variants, each optionally carrying a payload of one or
 - UNION-21: `when Union::Variant(@field)` binds the named payload field `field` to a variable of the same name, and `when Union::Variant(@field: name)` binds it to `name`. [src: spec/decisions/D-169-union-variant-match-patterns.md]
 - UNION-22: Label bindings may bind any subset of the named fields in any order, and are valid only on variants declared with named fields. [src: spec/decisions/D-169-union-variant-match-patterns.md]
 - UNION-23: An `is` pattern binds positionally only: `value is Union::Variant(a)` binds a prefix of the payload (here the first field), `value is Union::Variant` binds nothing, and `@label` is not allowed in an `is` pattern (UNION-E14). [src: spec/decisions/D-169-union-variant-match-patterns.md]
-- UNION-24: Union values have value semantics with copy-on-write (CoW), and union payloads and `when`/`is` pattern bindings are deeply immutable once constructed. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; spec/decisions/D-182-union-payload-and-loop-variable-immutability.md] [no-case: pending conformance migration (ticket 050)]
+- UNION-24: Union values have value semantics with copy-on-write (CoW), and union payloads and `when`/`is` pattern bindings are deeply immutable once constructed. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; spec/decisions/D-182-union-payload-and-loop-variable-immutability.md]
 
 ## Errors
 - UNION-E1: Constructing a variant with an argument of the wrong payload type is rejected with a message containing "for variant constructor". [src: CheckerTests.TestUnionConstructorArgumentTypeMismatch]

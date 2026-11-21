@@ -1,0 +1,5 @@
+# covers: LOOP-E2
+val xs = [1, 2]
+for x in xs {
+  x = 1
+}

@@ -21,3 +21,8 @@ C literal-widening.pino  # D-168: legacy fails: Map or custom index access is no
 TreeWalk insertion-order.pino  # D-175: legacy fails: RUNTIME ERROR: Variable 'set' is not declared.
 VM insertion-order.pino  # D-175: legacy fails: RUNTIME ERROR: Value is not callable.
 C insertion-order.pino  # D-175: legacy fails: Map or custom index access is not implemented in transpilation.
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk value-semantics-cow.pino  # D-177: legacy compiler has no set[T] type or CoW value semantics
+VM value-semantics-cow.pino  # D-177: legacy compiler has no set[T] type or CoW value semantics
+C value-semantics-cow.pino  # D-177: legacy compiler has no set[T] type or CoW value semantics

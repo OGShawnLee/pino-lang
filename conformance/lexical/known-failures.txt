@@ -81,3 +81,8 @@ VM naming-capitalized-types.pino  # D-014: legacy fails: RUNTIME ERROR: Value is
 # --- Checker design answers (ticket 033)
 C c-keyword-identifiers.pino  # D-005: legacy fails: TCC error too many basic types
 VM naming-free-forms.pino  # D-014: legacy fails: RUNTIME ERROR: Value is not callable.
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk err-mut-as-identifier.pino  # D-177: legacy treats 'mut' as an identifier and accepts the program
+VM err-mut-as-identifier.pino  # D-177: legacy treats 'mut' as an identifier and accepts the program
+C err-mut-as-identifier.pino  # D-177: legacy treats 'mut' as an identifier and accepts the program

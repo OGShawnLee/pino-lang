@@ -29,7 +29,7 @@ Every loop is introduced by the keyword `for` and has a braced body. The head is
 
 ## Errors
 - LOOP-E1: A `break` or `continue` that is not inside a loop in the same function (including inside a lambda or nested function declared inside an outer loop) is rejected by the checker with a message containing "outside of a loop". [src: spec/decisions/D-174-break-continue-outside-loop.md]
-- LOOP-E2: Reassigning or mutating the interior of a loop variable declared by `for x in coll` or `for i, x in coll` is rejected by the checker. [src: spec/decisions/D-182-union-payload-and-loop-variable-immutability.md] [no-case: pending conformance migration (ticket 050)]
+- LOOP-E2: Reassigning or mutating the interior of a loop variable declared by `for x in coll` or `for i, x in coll` is rejected by the checker. [src: spec/decisions/D-182-union-payload-and-loop-variable-immutability.md]
 
 ## Examples
 Conformance cases: `conformance/loops/`.

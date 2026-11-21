@@ -50,7 +50,7 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 - VECLIB-25: `v:join(sep)` returns the elements converted to strings and joined with `sep`, and returns the empty string for an empty vector. [src: DataStructureTests.TestVectorJoinMethod]
 
 ## Errors
-- VECLIB-E1: Chaining `v:push(a):push(b)` or using the result of `v:push(x)` or `v:add(x)` as a value is rejected by the checker because both return `void`. [src: spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md] [no-case: pending conformance migration (ticket 050)]
+- VECLIB-E1: Chaining `v:push(a):push(b)` or using the result of `v:push(x)` or `v:add(x)` as a value is rejected by the checker because both return `void`. [src: spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
 
 ## Examples
 Conformance cases: `conformance/stdlib-vector/`.

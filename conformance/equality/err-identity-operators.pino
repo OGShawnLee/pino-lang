@@ -1,0 +1,2 @@
+# covers: EQ-E1
+println(1 === 1)

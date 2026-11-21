@@ -1,0 +1,3 @@
+module Constants
+
+pub val items = [1, 2]

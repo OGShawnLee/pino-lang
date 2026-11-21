@@ -55,3 +55,8 @@ C value-widening.pino  # D-168: legacy fails: PARSER: Expected expression, got O
 TreeWalk insertion-order.pino  # D-004: legacy parser uses k: v instead of k -> v for map entries
 VM insertion-order.pino  # D-004: legacy parser uses k: v instead of k -> v for map entries
 C insertion-order.pino  # D-004: legacy parser uses k: v instead of k -> v for map entries
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk value-semantics-cow.pino  # D-177: legacy parser uses k: v instead of k -> v and lacks CoW value semantics
+VM value-semantics-cow.pino  # D-177: legacy parser uses k: v instead of k -> v and lacks CoW value semantics
+C value-semantics-cow.pino  # D-177: legacy parser uses k: v instead of k -> v and lacks CoW value semantics

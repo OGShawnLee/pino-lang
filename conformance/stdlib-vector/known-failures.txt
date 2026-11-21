@@ -63,3 +63,8 @@ TreeWalk predicate-index.pino  # D-100: legacy parser uses => / k: v instead of 
 C pop.pino  # D-013: C backend returns plain element instead of Option::Some
 TreeWalk pop.pino  # D-013: TreeWalk returns plain element instead of Option::Some
 TreeWalk pop-empty.pino  # D-013: TreeWalk returns null instead of Option::None
+
+# --- AD-003 new conformance cases (ticket 050)
+TreeWalk err-push-chain.pino  # D-181: legacy vec:push returns vector and allows chaining instead of failing with "Type 'void' does not have method 'push'."
+VM err-push-chain.pino  # D-181: legacy fails with 'Value is not callable' instead of "Type 'void' does not have method 'push'."
+C err-push-chain.pino  # D-181: legacy vec:push returns vector and allows chaining instead of failing with "Type 'void' does not have method 'push'."
