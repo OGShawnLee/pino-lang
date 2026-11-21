@@ -219,4 +219,29 @@ public sealed class CheckerDiagnosticSnapshotTests {
         "  = help: copy the needed value into a local 'val' before the closure, or avoid capturing 'n'\n";
     Assert.Equal(Expected, rendered);
   }
+
+  [Fact]
+  public void Snapshot_ValMutReassignAndNonMutableInterior_PN3229AndPN3230_IncludeHelp() {
+    const string ReassignCode = "val mut xs = [1, 2]\nxs = [3, 4]\n";
+    const string ExpectedReassign =
+        "error[PN3229]: Cannot reassign 'val mut' variable 'xs'.\n" +
+        " --> sample.pino:2:1\n" +
+        "  |\n" +
+        "1 | val mut xs = [1, 2]\n" +
+        "  |         -- 'xs' is declared with 'val mut' here\n" +
+        "2 | xs = [3, 4]\n" +
+        "  | ^^\n" +
+        "  = help: declare it with 'var' to allow reassignment\n";
+    Assert.Equal(ExpectedReassign, RenderPlain(ReassignCode));
+
+    const string ScalarCode = "val mut n = 0\n";
+    const string ExpectedScalar =
+        "error[PN3230]: Type 'int' has nothing to mutate; 'val mut' requires a type with mutable contents.\n" +
+        " --> sample.pino:1:1\n" +
+        "  |\n" +
+        "1 | val mut n = 0\n" +
+        "  | ^^^^^^^\n" +
+        "  = help: use 'val' if it never changes, or 'var' to reassign it\n";
+    Assert.Equal(ExpectedScalar, RenderPlain(ScalarCode));
+  }
 }

@@ -82,7 +82,7 @@ internal sealed partial class CheckerSession {
           break;
 
         case VariableDeclarationSyntax varDecl:
-          if (varDecl.KeywordToken.Kind == TokenKind.VarKeyword) {
+          if (varDecl.KeywordToken.Kind == TokenKind.VarKeyword || varDecl.MutKeyword is not null) {
             string varName = IsMissingToken(varDecl.NameToken)
                 ? "<unknown>"
                 : state.Lex.GetText(varDecl.NameToken).ToString();
@@ -94,7 +94,7 @@ internal sealed partial class CheckerSession {
           break;
 
         case TupleDestructuringStatementSyntax destructDecl:
-          if (destructDecl.KeywordToken.Kind == TokenKind.VarKeyword) {
+          if (destructDecl.KeywordToken.Kind == TokenKind.VarKeyword || destructDecl.MutKeyword is not null) {
             state.Diagnostics.ReportError(
                 DiagnosticCodes.InvalidTopLevelInProgramMode,
                 destructDecl.Span,

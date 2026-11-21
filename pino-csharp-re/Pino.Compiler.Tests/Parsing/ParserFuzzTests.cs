@@ -36,6 +36,7 @@ public sealed class ParserFuzzTests(ITestOutputHelper output) {
     "@@Generic[T]", "@@Generic[T is Shape]", "@pub_testing", "@generic[T]",
     "map[K, V]", "set[T]", "[]int", "@(a: 1, b)", "=>", "+=", "===", "!==",
     "~", "a-b", "a -b", "a- b", "@@Testable", "//", "//=", "val x int =", "@b: c", "mut",
+    "val mut", "var mut", "mut val",
   ];
 
   private static bool s_warmedUp;

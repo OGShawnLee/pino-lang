@@ -328,9 +328,115 @@ public sealed class ParserMutTests {
   [InlineData("f(mut)")]
   [InlineData("f(a, mut)")]
   [InlineData("f(mut, a)")]
+  [InlineData("val mut")]
+  [InlineData("val mut x")]
+  [InlineData("val mut x []int")]
+  [InlineData("val mut x =")]
+  [InlineData("var mut")]
+  [InlineData("var mut x")]
+  [InlineData("mut val")]
+  [InlineData("mut val x")]
+  [InlineData("val mut @(")]
+  [InlineData("val mut @(a")]
   public void HalfTypedMutInputs_RecoverWithoutCrashAndPreserveAllTokens(string source) {
     ParseResult result = ParserTestHelpers.ParseFile(source, expectNoDiagnostics: false);
     Assert.NotEmpty(result.Diagnostics);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Ticket 051: `val mut` bindings, misplaced-`mut` PN2022, and edit locality
+  // ---------------------------------------------------------------------------------------------
+
+  [Fact]
+  public void ValMutBindings_ParseWithAndWithoutTypeAndPreserveTokenOrder() {
+    const string Source = """
+      val mut items = [1, 2]
+      val mut errors []string = []string
+      pub val mut exported = []int
+      @@Testable val mut tested = []int
+      """;
+
+    ParseResult result = ParserTestHelpers.ParseFile(Source);
+    Assert.Equal(4, result.Root.Items.Length);
+
+    VariableDeclarationSyntax items = Assert.IsType<VariableDeclarationSyntax>(result.Root.Items[0]);
+    Assert.Equal(TokenKind.ValKeyword, items.KeywordToken.Kind);
+    Assert.Equal(TokenKind.MutKeyword, items.MutKeyword?.Kind);
+    Assert.Null(items.Type);
+    Assert.Equal(
+        "(VariableDeclaration val mut items = (VectorLiteralExpression (LiteralExpression 1) (LiteralExpression 2)))",
+        SyntaxPrinter.Print(items, result.Lex.Source));
+
+    VariableDeclarationSyntax errors = Assert.IsType<VariableDeclarationSyntax>(result.Root.Items[1]);
+    Assert.Equal(TokenKind.ValKeyword, errors.KeywordToken.Kind);
+    Assert.Equal(TokenKind.MutKeyword, errors.MutKeyword?.Kind);
+    Assert.NotNull(errors.Type);
+    Assert.Equal(
+        "(VariableDeclaration val mut errors (VectorType (NamedType string)) = (VectorInitializerExpression (NamedType string)))",
+        SyntaxPrinter.Print(errors, result.Lex.Source));
+
+    VariableDeclarationSyntax exported = Assert.IsType<VariableDeclarationSyntax>(result.Root.Items[2]);
+    Assert.True(exported.Visibility?.IsPub);
+    Assert.Equal(TokenKind.MutKeyword, exported.MutKeyword?.Kind);
+
+    VariableDeclarationSyntax tested = Assert.IsType<VariableDeclarationSyntax>(result.Root.Items[3]);
+    Assert.False(tested.Visibility?.IsPub);
+    Assert.Equal(TokenKind.MutKeyword, tested.MutKeyword?.Kind);
+  }
+
+  [Theory]
+  [InlineData("var mut x = 1", "'var mut' is not valid; 'var' bindings are already mutable.")]
+  [InlineData("mut val x = [1]", "'mut val' is not valid; write 'val mut' instead.")]
+  [InlineData("mut var x = 1", "'mut var' is not valid; 'var' bindings are already mutable.")]
+  [InlineData("pub mut val x = [1]", "'mut val' is not valid; write 'val mut' instead.")]
+  [InlineData("val mut @(a, b) = pair()", "'val mut' cannot be used with tuple destructuring; use 'var @(...)' instead.")]
+  [InlineData("var mut @(a, b) = pair()", "'var mut' is not valid; 'var' bindings are already mutable.")]
+  [InlineData("mut val @(a, b) = pair()", "'mut val' is not valid; write 'val mut' instead.")]
+  public void InvalidBindingMutPlacement_EmitsPN2022AndRecoversLosslessly(string source, string expectedMessage) {
+    ParseResult result = ParserTestHelpers.ParseFile(source, expectNoDiagnostics: false);
+    Diagnostic diag = Assert.Single(result.Diagnostics);
+    Assert.Equal(DiagnosticCodes.InvalidMutModifierPlacement, diag.Code);
+    Assert.Equal("mut", result.Lex.Source.AsSpan(diag.Span).ToString());
+    Assert.Equal(expectedMessage, diag.Message);
+    Assert.NotNull(diag.Help);
+
+    SyntaxNode item = Assert.Single(result.Root.Items);
+    Assert.True(item is VariableDeclarationSyntax or TupleDestructuringStatementSyntax);
+  }
+
+  [Fact]
+  public void DuplicateMutAroundTupleDestructuring_MaintainsTokenAccounting() {
+    ParseResult result = ParserTestHelpers.ParseFile("mut val mut @(a, b) = pair()", expectNoDiagnostics: false);
+    Assert.Contains(result.Diagnostics, static d => d.Code == DiagnosticCodes.InvalidMutModifierPlacement);
+  }
+
+  [Fact]
+  public void EditLocality_BrokenValMutBeforeColumn1Function_PreservesTail() {
+    const string Clean = """
+      val mut items = [1, 2]
+
+      fn tail_ok() int {
+        return 42
+      }
+      """;
+
+    const string Broken = """
+      val mut items
+
+      fn tail_ok() int {
+        return 42
+      }
+      """;
+
+    ParseResult cleanParse = ParserTestHelpers.ParseFile(Clean);
+    ParseResult brokenParse = ParserTestHelpers.ParseFile(Broken, expectNoDiagnostics: false);
+
+    Assert.True(brokenParse.Root.Items.Length >= 2);
+    SyntaxNode cleanTail = cleanParse.Root.Items[^1];
+    SyntaxNode brokenTail = brokenParse.Root.Items[^1];
+    Assert.True(
+        SyntaxEquivalence.AreEquivalent(cleanTail, cleanParse.Lex.Source, brokenTail, brokenParse.Lex.Source, out string? diff),
+        diff);
   }
 
   [Fact]

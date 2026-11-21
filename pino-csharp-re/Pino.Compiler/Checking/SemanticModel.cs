@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 
 using Pino.Compiler.Diagnostics;
@@ -23,6 +24,7 @@ public sealed class SemanticModel {
   private readonly SyntaxNode?[] _parentsByNodeId;
   private readonly Symbol?[] _shorthandValueSymbols;
   private readonly MutationPlaceInfo?[] _mutationPlaces;
+  private readonly FrozenDictionary<Symbol, ModuleStateEffects> _moduleStateEffects;
 
   internal SemanticModel(
       ParseResult tree,
@@ -42,7 +44,8 @@ public sealed class SemanticModel {
       PatternBindingInfo?[] patternBindings,
       SyntaxNode?[] parentsByNodeId,
       Symbol?[]? shorthandValueSymbols = null,
-      MutationPlaceInfo?[]? mutationPlaces = null) {
+      MutationPlaceInfo?[]? mutationPlaces = null,
+      FrozenDictionary<Symbol, ModuleStateEffects>? moduleStateEffects = null) {
     Tree = tree;
     Module = module;
     IsProgramMode = isProgramMode;
@@ -61,6 +64,7 @@ public sealed class SemanticModel {
     _parentsByNodeId = parentsByNodeId;
     _shorthandValueSymbols = shorthandValueSymbols ?? [];
     _mutationPlaces = mutationPlaces ?? [];
+    _moduleStateEffects = moduleStateEffects ?? FrozenDictionary<Symbol, ModuleStateEffects>.Empty;
   }
 
   public ParseResult Tree { get; }
@@ -136,6 +140,26 @@ public sealed class SemanticModel {
   public MutationPlaceInfo? GetMutationPlace(SyntaxNode node) {
     ArgumentNullException.ThrowIfNull(node);
     return Lookup(_mutationPlaces, node.Id);
+  }
+
+  /// <summary>
+  /// Returns the inferred module-state purity facts for <paramref name="function"/> (D-183).
+  /// </summary>
+  public ModuleStateEffects GetModuleStateEffects(FunctionSymbol function) {
+    ArgumentNullException.ThrowIfNull(function);
+    return _moduleStateEffects.TryGetValue(function, out ModuleStateEffects effects)
+        ? effects
+        : ModuleStateEffects.Pure;
+  }
+
+  /// <summary>
+  /// Returns the inferred module-state purity facts for <paramref name="method"/> (D-183).
+  /// </summary>
+  public ModuleStateEffects GetModuleStateEffects(MethodSymbol method) {
+    ArgumentNullException.ThrowIfNull(method);
+    return _moduleStateEffects.TryGetValue(method, out ModuleStateEffects effects)
+        ? effects
+        : ModuleStateEffects.Pure;
   }
 
   public bool IsAssignedAfterInit(Symbol symbol) => AssignedBindings.IsAssignedAfterInit(symbol);

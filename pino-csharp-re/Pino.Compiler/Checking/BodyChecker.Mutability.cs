@@ -487,6 +487,55 @@ internal sealed partial class BodyChecker {
   private static bool IsCoWType(TypeSymbol? type) =>
       type is StructType or VectorType or MapType or SetType or InterfaceType or TypeParameterType;
 
+  /// <summary>
+  /// Returns <see langword="true"/> when <paramref name="type"/> has mutable interior contents
+  /// (or is unknown / error-recovered) so <c>val mut</c> is permitted (D-183 / VAR-E13).
+  /// </summary>
+  private static bool HasMutableInterior(TypeSymbol type) {
+    if (type.IsError || type.IsNever || type.IsVoid || type is PendingReturnType or TypeVariableType) {
+      return true;
+    }
+
+    switch (type) {
+      case VectorType:
+      case MapType:
+      case SetType:
+      case TypeParameterType:
+        return true;
+
+      case StructType structType: {
+          ImmutableArray<FieldSymbol> fields = structType.Definition.AllFields.IsEmpty
+              ? structType.Definition.Fields
+              : structType.Definition.AllFields;
+          foreach (FieldSymbol field in fields) {
+            if (field.IsMutable) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+      case InterfaceType ifaceType: {
+          foreach (InterfaceProperty prop in ifaceType.Definition.Properties) {
+            if (prop.IsMutable) {
+              return true;
+            }
+          }
+          foreach (MethodSymbol method in ifaceType.Definition.Methods) {
+            if (method.IsMutating) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+      default:
+        // Primitives (`int`, `float`, `bool`, `rune`, `string`), enums, unions (`Option`, `Result`),
+        // tuples, and function types have no mutable interior.
+        return false;
+    }
+  }
+
   private bool TryMatchMutArgumentType(TypeSymbol actual, TypeSymbol expected) {
     if (actual.IsError || expected.IsError || actual is PendingReturnType || expected is PendingReturnType || actual.IsNever) {
       return true;
@@ -537,6 +586,18 @@ internal sealed partial class BodyChecker {
         $"Cannot reassign immutable parameter '{parameter.Name}'.",
         related,
         help: $"mark parameter '{parameter.Name}' as 'mut'");
+  }
+
+  private void ReportValMutReassignment(IdentifierExpressionSyntax identifier, LocalSymbol local) {
+    ImmutableArray<RelatedLocation> related = local.NameSpan.Length > 0
+        ? [new RelatedLocation(local.NameSpan, $"'{local.Name}' is declared with 'val mut' here", local.FilePath)]
+        : [];
+    Report(
+        DiagnosticCodes.CannotReassignValMut,
+        identifier.Span,
+        $"Cannot reassign 'val mut' variable '{local.Name}'.",
+        related,
+        help: "declare it with 'var' to allow reassignment");
   }
 
   private void ReportCannotMutateImmutableLocal(SourceSpan span, LocalSymbol local) {

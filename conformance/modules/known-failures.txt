@@ -65,3 +65,11 @@ C err-testable-var.pino  # D-182: legacy fails with 'Expected Identifier, got Ma
 TreeWalk err-mutate-pub-val.pino  # D-177/D-182: legacy allows mutating imported pub val vector instead of failing with 'Cannot mutate immutable variable'
 VM err-mutate-pub-val.pino  # D-177/D-182: legacy fails with 'Value is not callable' instead of 'Cannot mutate immutable variable'
 C err-mutate-pub-val.pino  # D-177/D-182: legacy allows mutating imported pub val vector instead of failing with 'Cannot mutate immutable variable'
+
+# --- val mut bindings (ticket 051, D-183)
+TreeWalk module-val-mut-state.pino  # D-183: legacy parser rejects 'val mut' in helper module ErrorLog
+VM module-val-mut-state.pino  # D-183: legacy parser rejects 'val mut' in helper module ErrorLog
+C module-val-mut-state.pino  # D-183: legacy parser rejects 'val mut' in helper module ErrorLog
+TreeWalk err-pub-val-mut.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: errors" instead of "Top-level 'val mut' cannot be marked 'pub'"
+VM err-pub-val-mut.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: errors" instead of "Top-level 'val mut' cannot be marked 'pub'"
+C err-pub-val-mut.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: errors" instead of "Top-level 'val mut' cannot be marked 'pub'"

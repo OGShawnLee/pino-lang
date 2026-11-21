@@ -189,7 +189,7 @@ internal sealed class ModuleCheckState {
     }
   }
 
-  public SemanticModel BuildSemanticModel() {
+  public SemanticModel BuildSemanticModel(FrozenDictionary<Symbol, ModuleStateEffects>? moduleStateEffects = null) {
     foreach (Scope scope in AllScopes) {
       scope.Freeze();
     }
@@ -213,7 +213,8 @@ internal sealed class ModuleCheckState {
         PatternBindings,
         ParentsByNodeId,
         ShorthandValueSymbols,
-        MutationPlaces);
+        MutationPlaces,
+        moduleStateEffects);
   }
 }
 
@@ -352,6 +353,7 @@ internal sealed partial class CheckerSession {
 
     ImmutableArray<GenericInstantiation> genericInstantiations = [.. _genericInstantiations];
     TypeReachabilityGraph reachability = ReachabilityBuilder.Build(_orderedModules, Prelude, Types, genericInstantiations);
+    FrozenDictionary<Symbol, ModuleStateEffects> moduleStateEffects = ModuleStateEffectAnalyzer.Build(_orderedModules);
 
     var modulesBuilder = new Dictionary<string, ModuleSymbol>(_orderedModules.Count, StringComparer.Ordinal);
     var modelsByTreeBuilder = new Dictionary<ParseResult, SemanticModel>(_orderedModules.Count, ReferenceEqualityComparer.Instance);
@@ -359,7 +361,7 @@ internal sealed partial class CheckerSession {
 
     SemanticModel? rootModel = null;
     foreach (ModuleCheckState state in _orderedModules) {
-      SemanticModel model = state.BuildSemanticModel();
+      SemanticModel model = state.BuildSemanticModel(moduleStateEffects);
       if (ReferenceEquals(state, rootState)) {
         rootModel = model;
       }
@@ -379,7 +381,8 @@ internal sealed partial class CheckerSession {
         Types,
         reachability,
         allDiagnostics.ToImmutable(),
-        genericInstantiations);
+        genericInstantiations,
+        moduleStateEffects);
   }
 
   private ModuleCheckState CheckModule(

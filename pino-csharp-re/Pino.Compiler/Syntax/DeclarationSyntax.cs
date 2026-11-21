@@ -104,12 +104,12 @@ public sealed record VariableDeclarationSyntax(
     Token EqualsToken,
     ExpressionSyntax Initializer,
     TypeSyntax? Type = null,
-    VisibilitySyntax? Visibility = null) : DeclarationSyntax(Id, Span) {
+    VisibilitySyntax? Visibility = null,
+    Token? MutKeyword = null) : DeclarationSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
-    if (Visibility is not null) {
-      yield return Visibility;
+    foreach (SyntaxElement prefix in ModifierOrdering.YieldByStart(Visibility, KeywordToken, MutKeyword)) {
+      yield return prefix;
     }
-    yield return KeywordToken;
     yield return NameToken;
     if (Type is not null) {
       yield return Type;

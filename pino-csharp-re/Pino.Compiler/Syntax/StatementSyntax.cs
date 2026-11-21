@@ -59,9 +59,18 @@ public sealed record TupleDestructuringStatementSyntax(
     ImmutableArray<DestructureFieldSyntax> Fields,
     Token CloseParenToken,
     Token EqualsToken,
-    ExpressionSyntax Initializer) : StatementSyntax(Id, Span) {
+    ExpressionSyntax Initializer,
+    Token? MutKeyword = null) : StatementSyntax(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
-    yield return KeywordToken;
+    if (MutKeyword is { } mut && mut.Span.Start < KeywordToken.Span.Start) {
+      yield return mut;
+      yield return KeywordToken;
+    } else {
+      yield return KeywordToken;
+      if (MutKeyword is { } mutAfter) {
+        yield return mutAfter;
+      }
+    }
     yield return AtToken;
     yield return OpenParenToken;
     foreach (DestructureFieldSyntax field in Fields) {

@@ -12,6 +12,7 @@ namespace Pino.Compiler.Checking;
 /// </summary>
 public sealed class Compilation {
   private readonly FrozenDictionary<ParseResult, SemanticModel> _modelsByTree;
+  private readonly FrozenDictionary<Symbol, ModuleStateEffects> _moduleStateEffects;
 
   private Compilation(
       ParseResult rootTree,
@@ -22,7 +23,8 @@ public sealed class Compilation {
       TypeInterner types,
       TypeReachabilityGraph reachability,
       ImmutableArray<Diagnostic> diagnostics,
-      ImmutableArray<GenericInstantiation> genericInstantiations) {
+      ImmutableArray<GenericInstantiation> genericInstantiations,
+      FrozenDictionary<Symbol, ModuleStateEffects> moduleStateEffects) {
     RootTree = rootTree;
     RootModel = rootModel;
     Modules = modules;
@@ -32,6 +34,7 @@ public sealed class Compilation {
     Reachability = reachability;
     Diagnostics = diagnostics;
     GenericInstantiations = genericInstantiations;
+    _moduleStateEffects = moduleStateEffects;
   }
 
   public ParseResult RootTree { get; }
@@ -73,7 +76,8 @@ public sealed class Compilation {
       TypeInterner types,
       TypeReachabilityGraph reachability,
       ImmutableArray<Diagnostic> diagnostics,
-      ImmutableArray<GenericInstantiation> genericInstantiations) =>
+      ImmutableArray<GenericInstantiation> genericInstantiations,
+      FrozenDictionary<Symbol, ModuleStateEffects>? moduleStateEffects = null) =>
       new(
           rootTree,
           rootModel,
@@ -83,11 +87,34 @@ public sealed class Compilation {
           types,
           reachability,
           diagnostics,
-          genericInstantiations);
+          genericInstantiations,
+          moduleStateEffects ?? FrozenDictionary<Symbol, ModuleStateEffects>.Empty);
 
   public SemanticModel? GetSemanticModel(ParseResult tree) {
     ArgumentNullException.ThrowIfNull(tree);
     return _modelsByTree.TryGetValue(tree, out SemanticModel? model) ? model : null;
+  }
+
+  /// <summary>
+  /// Returns the inferred module-state purity facts for <paramref name="function"/> across the
+  /// compilation (D-183).
+  /// </summary>
+  public ModuleStateEffects GetModuleStateEffects(FunctionSymbol function) {
+    ArgumentNullException.ThrowIfNull(function);
+    return _moduleStateEffects.TryGetValue(function, out ModuleStateEffects effects)
+        ? effects
+        : ModuleStateEffects.Pure;
+  }
+
+  /// <summary>
+  /// Returns the inferred module-state purity facts for <paramref name="method"/> across the
+  /// compilation (D-183).
+  /// </summary>
+  public ModuleStateEffects GetModuleStateEffects(MethodSymbol method) {
+    ArgumentNullException.ThrowIfNull(method);
+    return _moduleStateEffects.TryGetValue(method, out ModuleStateEffects effects)
+        ? effects
+        : ModuleStateEffects.Pure;
   }
 
   internal static SyntaxNode?[] BuildParentMap(

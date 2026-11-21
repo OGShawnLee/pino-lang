@@ -1,0 +1,8 @@
+# covers: MOD-5, VAR-12
+import ErrorLog
+
+println(ErrorLog::error_count())
+ErrorLog::add_error("missing type")
+ErrorLog::add_error("bad return")
+println(ErrorLog::error_count())
+println(ErrorLog::first_error())

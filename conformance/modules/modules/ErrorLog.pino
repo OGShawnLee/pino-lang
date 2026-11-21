@@ -1,0 +1,15 @@
+module ErrorLog
+
+val mut error_list = []string
+
+pub fn add_error(msg string) {
+  error_list:push(msg)
+}
+
+pub fn error_count() int {
+  return error_list:len
+}
+
+pub fn first_error() string {
+  return error_list[0]
+}

@@ -1,0 +1,5 @@
+# covers: MAIN-E3
+val mut errors = []string
+fn main() {
+  println(errors:len)
+}

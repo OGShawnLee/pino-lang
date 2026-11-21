@@ -9,3 +9,8 @@ C err-main-reads-later-val.pino  # D-165: legacy accepts the program and prints 
 TreeWalk err-main-with-parameters.pino  # D-036: legacy accepts the program and prints nothing instead of failing with an error containing 'cannot take parameters'
 VM err-main-with-parameters.pino  # D-036: legacy accepts the program and prints nothing instead of failing with an error containing 'cannot take parameters'
 C err-main-with-parameters.pino  # D-036: legacy accepts the program and prints 'main ran' instead of failing with an error containing 'cannot take parameters'
+
+# --- val mut bindings (ticket 051, D-183)
+TreeWalk err-val-mut-program-root.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: errors" instead of "Top-level variable 'errors' must be declared with 'val' in program mode."
+VM err-val-mut-program-root.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: errors" instead of "Top-level variable 'errors' must be declared with 'val' in program mode."
+C err-val-mut-program-root.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: errors" instead of "Top-level variable 'errors' must be declared with 'val' in program mode."

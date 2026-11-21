@@ -98,6 +98,18 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
       return fn () -> p:value
     }
     """,
+    """
+    val mut log = []string
+    fn record(s string) {
+      log:push(s)
+    }
+    fn count() int {
+      return log:len
+    }
+    fn pure_add(a int, b int) int {
+      return a + b
+    }
+    """,
   ];
 
   private static readonly string[] s_tokens = [
@@ -267,6 +279,11 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
       while (stack.Count > 0) {
         SyntaxNode current = stack.Pop();
         _ = model.GetDeclaredSymbol(current);
+        if (model.GetDeclaredSymbol(current) is FunctionSymbol fnSym) {
+          _ = model.GetModuleStateEffects(fnSym);
+        } else if (model.GetDeclaredSymbol(current) is MethodSymbol methodSym) {
+          _ = model.GetModuleStateEffects(methodSym);
+        }
         _ = model.GetReferencedSymbol(current);
         _ = model.GetConversion(current);
         if (current is CallExpressionSyntax callNode) {

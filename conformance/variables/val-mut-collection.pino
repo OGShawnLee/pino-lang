@@ -1,0 +1,16 @@
+# covers: VAR-12, VAR-13
+fn append_item(mut xs []int, item int) {
+  xs:push(item)
+}
+
+val mut nums = [1, 2]
+nums:push(3)
+nums[0] = 10
+append_item(mut nums, 4)
+println(nums)
+
+val mut counts map[string, int] = map[string, int] { "a" -> 1 }
+counts["a"] += 2
+counts["b"] = 5
+println(counts["a"])
+println(counts["b"])

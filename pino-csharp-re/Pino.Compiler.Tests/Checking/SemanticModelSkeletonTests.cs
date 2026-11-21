@@ -72,12 +72,17 @@ public sealed class SemanticModelSkeletonTests {
     }
     Assert.Null(model.GetCallResolution(syntheticCall));
 
-    // AssignedBindings and CaptureList baseline
+    // AssignedBindings, CaptureList, and ModuleStateEffects baseline
     var local = new LocalSymbol("x", PrimitiveType.Int, true, LocalKind.Variable, 1, default, "math.pino");
     Assert.False(model.IsAssignedAfterInit(local));
     var assigned = new AssignedBindings([local]);
     Assert.True(assigned.IsAssignedAfterInit(local));
     Assert.True(CaptureList.Empty.IsEmpty);
+    var addSym = Assert.IsType<FunctionSymbol>(model.GetDeclaredSymbol(fnDecl));
+    Assert.Equal(ModuleStateEffects.Pure, model.GetModuleStateEffects(addSym));
+    Assert.Equal(ModuleStateEffects.Pure, compilation.GetModuleStateEffects(addSym));
+    var unknownFn = new FunctionSymbol("unknown", SymbolVisibility.Private, [], [], PrimitiveType.Int, ReturnInferenceState.Explicit, -1, default, null);
+    Assert.Equal(ModuleStateEffects.Pure, model.GetModuleStateEffects(unknownFn));
   }
 
   [Fact]

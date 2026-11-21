@@ -77,3 +77,17 @@ C err-val-deep-nested-field.pino  # D-177: legacy parser rejects 'mut' field ins
 TreeWalk err-mutate-rvalue.pino  # D-177: legacy allows mutating temporary vector literal instead of failing with 'Cannot mutate immutable or temporary expression.'
 VM err-mutate-rvalue.pino  # D-177: legacy fails with 'Value is not callable' instead of 'Cannot mutate immutable or temporary expression.'
 C err-mutate-rvalue.pino  # D-177: legacy allows mutating temporary vector literal instead of failing with 'Cannot mutate immutable or temporary expression.'
+
+# --- val mut bindings (ticket 051, D-183)
+TreeWalk val-mut-collection.pino  # D-183: legacy parser rejects 'mut' parameter and 'val mut' binding
+VM val-mut-collection.pino  # D-183: legacy parser rejects 'mut' parameter and 'val mut' binding
+C val-mut-collection.pino  # D-183: legacy parser rejects 'mut' parameter and 'val mut' binding
+TreeWalk err-val-mut-reassign.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: v" instead of "Cannot reassign 'val mut' variable 'v'."
+VM err-val-mut-reassign.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: v" instead of "Cannot reassign 'val mut' variable 'v'."
+C err-val-mut-reassign.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: v" instead of "Cannot reassign 'val mut' variable 'v'."
+TreeWalk err-val-mut-scalar.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: n" instead of "Type 'int' has nothing to mutate"
+VM err-val-mut-scalar.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: n" instead of "Type 'int' has nothing to mutate"
+C err-val-mut-scalar.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: n" instead of "Type 'int' has nothing to mutate"
+TreeWalk err-var-mut.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: x" instead of "'var mut' is not valid"
+VM err-var-mut.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: x" instead of "'var mut' is not valid"
+C err-var-mut.pino  # D-183: legacy parser fails with "Expected '=', got Identifier: x" instead of "'var mut' is not valid"

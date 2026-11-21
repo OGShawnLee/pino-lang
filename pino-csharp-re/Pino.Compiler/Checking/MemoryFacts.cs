@@ -40,6 +40,47 @@ public sealed class AssignedBindings {
   }
 }
 
+/// <summary>
+/// Inferred module-state purity facts for a function or method (D-183).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="ReadsModuleState"/> is <c>true</c> when the callable reads a top-level <c>var</c> or
+/// <c>val mut</c> binding of any module, directly or transitively through a call.
+/// <see cref="WritesModuleState"/> is <c>true</c> when it reassigns or mutates one, directly or
+/// transitively through a call. Both facts are computed as a least fixed point over the call
+/// graph's strongly connected components.
+/// </para>
+/// <para>
+/// Calls through function values (lambdas, function-typed parameters or locals, callable struct
+/// fields, indexed function elements, or interface methods whose concrete implementation is not
+/// statically fixed) are treated conservatively as unknown and mark both
+/// <see cref="ReadsModuleState"/> and <see cref="WritesModuleState"/> <c>true</c> for the caller.
+/// The checker does not perform points-to or closure-flow analysis, so an arbitrary function value
+/// or dynamic interface receiver could read or mutate module-level state in any module.
+/// </para>
+/// <para>
+/// A closure body's own effects count for the function that calls it, not the function that
+/// declares it.
+/// </para>
+/// </remarks>
+public readonly record struct ModuleStateEffects(
+    bool ReadsModuleState,
+    bool WritesModuleState) {
+  public static ModuleStateEffects Pure => new(false, false);
+
+  public static ModuleStateEffects ReadOnly => new(true, false);
+
+  public static ModuleStateEffects WriteOnly => new(false, true);
+
+  public static ModuleStateEffects ReadWrite => new(true, true);
+
+  public bool IsPure => !ReadsModuleState && !WritesModuleState;
+
+  public ModuleStateEffects Union(ModuleStateEffects other) =>
+      new(ReadsModuleState || other.ReadsModuleState, WritesModuleState || other.WritesModuleState);
+}
+
 public readonly record struct TypeReachabilityEdge(
     TypeSymbol Target,
     bool IsMutableEdge);

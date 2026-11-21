@@ -175,7 +175,8 @@ public sealed partial class Parser {
           items.Add(ParseEnumDeclaration(visibility));
           return;
 
-        case TokenKind.ValKeyword or TokenKind.VarKeyword: {
+        case TokenKind.ValKeyword or TokenKind.VarKeyword:
+        case TokenKind.MutKeyword when Peek(1).Kind is TokenKind.ValKeyword or TokenKind.VarKeyword: {
             if (genericDecorator is not null) {
               ReportError(
                   DiagnosticCodes.ExpectedStatement,
@@ -190,7 +191,9 @@ public sealed partial class Parser {
                   : null;
             }
 
-            if (Peek(1).Kind == TokenKind.At && Peek(2).Kind == TokenKind.OpenParen) {
+            Token? leadingMut = ConsumeLeadingBindingMutIfPresent();
+
+            if (IsTupleDestructuringAfterBindingKeyword(leadingMut is not null)) {
               if (visibility is not null) {
                 ReportError(
                     DiagnosticCodes.ExpectedStatement,
@@ -202,11 +205,11 @@ public sealed partial class Parser {
                 items.Add(MakeErrorStatementFromTokens(visTokens.ToImmutable()));
               }
 
-              items.Add(ParseTupleDestructuringStatement());
+              items.Add(ParseTupleDestructuringStatement(leadingMut));
               return;
             }
 
-            items.Add(ParseVariableDeclaration(visibility));
+            items.Add(ParseVariableDeclaration(visibility, leadingMut));
             return;
           }
 
@@ -272,9 +275,16 @@ public sealed partial class Parser {
           return ParseFromImportStatement();
 
         case TokenKind.ValKeyword or TokenKind.VarKeyword:
-          return Peek(1).Kind == TokenKind.At && Peek(2).Kind == TokenKind.OpenParen
-              ? ParseTupleDestructuringStatement()
-              : ParseVariableDeclaration(visibility: null);
+          return IsTupleDestructuringAfterBindingKeyword(hasLeadingMut: false)
+              ? ParseTupleDestructuringStatement(leadingMutKeyword: null)
+              : ParseVariableDeclaration(visibility: null, leadingMutKeyword: null);
+
+        case TokenKind.MutKeyword when Peek(1).Kind is TokenKind.ValKeyword or TokenKind.VarKeyword: {
+            Token? leadingMut = ConsumeLeadingBindingMutIfPresent();
+            return IsTupleDestructuringAfterBindingKeyword(hasLeadingMut: true)
+                ? ParseTupleDestructuringStatement(leadingMut)
+                : ParseVariableDeclaration(visibility: null, leadingMut);
+          }
 
         case TokenKind.IfKeyword:
           return ParseIfStatementOrExpression();

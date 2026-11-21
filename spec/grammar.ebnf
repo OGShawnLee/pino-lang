@@ -50,10 +50,12 @@ param           = [ "mut" ] , IDENT , type_expr ;
 arg_list        = "(" , [ [ "mut" ] , expression , { list_sep , [ "mut" ] , expression } ] , ")" ;
 
 (* === section: var (owner 005) === *)
-(* D-012: a declaration may write its type after the name, with no colon: `val n int = 12`. The initializer stays
-   required, and the declared type is the type of the variable. D-160: a `val` initialized with `Option::None` is a
-   checker error. D-018: a second declaration of the same name in one scope is a checker error. *)
-variable_decl   = ( "val" | "var" ) , IDENT , [ type_expr ] , "=" , expression ;
+(* D-012: a declaration may write its type after the name, with no colon: `val n int = 12` or `val mut xs []int = []int`.
+   The initializer stays required, and the declared type is the type of the variable. D-183: `val mut` declares an
+   interior-mutable, non-reassignable binding (`var mut`, `mut val`, and `val mut @(...)` are parse errors).
+   D-160: a `val` initialized with `Option::None` is a checker error. D-018: a second declaration of the same name in
+   one scope is a checker error. *)
+variable_decl   = ( "val" , [ "mut" ] | "var" ) , IDENT , [ type_expr ] , "=" , expression ;
 
 (* Assignment is a right-associative expression at the loosest precedence level (D-141); see assign_expr in section type. *)
 block           = "{" , { statement } , "}" ;

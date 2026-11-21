@@ -241,7 +241,11 @@ internal sealed partial class BodyChecker {
   }
 
   private void CheckVariableDeclaration(VariableDeclarationSyntax declaration) {
-    bool isVal = declaration.KeywordToken.Kind == TokenKind.ValKeyword;
+    bool isValKeyword = declaration.KeywordToken.Kind == TokenKind.ValKeyword;
+    bool isValMut = isValKeyword && declaration.MutKeyword is not null;
+    bool isFrozenVal = isValKeyword && !isValMut;
+    bool isMutable = !isFrozenVal;
+    bool isReassignable = !isValKeyword;
     bool nameMissing = IsMissing(declaration.NameToken);
     string name = nameMissing ? "<unknown>" : NameOf(declaration.NameToken);
 
@@ -252,18 +256,19 @@ internal sealed partial class BodyChecker {
             DiagnosticCodes.SymbolNotPublic,
             vis.Span,
             $"Visibility modifier '{(vis.IsPub ? "pub" : "@@Testable")}' is only allowed on top-level declarations.");
-      } else if (!isVal) {
+      } else if (!isFrozenVal) {
+        string bindingKind = isValMut ? "val mut" : "var";
         if (vis.IsPub) {
           Report(
               DiagnosticCodes.SymbolNotPublic,
               vis.Span,
-              "Top-level 'var' cannot be marked 'pub'; use 'pub val' or expose it through a 'pub fn'.",
-              help: "use 'pub val' for an exported constant, or keep 'var' private and expose a 'pub fn'");
+              $"Top-level '{bindingKind}' cannot be marked 'pub'; use 'pub val' or expose it through a 'pub fn'.",
+              help: $"use 'pub val' for an exported constant, or keep '{bindingKind}' private and expose a 'pub fn'");
         } else {
           Report(
               DiagnosticCodes.SymbolNotPublic,
               vis.Span,
-              "Top-level 'var' cannot be marked '@@Testable'; use '@@Testable val' or a '@@Testable fn'.");
+              $"Top-level '{bindingKind}' cannot be marked '@@Testable'; use '@@Testable val' or a '@@Testable fn'.");
         }
       } else {
         visibility = vis.IsPub ? SymbolVisibility.Public : SymbolVisibility.Testable;
@@ -275,7 +280,7 @@ internal sealed partial class BodyChecker {
         : null;
 
     TypeSymbol bindingType;
-    if (isVal && IsOptionNone(declaration.Initializer)) {
+    if (isFrozenVal && IsOptionNone(declaration.Initializer)) {
       // D-160 / VAR-E7: a `val` can never hold the empty `Option`.
       Report(
           DiagnosticCodes.ValInitializedWithOptionNone,
@@ -313,6 +318,19 @@ internal sealed partial class BodyChecker {
       }
     }
 
+    if (isValMut && !HasMutableInterior(bindingType)) {
+      // D-183 / VAR-E13: `val mut` requires a type with mutable contents.
+      Token mutTok = declaration.MutKeyword!.Value;
+      SourceSpan valMutSpan = SourceSpan.FromBounds(
+          Math.Min(declaration.KeywordToken.Span.Start, mutTok.Span.Start),
+          Math.Max(declaration.KeywordToken.Span.End, mutTok.Span.End));
+      Report(
+          DiagnosticCodes.ValMutRequiresMutableInterior,
+          valMutSpan,
+          $"Type '{bindingType.DisplayName}' has nothing to mutate; 'val mut' requires a type with mutable contents.",
+          help: "use 'val' if it never changes, or 'var' to reassign it");
+    }
+
     if (nameMissing) {
       return;
     }
@@ -322,15 +340,16 @@ internal sealed partial class BodyChecker {
     var symbol = new LocalSymbol(
         name,
         bindingType,
-        !isVal,
+        isMutable,
         LocalKind.Variable,
         declaration.Id,
         declaration.NameToken.Span,
         _state.FilePath,
         _scope.Owner,
-        visibility);
+        visibility,
+        isReassignable: isReassignable);
 
-    if (isVal && TryEvalConstant(declaration.Initializer) is { } folded) {
+    if (isFrozenVal && TryEvalConstant(declaration.Initializer) is { } folded) {
       if (folded.Kind == ConstantValueKind.Int && ReferenceEquals(bindingType, _types.Float)) {
         folded = ConstantValue.FromFloat(folded.IntValue);
       }

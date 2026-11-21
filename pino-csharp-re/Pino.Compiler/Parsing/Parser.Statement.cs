@@ -8,8 +8,57 @@ using Pino.Compiler.Text;
 namespace Pino.Compiler.Parsing;
 
 public sealed partial class Parser {
-  private VariableDeclarationSyntax ParseVariableDeclaration(VisibilitySyntax? visibility) {
+  private bool IsTupleDestructuringAfterBindingKeyword(bool hasLeadingMut) {
+    int offset = !hasLeadingMut && Peek(1).Kind == TokenKind.MutKeyword ? 2 : 1;
+    return Peek(offset).Kind == TokenKind.At && Peek(offset + 1).Kind == TokenKind.OpenParen;
+  }
+
+  private Token? ConsumeLeadingBindingMutIfPresent() {
+    if (Current.Kind != TokenKind.MutKeyword || Peek(1).Kind is not (TokenKind.ValKeyword or TokenKind.VarKeyword)) {
+      return null;
+    }
+
+    int mutIndex = _pos;
+    Token mutToken = Consume();
+    if (Current.Kind == TokenKind.ValKeyword) {
+      ReportErrorAt(
+          mutIndex,
+          DiagnosticCodes.InvalidMutModifierPlacement,
+          mutToken.Span,
+          "'mut val' is not valid; write 'val mut' instead.",
+          help: "write 'val mut' with 'mut' after 'val'");
+    } else {
+      ReportErrorAt(
+          mutIndex,
+          DiagnosticCodes.InvalidMutModifierPlacement,
+          mutToken.Span,
+          "'mut var' is not valid; 'var' bindings are already mutable.",
+          help: "remove 'mut' before 'var'");
+    }
+
+    return mutToken;
+  }
+
+  private VariableDeclarationSyntax ParseVariableDeclaration(
+      VisibilitySyntax? visibility,
+      Token? leadingMutKeyword = null) {
     Token keywordToken = Consume();
+    Token? mutKeyword = leadingMutKeyword;
+
+    if (mutKeyword is null && Current.Kind == TokenKind.MutKeyword) {
+      int mutIndex = _pos;
+      Token mk = Consume();
+      mutKeyword = mk;
+      if (keywordToken.Kind == TokenKind.VarKeyword) {
+        ReportErrorAt(
+            mutIndex,
+            DiagnosticCodes.InvalidMutModifierPlacement,
+            mk.Span,
+            "'var mut' is not valid; 'var' bindings are already mutable.",
+            help: "remove 'mut' after 'var'");
+      }
+    }
+
     Token nameToken = ExpectIdentifier();
 
     // D-012: an optional type follows the name, with no colon: `val n int = 12`. A token that can start a
@@ -23,7 +72,7 @@ public sealed partial class Parser {
     Token equalsToken = Expect(TokenKind.Assign);
     ExpressionSyntax initializer = ParseExpression(0, ExprContext.AllowBraceLiteral);
 
-    int start = visibility?.Span.Start ?? keywordToken.Span.Start;
+    int start = MinModifierStart(null, visibility, keywordToken, mutKeyword, keywordToken.Span.Start);
     int end = Math.Max(equalsToken.Span.End, initializer.Span.End);
     return new VariableDeclarationSyntax(
         NextId(),
@@ -33,11 +82,35 @@ public sealed partial class Parser {
         equalsToken,
         initializer,
         Type: type,
-        Visibility: visibility);
+        Visibility: visibility,
+        MutKeyword: mutKeyword);
   }
 
-  private TupleDestructuringStatementSyntax ParseTupleDestructuringStatement() {
+  private TupleDestructuringStatementSyntax ParseTupleDestructuringStatement(Token? leadingMutKeyword = null) {
     Token keywordToken = Consume();
+    Token? mutKeyword = leadingMutKeyword;
+
+    if (mutKeyword is null && Current.Kind == TokenKind.MutKeyword) {
+      int mutIndex = _pos;
+      Token consumedMut = Consume();
+      mutKeyword = consumedMut;
+      if (keywordToken.Kind == TokenKind.ValKeyword) {
+        ReportErrorAt(
+            mutIndex,
+            DiagnosticCodes.InvalidMutModifierPlacement,
+            consumedMut.Span,
+            "'val mut' cannot be used with tuple destructuring; use 'var @(...)' instead.",
+            help: "replace 'val mut @(...)' with 'var @(...)'");
+      } else {
+        ReportErrorAt(
+            mutIndex,
+            DiagnosticCodes.InvalidMutModifierPlacement,
+            consumedMut.Span,
+            "'var mut' is not valid; 'var' bindings are already mutable.",
+            help: "remove 'mut' after 'var'");
+      }
+    }
+
     Token atToken = Consume();
     Token openParen = Consume();
     var fields = ImmutableArray.CreateBuilder<DestructureFieldSyntax>();
@@ -133,16 +206,20 @@ public sealed partial class Parser {
     ExpressionSyntax initializer = ParseExpression(0, ExprContext.AllowBraceLiteral);
     int finalEnd = Math.Max(equalsToken.Span.End, initializer.Span.End);
 
+    int finalStart = mutKeyword is { } mk && mk.Span.Start < keywordToken.Span.Start
+        ? mk.Span.Start
+        : keywordToken.Span.Start;
     return new TupleDestructuringStatementSyntax(
         NextId(),
-        SourceSpan.FromBounds(keywordToken.Span.Start, finalEnd),
+        SourceSpan.FromBounds(finalStart, finalEnd),
         keywordToken,
         atToken,
         openParen,
         fields.ToImmutable(),
         closeParen,
         equalsToken,
-        initializer);
+        initializer,
+        MutKeyword: mutKeyword);
   }
 
   private StatementSyntax ParseIfStatementOrExpression() {

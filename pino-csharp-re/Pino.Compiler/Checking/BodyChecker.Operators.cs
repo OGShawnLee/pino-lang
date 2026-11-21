@@ -489,6 +489,12 @@ internal sealed partial class BodyChecker {
           break;
         }
 
+        if (!local.IsReassignable) {
+          // D-183 / VAR-E12: `val mut` contents are mutable, but the binding itself cannot be reassigned.
+          ReportValMutReassignment(identifier, local);
+          break;
+        }
+
         // AD-002 / AD-003: record valid mutable binding reassignment and mutation place.
         _state.AssignedSymbols.Add(local);
         Scope? localDeclScope = FindDeclaringScope(local);

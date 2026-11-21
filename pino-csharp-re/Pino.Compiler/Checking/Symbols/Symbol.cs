@@ -102,16 +102,22 @@ public sealed class LocalSymbol : Symbol {
       SourceSpan nameSpan,
       string? filePath,
       Symbol? containingSymbol = null,
-      SymbolVisibility visibility = SymbolVisibility.Private)
+      SymbolVisibility visibility = SymbolVisibility.Private,
+      bool? isReassignable = null)
       : base(name, visibility, declaringNodeId, nameSpan, filePath, containingSymbol) {
     Type = type;
     IsMutable = isMutable;
+    IsReassignable = isReassignable ?? isMutable;
     Kind = kind;
   }
 
   public TypeSymbol Type { get; }
 
+  /// <summary>True when the binding's contents may be mutated (<c>var</c>, <c>val mut</c>, or <c>mut fn</c>'s <c>self</c>).</summary>
   public bool IsMutable { get; }
+
+  /// <summary>True when the binding itself may be reassigned (<c>var</c> only; false for <c>val</c> and <c>val mut</c>).</summary>
+  public bool IsReassignable { get; }
 
   public LocalKind Kind { get; }
 
