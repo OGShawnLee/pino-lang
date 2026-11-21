@@ -383,7 +383,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - Router verification in main: `-re` 3953/3953, 0 warnings, format clean, `main.pino` 0 errors.
       - The router probe reported PN3220, PN3221, PN3223 and PN3226 correctly, and allowed `w:push(w[0])`.
       - Nit: `CheckerMainPinoTests` special-cases the *committed* `main.pino` (an older file whose `Context` methods mutate `self` without `mut fn`), expecting exactly 2 PN3222 errors when `PINO_MAIN_PINO` is unset. The owner's working copy checks with 0 errors. Remove the special case once the owner commits their `main.pino`.
-    - [ ] **050-conformance-add-mut-err-and-cow-cases** (Gemini 4 Hydrogen High, worktree): dispatched.
+    - [ ] **050-conformance-add-mut-err-and-cow-cases** (Gemini 4 Hydrogen High, worktree): dispatched. Steered: `err-mut-as-identifier` uses `fn mut()`, not `val mut = 1`.
+  - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
+    - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
+    - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
+    - `pub val mut` is rejected, like `pub var` (MOD-E9).
+    - Ticket to follow after 050 (spec, `-re` parser and checker, cases). It waits on the owner's answer about module-level mutable state.
     - The IR design follows 049.
   - [ ] **Pending: a "values, not objects" user guide.** It covers:
     - the linked-data caveat (a stored struct is a copy)
