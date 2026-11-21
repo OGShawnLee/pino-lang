@@ -421,6 +421,22 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - A bare `mut x = ...` gives PN2003, not PN2022 (fine, but undocumented).
       - `str(set)` and `str(map)` forms are unspecified (SET-6), which ties into the pending `str(m)` question.
       - MOD-7's lookup order couldn't be shown on a case-insensitive file system.
+  - **Owner decisions (2026-11-21): disjoint `mut` slots and `Pool[T]`.**
+    - The value model stays. No `&T` (it would bring back aliasing, cycles, data races and `nil`). `ref` stays deferred.
+    - Disjoint slots, option 1a, three levels:
+      1. a compile-time proof (literals, `n ± k`, the `if a != b` branch fact, different fields)
+      2. otherwise a run-time check comparing resolved slot addresses
+      3. a panic `'<callee>' got the same slot of '<root>' twice as 'mut'`
+
+      Proven overlap stays PN3226. Also adds `v:swap(i, j)`.
+    - `Pool[T]` and `Handle[T]` are built in, like `Option` and `Result`. The rest follows the router defaults:
+      - iteration is in **slot order** (owner): deterministic, not insertion order
+      - a stale `p[h]` panics; `h in p` and `p:get(h)` are the checked forms
+      - handles are tied to the element type, not one pool
+      - a slot whose generation counter would overflow is retired
+  - [ ] **053-disjoint-mut-slots** (draft, Gemini 4 Neon High): D-184, rewording FN-E16, FN-32 to FN-35, VECLIB-26 and 27, the `-re` checker, and a side table of run-time checks for the IR.
+  - [ ] **054-pool-and-handle-types** (draft, Gemini 4 Neon High, after 053): D-185, `pools.md` and `pool.md`, EQ-14, LOOP-19 and 20, VAR-E13, the `-re` checker, and IR obligations. Open risk: parsing `Pool[Weapon]` as an expression.
+  - Both drafts are being reviewed read-only by a fresh Neon. After that, owner approval, then implementation. Running needs the IR and VM, so the IR design comes after these.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
