@@ -295,7 +295,15 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - generic and closure reachability edges
     - `CheckerMainPinoTests` (`PINO_MAIN_PINO`) gives 0 errors on the owner's `main.pino`, with the exact §3.3 types
     - Router: `-re` 3293/3293 in main (including `main.pino`), 0 warnings, format clean.
-  - [ ] **040** dispatched (Gemini 4 Hydrogen High): patterns, flow, constants, CLI wiring, the conformance/snapshot/fuzz/edit-locality suites, plus 042's checker side.
+  - [x] **040** (`dfd1b66`, Gemini 4 Hydrogen High; needed one nudge after ending its turn mid-test):
+    - D-169 patterns, D-034, flow-sensitive `is`, `match` typing, D-031 exhaustiveness with matrix specialization, MATCH-11 warnings
+    - definite return; `break`/`continue` scoped to their callable; constant folding (OQ-7), PN3501 and PN3502–3504, the PN3550 warning
+    - 042's checker side: STR-11, VAR-E9, MOD-5/MOD-E9 (`pub val` exported); IFACE-5 map value conversion
+    - `pino-re check` now runs the checker (exit 0 with warnings only, 1 on errors)
+    - suites: `CheckerConformanceTests` (397 `.out` cases with 0 errors; 191 `.err` cases matched; 17 `RuntimeErrCases` and 11 OQ-42 legacy-text entries, both non-stale), snapshots, fuzz (637 corpus files + 5,500 seeded inputs, 0 exceptions, 0 leaked type variables), edit locality
+    - Router: `-re` 3900/3900 in main, 0 warnings, format clean; `pino-re check main.pino` gives 0 errors. A CLI probe showed late-base-case inference (`f` → `int` flagged against `val x string`) and PN3501 rendering correctly.
+    - Nit: `CheckerConformanceTests` matches `.err` text case-insensitively and also searches the help text; the legacy runner is case-sensitive on output. Tighten later.
+- **The `-re` checker is complete (034–040).** Next, per AD-001 and AD-002: the `-re` IR design (RC-ready but model-neutral IR, IR VM, C emitter with a tracing GC first). Also pending: the `mut` design idea, `rune + string`, the OQ-42 `.err` rewording, the `str(m)` print form, and the legacy GC fix.
 - Owner priority (2026-11-20): **`-re` first.** The legacy GC fix (032-Q1) is deferred.
 - [ ] **Deferred by owner (2026-11-20): sized numeric types** (`i8`…`i64`, `u8`…`u64`, `f16`, `f32`, `f64`). Pino stays simple for now (`int`, `float`). Raised by the owner while discussing data science (tensors, images, ML). Needs its own design before any rule: explicit conversion/casting syntax, the widening matrix (generalizing D-019), context-typed literals (Go-style: `val x f32 = 1.5`), overflow policy (wrap, panic, or debug-panic/release-wrap) and `u*` ↔ `i*` conversions. Router suggestion when revisited: keep `int` = `i64` and `float` = `f64` as the everyday names, with sized types opt-in by annotation. Ties in with the Data Science & FFI item below.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
