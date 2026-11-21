@@ -57,6 +57,12 @@ internal sealed class ModuleCheckState {
 
   public bool IsProgramMode { get; set; }
 
+  public bool IsPhase2Complete { get; set; }
+
+  public bool SuppressInstantiationRecording { get; set; }
+
+  public Action<StructSymbol>? EnsureStructMethodsResolved { get; set; }
+
   public Scope ModuleScope { get; }
 
   private DiagnosticBag _diagnostics = new();
@@ -92,7 +98,12 @@ internal sealed class ModuleCheckState {
 
   public List<(UnionDeclarationSyntax Syntax, UnionSymbol Symbol, Scope Scope)> Unions { get; } = [];
 
-  public List<(TypeSyntax ArgumentSyntax, TypeParameterSymbol TypeParameter, TypeSymbol ArgumentType)> DeferredConstraintChecks { get; } = [];
+  public List<(
+      TypeSyntax ArgumentSyntax,
+      TypeParameterSymbol TypeParameter,
+      TypeSymbol ArgumentType,
+      ImmutableArray<TypeParameterSymbol> OwnerTypeParameters,
+      ImmutableArray<TypeSymbol> OwnerTypeArguments)> DeferredConstraintChecks { get; } = [];
 
   public List<TypeSymbol> ResolvedTypes { get; } = [];
 
@@ -188,6 +199,110 @@ internal sealed partial class CheckerSession {
   private readonly Dictionary<string, ModuleCheckState> _modulesByPath = new(StringComparer.Ordinal);
   private readonly HashSet<string> _activeModulePaths = new(StringComparer.Ordinal);
   private readonly List<ModuleCheckState> _orderedModules = [];
+  private readonly HashSet<InstantiationKey> _instantiationKeys = [];
+  private readonly List<GenericInstantiation> _genericInstantiations = [];
+
+  private readonly struct InstantiationKey(
+      Symbol definition,
+      ImmutableArray<TypeSymbol> typeArguments) : IEquatable<InstantiationKey> {
+    public Symbol Definition { get; } = definition;
+    public ImmutableArray<TypeSymbol> TypeArguments { get; } = typeArguments;
+
+    public bool Equals(InstantiationKey other) {
+      if (!ReferenceEquals(Definition, other.Definition)
+          || TypeArguments.Length != other.TypeArguments.Length) {
+        return false;
+      }
+
+      for (int i = 0; i < TypeArguments.Length; i++) {
+        if (!ReferenceEquals(TypeArguments[i], other.TypeArguments[i])) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    public override bool Equals(object? obj) => obj is InstantiationKey other && Equals(other);
+
+    public override int GetHashCode() {
+      var hc = new HashCode();
+      hc.Add(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Definition));
+      hc.Add(TypeArguments.Length);
+      foreach (TypeSymbol arg in TypeArguments) {
+        hc.Add(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(arg));
+      }
+      return hc.ToHashCode();
+    }
+  }
+
+  public void RecordGenericInstantiation(Symbol definition, ImmutableArray<TypeSymbol> typeArguments) {
+    if (typeArguments.IsDefaultOrEmpty) {
+      return;
+    }
+
+    foreach (TypeSymbol arg in typeArguments) {
+      if (!Unifier.IsConcreteType(arg)) {
+        return;
+      }
+    }
+
+    var key = new InstantiationKey(definition, typeArguments);
+    if (_instantiationKeys.Add(key)) {
+      _genericInstantiations.Add(new GenericInstantiation(definition, typeArguments));
+    }
+  }
+
+  public void RecordInstantiationsInType(TypeSymbol type) {
+    switch (type) {
+      case VectorType v:
+        RecordInstantiationsInType(v.ElementType);
+        break;
+
+      case MapType m:
+        RecordInstantiationsInType(m.KeyType);
+        RecordInstantiationsInType(m.ValueType);
+        break;
+
+      case SetType s:
+        RecordInstantiationsInType(s.ElementType);
+        break;
+
+      case TupleType t:
+        foreach (TupleField f in t.Fields) {
+          RecordInstantiationsInType(f.Type);
+        }
+        break;
+
+      case FunctionType fn:
+        foreach (TypeSymbol p in fn.ParameterTypes) {
+          RecordInstantiationsInType(p);
+        }
+        RecordInstantiationsInType(fn.ReturnType);
+        break;
+
+      case StructType st when !st.TypeArguments.IsEmpty:
+        RecordGenericInstantiation(st.Definition, st.TypeArguments);
+        foreach (TypeSymbol a in st.TypeArguments) {
+          RecordInstantiationsInType(a);
+        }
+        break;
+
+      case UnionType ut when !ut.TypeArguments.IsEmpty:
+        RecordGenericInstantiation(ut.Definition, ut.TypeArguments);
+        foreach (TypeSymbol a in ut.TypeArguments) {
+          RecordInstantiationsInType(a);
+        }
+        break;
+
+      case InterfaceType it when !it.TypeArguments.IsEmpty:
+        RecordGenericInstantiation(it.Definition, it.TypeArguments);
+        foreach (TypeSymbol a in it.TypeArguments) {
+          RecordInstantiationsInType(a);
+        }
+        break;
+    }
+  }
 
   public Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), bool> InterfaceSatisfactionCache { get; } = [];
 
@@ -211,7 +326,8 @@ internal sealed partial class CheckerSession {
 
     ModuleCheckState rootState = CheckModule(rootTree, rootKey, defaultName, isRoot: true);
 
-    TypeReachabilityGraph reachability = ReachabilityBuilder.Build(_orderedModules, Prelude, Types);
+    ImmutableArray<GenericInstantiation> genericInstantiations = [.. _genericInstantiations];
+    TypeReachabilityGraph reachability = ReachabilityBuilder.Build(_orderedModules, Prelude, Types, genericInstantiations);
 
     var modulesBuilder = new Dictionary<string, ModuleSymbol>(_orderedModules.Count, StringComparer.Ordinal);
     var modelsByTreeBuilder = new Dictionary<ParseResult, SemanticModel>(_orderedModules.Count, ReferenceEqualityComparer.Instance);
@@ -239,7 +355,7 @@ internal sealed partial class CheckerSession {
         Types,
         reachability,
         allDiagnostics.ToImmutable(),
-        []);
+        genericInstantiations);
   }
 
   private ModuleCheckState CheckModule(

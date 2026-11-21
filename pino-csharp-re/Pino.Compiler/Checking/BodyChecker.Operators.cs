@@ -193,9 +193,20 @@ internal sealed partial class BodyChecker {
       return _types.Bool;
     }
 
-    // Generic parameter comparisons are refined by ticket 039.
-    if (left is TypeParameterType || right is TypeParameterType) {
-      return _types.Bool;
+    if (left is TypeParameterType leftTp && leftTp.Symbol.Constraint is { } leftConstraint) {
+      if (ReferenceEquals(right, leftConstraint)
+          || (right is StructType or InterfaceType or TypeParameterType
+              && TypeCompatibility.SatisfiesInterface(right, leftConstraint, _types, _state.Module, _session.InterfaceSatisfactionCache))) {
+        return _types.Bool;
+      }
+    }
+
+    if (right is TypeParameterType rightTp && rightTp.Symbol.Constraint is { } rightConstraint) {
+      if (ReferenceEquals(left, rightConstraint)
+          || (left is StructType or InterfaceType or TypeParameterType
+              && TypeCompatibility.SatisfiesInterface(left, rightConstraint, _types, _state.Module, _session.InterfaceSatisfactionCache))) {
+        return _types.Bool;
+      }
     }
 
     Report(

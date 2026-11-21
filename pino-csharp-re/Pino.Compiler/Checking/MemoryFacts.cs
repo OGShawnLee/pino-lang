@@ -155,6 +155,7 @@ public sealed class TypeReachabilityGraph {
       type switch {
         PrimitiveType p => IsScalarPrimitive(p.Kind),
         EnumType => true,
+        VoidType => true,
         TupleType tuple => AllTupleFieldsInlineScalar(tuple),
         _ => false,
       };

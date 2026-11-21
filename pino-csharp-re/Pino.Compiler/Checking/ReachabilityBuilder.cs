@@ -10,7 +10,8 @@ internal static class ReachabilityBuilder {
   public static TypeReachabilityGraph Build(
       IReadOnlyList<ModuleCheckState> modules,
       PreludeSymbols prelude,
-      TypeInterner types) {
+      TypeInterner types,
+      ImmutableArray<GenericInstantiation> genericInstantiations = default) {
     var builder = new TypeReachabilityGraph.Builder();
     var visited = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
     var worklist = new Queue<TypeSymbol>();
@@ -20,7 +21,30 @@ internal static class ReachabilityBuilder {
     EnqueueUnion(prelude.OptionUnion, types, worklist);
     EnqueueUnion(prelude.ResultUnion, types, worklist);
 
-    // Seed all module nominal types and resolved Phase 2 types.
+    // Seed all concrete generic instantiations reached across the compilation (AD-002 / ticket 032 §6).
+    if (!genericInstantiations.IsDefaultOrEmpty) {
+      foreach (GenericInstantiation inst in genericInstantiations) {
+        switch (inst.Definition) {
+          case StructSymbol s:
+            worklist.Enqueue(types.GetStruct(s, inst.TypeArguments));
+            break;
+
+          case UnionSymbol u:
+            worklist.Enqueue(types.GetUnion(u, inst.TypeArguments));
+            break;
+
+          case InterfaceSymbol i:
+            worklist.Enqueue(types.GetInterface(i, inst.TypeArguments));
+            break;
+        }
+
+        foreach (TypeSymbol arg in inst.TypeArguments) {
+          worklist.Enqueue(arg);
+        }
+      }
+    }
+
+    // Seed all module nominal types, resolved Phase 2 types, Phase 3 expression types, and closure environments.
     foreach (ModuleCheckState state in modules) {
       foreach ((_, StructSymbol structSym, _, _) in state.Structs) {
         EnqueueStruct(structSym, types, worklist);
@@ -40,6 +64,48 @@ internal static class ReachabilityBuilder {
 
       foreach (TypeSymbol resolved in state.ResolvedTypes) {
         worklist.Enqueue(resolved);
+      }
+
+      for (int nodeId = 0; nodeId < state.NodeTypes.Length; nodeId++) {
+        if (state.NodeTypes[nodeId] is { } nodeType
+            && !nodeType.IsError
+            && nodeType is not (TypeVariableType or PendingReturnType)) {
+          worklist.Enqueue(nodeType);
+        }
+      }
+
+      // AD-002 / ticket 032 §6: register closure environment edges from every recorded CaptureList.
+      // Captured mutable `var`s are boxed on the heap (D-056 / FN-21), so their edges are mutable;
+      // immutable `val` / unmutated parameter captures produce immutable edges.
+      for (int nodeId = 0; nodeId < state.CapturesByCallableId.Length; nodeId++) {
+        CaptureList? captures = state.CapturesByCallableId[nodeId];
+        if (captures is null || captures.IsEmpty) {
+          continue;
+        }
+
+        FunctionType? callableFnType = ResolveCallableFunctionType(state, nodeId, types);
+        if (callableFnType is null || callableFnType.ContainsError) {
+          continue;
+        }
+
+        worklist.Enqueue(callableFnType);
+        foreach (CaptureEntry entry in captures.Entries) {
+          TypeSymbol? capturedType = entry.Symbol switch {
+            LocalSymbol local => local.Type,
+            ParameterSymbol param => param.Type,
+            _ => null,
+          };
+
+          if (capturedType is null
+              || capturedType.IsError
+              || capturedType is TypeVariableType or PendingReturnType) {
+            continue;
+          }
+
+          bool isMutableEdge = entry.IsMutable || entry.IsMutatedByClosure;
+          builder.AddEdge(callableFnType, capturedType, isMutableEdge);
+          worklist.Enqueue(capturedType);
+        }
       }
     }
 
@@ -149,15 +215,14 @@ internal static class ReachabilityBuilder {
           }
 
         case FunctionType fnType:
-          // Conservative heap edge for closures capturing mutable vars (FN-21, D-056).
+          // Closure environment containment edges come from recorded CaptureLists (D-056 / FN-21)
+          // above; parameter/return types are visited as nodes without adding spurious self-containment edges.
           foreach (TypeSymbol paramType in fnType.ParameterTypes) {
             if (!paramType.IsError) {
-              builder.AddEdge(fnType, paramType, isMutableEdge: true);
               worklist.Enqueue(paramType);
             }
           }
           if (!fnType.ReturnType.IsError) {
-            builder.AddEdge(fnType, fnType.ReturnType, isMutableEdge: true);
             worklist.Enqueue(fnType.ReturnType);
           }
           break;
@@ -165,6 +230,33 @@ internal static class ReachabilityBuilder {
     }
 
     return builder.Build();
+  }
+
+  private static FunctionType? ResolveCallableFunctionType(
+      ModuleCheckState state,
+      int nodeId,
+      TypeInterner types) {
+    if ((uint) nodeId < (uint) state.NodeTypes.Length && state.NodeTypes[nodeId] is FunctionType directFn) {
+      return directFn;
+    }
+
+    if ((uint) nodeId < (uint) state.Conversions.Length
+        && state.Conversions[nodeId] is { Kind: ConversionKind.ImplicitItLambda, ImplicitLambdaType: { } implicitFn }) {
+      return implicitFn;
+    }
+
+    if ((uint) nodeId < (uint) state.DeclaredSymbols.Length
+        && state.DeclaredSymbols[nodeId] is FunctionSymbol fnSym
+        && fnSym.TypeParameters.IsEmpty) {
+      var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(fnSym.Parameters.Length);
+      foreach (ParameterSymbol p in fnSym.Parameters) {
+        paramTypes.Add(p.Type);
+      }
+
+      return types.GetFunction(paramTypes.MoveToImmutable(), fnSym.ReturnType);
+    }
+
+    return null;
   }
 
   private static void EnqueueStruct(StructSymbol sym, TypeInterner types, Queue<TypeSymbol> worklist) {

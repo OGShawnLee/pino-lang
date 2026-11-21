@@ -117,6 +117,14 @@ internal sealed partial class BodyChecker {
         type = SynthesizeStaticAccess(staticAccess, expected);
         break;
 
+      case StructLiteralExpressionSyntax structLiteral:
+        type = SynthesizeStructLiteral(structLiteral, expected);
+        break;
+
+      case RecoveryExpressionSyntax recovery:
+        type = CheckRecovery(recovery, expected);
+        break;
+
       default:
         type = SynthesizeCore(expression);
         break;
@@ -174,7 +182,7 @@ internal sealed partial class BodyChecker {
     }
 
     if (expected is InterfaceType targetInterface
-        && actual is StructType or InterfaceType) {
+        && actual is StructType or InterfaceType or TypeParameterType) {
       if (actual is StructType actualStruct) {
         EnsureStructMethodsResolved(actualStruct.Definition);
       }
@@ -279,7 +287,7 @@ internal sealed partial class BodyChecker {
         return SynthesizeSetLiteral(set);
 
       case StructLiteralExpressionSyntax structLiteral:
-        return SynthesizeStructLiteral(structLiteral);
+        return SynthesizeStructLiteral(structLiteral, expectedType: null);
 
       case MemberAccessExpressionSyntax member:
         return SynthesizeMemberAccess(member);
@@ -289,6 +297,12 @@ internal sealed partial class BodyChecker {
 
       case CallExpressionSyntax call:
         return SynthesizeCall(call, expectedType: null);
+
+      case BubbleExpressionSyntax bubble:
+        return SynthesizeBubble(bubble);
+
+      case RecoveryExpressionSyntax recovery:
+        return CheckRecovery(recovery, expectedType: null);
 
       case TupleLiteralExpressionSyntax tupleLiteral:
         return SynthesizeTupleLiteralOutsideReturn(tupleLiteral);
@@ -489,20 +503,12 @@ internal sealed partial class BodyChecker {
   }
 
   /// <summary>
-  /// Expression forms owned by tickets 039–040 (<c>match</c>, <c>?</c>, <c>or</c>, <c>is</c>).
+  /// Expression forms owned by ticket 040 (<c>match</c>, <c>is</c>).
   /// Their sub-expressions are visited so that names resolve and independent errors are still found,
   /// and the node itself is <see cref="ErrorType"/> (or <c>bool</c> for <c>is</c>) without diagnostics.
   /// </summary>
   private TypeSymbol SynthesizeDeferred(ExpressionSyntax expression) {
     switch (expression) {
-      case BubbleExpressionSyntax bubble:
-        Synthesize(bubble.Expression);
-        return _types.Error;
-
-      case RecoveryExpressionSyntax recovery:
-        Synthesize(recovery.Expression);
-        return _types.Error;
-
       case MatchExpressionSyntax match:
         Synthesize(match.Subject);
         return _types.Error;

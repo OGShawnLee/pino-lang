@@ -12,7 +12,7 @@ internal sealed partial class BodyChecker {
   // ---------------------------------------------------------------------------------------------
 
   private TypeSymbol SynthesizeCall(CallExpressionSyntax call, TypeSymbol? expectedType) {
-    if (TryCheckIndexedElementCall(call, out TypeSymbol indexedReturn)) {
+    if (TryCheckIndexedElementCall(call, out TypeSymbol indexedReturn, out TypeSymbol? cachedMemberReceiver)) {
       return indexedReturn;
     }
 
@@ -21,7 +21,7 @@ internal sealed partial class BodyChecker {
         return CheckIdentifierCall(call, identifier, expectedType);
 
       case MemberAccessExpressionSyntax member:
-        return CheckMemberCall(call, member, expectedType);
+        return CheckMemberCall(call, member, expectedType, cachedMemberReceiver);
 
       case StaticAccessExpressionSyntax staticAccess:
         return CheckStaticCall(call, staticAccess, expectedType);
@@ -58,7 +58,11 @@ internal sealed partial class BodyChecker {
   /// of length 1 containing <see cref="NamedTypeSyntax"/>. When the callee is a non-generic
   /// indexable value (<c>[]T</c> or <c>map[K, V]</c>), reinterpret it as an indexed element call.
   /// </summary>
-  private bool TryCheckIndexedElementCall(CallExpressionSyntax call, out TypeSymbol resultType) {
+  private bool TryCheckIndexedElementCall(
+      CallExpressionSyntax call,
+      out TypeSymbol resultType,
+      out TypeSymbol? cachedMemberReceiver) {
+    cachedMemberReceiver = null;
     if (call.TypeArguments is not { Arguments.Length: 1 } typeArgs
         || typeArgs.Arguments[0] is not NamedTypeSyntax indexNameSyntax
         || IsMissing(indexNameSyntax.NameToken)) {
@@ -85,7 +89,9 @@ internal sealed partial class BodyChecker {
       }
     } else if (call.Callee is MemberAccessExpressionSyntax member && !IsMissing(member.MemberToken)) {
       TypeSymbol receiver = Synthesize(member.Target);
-      if (receiver is StructType st && FindStructField(st.Definition, NameOf(member.MemberToken)) is { } field) {
+      cachedMemberReceiver = receiver;
+      string memberName = NameOf(member.MemberToken);
+      if (receiver is StructType st && FindStructField(st.Definition, memberName) is { } field) {
         TypeSymbol fType = TypeSubstitution.Substitute(field.Type, st.Definition.TypeParameters, st.TypeArguments, _types);
         if (fType is VectorType or MapType) {
           if (!IsFieldVisibleInCurrentModule(field)) {
@@ -96,6 +102,24 @@ internal sealed partial class BodyChecker {
           containerSymbol = field;
           containerType = fType;
         }
+      } else if (receiver is InterfaceType iface && FindInterfaceProperty(iface.Definition, memberName) is { } prop) {
+        TypeSymbol pType = TypeSubstitution.Substitute(prop.Type, iface.Definition.TypeParameters, iface.TypeArguments, _types);
+        if (pType is VectorType or MapType) {
+          _state.SetNodeType(member, pType);
+          containerType = pType;
+        }
+      } else if (receiver is TypeParameterType { Symbol.Constraint: { } boundIface }
+          && FindInterfaceProperty(boundIface.Definition, memberName) is { } boundProp) {
+        TypeSymbol pType = TypeSubstitution.Substitute(boundProp.Type, boundIface.Definition.TypeParameters, boundIface.TypeArguments, _types);
+        if (pType is VectorType or MapType) {
+          _state.SetNodeType(member, pType);
+          containerType = pType;
+        }
+      }
+    } else if (call.Callee is not StaticAccessExpressionSyntax) {
+      TypeSymbol calleeVal = Synthesize(call.Callee);
+      if (calleeVal is VectorType or MapType) {
+        containerType = calleeVal;
       }
     }
 
@@ -222,7 +246,7 @@ internal sealed partial class BodyChecker {
         return _types.Error;
 
       case FunctionSymbol fnSym:
-        return CheckDeclaredFunctionCall(call, fnSym, identifier);
+        return CheckDeclaredFunctionCall(call, fnSym, identifier, expectedType);
 
       case MethodSymbol methodSym: {
           // D-075 / STRUCT-19: bare sibling method call inside an instance method.
@@ -234,7 +258,8 @@ internal sealed partial class BodyChecker {
               ownerParams,
               ownerArgs,
               identifier,
-              hasImplicitSelf: true);
+              hasImplicitSelf: true,
+              expectedType);
         }
 
       case LocalSymbol or ParameterSymbol or FieldSymbol: {
@@ -280,8 +305,9 @@ internal sealed partial class BodyChecker {
   private TypeSymbol CheckMemberCall(
       CallExpressionSyntax call,
       MemberAccessExpressionSyntax member,
-      TypeSymbol? expectedType) {
-    TypeSymbol targetType = Synthesize(member.Target);
+      TypeSymbol? expectedType,
+      TypeSymbol? cachedReceiver = null) {
+    TypeSymbol targetType = cachedReceiver ?? Synthesize(member.Target);
     if (targetType is PendingReturnType) {
       SynthesizeCallArguments(call);
       return targetType;
@@ -314,7 +340,8 @@ internal sealed partial class BodyChecker {
                 structSym.TypeParameters,
                 structType.TypeArguments,
                 member,
-                hasImplicitSelf: false);
+                hasImplicitSelf: false,
+                expectedType);
           }
 
           if (FindStructField(structSym, memberName) is { } field) {
@@ -366,11 +393,11 @@ internal sealed partial class BodyChecker {
         }
 
       case InterfaceType ifaceType:
-        return CheckInterfaceMemberCall(call, member, ifaceType, memberName);
+        return CheckInterfaceMemberCall(call, member, ifaceType, memberName, expectedType);
 
       case TypeParameterType tpType:
         if (tpType.Symbol.Constraint is { } constraint) {
-          return CheckInterfaceMemberCall(call, member, constraint, memberName);
+          return CheckInterfaceMemberCall(call, member, constraint, memberName, expectedType);
         }
 
         SynthesizeCallArguments(call);
@@ -407,7 +434,8 @@ internal sealed partial class BodyChecker {
       CallExpressionSyntax call,
       MemberAccessExpressionSyntax member,
       InterfaceType ifaceType,
-      string memberName) {
+      string memberName,
+      TypeSymbol? expectedType) {
     InterfaceSymbol ifaceSym = ifaceType.Definition;
 
     if (FindInterfaceMethod(ifaceSym, memberName) is { } method) {
@@ -418,7 +446,8 @@ internal sealed partial class BodyChecker {
           ifaceSym.TypeParameters,
           ifaceType.TypeArguments,
           member,
-          hasImplicitSelf: false);
+          hasImplicitSelf: false,
+          expectedType);
     }
 
     if (FindInterfaceProperty(ifaceSym, memberName) is { } prop) {
@@ -490,7 +519,7 @@ internal sealed partial class BodyChecker {
 
           _state.SetReferencedSymbol(staticAccess, member);
           if (member is FunctionSymbol fnSym) {
-            return CheckDeclaredFunctionCall(call, fnSym, staticAccess);
+            return CheckDeclaredFunctionCall(call, fnSym, staticAccess, expectedType);
           }
 
           SynthesizeCallArguments(call);
@@ -526,31 +555,48 @@ internal sealed partial class BodyChecker {
               structSym.TypeParameters,
               structSym.Name,
               staticAccess.Span);
-          ImmutableArray<TypeParameterSymbol> methodParams = method.TypeParameters;
-          ImmutableArray<TypeSymbol> methodArgs = ResolveOptionalTypeArguments(
-              call.TypeArguments,
-              methodParams,
-              method.Name,
-              call.Span);
+          ImmutableArray<TypeParameterSymbol> ownerParams = ownerArgs.IsEmpty ? [] : structSym.TypeParameters;
 
-          ImmutableArray<TypeParameterSymbol> combinedParams = [.. structSym.TypeParameters, .. methodParams];
-          ImmutableArray<TypeSymbol> combinedArgs = [.. ownerArgs, .. methodArgs];
+          if (!method.TypeParameters.IsEmpty) {
+            return CheckGenericCallableCall(
+                call,
+                method,
+                "static method",
+                method.Name,
+                CallKind.StaticMethod,
+                staticAccess,
+                ownerParams,
+                ownerArgs,
+                method.TypeParameters,
+                method.Parameters,
+                () => EnsureCallableReturnType(method),
+                hasImplicitSelf: false,
+                expectedType);
+          }
+
+          if (call.TypeArguments is not null) {
+            Report(
+                DiagnosticCodes.TypeMismatch,
+                call.TypeArguments.Span,
+                $"Static method '{method.Name}' is not generic and does not accept type arguments.");
+          }
 
           var expectedParamTypes = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
           foreach (ParameterSymbol param in method.Parameters) {
-            expectedParamTypes.Add(TypeSubstitution.Substitute(param.Type, combinedParams, combinedArgs, _types));
+            expectedParamTypes.Add(TypeSubstitution.Substitute(param.Type, ownerParams, ownerArgs, _types));
           }
 
           CheckCallArguments(call, expectedParamTypes, "static method", method.Name);
           TypeSymbol rawRetType = EnsureCallableReturnType(method);
-          TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, combinedParams, combinedArgs, _types);
+          TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, ownerParams, ownerArgs, _types);
           _state.SetNodeType(staticAccess, _types.GetFunction(expectedParamTypes.ToImmutable(), retType));
           _state.CallResolutions[call.Id] = new CallResolution(CallKind.StaticMethod, TargetSymbol: method);
+          RecordInstantiationsInType(retType);
           return retType;
         }
 
       case UnionSymbol unionSym:
-        return CheckUnionConstructorCall(call, staticAccess, unionSym, memberName, expectedType);
+        return CheckUnionConstructorCall(call, staticAccess, unionSym, memberName, expectedType, allowPartialInference: false);
 
       case EnumSymbol enumSym:
         SynthesizeCallArguments(call);
@@ -573,22 +619,26 @@ internal sealed partial class BodyChecker {
   private TypeSymbol CheckDeclaredFunctionCall(
       CallExpressionSyntax call,
       FunctionSymbol fnSym,
-      ExpressionSyntax calleeNode) {
-    ImmutableArray<TypeSymbol> typeArgs = [];
+      ExpressionSyntax calleeNode,
+      TypeSymbol? expectedType) {
     if (!fnSym.TypeParameters.IsEmpty) {
-      if (call.TypeArguments is null) {
-        // Unification of @@Generic calls without explicit type arguments lands in ticket 039.
-        SynthesizeCallArguments(call);
-        _state.CallResolutions[call.Id] = new CallResolution(CallKind.DirectFunction, TargetSymbol: fnSym);
-        return _types.Error;
-      }
+      return CheckGenericCallableCall(
+          call,
+          fnSym,
+          "function",
+          fnSym.Name,
+          CallKind.DirectFunction,
+          calleeNode,
+          ownerTypeParams: [],
+          ownerTypeArgs: [],
+          fnSym.TypeParameters,
+          fnSym.Parameters,
+          () => EnsureCallableReturnType(fnSym),
+          hasImplicitSelf: false,
+          expectedType);
+    }
 
-      typeArgs = ResolveOptionalTypeArguments(call.TypeArguments, fnSym.TypeParameters, fnSym.Name, call.Span);
-      if (typeArgs.Length != fnSym.TypeParameters.Length) {
-        SynthesizeCallArguments(call);
-        return _types.Error;
-      }
-    } else if (call.TypeArguments is not null) {
+    if (call.TypeArguments is not null) {
       Report(
           DiagnosticCodes.TypeMismatch,
           call.TypeArguments.Span,
@@ -597,20 +647,15 @@ internal sealed partial class BodyChecker {
 
     var expectedParams = ImmutableArray.CreateBuilder<TypeSymbol>(fnSym.Parameters.Length);
     foreach (ParameterSymbol p in fnSym.Parameters) {
-      expectedParams.Add(
-          typeArgs.IsEmpty
-              ? p.Type
-              : TypeSubstitution.Substitute(p.Type, fnSym.TypeParameters, typeArgs, _types));
+      expectedParams.Add(p.Type);
     }
 
     CheckCallArguments(call, expectedParams, "function", fnSym.Name);
-    TypeSymbol rawRetType = EnsureCallableReturnType(fnSym);
-    TypeSymbol retType = typeArgs.IsEmpty
-        ? rawRetType
-        : TypeSubstitution.Substitute(rawRetType, fnSym.TypeParameters, typeArgs, _types);
+    TypeSymbol retType = EnsureCallableReturnType(fnSym);
 
     _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
     _state.CallResolutions[call.Id] = new CallResolution(CallKind.DirectFunction, TargetSymbol: fnSym);
+    RecordInstantiationsInType(retType);
     return retType;
   }
 
@@ -620,42 +665,46 @@ internal sealed partial class BodyChecker {
       ImmutableArray<TypeParameterSymbol> ownerTypeParams,
       ImmutableArray<TypeSymbol> ownerTypeArgs,
       ExpressionSyntax calleeNode,
-      bool hasImplicitSelf) {
-    ImmutableArray<TypeSymbol> methodArgs = [];
+      bool hasImplicitSelf,
+      TypeSymbol? expectedType) {
     if (!method.TypeParameters.IsEmpty) {
-      if (call.TypeArguments is null) {
-        // Generic method unification lands in ticket 039.
-        SynthesizeCallArguments(call);
-        _state.CallResolutions[call.Id] = new CallResolution(
-            CallKind.InstanceMethod,
-            TargetSymbol: method,
-            HasImplicitSelf: hasImplicitSelf);
-        return _types.Error;
-      }
-
-      methodArgs = ResolveOptionalTypeArguments(call.TypeArguments, method.TypeParameters, method.Name, call.Span);
-      if (methodArgs.Length != method.TypeParameters.Length) {
-        SynthesizeCallArguments(call);
-        return _types.Error;
-      }
+      return CheckGenericCallableCall(
+          call,
+          method,
+          "method",
+          method.Name,
+          CallKind.InstanceMethod,
+          calleeNode,
+          ownerTypeParams,
+          ownerTypeArgs,
+          method.TypeParameters,
+          method.Parameters,
+          () => EnsureCallableReturnType(method),
+          hasImplicitSelf,
+          expectedType);
     }
 
-    ImmutableArray<TypeParameterSymbol> combinedParams = [.. ownerTypeParams, .. method.TypeParameters];
-    ImmutableArray<TypeSymbol> combinedArgs = [.. ownerTypeArgs, .. methodArgs];
+    if (call.TypeArguments is not null) {
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          call.TypeArguments.Span,
+          $"Method '{method.Name}' is not generic and does not accept type arguments.");
+    }
 
     var expectedParams = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
     foreach (ParameterSymbol p in method.Parameters) {
-      expectedParams.Add(TypeSubstitution.Substitute(p.Type, combinedParams, combinedArgs, _types));
+      expectedParams.Add(TypeSubstitution.Substitute(p.Type, ownerTypeParams, ownerTypeArgs, _types));
     }
 
     CheckCallArguments(call, expectedParams, "method", method.Name);
     TypeSymbol rawRetType = EnsureCallableReturnType(method);
-    TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, combinedParams, combinedArgs, _types);
+    TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, ownerTypeParams, ownerTypeArgs, _types);
     _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
     _state.CallResolutions[call.Id] = new CallResolution(
         CallKind.InstanceMethod,
         TargetSymbol: method,
         HasImplicitSelf: hasImplicitSelf);
+    RecordInstantiationsInType(retType);
     return retType;
   }
 
@@ -664,7 +713,8 @@ internal sealed partial class BodyChecker {
       StaticAccessExpressionSyntax staticAccess,
       UnionSymbol unionSym,
       string memberName,
-      TypeSymbol? expectedType) {
+      TypeSymbol? expectedType,
+      bool allowPartialInference = false) {
     UnionVariantSymbol? variant = FindUnionVariant(unionSym, memberName);
     if (variant is null) {
       SynthesizeCallArguments(call);
@@ -677,10 +727,13 @@ internal sealed partial class BodyChecker {
 
     _state.SetReferencedSymbol(staticAccess, variant);
 
+    bool isResult = ReferenceEquals(unionSym, _prelude.ResultUnion);
+    bool isResultSuccess = isResult && ReferenceEquals(variant, _prelude.ResultSuccessVariant);
+
     // D-162 / ERR-E8: `Result[void, E]` must write bare `Result::Success`, not `Result::Success()`.
-    if (ReferenceEquals(unionSym, _prelude.ResultUnion)
-        && ReferenceEquals(variant, _prelude.ResultSuccessVariant)
+    if (isResultSuccess
         && call.Arguments.IsEmpty
+        && staticAccess.TargetTypeArguments is null
         && expectedType is UnionType eu
         && ReferenceEquals(eu.Definition, _prelude.ResultUnion)
         && eu.TypeArguments.Length == 2
@@ -688,7 +741,13 @@ internal sealed partial class BodyChecker {
       Report(
           DiagnosticCodes.VariantArgumentMismatch,
           call.Span,
-          "For 'Result[void, E]', write `Result::Success` without parentheses.");
+          "Cannot call 'Result::Success()' with empty parentheses for 'Result[void, E]'; write `Result::Success`.",
+          help: "write `Result::Success`");
+      _state.CallResolutions[call.Id] = new CallResolution(
+          CallKind.UnionVariantConstructor,
+          TargetSymbol: variant,
+          ConstructedUnionType: eu);
+      RecordGenericInstantiation(unionSym, eu.TypeArguments);
       return eu;
     }
 
@@ -699,15 +758,36 @@ internal sealed partial class BodyChecker {
             staticAccess.TargetTypeArguments,
             unionSym.TypeParameters,
             unionSym.Name,
-            staticAccess.Span);
+            staticAccess.Span,
+            isResultUnion: isResult);
         if (typeArgs.Length != unionSym.TypeParameters.Length || typeArgs.Any(static a => a.IsError)) {
           SynthesizeCallArguments(call);
           return _types.Error;
         }
+
+        if (isResultSuccess && call.Arguments.IsEmpty && typeArgs[0].IsVoid) {
+          UnionType explicitVoidRes = _types.GetUnion(unionSym, typeArgs);
+          Report(
+              DiagnosticCodes.VariantArgumentMismatch,
+              call.Span,
+              "Cannot call 'Result::Success()' with empty parentheses for 'Result[void, E]'; write `Result::Success`.",
+              help: "write `Result::Success`");
+          _state.CallResolutions[call.Id] = new CallResolution(
+              CallKind.UnionVariantConstructor,
+              TargetSymbol: variant,
+              ConstructedUnionType: explicitVoidRes);
+          RecordGenericInstantiation(unionSym, typeArgs);
+          return explicitVoidRes;
+        }
       } else {
-        // Generic union unification (Option::Some(x), Result::Failure(e)) lands in ticket 039.
-        SynthesizeCallArguments(call);
-        return _types.Error;
+        return InferGenericUnionConstructorCall(
+            call,
+            staticAccess,
+            unionSym,
+            variant,
+            expectedType,
+            allowPartialInference,
+            out _);
       }
     }
 
@@ -751,6 +831,9 @@ internal sealed partial class BodyChecker {
         CallKind.UnionVariantConstructor,
         TargetSymbol: variant,
         ConstructedUnionType: unionType);
+    if (!typeArgs.IsEmpty) {
+      RecordGenericInstantiation(unionSym, typeArgs);
+    }
     return unionType;
   }
 
@@ -946,12 +1029,16 @@ internal sealed partial class BodyChecker {
           CallKind.Intrinsic,
           TargetSymbol: targetSymbol,
           Intrinsic: matched.Id);
-      return matched.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+      TypeSymbol convResult = matched.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+      RecordInstantiationsInType(convResult);
+      return convResult;
     }
 
     // 4. Vector 1- vs 2-arg callback methods (`each`, `map`, `filter`, `find`, `find_index`, `any`, `all`, `count`)
     if (descriptor.Receiver == StdlibReceiverKind.Vector && descriptor.Signatures.Length == 2) {
-      return CheckVectorCallbackIntrinsic(call, descriptor, receiverArgs, expectedReturnType);
+      TypeSymbol vecCbResult = CheckVectorCallbackIntrinsic(call, descriptor, receiverArgs, expectedReturnType);
+      RecordInstantiationsInType(vecCbResult);
+      return vecCbResult;
     }
 
     // 5. Set 1-arg callback methods (`any`, `all`, `each`)
@@ -961,14 +1048,18 @@ internal sealed partial class BodyChecker {
         && descriptor.Signatures[0].Parameters[0].TypeSpec is StdlibTypeSpec.Function) {
       IntrinsicSignature sig = descriptor.Signatures[0];
       CheckCallbackIntrinsicSignature(call, sig, receiverArgs, descriptor.Name);
-      return sig.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+      TypeSymbol setCbResult = sig.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+      RecordInstantiationsInType(setCbResult);
+      return setCbResult;
     }
 
     // 6. Standard single-signature intrinsic (`str`, `type`, `time`, `sleep`, `clear`, `panic`, `regex`,
     //    `read_file`, `write_file`, `file_exists`, `string:*`, `vec:push/add/pop/join`, `map:*`, `set:add/remove`, `regex:*`)
     IntrinsicSignature primary = descriptor.Signatures[0];
     CheckIntrinsicSingleSignature(call, primary, receiverArgs, targetSymbol, calleeKind, descriptor.Name);
-    return primary.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+    TypeSymbol intrinsicResult = primary.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+    RecordInstantiationsInType(intrinsicResult);
+    return intrinsicResult;
   }
 
   private void CheckIntrinsicSingleSignature(
@@ -1060,7 +1151,20 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
-    TypeSymbol? expectedCallbackReturnForMap = expectedReturnType is VectorType ev ? ev.ElementType : null;
+    TypeSymbol? explicitMapReturn = null;
+    if (!sig1.MethodTypeParameterNames.IsEmpty && call.TypeArguments is not null) {
+      if (call.TypeArguments.Arguments.Length != 1) {
+        Report(
+            DiagnosticCodes.TypeMismatch,
+            call.TypeArguments.Span,
+            $"Generic '{descriptor.Name}' expects 1 type argument(s), but got {call.TypeArguments.Arguments.Length}.");
+      } else {
+        explicitMapReturn = _session.ResolveType(_state, call.TypeArguments.Arguments[0], _scope, TypePosition.GenericTypeArgument);
+      }
+    }
+
+    TypeSymbol? expectedCallbackReturnForMap = explicitMapReturn
+        ?? (expectedReturnType is VectorType ev ? ev.ElementType : null);
     TypeSymbol elemType = receiverArgs[0];
 
     // 1. Implicit `it` argument (FN-16, VECLIB-24, design §6.3): always selects 1-arg signature sig1.
@@ -1071,11 +1175,15 @@ internal sealed partial class BodyChecker {
             arg0.Expression,
             elemType,
             expectedReturn: expectedCallbackReturnForMap,
-            expectedFunctionForMismatch: null,
+            expectedFunctionForMismatch: explicitMapReturn is not null && !explicitMapReturn.IsError
+                ? _types.GetFunction([elemType], explicitMapReturn)
+                : null,
             argIndex: 0,
             calleeKind: "method",
             calleeName: descriptor.Name);
-        TypeSymbol rType = implicitFn is FunctionType fnT ? fnT.ReturnType : _types.Error;
+        TypeSymbol rType = explicitMapReturn is not null && !explicitMapReturn.IsError
+            ? explicitMapReturn
+            : (implicitFn is FunctionType fnT ? fnT.ReturnType : _types.Error);
         if (rType.IsVoid) {
           Report(
               DiagnosticCodes.InvalidVoidTypePosition,
@@ -1115,7 +1223,9 @@ internal sealed partial class BodyChecker {
         SetWrappedExpressionType(arg0.Expression, lambdaType);
 
         if (lambdaType is FunctionType fnMapCallback) {
-          TypeSymbol rType = fnMapCallback.ReturnType;
+          TypeSymbol rType = explicitMapReturn is not null && !explicitMapReturn.IsError
+              ? explicitMapReturn
+              : fnMapCallback.ReturnType;
           if (rType.IsVoid) {
             Report(
                 DiagnosticCodes.InvalidVoidTypePosition,
@@ -1203,8 +1313,10 @@ internal sealed partial class BodyChecker {
     }
 
     if (!selected.MethodTypeParameterNames.IsEmpty) {
-      // `map`: infer method type parameter R from the callback's return type.
-      TypeSymbol rType = fnCallback.ReturnType;
+      // `map`: infer method type parameter R from the callback's return type (or use explicit `[R]`).
+      TypeSymbol rType = explicitMapReturn is not null && !explicitMapReturn.IsError
+          ? explicitMapReturn
+          : fnCallback.ReturnType;
       if (rType.IsVoid) {
         Report(
             DiagnosticCodes.InvalidVoidTypePosition,

@@ -250,10 +250,6 @@ internal sealed partial class CheckerSession {
         anyError = true;
       }
 
-      if (i < typeParams.Length) {
-        state.DeferredConstraintChecks.Add((argSyntaxes[i], typeParams[i], argType));
-      }
-
       resolvedArgs.Add(argType);
     }
 
@@ -279,17 +275,61 @@ internal sealed partial class CheckerSession {
       return Types.Error;
     }
 
+    ImmutableArray<TypeSymbol> args = resolvedArgs.MoveToImmutable();
+
+    // Verify or defer generic constraints (`GEN-E5`, `GEN-E7`).
+    for (int i = 0; i < typeParams.Length; i++) {
+      TypeParameterSymbol tp = typeParams[i];
+      TypeSymbol argType = args[i];
+      if (state.IsPhase2Complete) {
+        VerifyGenericTypeConstraint(state, argSyntaxes[i], tp, argType, typeParams, args);
+      } else {
+        state.DeferredConstraintChecks.Add((argSyntaxes[i], tp, argType, typeParams, args));
+      }
+    }
+
     if (anyError) {
       return Types.Error;
     }
 
-    ImmutableArray<TypeSymbol> args = resolvedArgs.MoveToImmutable();
+    if (state.IsPhase2Complete && !state.SuppressInstantiationRecording) {
+      RecordGenericInstantiation(baseDef, args);
+    }
+
     return baseDef switch {
       StructSymbol s => Types.GetStruct(s, args),
       InterfaceSymbol iface => Types.GetInterface(iface, args),
       UnionSymbol u => Types.GetUnion(u, args),
       _ => Types.Error,
     };
+  }
+
+  internal void VerifyGenericTypeConstraint(
+      ModuleCheckState state,
+      TypeSyntax argSyntax,
+      TypeParameterSymbol tp,
+      TypeSymbol argType,
+      ImmutableArray<TypeParameterSymbol> ownerTypeParams,
+      ImmutableArray<TypeSymbol> ownerTypeArgs) {
+    if (tp.Constraint is not { } rawConstraint || argType.IsError || rawConstraint.IsError) {
+      return;
+    }
+
+    TypeSymbol substituted = TypeSubstitution.Substitute(rawConstraint, ownerTypeParams, ownerTypeArgs, Types);
+    if (substituted is not InterfaceType constraint || constraint.IsError) {
+      return;
+    }
+
+    if (argType is StructType argStruct) {
+      state.EnsureStructMethodsResolved?.Invoke(argStruct.Definition);
+    }
+
+    if (!TypeCompatibility.SatisfiesInterface(argType, constraint, Types, state.Module, InterfaceSatisfactionCache)) {
+      state.Diagnostics.ReportError(
+          DiagnosticCodes.GenericConstraintNotSatisfied,
+          argSyntax.Span,
+          $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{tp.Name}'.");
+    }
   }
 
   private Symbol? ResolveNominalBaseSymbol(

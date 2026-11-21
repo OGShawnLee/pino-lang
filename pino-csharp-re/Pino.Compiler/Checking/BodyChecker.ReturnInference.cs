@@ -379,6 +379,7 @@ internal sealed partial class BodyChecker {
 
     // Phase 3a: Fixed-point iteration (up to |SCC| + 1 rounds total; Round 1 already ran).
     _inPhase3a++;
+    _state.SuppressInstantiationRecording = true;
     try {
       int maxAdditionalRounds = scc.Count;
       for (int round = 0; round < maxAdditionalRounds; round++) {
@@ -415,6 +416,7 @@ internal sealed partial class BodyChecker {
       }
     } finally {
       _inPhase3a--;
+      _state.SuppressInstantiationRecording = _inPhase3a > 0;
     }
 
     // Commit resolved concrete return types for every member in the SCC.
@@ -488,10 +490,12 @@ internal sealed partial class BodyChecker {
     StructSymbol? prevStruct = _currentStruct;
     bool prevStatic = _isStaticMethod;
     ReturnCollector? prevCollector = _activeReturnCollector;
+    YieldContext? prevYield = _activeYieldContext;
     _currentCallable = entry.Symbol;
     _currentStruct = entry.EnclosingStruct;
     _isStaticMethod = entry.IsStaticMethod;
     _activeReturnCollector = null;
+    _activeYieldContext = null;
 
     CaptureFrame? captureFrame = entry.IsNestedFunction
         ? PushCaptureFrame(entry.DeclarationSyntax, entry.CallableScope)
@@ -504,6 +508,7 @@ internal sealed partial class BodyChecker {
         PopCaptureFrame(captureFrame);
       }
 
+      _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
       _isStaticMethod = prevStatic;
       _currentStruct = prevStruct;
@@ -519,10 +524,12 @@ internal sealed partial class BodyChecker {
     StructSymbol? prevStruct = _currentStruct;
     bool prevStatic = _isStaticMethod;
     ReturnCollector? prevCollector = _activeReturnCollector;
+    YieldContext? prevYield = _activeYieldContext;
     _currentCallable = entry.Symbol;
     _currentStruct = entry.EnclosingStruct;
     _isStaticMethod = entry.IsStaticMethod;
     _activeReturnCollector = collector;
+    _activeYieldContext = null;
 
     CaptureFrame? captureFrame = entry.IsNestedFunction && _inPhase3a == 0
         ? PushCaptureFrame(entry.DeclarationSyntax, entry.CallableScope)
@@ -535,6 +542,7 @@ internal sealed partial class BodyChecker {
         PopCaptureFrame(captureFrame);
       }
 
+      _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
       _isStaticMethod = prevStatic;
       _currentStruct = prevStruct;

@@ -12,7 +12,7 @@ internal sealed partial class BodyChecker {
   // Struct literals (D-078, D-104, D-163, OQ-29, OQ-31, STRUCT-1, STRUCT-8, STRUCT-15, STRUCT-E7, E11-E13)
   // ---------------------------------------------------------------------------------------------
 
-  private TypeSymbol SynthesizeStructLiteral(StructLiteralExpressionSyntax literal) {
+  private TypeSymbol SynthesizeStructLiteral(StructLiteralExpressionSyntax literal, TypeSymbol? expectedType = null) {
     if (literal.Fields.IsEmpty
         && literal.TypeName is NamedTypeSyntax partialNamed
         && (IsMissing(literal.CloseBraceToken)
@@ -23,6 +23,12 @@ internal sealed partial class BodyChecker {
             || !_scope.TryLookup(NameOf(partialNamed.NameToken), out Symbol? maybeStruct)
             || maybeStruct is not StructSymbol)) {
       return _types.Error;
+    }
+
+    // GEN-3: Generic struct literal without explicit type arguments (`Pair { key: "a", value: 1 }`).
+    if (literal.TypeName is NamedTypeSyntax or QualifiedTypeSyntax
+        && TryPeekGenericStructSymbol(literal.TypeName) is { } inferredGenericStruct) {
+      return InferGenericStructLiteral(literal, inferredGenericStruct, expectedType);
     }
 
     TypeSymbol resolvedType = _session.ResolveType(
@@ -178,6 +184,10 @@ internal sealed partial class BodyChecker {
               related);
         }
       }
+    }
+
+    if (!structArgs.IsEmpty) {
+      RecordGenericInstantiation(structSym, structArgs);
     }
 
     return structType;
@@ -387,6 +397,44 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
+    if (targetType is TypeParameterType tpType) {
+      if (tpType.Symbol.Constraint is { } constraint) {
+        InterfaceSymbol ifaceSym = constraint.Definition;
+        if (FindInterfaceProperty(ifaceSym, memberName) is { } prop) {
+          TypeSymbol propType = TypeSubstitution.Substitute(
+              prop.Type,
+              ifaceSym.TypeParameters,
+              constraint.TypeArguments,
+              _types);
+          _state.SetNodeType(member, propType);
+          return CheckAssignedValue(assignment, member, propType, op);
+        }
+
+        if (FindInterfaceMethod(ifaceSym, memberName) is not null) {
+          Synthesize(assignment.Value);
+          Report(
+              DiagnosticCodes.InvalidAssignmentTarget,
+              member.Span,
+              $"Cannot assign to method '{memberName}' of interface '{ifaceSym.Name}'.");
+          return _types.Error;
+        }
+
+        Synthesize(assignment.Value);
+        Report(
+            DiagnosticCodes.UnknownMember,
+            member.MemberToken.Span,
+            $"Interface '{ifaceSym.Name}' does not have property or method '{memberName}'.");
+        return _types.Error;
+      }
+
+      Synthesize(assignment.Value);
+      Report(
+          DiagnosticCodes.UnknownMember,
+          member.MemberToken.Span,
+          $"Struct '{tpType.DisplayName}' does not have field or instance method '{memberName}'.");
+      return _types.Error;
+    }
+
     Synthesize(assignment.Value);
     if (StdlibCatalog.TryGetMember(targetType, memberName, out IntrinsicDescriptor? desc) && desc.IsProperty) {
       Report(
@@ -538,14 +586,20 @@ internal sealed partial class BodyChecker {
     }
 
     if (access.TargetTypeArguments is not null) {
+      bool isResult = ReferenceEquals(unionSym, _prelude.ResultUnion);
       ImmutableArray<TypeSymbol> explicitArgs = ResolveOptionalTypeArguments(
           access.TargetTypeArguments,
           unionSym.TypeParameters,
           unionSym.Name,
-          access.Span);
+          access.Span,
+          isResultUnion: isResult);
       if (explicitArgs.Length == unionSym.TypeParameters.Length && !explicitArgs.Any(static a => a.IsError)) {
         UnionType unionType = _types.GetUnion(unionSym, explicitArgs);
-        if (!variant.Fields.IsEmpty) {
+        bool isBareVoidResultSuccess = isResult
+            && ReferenceEquals(variant, _prelude.ResultSuccessVariant)
+            && explicitArgs.Length == 2
+            && explicitArgs[0].IsVoid;
+        if (!isBareVoidResultSuccess && !variant.Fields.IsEmpty) {
           Report(
               DiagnosticCodes.VariantArgumentMismatch,
               access.Span,
@@ -553,6 +607,7 @@ internal sealed partial class BodyChecker {
           return _types.Error;
         }
 
+        RecordGenericInstantiation(unionSym, explicitArgs);
         return unionType;
       }
 
@@ -563,7 +618,18 @@ internal sealed partial class BodyChecker {
       return CheckGenericUnionStaticAccess(access, expectedUnion);
     }
 
-    // Generic union variant inference without explicit type arguments lands in ticket 039.
+    if (!variant.Fields.IsEmpty) {
+      Report(
+          DiagnosticCodes.VariantArgumentMismatch,
+          access.Span,
+          $"Variant constructor '{unionSym.Name}::{variant.Name}' expected {variant.Fields.Length} arguments, but got 0.");
+      return _types.Error;
+    }
+
+    Report(
+        DiagnosticCodes.CannotInferGenericArguments,
+        access.Span,
+        $"Cannot infer generic type argument(s) for '{unionSym.Name}::{variant.Name}'; add a type annotation.");
     return _types.Error;
   }
 
@@ -595,10 +661,12 @@ internal sealed partial class BodyChecker {
         && ReferenceEquals(variant, _prelude.ResultSuccessVariant)
         && expectedUnion.TypeArguments.Length == 2
         && expectedUnion.TypeArguments[0].IsVoid) {
+      RecordGenericInstantiation(unionSym, expectedUnion.TypeArguments);
       return expectedUnion;
     }
 
     if (variant.Fields.IsEmpty) {
+      RecordGenericInstantiation(unionSym, expectedUnion.TypeArguments);
       return expectedUnion;
     }
 
@@ -688,47 +756,37 @@ internal sealed partial class BodyChecker {
       TypeArgumentListSyntax? typeArgsSyntax,
       ImmutableArray<TypeParameterSymbol> typeParams,
       string ownerName,
-      SourceSpan span) {
+      SourceSpan span,
+      bool isResultUnion = false) {
     if (typeArgsSyntax is null) {
       return [];
     }
 
     var builder = ImmutableArray.CreateBuilder<TypeSymbol>(typeArgsSyntax.Arguments.Length);
+    var argSpans = ImmutableArray.CreateBuilder<SourceSpan>(typeArgsSyntax.Arguments.Length);
     for (int i = 0; i < typeArgsSyntax.Arguments.Length; i++) {
       TypeSyntax argSyntax = typeArgsSyntax.Arguments[i];
-      TypePosition pos = TypePosition.GenericTypeArgument;
+      TypePosition pos = isResultUnion && i == 0
+          ? TypePosition.ResultSuccessArg
+          : TypePosition.GenericTypeArgument;
       TypeSymbol argType = _session.ResolveType(_state, argSyntax, _scope, pos);
-      if (i < typeParams.Length
-          && typeParams[i].Constraint is { } constraint
-          && !argType.IsError
-          && !constraint.IsError) {
-        if (argType is StructType argStruct) {
-          EnsureStructMethodsResolved(argStruct.Definition);
-        }
-
-        if (!TypeCompatibility.SatisfiesInterface(
-            argType,
-            constraint,
-            _types,
-            _state.Module,
-            _session.InterfaceSatisfactionCache)) {
-          Report(
-              DiagnosticCodes.GenericConstraintNotSatisfied,
-              argSyntax.Span,
-              $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{typeParams[i].Name}'.");
-        }
-      }
       builder.Add(argType);
+      argSpans.Add(argSyntax.Span);
     }
+
+    ImmutableArray<TypeSymbol> resolvedArgs = builder.MoveToImmutable();
+    ImmutableArray<SourceSpan> spans = argSpans.MoveToImmutable();
 
     if (typeArgsSyntax.Arguments.Length != typeParams.Length) {
       Report(
           DiagnosticCodes.TypeMismatch,
           span,
           $"Generic '{ownerName}' expects {typeParams.Length} type argument(s), but got {typeArgsSyntax.Arguments.Length}.");
+    } else {
+      CheckGenericBounds(typeParams, resolvedArgs, spans, span);
     }
 
-    return builder.MoveToImmutable();
+    return resolvedArgs;
   }
 
   // ---------------------------------------------------------------------------------------------

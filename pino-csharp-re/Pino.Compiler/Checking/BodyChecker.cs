@@ -11,9 +11,9 @@ namespace Pino.Compiler.Checking;
 /// Phase 3 of the checker: bidirectional <c>Synthesize</c> / <c>Check</c> over the statements and
 /// expressions of one module (variables, operators, collections, <c>if</c>, <c>for</c>,
 /// <c>assert</c>, <c>test</c>, structs, methods, interfaces, enums, tuples, direct/stdlib calls,
-/// two-phase SCC return-type inference, contextual lambdas, implicit <c>it</c>, and AD-002 closure
-/// capture lists). <c>@@Generic</c> unification and <c>?</c>/<c>or</c> land in ticket 039;
-/// patterns and flow in 040.
+/// two-phase SCC return-type inference, contextual lambdas, implicit <c>it</c>, AD-002 closure
+/// capture lists, <c>@@Generic</c> unification/bounds/instantiations, <c>D-055</c>, and
+/// <c>?</c>/<c>or</c> error handling). Patterns and flow land in ticket 040.
 /// </summary>
 internal sealed partial class BodyChecker {
   private readonly CheckerSession _session;
@@ -36,6 +36,7 @@ internal sealed partial class BodyChecker {
     _scope = state.ModuleScope;
     _rootDiagnostics = state.Diagnostics;
     _rootAssignedSymbols = state.AssignedSymbols;
+    _state.EnsureStructMethodsResolved = EnsureStructMethodsResolved;
     InitializeCallableRegistry();
   }
 
@@ -67,6 +68,16 @@ internal sealed partial class BodyChecker {
           method.ReturnState = original.ReturnState;
         }
       }
+    }
+
+    // Flush deferred Phase 2 generic constraint checks now that all struct methods are resolved.
+    foreach ((TypeSyntax argSyntax, TypeParameterSymbol tp, TypeSymbol argType, ImmutableArray<TypeParameterSymbol> ownerParams, ImmutableArray<TypeSymbol> ownerArgs) in _state.DeferredConstraintChecks) {
+      _session.VerifyGenericTypeConstraint(_state, argSyntax, tp, argType, ownerParams, ownerArgs);
+    }
+
+    // Record concrete generic instantiations from Phase 2 type annotations.
+    foreach (TypeSymbol resolved in _state.ResolvedTypes) {
+      RecordInstantiationsInType(resolved);
     }
   }
 
@@ -118,7 +129,7 @@ internal sealed partial class BodyChecker {
         break;
 
       case YieldStatementSyntax yieldStatement:
-        Synthesize(yieldStatement.Expression);
+        CheckYield(yieldStatement);
         break;
 
       case MatchStatementSyntax matchStatement:
@@ -185,14 +196,17 @@ internal sealed partial class BodyChecker {
     StructSymbol? prevStruct = _currentStruct;
     bool prevStatic = _isStaticMethod;
     ReturnCollector? prevCollector = _activeReturnCollector;
+    YieldContext? prevYield = _activeYieldContext;
     _currentCallable = null;
     _currentStruct = null;
     _isStaticMethod = false;
     _activeReturnCollector = null;
+    _activeYieldContext = null;
     try {
       using ScopeRestore _ = EnterScope(testScope);
       CheckBlock(test.Body);
     } finally {
+      _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
       _isStaticMethod = prevStatic;
       _currentStruct = prevStruct;
@@ -244,7 +258,16 @@ internal sealed partial class BodyChecker {
           declaration.Initializer.Span,
           $"Cannot initialize immutable 'val' '{name}' with 'Option::None' because it can never hold a value.",
           help: $"use 'var {name} Option[T] = Option::None' for a variable that starts empty");
-      Synthesize(declaration.Initializer);
+      if (declared is UnionType declaredOpt && ReferenceEquals(declaredOpt.Definition, _prelude.OptionUnion)) {
+        CheckWithContextualExpectation(declaration.Initializer, declaredOpt);
+      } else {
+        // Avoid emitting a second cascading PN3110 after VAR-E7 when no annotation is present.
+        if (UnwrapParens(declaration.Initializer) is StaticAccessExpressionSyntax noneAccess) {
+          ResolveStaticTargetSymbol(noneAccess.Target, out _);
+          _state.SetReferencedSymbol(noneAccess, _prelude.OptionNoneVariant);
+        }
+        SetWrappedExpressionType(declaration.Initializer, _types.Error);
+      }
       bindingType = declared ?? _types.Error;
     } else if (declared is not null && !declared.IsError) {
       // D-012 / OQ-9: the declared type wins, `int` widens to `float` (D-172), nothing narrows.

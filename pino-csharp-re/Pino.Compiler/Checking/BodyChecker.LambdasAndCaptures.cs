@@ -198,8 +198,10 @@ internal sealed partial class BodyChecker {
         if (lambda.BodyExpression is { } bodyExpr) {
           ReturnCollector? prevCollector = _activeReturnCollector;
           Symbol? prevCallable = _currentCallable;
+          YieldContext? prevYield = _activeYieldContext;
           _activeReturnCollector = null;
           _currentCallable = null;
+          _activeYieldContext = null;
           try {
             if (expectedReturn is not null && !expectedReturn.IsVoid && !expectedReturn.IsError) {
               TypeSymbol actualBody = CheckWithContextualExpectation(bodyExpr, expectedReturn);
@@ -212,12 +214,14 @@ internal sealed partial class BodyChecker {
               returnType = Synthesize(bodyExpr);
             }
           } finally {
+            _activeYieldContext = prevYield;
             _currentCallable = prevCallable;
             _activeReturnCollector = prevCollector;
           }
         } else if (lambda.BodyBlock is { } bodyBlock) {
           ReturnCollector? prevCollector = _activeReturnCollector;
           Symbol? prevCallable = _currentCallable;
+          YieldContext? prevYield = _activeYieldContext;
           var lambdaCollector = new ReturnCollector(
               "lambda",
               "Lambda",
@@ -226,9 +230,11 @@ internal sealed partial class BodyChecker {
               isLambda: true);
           _activeReturnCollector = lambdaCollector;
           _currentCallable = null;
+          _activeYieldContext = null;
           try {
             CheckBlock(bodyBlock);
           } finally {
+            _activeYieldContext = prevYield;
             _currentCallable = prevCallable;
             _activeReturnCollector = prevCollector;
           }
@@ -314,6 +320,8 @@ internal sealed partial class BodyChecker {
     CaptureFrame? captureFrame = _inPhase3a == 0
         ? PushCaptureFrame(argExpression, itScope)
         : null;
+    YieldContext? prevYield = _activeYieldContext;
+    _activeYieldContext = null;
     try {
       using (EnterScope(itScope)) {
         if (expectedReturn is not null && !expectedReturn.IsVoid && !expectedReturn.IsError) {
@@ -349,6 +357,7 @@ internal sealed partial class BodyChecker {
         }
       }
     } finally {
+      _activeYieldContext = prevYield;
       if (captureFrame is not null) {
         PopCaptureFrame(captureFrame);
       }

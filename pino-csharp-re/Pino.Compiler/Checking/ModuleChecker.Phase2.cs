@@ -48,17 +48,9 @@ internal sealed partial class CheckerSession {
     // 3. Flatten embedded structs (cycle detection, field collisions, method override) and build MemberScopes.
     FlattenModuleStructs(state);
 
-    // 4. Verify generic type argument bounds after all struct/interface members are resolved.
-    foreach ((TypeSyntax argSyntax, TypeParameterSymbol tp, TypeSymbol argType) in state.DeferredConstraintChecks) {
-      if (tp.Constraint is { } constraint && !argType.IsError && !constraint.IsError) {
-        if (!TypeCompatibility.SatisfiesInterface(argType, constraint, Types, state.Module, InterfaceSatisfactionCache)) {
-          state.Diagnostics.ReportError(
-              DiagnosticCodes.GenericConstraintNotSatisfied,
-              argSyntax.Span,
-              $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{tp.Name}'.");
-        }
-      }
-    }
+    // 4. Mark Phase 2 complete. Deferred Phase 2 generic constraint checks are flushed by BodyChecker
+    //    after unannotated struct method return types are resolved.
+    state.IsPhase2Complete = true;
   }
 
   private void RegisterTypeParameters(
