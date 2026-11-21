@@ -76,10 +76,10 @@ public sealed class CheckerTypeResolutionTests {
     var fnSym = Assert.IsType<FunctionSymbol>(model.GetDeclaredSymbol(fnDecl));
 
     Assert.Same(compilation.Types.GetFunction([], compilation.Types.Void), fnSym.Parameters[0].Type);
-    Assert.Same(compilation.Types.GetFunction([compilation.Types.Int], compilation.Types.Void), fnSym.Parameters[1].Type);
+    Assert.Same(compilation.Types.GetFunction([new FunctionParameter(compilation.Types.Int, false)], compilation.Types.Void), fnSym.Parameters[1].Type);
     Assert.Same(compilation.Types.GetFunction([], compilation.Types.Int), fnSym.Parameters[2].Type);
     Assert.Same(
-        compilation.Types.GetFunction([compilation.Types.Int, compilation.Types.String], compilation.Types.Bool),
+        compilation.Types.GetFunction([new FunctionParameter(compilation.Types.Int, false), new FunctionParameter(compilation.Types.String, false)], compilation.Types.Bool),
         fnSym.Parameters[3].Type);
 
     TupleType expectedRet = compilation.Types.GetTuple([

@@ -152,10 +152,10 @@ public sealed class CheckerLambdaAndCaptureTests {
       """);
 
     Assert.Empty(CheckerErrors(ok));
-    Assert.Same(ok.Types.GetFunction([ok.Types.Int], ok.Types.Int), Local(ok, "arrow").Type);
-    Assert.Same(ok.Types.GetFunction([ok.Types.Int], ok.Types.Int), Local(ok, "block_int").Type);
-    Assert.Same(ok.Types.GetFunction([ok.Types.Int], ok.Types.Void), Local(ok, "block_void").Type);
-    Assert.Same(ok.Types.GetFunction([ok.Types.Bool], ok.Types.Float), Local(ok, "block_mixed").Type);
+    Assert.Same(ok.Types.GetFunction([new FunctionParameter(ok.Types.Int, false)], ok.Types.Int), Local(ok, "arrow").Type);
+    Assert.Same(ok.Types.GetFunction([new FunctionParameter(ok.Types.Int, false)], ok.Types.Int), Local(ok, "block_int").Type);
+    Assert.Same(ok.Types.GetFunction([new FunctionParameter(ok.Types.Int, false)], ok.Types.Void), Local(ok, "block_void").Type);
+    Assert.Same(ok.Types.GetFunction([new FunctionParameter(ok.Types.Bool, false)], ok.Types.Float), Local(ok, "block_mixed").Type);
 
     var mixedLambda = (LambdaExpressionSyntax) Declaration(ok, "block_mixed").Initializer;
     List<ReturnStatementSyntax> mixedReturns = [.. Descendants<ReturnStatementSyntax>(mixedLambda)];
@@ -233,7 +233,7 @@ public sealed class CheckerLambdaAndCaptureTests {
     Assert.Equal(LocalKind.ImplicitIt, filterConv.ImplicitItSymbol.Kind);
     Assert.False(filterConv.ImplicitItSymbol.IsMutable);
     Assert.Same(ok.Types.Int, filterConv.ImplicitItSymbol.Type);
-    Assert.Same(ok.Types.GetFunction([ok.Types.Int], ok.Types.Bool), filterConv.ImplicitLambdaType);
+    Assert.Same(ok.Types.GetFunction([new FunctionParameter(ok.Types.Int, false)], ok.Types.Bool), filterConv.ImplicitLambdaType);
     Assert.Equal(IntrinsicId.VecFilter1, ok.RootModel.GetCallResolution(filterCall)!.Intrinsic);
 
     var applyCall = (CallExpressionSyntax) Declaration(ok, "applied").Initializer;
@@ -241,7 +241,7 @@ public sealed class CheckerLambdaAndCaptureTests {
     ConversionInfo? applyConv = ok.RootModel.GetConversion(applyArg);
     Assert.NotNull(applyConv);
     Assert.Equal(ConversionKind.ImplicitItLambda, applyConv!.Kind);
-    Assert.Same(ok.Types.GetFunction([ok.Types.Int], ok.Types.Int), applyConv.ImplicitLambdaType);
+    Assert.Same(ok.Types.GetFunction([new FunctionParameter(ok.Types.Int, false)], ok.Types.Int), applyConv.ImplicitLambdaType);
 
     // FN-17: `double_it(it)` inside `apply_twice(it int)` is NOT wrapped as ImplicitItLambda.
     CallExpressionSyntax doubleItCall = All<CallExpressionSyntax>(ok)

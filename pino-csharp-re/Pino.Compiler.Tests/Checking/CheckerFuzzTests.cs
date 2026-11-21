@@ -254,6 +254,7 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
         _ = model.GetLoopInfo(current);
         _ = model.GetPatternBindings(current);
         _ = model.GetConstantValue(current);
+        _ = model.GetMutationPlace(current);
 
         if (current is ExpressionSyntax expr) {
           TypeSymbol? exprType = model.GetType(expr);

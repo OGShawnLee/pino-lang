@@ -127,11 +127,13 @@ public sealed class ParameterSymbol : Symbol {
       int declaringNodeId,
       SourceSpan nameSpan,
       string? filePath,
-      Symbol? containingSymbol = null)
+      Symbol? containingSymbol = null,
+      bool isMutable = false)
       : base(name, SymbolVisibility.Private, declaringNodeId, nameSpan, filePath, containingSymbol) {
     Type = type;
     Ordinal = ordinal;
     HasDefault = hasDefault;
+    IsMutable = isMutable;
   }
 
   public TypeSymbol Type { get; internal set; }
@@ -139,6 +141,8 @@ public sealed class ParameterSymbol : Symbol {
   public int Ordinal { get; }
 
   public bool HasDefault { get; }
+
+  public bool IsMutable { get; }
 }
 
 public sealed class FieldSymbol : Symbol {
@@ -151,12 +155,14 @@ public sealed class FieldSymbol : Symbol {
       int declaringNodeId,
       SourceSpan nameSpan,
       string? filePath,
-      ImmutableArray<FieldSymbol> embeddedChain = default)
+      ImmutableArray<FieldSymbol> embeddedChain = default,
+      bool isMutable = false)
       : base(name, visibility, declaringNodeId, nameSpan, filePath, containingStruct) {
     Type = type;
     Ordinal = ordinal;
     ContainingStruct = containingStruct;
     EmbeddedChain = embeddedChain.IsDefault ? [] : embeddedChain;
+    IsMutable = isMutable;
   }
 
   public TypeSymbol Type { get; internal set; }
@@ -166,6 +172,8 @@ public sealed class FieldSymbol : Symbol {
   public StructSymbol ContainingStruct { get; }
 
   public ImmutableArray<FieldSymbol> EmbeddedChain { get; }
+
+  public bool IsMutable { get; }
 
   public bool IsPromotedFromEmbedded => !EmbeddedChain.IsEmpty;
 }
@@ -221,9 +229,11 @@ public sealed class MethodSymbol : Symbol {
       string? filePath,
       IntrinsicId? intrinsic = null,
       ImmutableArray<FieldSymbol> embeddedChain = default,
-      MethodSymbol? promotedFrom = null)
+      MethodSymbol? promotedFrom = null,
+      bool isMutating = false)
       : base(name, visibility, declaringNodeId, nameSpan, filePath, containingType) {
     IsStatic = isStatic;
+    IsMutating = isMutating;
     ContainingType = containingType;
     TypeParameters = typeParameters.IsDefault ? [] : typeParameters;
     Parameters = parameters.IsDefault ? [] : parameters;
@@ -235,6 +245,8 @@ public sealed class MethodSymbol : Symbol {
   }
 
   public bool IsStatic { get; }
+
+  public bool IsMutating { get; }
 
   public Symbol ContainingType { get; }
 
@@ -382,7 +394,8 @@ public sealed record InterfaceProperty(
     string Name,
     TypeSymbol Type,
     int DeclaringNodeId,
-    SourceSpan NameSpan);
+    SourceSpan NameSpan,
+    bool IsMutable = false);
 
 public sealed class InterfaceSymbol : Symbol {
   public InterfaceSymbol(

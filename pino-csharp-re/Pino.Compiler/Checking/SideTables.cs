@@ -98,3 +98,34 @@ public sealed record ConstantValue(
 public sealed record GenericInstantiation(
     Symbol Definition,
     ImmutableArray<TypeSymbol> TypeArguments);
+
+public enum MutationKind : byte {
+  DirectAssign,
+  CompoundAssign,
+  FieldWrite,
+  IndexWrite,
+  MutatingCall,
+  MutArgument,
+}
+
+public enum MutationRootKind : byte {
+  LocalVar,
+  MutParameter,
+  MutSelf,
+  TopLevelVar,
+  CapturedVar,
+}
+
+/// <summary>
+/// Records a verified mutation place for downstream lowering and AD-003 escape/arena analysis.
+/// Under AD-003 value semantics, <see cref="MutationRootKind.MutParameter"/>,
+/// <see cref="MutationRootKind.MutSelf"/>, <see cref="MutationRootKind.TopLevelVar"/>, and
+/// <see cref="MutationRootKind.CapturedVar"/> mark the non-return escape write points for future
+/// arena/escape analysis, alongside <see cref="MutationRootKind.LocalVar"/> for local mutations.
+/// </summary>
+public sealed record MutationPlaceInfo(
+    MutationKind Kind,
+    Symbol RootSymbol,
+    MutationRootKind RootKind,
+    bool RequiresCoWCheck,
+    bool PassByInOut);

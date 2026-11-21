@@ -22,6 +22,7 @@ public sealed class SemanticModel {
   private readonly PatternBindingInfo?[] _patternBindings;
   private readonly SyntaxNode?[] _parentsByNodeId;
   private readonly Symbol?[] _shorthandValueSymbols;
+  private readonly MutationPlaceInfo?[] _mutationPlaces;
 
   internal SemanticModel(
       ParseResult tree,
@@ -40,7 +41,8 @@ public sealed class SemanticModel {
       LoopInfo?[] loopInfos,
       PatternBindingInfo?[] patternBindings,
       SyntaxNode?[] parentsByNodeId,
-      Symbol?[]? shorthandValueSymbols = null) {
+      Symbol?[]? shorthandValueSymbols = null,
+      MutationPlaceInfo?[]? mutationPlaces = null) {
     Tree = tree;
     Module = module;
     IsProgramMode = isProgramMode;
@@ -58,6 +60,7 @@ public sealed class SemanticModel {
     _patternBindings = patternBindings;
     _parentsByNodeId = parentsByNodeId;
     _shorthandValueSymbols = shorthandValueSymbols ?? [];
+    _mutationPlaces = mutationPlaces ?? [];
   }
 
   public ParseResult Tree { get; }
@@ -128,6 +131,11 @@ public sealed class SemanticModel {
   public Symbol? GetShorthandValueSymbol(StructFieldInitSyntax node) {
     ArgumentNullException.ThrowIfNull(node);
     return Lookup(_shorthandValueSymbols, node.Id);
+  }
+
+  public MutationPlaceInfo? GetMutationPlace(SyntaxNode node) {
+    ArgumentNullException.ThrowIfNull(node);
+    return Lookup(_mutationPlaces, node.Id);
   }
 
   public bool IsAssignedAfterInit(Symbol symbol) => AssignedBindings.IsAssignedAfterInit(symbol);

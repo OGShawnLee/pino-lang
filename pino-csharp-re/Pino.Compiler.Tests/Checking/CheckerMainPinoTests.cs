@@ -113,7 +113,7 @@ public sealed class CheckerMainPinoTests {
 
     LambdaExpressionSyntax lambda = Assert.Single(CheckerTestSupport.All<LambdaExpressionSyntax>(compilation));
     Assert.Same(
-        types.GetFunction([types.Int, types.Int], types.Int),
+        types.GetFunction([new FunctionParameter(types.Int, false), new FunctionParameter(types.Int, false)], types.Int),
         compilation.RootModel.GetType(lambda));
     Assert.Empty(compilation.RootModel.GetCaptures(lambda)!.Entries);
 

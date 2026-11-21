@@ -91,14 +91,22 @@ internal sealed partial class BodyChecker {
       return;
     }
 
-    Symbol? capturedSymbol = symbol switch {
-      LocalSymbol or ParameterSymbol => symbol,
-      FieldSymbol when declaringScope.Kind == ScopeKind.StructMember
-          && declaringScope.TryLookupLocal("self", out Symbol? selfSym) => selfSym,
-      MethodSymbol { IsStatic: false } when declaringScope.Kind == ScopeKind.StructMember
-          && declaringScope.TryLookupLocal("self", out Symbol? selfSym) => selfSym,
-      _ => null,
-    };
+    Symbol? capturedSymbol = null;
+    if (symbol is LocalSymbol or ParameterSymbol) {
+      capturedSymbol = symbol;
+    } else if ((symbol is FieldSymbol || symbol is MethodSymbol { IsStatic: false })
+        && declaringScope.Kind == ScopeKind.StructMember) {
+      for (Scope? s = _scope; s is not null && !ReferenceEquals(s, declaringScope); s = s.Parent) {
+        if (s.Kind == ScopeKind.Method && s.TryLookupLocal("self", out Symbol? methodSelf)) {
+          capturedSymbol = methodSelf;
+          break;
+        }
+      }
+
+      if (capturedSymbol is null && declaringScope.TryLookupLocal("self", out Symbol? selfSym)) {
+        capturedSymbol = selfSym;
+      }
+    }
 
     if (capturedSymbol is null) {
       return;
@@ -126,21 +134,21 @@ internal sealed partial class BodyChecker {
   private TypeSymbol SynthesizeLambda(
       LambdaExpressionSyntax lambda,
       FunctionType? expectedFunction = null,
-      ImmutableArray<TypeSymbol>? expectedParamTypesOverride = null,
+      ImmutableArray<FunctionParameter>? expectedParamsOverride = null,
       TypeSymbol? expectedReturnOverride = null) {
     Scope lambdaScope = ScopeOf(lambda, ScopeKind.Lambda);
-    ImmutableArray<TypeSymbol> expectedParams = expectedParamTypesOverride
-        ?? expectedFunction?.ParameterTypes
+    ImmutableArray<FunctionParameter> expectedParams = expectedParamsOverride
+        ?? expectedFunction?.Parameters
         ?? default;
     bool hasExpectedParams = !expectedParams.IsDefault;
     TypeSymbol? expectedReturn = expectedReturnOverride ?? expectedFunction?.ReturnType;
 
-    var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(lambda.Parameters.Length);
+    var paramTypes = ImmutableArray.CreateBuilder<FunctionParameter>(lambda.Parameters.Length);
 
     for (int i = 0; i < lambda.Parameters.Length; i++) {
       ParameterSyntax paramSyntax = lambda.Parameters[i];
       if (IsMissing(paramSyntax.NameToken)) {
-        paramTypes.Add(_types.Error);
+        paramTypes.Add(new FunctionParameter(_types.Error, paramSyntax.MutKeyword is not null));
         continue;
       }
 
@@ -153,6 +161,8 @@ internal sealed partial class BodyChecker {
             $"Parameter '{paramName}' cannot have a default value; default parameter values are not supported.");
       }
 
+      bool hasMutKeyword = paramSyntax.MutKeyword is not null;
+      bool isMutable;
       TypeSymbol paramType;
       if (paramSyntax.Type is not null) {
         paramType = _session.ResolveType(
@@ -160,8 +170,10 @@ internal sealed partial class BodyChecker {
             paramSyntax.Type,
             lambdaScope,
             TypePosition.ParameterType);
+        isMutable = hasMutKeyword;
       } else if (hasExpectedParams && i < expectedParams.Length) {
-        paramType = expectedParams[i];
+        paramType = expectedParams[i].Type;
+        isMutable = hasMutKeyword || expectedParams[i].IsMutable;
       } else {
         // OQ-14 Option 1 / FN-E11 / D-167: untyped lambda parameter with no typed context.
         Report(
@@ -169,6 +181,7 @@ internal sealed partial class BodyChecker {
             paramSyntax.NameToken.Span,
             $"Cannot infer parameter type for '{paramName}'; add a type annotation.");
         paramType = _types.Error;
+        isMutable = hasMutKeyword;
       }
 
       var paramSymbol = new ParameterSymbol(
@@ -179,14 +192,15 @@ internal sealed partial class BodyChecker {
           paramSyntax.Id,
           paramSyntax.NameToken.Span,
           _state.FilePath,
-          lambdaScope.Owner);
+          lambdaScope.Owner,
+          isMutable: isMutable);
       if (!lambdaScope.TryDeclare(paramSymbol, out Symbol? existing)) {
         CheckerSession.ReportDuplicate(_state, paramName, paramSyntax.NameToken.Span, existing!);
       }
 
       _state.SetDeclaredSymbol(paramSyntax, paramSymbol);
       _state.SetNodeType(paramSyntax, paramType);
-      paramTypes.Add(paramType);
+      paramTypes.Add(new FunctionParameter(paramType, isMutable));
     }
 
     TypeSymbol returnType;
@@ -291,7 +305,7 @@ internal sealed partial class BodyChecker {
       int argIndex,
       string calleeKind,
       string calleeName) {
-    if (expectedFunction.ParameterTypes.Length != 1) {
+    if (expectedFunction.Parameters.Length != 1) {
       Report(
           DiagnosticCodes.InvalidImplicitIt,
           argExpression.Span,
@@ -299,14 +313,22 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
-    return CheckImplicitItCore(
+    TypeSymbol actualType = CheckImplicitItCore(
         argExpression,
-        expectedFunction.ParameterTypes[0],
+        expectedFunction.Parameters[0].Type,
         expectedFunction.ReturnType,
         expectedFunction,
         argIndex,
         calleeKind,
         calleeName);
+    if (expectedFunction.Parameters[0].IsMutable && actualType is FunctionType actualFn) {
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          argExpression.Span,
+          $"Argument {argIndex + 1} for {calleeKind} '{calleeName}' expected type '{expectedFunction.DisplayName}', but got '{actualFn.DisplayName}'.");
+    }
+
+    return actualType;
   }
 
   private TypeSymbol CheckImplicitItCore(
@@ -346,8 +368,9 @@ internal sealed partial class BodyChecker {
             resolvedReturn = bodyType.IsError ? _types.Error : expectedReturn;
           } else {
             resolvedReturn = bodyType;
-            FunctionType actualFn = _types.GetFunction([itParamType], bodyType);
-            FunctionType expectedFn = expectedFunctionForMismatch ?? _types.GetFunction([itParamType], expectedReturn);
+            FunctionParameter itParam = new(itParamType, IsMutable: false);
+            FunctionType actualFn = _types.GetFunction([itParam], bodyType);
+            FunctionType expectedFn = expectedFunctionForMismatch ?? _types.GetFunction([itParam], expectedReturn);
             string code = expectedReturn is InterfaceType
                 ? DiagnosticCodes.InterfaceNotSatisfied
                 : DiagnosticCodes.TypeMismatch;
@@ -360,8 +383,9 @@ internal sealed partial class BodyChecker {
           bodyType = Synthesize(argExpression);
           resolvedReturn = bodyType;
           if (!IsSilent(bodyType) && !bodyType.IsVoid && bodyType is not PendingReturnType) {
-            FunctionType actualFn = _types.GetFunction([itParamType], bodyType);
-            FunctionType expectedFn = expectedFunctionForMismatch ?? _types.GetFunction([itParamType], _types.Void);
+            FunctionParameter itParam = new(itParamType, IsMutable: false);
+            FunctionType actualFn = _types.GetFunction([itParam], bodyType);
+            FunctionType expectedFn = expectedFunctionForMismatch ?? _types.GetFunction([itParam], _types.Void);
             Report(
                 DiagnosticCodes.TypeMismatch,
                 argExpression.Span,
@@ -380,7 +404,7 @@ internal sealed partial class BodyChecker {
       }
     }
 
-    FunctionType implicitLambdaType = _types.GetFunction([itParamType], resolvedReturn);
+    FunctionType implicitLambdaType = _types.GetFunction([new FunctionParameter(itParamType, IsMutable: false)], resolvedReturn);
     _state.Conversions[argExpression.Id] = new ConversionInfo(
         ConversionKind.ImplicitItLambda,
         implicitLambdaType,

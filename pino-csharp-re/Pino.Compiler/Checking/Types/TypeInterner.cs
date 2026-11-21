@@ -90,9 +90,9 @@ public sealed class TypeInterner {
     }
   }
 
-  public FunctionType GetFunction(ImmutableArray<TypeSymbol> parameterTypes, TypeSymbol returnType) {
+  public FunctionType GetFunction(ImmutableArray<FunctionParameter> parameters, TypeSymbol returnType) {
     ArgumentNullException.ThrowIfNull(returnType);
-    ImmutableArray<TypeSymbol> normalizedParams = parameterTypes.IsDefault ? [] : parameterTypes;
+    ImmutableArray<FunctionParameter> normalizedParams = parameters.IsDefault ? [] : parameters;
     var key = new FunctionKey(normalizedParams, returnType);
     lock (_gate) {
       if (!_functions.TryGetValue(key, out FunctionType? existing)) {
@@ -200,19 +200,20 @@ public sealed class TypeInterner {
   }
 
   private readonly struct FunctionKey(
-      ImmutableArray<TypeSymbol> parameterTypes,
+      ImmutableArray<FunctionParameter> parameters,
       TypeSymbol returnType) : IEquatable<FunctionKey> {
-    public ImmutableArray<TypeSymbol> ParameterTypes { get; } = parameterTypes;
+    public ImmutableArray<FunctionParameter> Parameters { get; } = parameters;
     public TypeSymbol ReturnType { get; } = returnType;
 
     public bool Equals(FunctionKey other) {
       if (!ReferenceEquals(ReturnType, other.ReturnType)
-          || ParameterTypes.Length != other.ParameterTypes.Length) {
+          || Parameters.Length != other.Parameters.Length) {
         return false;
       }
 
-      for (int i = 0; i < ParameterTypes.Length; i++) {
-        if (!ReferenceEquals(ParameterTypes[i], other.ParameterTypes[i])) {
+      for (int i = 0; i < Parameters.Length; i++) {
+        if (Parameters[i].IsMutable != other.Parameters[i].IsMutable
+            || !ReferenceEquals(Parameters[i].Type, other.Parameters[i].Type)) {
           return false;
         }
       }
@@ -225,9 +226,10 @@ public sealed class TypeInterner {
     public override int GetHashCode() {
       var hc = new HashCode();
       hc.Add(RuntimeHelpers.GetHashCode(ReturnType));
-      hc.Add(ParameterTypes.Length);
-      foreach (TypeSymbol p in ParameterTypes) {
-        hc.Add(RuntimeHelpers.GetHashCode(p));
+      hc.Add(Parameters.Length);
+      foreach (FunctionParameter p in Parameters) {
+        hc.Add(p.IsMutable);
+        hc.Add(RuntimeHelpers.GetHashCode(p.Type));
       }
       return hc.ToHashCode();
     }

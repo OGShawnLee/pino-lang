@@ -209,9 +209,9 @@ public abstract record StdlibTypeSpec {
         PreludeSymbols prelude,
         ReadOnlySpan<TypeSymbol> receiverArgs,
         ReadOnlySpan<TypeSymbol> methodArgs) {
-      var resolvedParams = ImmutableArray.CreateBuilder<TypeSymbol>(ParameterTypes.Length);
+      var resolvedParams = ImmutableArray.CreateBuilder<FunctionParameter>(ParameterTypes.Length);
       foreach (StdlibTypeSpec param in ParameterTypes) {
-        resolvedParams.Add(param.Resolve(types, prelude, receiverArgs, methodArgs));
+        resolvedParams.Add(new FunctionParameter(param.Resolve(types, prelude, receiverArgs, methodArgs), IsMutable: false));
       }
       TypeSymbol ret = ReturnType.Resolve(types, prelude, receiverArgs, methodArgs);
       return types.GetFunction(resolvedParams.MoveToImmutable(), ret);
@@ -247,7 +247,8 @@ public sealed record IntrinsicDescriptor(
     bool IsProperty,
     ImmutableArray<IntrinsicSignature> Signatures,
     string Documentation,
-    ImmutableArray<string> RuleIds);
+    ImmutableArray<string> RuleIds,
+    bool MutatesReceiver = false);
 
 /// <summary>
 /// Declarative standard-library catalog keyed by receiver kind, member name, and
@@ -414,9 +415,10 @@ public static class StdlibCatalog {
           Prop(StdlibReceiverKind.Vector, "length", IntrinsicId.VecLen, s_int, "Alias of vec:len.", ["VECLIB-2"]),
           Prop(StdlibReceiverKind.Vector, "cap", IntrinsicId.VecCap, s_int, "Allocated element capacity.", ["VECLIB-3"]),
           Prop(StdlibReceiverKind.Vector, "capacity", IntrinsicId.VecCap, s_int, "Alias of vec:cap.", ["VECLIB-4"]),
-          Method(StdlibReceiverKind.Vector, "push", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], new StdlibTypeSpec.Vector(s_t0))], "Appends item in place and returns the vector.", ["VECLIB-5", "VECLIB-6"]),
-          Method(StdlibReceiverKind.Vector, "add", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], new StdlibTypeSpec.Vector(s_t0))], "Alias of vec:push(item).", ["VECLIB-7"]),
-          Method(StdlibReceiverKind.Vector, "pop", [Sig(IntrinsicId.VecPop, [], new StdlibTypeSpec.Option(s_t0))], "Removes and returns the last element as Option[T].", ["VECLIB-8", "VECLIB-9"]),
+          // 049: change return type to void after 048 migrates push-chain/add
+          Method(StdlibReceiverKind.Vector, "push", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], new StdlibTypeSpec.Vector(s_t0))], "Appends item in place and returns the vector.", ["VECLIB-5", "VECLIB-6"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Vector, "add", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], new StdlibTypeSpec.Vector(s_t0))], "Alias of vec:push(item).", ["VECLIB-7"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Vector, "pop", [Sig(IntrinsicId.VecPop, [], new StdlibTypeSpec.Option(s_t0))], "Removes and returns the last element as Option[T].", ["VECLIB-8", "VECLIB-9"], mutatesReceiver: true),
           Method(
               StdlibReceiverKind.Vector,
               "each",
@@ -504,7 +506,7 @@ public static class StdlibCatalog {
           Prop(StdlibReceiverKind.Map, "length", IntrinsicId.MapLen, s_int, "Alias of map:len.", ["MAPLIB-2"]),
           Method(StdlibReceiverKind.Map, "keys", [Sig(IntrinsicId.MapKeys, [], new StdlibTypeSpec.Vector(s_t0))], "Returns a vector of all keys.", ["MAPLIB-3"]),
           Method(StdlibReceiverKind.Map, "values", [Sig(IntrinsicId.MapValues, [], new StdlibTypeSpec.Vector(s_t1))], "Returns a vector of all values in key order.", ["MAPLIB-4", "MAPLIB-5"]),
-          Method(StdlibReceiverKind.Map, "remove", [Sig(IntrinsicId.MapRemove, [Fixed("key", s_t0)], new StdlibTypeSpec.Option(s_t1))], "Removes key and returns its previous value as Option[V].", ["MAPLIB-6", "MAPLIB-7"]),
+          Method(StdlibReceiverKind.Map, "remove", [Sig(IntrinsicId.MapRemove, [Fixed("key", s_t0)], new StdlibTypeSpec.Option(s_t1))], "Removes key and returns its previous value as Option[V].", ["MAPLIB-6", "MAPLIB-7"], mutatesReceiver: true),
         ]);
 
     SetMembers = BuildTable(
@@ -512,8 +514,8 @@ public static class StdlibCatalog {
         [
           Prop(StdlibReceiverKind.Set, "len", IntrinsicId.SetLen, s_int, "Number of elements.", ["SETLIB-1"]),
           Prop(StdlibReceiverKind.Set, "length", IntrinsicId.SetLen, s_int, "Alias of set:len.", ["SETLIB-2"]),
-          Method(StdlibReceiverKind.Set, "add", [Sig(IntrinsicId.SetAdd, [Fixed("element", s_t0)], s_void)], "Adds element to the set.", ["SETLIB-3", "D-175"]),
-          Method(StdlibReceiverKind.Set, "remove", [Sig(IntrinsicId.SetRemove, [Fixed("element", s_t0)], s_void)], "Removes element from the set.", ["SETLIB-4", "D-175"]),
+          Method(StdlibReceiverKind.Set, "add", [Sig(IntrinsicId.SetAdd, [Fixed("element", s_t0)], s_void)], "Adds element to the set.", ["SETLIB-3", "D-175"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Set, "remove", [Sig(IntrinsicId.SetRemove, [Fixed("element", s_t0)], s_void)], "Removes element from the set.", ["SETLIB-4", "D-175"], mutatesReceiver: true),
           Method(StdlibReceiverKind.Set, "any", [Sig(IntrinsicId.SetAny, [Fixed("fn", new StdlibTypeSpec.Function([s_t0], s_bool))], s_bool)], "Returns true if predicate returns true for any element.", ["SETLIB-5", "D-175"]),
           Method(StdlibReceiverKind.Set, "all", [Sig(IntrinsicId.SetAll, [Fixed("fn", new StdlibTypeSpec.Function([s_t0], s_bool))], s_bool)], "Returns true if predicate returns true for all elements.", ["SETLIB-6", "D-175"]),
           Method(StdlibReceiverKind.Set, "each", [Sig(IntrinsicId.SetEach, [Fixed("fn", new StdlibTypeSpec.Function([s_t0], s_void))], s_void)], "Calls fn once for each element.", ["SETLIB-7", "D-175"]),
@@ -616,8 +618,9 @@ public static class StdlibCatalog {
       string name,
       ImmutableArray<IntrinsicSignature> signatures,
       string documentation,
-      ImmutableArray<string> ruleIds) =>
-      new(receiver, name, false, signatures, documentation, ruleIds);
+      ImmutableArray<string> ruleIds,
+      bool mutatesReceiver = false) =>
+      new(receiver, name, false, signatures, documentation, ruleIds, mutatesReceiver);
 
   private static IntrinsicSignature Sig(
       IntrinsicId id,

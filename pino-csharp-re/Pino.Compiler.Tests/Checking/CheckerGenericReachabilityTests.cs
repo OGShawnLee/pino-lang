@@ -61,11 +61,11 @@ public sealed class CheckerGenericReachabilityTests {
     Assert.True(graph.IsPointerFree(resVoidInt));
     Assert.False(graph.IsPointerFree(resVoidStr));
 
-    // struct Node { next Option[Node] } and GenericNode[int] form mutable cycles through Option.
-    Assert.True(graph.IsCycleCapable(nodeType));
-    Assert.True(graph.IsCycleCapable(optNodeType));
-    Assert.True(graph.IsCycleCapable(genericNodeInt));
-    Assert.True(graph.IsCycleCapable(optGenericNodeInt));
+    // AD-003 / D-177: recursive data structs and Option[Node] form acyclic value trees (`IsCycleCapable == false`).
+    Assert.False(graph.IsCycleCapable(nodeType));
+    Assert.False(graph.IsCycleCapable(optNodeType));
+    Assert.False(graph.IsCycleCapable(genericNodeInt));
+    Assert.False(graph.IsCycleCapable(optGenericNodeInt));
     Assert.False(graph.IsPointerFree(nodeType));
     Assert.False(graph.IsPointerFree(genericNodeInt));
   }
@@ -81,7 +81,7 @@ public sealed class CheckerGenericReachabilityTests {
       """;
     Compilation scalarComp = CheckerTestSupport.Compile(ImmutableScalarCode);
     Assert.Empty(scalarComp.Diagnostics);
-    FunctionType intToInt = scalarComp.Types.GetFunction([scalarComp.Types.Int], scalarComp.Types.Int);
+    FunctionType intToInt = scalarComp.Types.GetFunction([new FunctionParameter(scalarComp.Types.Int, false)], scalarComp.Types.Int);
     Assert.False(scalarComp.Reachability.IsCycleCapable(intToInt));
     Assert.Contains(
         scalarComp.Reachability.GetEdges(intToInt),
@@ -102,21 +102,21 @@ public sealed class CheckerGenericReachabilityTests {
       """;
     Compilation recComp = CheckerTestSupport.Compile(RecursiveVarClosureCode);
     Assert.Empty(recComp.Diagnostics);
-    FunctionType recFnType = recComp.Types.GetFunction([recComp.Types.Int], recComp.Types.Int);
+    FunctionType recFnType = recComp.Types.GetFunction([new FunctionParameter(recComp.Types.Int, false)], recComp.Types.Int);
     Assert.Contains(
         recComp.Reachability.GetEdges(recFnType),
         e => ReferenceEquals(e.Target, recFnType) && e.IsMutableEdge);
     Assert.True(recComp.Reachability.IsCycleCapable(recFnType));
 
-    // 3. Closure stored in a struct field that captures the struct (ticket 032 §2b, STRUCT-7 + FN-15).
+    // 3. Closure stored in a struct field that captures a local `var` of that struct (D-056 + AD-003).
     const string StructClosureCycleCode = """
       struct Button {
         label string
-        on_click fn () -> string
+        mut on_click fn () -> string
       }
 
       fn main() {
-        val b = Button { label: "ok", on_click: fn () -> "" }
+        var b = Button { label: "ok", on_click: fn () -> "" }
         b:on_click = fn () -> b:label
         println(b:on_click())
       }
@@ -127,8 +127,28 @@ public sealed class CheckerGenericReachabilityTests {
     FunctionType onClickType = btnComp.Types.GetFunction([], btnComp.Types.String);
     Assert.Contains(
         btnComp.Reachability.GetEdges(onClickType),
-        e => ReferenceEquals(e.Target, buttonType));
+        e => ReferenceEquals(e.Target, buttonType) && e.IsMutableEdge);
     Assert.True(btnComp.Reachability.IsCycleCapable(buttonType));
     Assert.True(btnComp.Reachability.IsCycleCapable(onClickType));
+
+    // 4. Closure stored in a `val` struct that captures an immutable `val` of that struct: NOT cycle-capable.
+    const string ImmutableStructClosureCode = """
+      struct ReadOnlyBtn {
+        label string
+        on_click fn () -> string
+      }
+
+      fn main() {
+        val snap = ReadOnlyBtn { label: "ok", on_click: fn () -> "" }
+        val btn = ReadOnlyBtn { label: "ok", on_click: fn () -> snap:label }
+        println(btn:on_click())
+      }
+      """;
+    Compilation immBtnComp = CheckerTestSupport.Compile(ImmutableStructClosureCode);
+    Assert.Empty(immBtnComp.Diagnostics);
+    TypeSymbol roBtnType = CheckerTestSupport.Local(immBtnComp, "btn").Type;
+    FunctionType roClickType = immBtnComp.Types.GetFunction([], immBtnComp.Types.String);
+    Assert.False(immBtnComp.Reachability.IsCycleCapable(roBtnType));
+    Assert.False(immBtnComp.Reachability.IsCycleCapable(roClickType));
   }
 }

@@ -41,7 +41,7 @@ internal static class TypeSubstitution {
       TupleType tuple => types.GetTuple(
           [.. tuple.Fields.Select(f => new TupleField(f.Label, Substitute(f.Type, parameters, arguments, types)))]),
       FunctionType fn => types.GetFunction(
-          [.. fn.ParameterTypes.Select(p => Substitute(p, parameters, arguments, types))],
+          [.. fn.Parameters.Select(p => new FunctionParameter(Substitute(p.Type, parameters, arguments, types), p.IsMutable))],
           Substitute(fn.ReturnType, parameters, arguments, types)),
       StructType st when !st.TypeArguments.IsEmpty => types.GetStruct(
           st.Definition,
@@ -77,8 +77,19 @@ internal static class TypeCompatibility {
       InterfaceType target,
       TypeInterner types,
       ModuleSymbol? currentModule = null,
-      Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), bool>? memo = null,
+      Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), (bool Satisfied, string? FailureDetail)>? memo = null,
+      HashSet<(TypeSymbol, TypeSymbol)>? visited = null) =>
+      TrySatisfiesInterface(candidate, target, types, out _, currentModule, memo, visited);
+
+  public static bool TrySatisfiesInterface(
+      TypeSymbol candidate,
+      InterfaceType target,
+      TypeInterner types,
+      out string? failureDetail,
+      ModuleSymbol? currentModule = null,
+      Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), (bool Satisfied, string? FailureDetail)>? memo = null,
       HashSet<(TypeSymbol, TypeSymbol)>? visited = null) {
+    failureDetail = null;
     if (candidate.IsError || target.IsError) {
       return true;
     }
@@ -87,8 +98,9 @@ internal static class TypeCompatibility {
       return true;
     }
 
-    if (visited is null && memo is not null && memo.TryGetValue((candidate, target, currentModule), out bool cached)) {
-      return cached;
+    if (visited is null && memo is not null && memo.TryGetValue((candidate, target, currentModule), out (bool Satisfied, string? FailureDetail) cached)) {
+      failureDetail = cached.FailureDetail;
+      return cached.Satisfied;
     }
 
     visited ??= new HashSet<(TypeSymbol, TypeSymbol)>();
@@ -99,17 +111,17 @@ internal static class TypeCompatibility {
     bool result;
     if (candidate is TypeParameterType tp) {
       result = tp.Symbol.Constraint is { } constraint
-          && SatisfiesInterface(constraint, target, types, currentModule, memo, visited);
+          && TrySatisfiesInterface(constraint, target, types, out failureDetail, currentModule, memo, visited);
     } else if (candidate is StructType structType) {
-      result = StructSatisfiesInterface(structType, target, types, currentModule);
+      result = StructSatisfiesInterface(structType, target, types, currentModule, out failureDetail);
     } else if (candidate is InterfaceType candidateIface) {
-      result = InterfaceSatisfiesInterface(candidateIface, target, types);
+      result = InterfaceSatisfiesInterface(candidateIface, target, types, out failureDetail);
     } else {
       result = false;
     }
 
     if (memo is not null) {
-      memo[(candidate, target, currentModule)] = result;
+      memo[(candidate, target, currentModule)] = (result, failureDetail);
     }
 
     return result;
@@ -154,7 +166,9 @@ internal static class TypeCompatibility {
       StructType structType,
       InterfaceType target,
       TypeInterner types,
-      ModuleSymbol? currentModule) {
+      ModuleSymbol? currentModule,
+      out string? failureDetail) {
+    failureDetail = null;
     ImmutableArray<TypeParameterSymbol> targetParams = target.Definition.TypeParameters;
     ImmutableArray<TypeSymbol> targetArgs = target.TypeArguments;
     ImmutableArray<TypeParameterSymbol> structParams = structType.Definition.TypeParameters;
@@ -168,6 +182,11 @@ internal static class TypeCompatibility {
         return false;
       }
 
+      if (prop.IsMutable && !matchingField.IsMutable) {
+        failureDetail = $"field '{prop.Name}' must be 'mut'";
+        return false;
+      }
+
       TypeSymbol actualFieldType = TypeSubstitution.Substitute(matchingField.Type, structParams, structArgs, types);
       if (!expectedPropType.IsError && !actualFieldType.IsError
           && !ReferenceEquals(actualFieldType, expectedPropType)) {
@@ -176,7 +195,7 @@ internal static class TypeCompatibility {
     }
 
     foreach (MethodSymbol ifaceMethod in target.Definition.Methods) {
-      if (!StructHasMatchingMethod(structType, ifaceMethod, targetParams, targetArgs, targetIfaceModule, currentModule, types)) {
+      if (!StructHasMatchingMethod(structType, ifaceMethod, targetParams, targetArgs, targetIfaceModule, currentModule, types, out failureDetail)) {
         return false;
       }
     }
@@ -187,7 +206,9 @@ internal static class TypeCompatibility {
   private static bool InterfaceSatisfiesInterface(
       InterfaceType candidate,
       InterfaceType target,
-      TypeInterner types) {
+      TypeInterner types,
+      out string? failureDetail) {
+    failureDetail = null;
     ImmutableArray<TypeParameterSymbol> targetParams = target.Definition.TypeParameters;
     ImmutableArray<TypeSymbol> targetArgs = target.TypeArguments;
     ImmutableArray<TypeParameterSymbol> candParams = candidate.Definition.TypeParameters;
@@ -204,6 +225,11 @@ internal static class TypeCompatibility {
       }
 
       if (match is null) {
+        return false;
+      }
+
+      if (prop.IsMutable && !match.IsMutable) {
+        failureDetail = $"field '{prop.Name}' must be 'mut'";
         return false;
       }
 
@@ -226,6 +252,11 @@ internal static class TypeCompatibility {
         return false;
       }
 
+      if (!targetMethod.IsMutating && candMethod.IsMutating) {
+        failureDetail = $"method '{targetMethod.Name}' must not be 'mut'";
+        return false;
+      }
+
       if (!SignaturesMatch(
           candMethod.Parameters,
           candMethod.ReturnType,
@@ -235,7 +266,9 @@ internal static class TypeCompatibility {
           targetMethod.ReturnType,
           targetParams,
           targetArgs,
-          types)) {
+          types,
+          targetMethod.Name,
+          out failureDetail)) {
         return false;
       }
     }
@@ -260,13 +293,20 @@ internal static class TypeCompatibility {
       ImmutableArray<TypeSymbol> targetArgs,
       ModuleSymbol? targetIfaceModule,
       ModuleSymbol? currentModule,
-      TypeInterner types) {
+      TypeInterner types,
+      out string? failureDetail) {
+    failureDetail = null;
     ImmutableArray<TypeParameterSymbol> structParams = structType.Definition.TypeParameters;
     ImmutableArray<TypeSymbol> structArgs = structType.TypeArguments;
 
     foreach (MethodSymbol m in structType.Definition.Methods) {
       if (m.IsStatic || !string.Equals(m.Name, ifaceMethod.Name, StringComparison.Ordinal)) {
         continue;
+      }
+
+      if (!ifaceMethod.IsMutating && m.IsMutating) {
+        failureDetail = $"method '{ifaceMethod.Name}' must not be 'mut'";
+        return false;
       }
 
       return SignaturesMatch(
@@ -278,7 +318,9 @@ internal static class TypeCompatibility {
           ifaceMethod.ReturnType,
           targetParams,
           targetArgs,
-          types);
+          types,
+          ifaceMethod.Name,
+          out failureDetail);
     }
 
     // Also allow a callable field of matching FunctionType (STRUCT-12).
@@ -286,15 +328,20 @@ internal static class TypeCompatibility {
     if (callableField is not null && IsFieldVisibleTo(callableField, targetIfaceModule, currentModule)) {
       TypeSymbol fieldType = TypeSubstitution.Substitute(callableField.Type, structParams, structArgs, types);
       if (fieldType is FunctionType fnType) {
-        if (fnType.ParameterTypes.Length != ifaceMethod.Parameters.Length) {
+        if (fnType.Parameters.Length != ifaceMethod.Parameters.Length) {
           return false;
         }
 
-        for (int i = 0; i < fnType.ParameterTypes.Length; i++) {
+        for (int i = 0; i < fnType.Parameters.Length; i++) {
+          if (fnType.Parameters[i].IsMutable != ifaceMethod.Parameters[i].IsMutable) {
+            failureDetail = $"method '{ifaceMethod.Name}' parameter {i + 1} 'mut' modifier does not match";
+            return false;
+          }
+
           TypeSymbol expectedParam = TypeSubstitution.Substitute(
               ifaceMethod.Parameters[i].Type, targetParams, targetArgs, types);
-          if (!expectedParam.IsError && !fnType.ParameterTypes[i].IsError
-              && !ReferenceEquals(fnType.ParameterTypes[i], expectedParam)) {
+          if (!expectedParam.IsError && !fnType.Parameters[i].Type.IsError
+              && !ReferenceEquals(fnType.Parameters[i].Type, expectedParam)) {
             return false;
           }
         }
@@ -318,12 +365,20 @@ internal static class TypeCompatibility {
       TypeSymbol expectedReturn,
       ImmutableArray<TypeParameterSymbol> expectedTypeParams,
       ImmutableArray<TypeSymbol> expectedTypeArgs,
-      TypeInterner types) {
+      TypeInterner types,
+      string methodName,
+      out string? failureDetail) {
+    failureDetail = null;
     if (actualParams.Length != expectedParams.Length) {
       return false;
     }
 
     for (int i = 0; i < actualParams.Length; i++) {
+      if (actualParams[i].IsMutable != expectedParams[i].IsMutable) {
+        failureDetail = $"method '{methodName}' parameter {i + 1} 'mut' modifier does not match";
+        return false;
+      }
+
       TypeSymbol actualType = TypeSubstitution.Substitute(
           actualParams[i].Type, actualTypeParams, actualTypeArgs, types);
       TypeSymbol expectedType = TypeSubstitution.Substitute(

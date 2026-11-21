@@ -35,6 +35,7 @@ internal sealed class ModuleCheckState {
     PatternBindings = new PatternBindingInfo?[nodeCount];
     ParentsByNodeId = parentsByNodeId;
     ShorthandValueSymbols = new Symbol?[nodeCount];
+    MutationPlaces = new MutationPlaceInfo?[nodeCount];
 
     if ((uint) tree.Root.Id < (uint) ScopesByBlockId.Length) {
       ScopesByBlockId[tree.Root.Id] = moduleScope;
@@ -149,6 +150,8 @@ internal sealed class ModuleCheckState {
 
   public Symbol?[] ShorthandValueSymbols { get; }
 
+  public MutationPlaceInfo?[] MutationPlaces { get; }
+
   public void SetScope(SyntaxNode node, Scope scope) {
     AllScopes.Add(scope);
     if ((uint) node.Id < (uint) ScopesByBlockId.Length) {
@@ -203,7 +206,8 @@ internal sealed class ModuleCheckState {
         LoopInfos,
         PatternBindings,
         ParentsByNodeId,
-        ShorthandValueSymbols);
+        ShorthandValueSymbols,
+        MutationPlaces);
   }
 }
 
@@ -289,8 +293,8 @@ internal sealed partial class CheckerSession {
         break;
 
       case FunctionType fn:
-        foreach (TypeSymbol p in fn.ParameterTypes) {
-          RecordInstantiationsInType(p);
+        foreach (FunctionParameter p in fn.Parameters) {
+          RecordInstantiationsInType(p.Type);
         }
         RecordInstantiationsInType(fn.ReturnType);
         break;
@@ -318,7 +322,7 @@ internal sealed partial class CheckerSession {
     }
   }
 
-  public Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), bool> InterfaceSatisfactionCache { get; } = [];
+  public Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), (bool Satisfied, string? FailureDetail)> InterfaceSatisfactionCache { get; } = [];
 
   public CheckerSession(IModuleSource moduleSource, CancellationToken cancellationToken) {
     _moduleSource = moduleSource;

@@ -59,8 +59,8 @@ public sealed class TypeSystemTests {
     Assert.True(types.GetMap(types.String, err).ContainsError);
     Assert.True(types.GetSet(err).ContainsError);
     Assert.True(types.GetTuple([new TupleField("a", err)]).ContainsError);
-    Assert.True(types.GetFunction([types.Int], err).ContainsError);
-    Assert.True(types.GetFunction([err], types.Bool).ContainsError);
+    Assert.True(types.GetFunction([new FunctionParameter(types.Int, false)], err).ContainsError);
+    Assert.True(types.GetFunction([new FunctionParameter(err, false)], types.Bool).ContainsError);
 
     var structSym = new StructSymbol("Box", SymbolVisibility.Public, [], 1, default, null);
     var unionSym = new UnionSymbol("Opt", SymbolVisibility.Public, [], false, 2, default, null);
@@ -83,11 +83,19 @@ public sealed class TypeSystemTests {
 
     Assert.Same(types.GetSet(types.Rune), types.GetSet(types.Rune));
     Assert.Same(
-        types.GetFunction([types.Int, types.String], types.Bool),
-        types.GetFunction([types.Int, types.String], types.Bool));
+        types.GetFunction([new FunctionParameter(types.Int, false), new FunctionParameter(types.String, false)], types.Bool),
+        types.GetFunction([new FunctionParameter(types.Int, false), new FunctionParameter(types.String, false)], types.Bool));
     Assert.NotSame(
-        types.GetFunction([types.Int], types.Void),
-        types.GetFunction([types.Int], types.Bool));
+        types.GetFunction([new FunctionParameter(types.Int, false)], types.Void),
+        types.GetFunction([new FunctionParameter(types.Int, false)], types.Bool));
+    FunctionType mutFn = types.GetFunction([new FunctionParameter(types.Int, true), new FunctionParameter(types.String, false)], types.Void);
+    FunctionType immutFn = types.GetFunction([new FunctionParameter(types.Int, false), new FunctionParameter(types.String, false)], types.Void);
+    Assert.Same(
+        mutFn,
+        types.GetFunction([new FunctionParameter(types.Int, true), new FunctionParameter(types.String, false)], types.Void));
+    Assert.NotSame(mutFn, immutFn);
+    Assert.Equal("fn (mut int, string) -> void", mutFn.DisplayName);
+    Assert.Equal("fn (int, string) -> void", immutFn.DisplayName);
 
     var structA = new StructSymbol("Point", SymbolVisibility.Public, [], 1, default, "a.pino");
     var structB = new StructSymbol("Point", SymbolVisibility.Public, [], 2, default, "b.pino");
@@ -254,7 +262,7 @@ public sealed class TypeSystemTests {
     Assert.False(graph.IsPointerFree(bagType));
     Assert.False(graph.IsPointerFree(outerType));
 
-    // Cycle-capable checks
+    // Cycle-capable checks (builder level: edges with isMutableEdge: true form a mutable cycle; false edges do not)
     Assert.True(graph.IsCycleCapable(nodeType));
     Assert.True(graph.IsCycleCapable(nodeVec));
     Assert.False(graph.IsCycleCapable(pointType));

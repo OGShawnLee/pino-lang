@@ -56,8 +56,8 @@ public sealed class CheckerReturnInferenceTests {
           }
           break;
         case FunctionType fn:
-          foreach (TypeSymbol p in fn.ParameterTypes) {
-            CheckType(p);
+          foreach (FunctionParameter p in fn.Parameters) {
+            CheckType(p.Type);
           }
           CheckType(fn.ReturnType);
           break;

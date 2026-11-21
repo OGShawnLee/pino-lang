@@ -126,8 +126,9 @@ internal sealed partial class BodyChecker {
     }
 
     TypeSymbol actual = Synthesize(value);
-    if (actual is FunctionType { ParameterTypes.Length: 1 } callback
-        && ReferenceEquals(callback.ParameterTypes[0], _types.Int)
+    if (actual is FunctionType { Parameters.Length: 1 } callback
+        && !callback.Parameters[0].IsMutable
+        && ReferenceEquals(callback.Parameters[0].Type, _types.Int)
         && (elementType.IsError || ReferenceEquals(callback.ReturnType, elementType))) {
       return;
     }

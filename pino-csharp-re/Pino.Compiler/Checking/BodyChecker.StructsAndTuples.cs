@@ -131,11 +131,12 @@ internal sealed partial class BodyChecker {
           _state.SetShorthandValueSymbol(fieldInit, localSym);
           TypeSymbol actualValType = SymbolValueType(localSym);
           if (!TryConvert(fieldInit, actualValType, expectedFieldType)) {
-            if (expectedFieldType is InterfaceType) {
+            if (expectedFieldType is InterfaceType expectedIface) {
+              string detail = FormatInterfaceMismatchDetail(actualValType, expectedIface);
               Report(
                   DiagnosticCodes.InterfaceNotSatisfied,
                   fieldInit.Span,
-                  $"Cannot assign type '{actualValType.DisplayName}' to field '{fieldName}' in struct '{structSym.Name}'; expected type '{expectedFieldType.DisplayName}', but got '{actualValType.DisplayName}'.");
+                  $"Cannot assign type '{actualValType.DisplayName}' to field '{fieldName}' in struct '{structSym.Name}'; expected type '{expectedFieldType.DisplayName}', but got '{actualValType.DisplayName}'{detail}.");
             } else {
               Report(
                   DiagnosticCodes.TypeMismatch,
@@ -239,9 +240,9 @@ internal sealed partial class BodyChecker {
               && descriptor.Signatures[0].Parameters.All(static p => p.Kind == IntrinsicParamKind.Fixed)) {
             TypeSymbol[] receiverArgs = GetReceiverTypeArgs(targetType);
             IntrinsicSignature sig = descriptor.Signatures[0];
-            ImmutableArray<TypeSymbol>.Builder paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(sig.Parameters.Length);
+            ImmutableArray<FunctionParameter>.Builder paramTypes = ImmutableArray.CreateBuilder<FunctionParameter>(sig.Parameters.Length);
             foreach (IntrinsicParameter p in sig.Parameters) {
-              paramTypes.Add(p.TypeSpec.Resolve(_types, _prelude, receiverArgs, []));
+              paramTypes.Add(new FunctionParameter(p.TypeSpec.Resolve(_types, _prelude, receiverArgs, []), IsMutable: false));
             }
 
             return _types.GetFunction(

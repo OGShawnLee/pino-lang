@@ -79,7 +79,7 @@ public sealed class TypeReachabilityGraph {
 
   /// <summary>
   /// The type's values hold no references the memory manager must trace or count.
-  /// A struct of scalars is pointer-free even though it is heap-allocated (D-070).
+  /// Under AD-003 value semantics (D-177), structs and unions of inline scalars are pointer-free.
   /// </summary>
   public bool IsPointerFree(TypeSymbol type) {
     ArgumentNullException.ThrowIfNull(type);

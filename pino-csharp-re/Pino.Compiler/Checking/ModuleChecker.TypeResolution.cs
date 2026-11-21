@@ -324,11 +324,12 @@ internal sealed partial class CheckerSession {
       state.EnsureStructMethodsResolved?.Invoke(argStruct.Definition);
     }
 
-    if (!TypeCompatibility.SatisfiesInterface(argType, constraint, Types, state.Module, InterfaceSatisfactionCache)) {
+    if (!TypeCompatibility.TrySatisfiesInterface(argType, constraint, Types, out string? detail, state.Module, InterfaceSatisfactionCache)) {
+      string suffix = detail is not null ? $" ({detail})" : string.Empty;
       state.Diagnostics.ReportError(
           DiagnosticCodes.GenericConstraintNotSatisfied,
           argSyntax.Span,
-          $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{tp.Name}'.");
+          $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{tp.Name}'{suffix}.");
     }
   }
 
@@ -438,7 +439,7 @@ internal sealed partial class CheckerSession {
       Scope scope,
       StructSymbol? staticMethodEnclosingStruct,
       string? staticMethodName) {
-    var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(fnType.Parameters.Length);
+    var parameters = ImmutableArray.CreateBuilder<FunctionParameter>(fnType.Parameters.Length);
     bool anyError = false;
 
     foreach (FunctionTypeParameterSyntax paramSyntax in fnType.Parameters) {
@@ -452,7 +453,7 @@ internal sealed partial class CheckerSession {
       if (pt.IsError) {
         anyError = true;
       }
-      paramTypes.Add(pt);
+      parameters.Add(new FunctionParameter(pt, paramSyntax.MutKeyword is not null));
     }
 
     TypeSymbol retType = fnType.ReturnType is not null
@@ -469,7 +470,7 @@ internal sealed partial class CheckerSession {
       return Types.Error;
     }
 
-    return Types.GetFunction(paramTypes.MoveToImmutable(), retType);
+    return Types.GetFunction(parameters.MoveToImmutable(), retType);
   }
 
   private TypeSymbol ResolveTupleType(

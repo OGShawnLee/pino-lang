@@ -119,13 +119,13 @@ internal static class ReachabilityBuilder {
 
       switch (type) {
         case StructType structType: {
-            // STRUCT-4 / STRUCT-7: struct fields (including promoted embedded fields) are mutable.
+            // AD-003 / D-177: value semantics with CoW; pure struct containment edges cannot form reference cycles.
             ImmutableArray<TypeParameterSymbol> tParams = structType.Definition.TypeParameters;
             ImmutableArray<TypeSymbol> tArgs = structType.TypeArguments;
             foreach (FieldSymbol field in structType.Definition.AllFields) {
               TypeSymbol fieldType = TypeSubstitution.Substitute(field.Type, tParams, tArgs, types);
               if (!fieldType.IsError) {
-                builder.AddEdge(structType, fieldType, isMutableEdge: true);
+                builder.AddEdge(structType, fieldType, isMutableEdge: false);
                 worklist.Enqueue(fieldType);
               }
             }
@@ -133,42 +133,42 @@ internal static class ReachabilityBuilder {
           }
 
         case VectorType vecType:
-          // VEC-4 / VECLIB-5: vector elements are mutable via indexing and push/add.
+          // AD-003 / D-177 / VEC-19: value semantics with CoW; vectors cannot form reference cycles.
           if (!vecType.ElementType.IsError) {
-            builder.AddEdge(vecType, vecType.ElementType, isMutableEdge: true);
+            builder.AddEdge(vecType, vecType.ElementType, isMutableEdge: false);
             worklist.Enqueue(vecType.ElementType);
           }
           break;
 
         case MapType mapType:
-          // MAP-5: map entries (keys and values) are mutable.
+          // AD-003 / D-177 / MAP-13: value semantics with CoW; maps cannot form reference cycles.
           if (!mapType.KeyType.IsError) {
-            builder.AddEdge(mapType, mapType.KeyType, isMutableEdge: true);
+            builder.AddEdge(mapType, mapType.KeyType, isMutableEdge: false);
             worklist.Enqueue(mapType.KeyType);
           }
           if (!mapType.ValueType.IsError) {
-            builder.AddEdge(mapType, mapType.ValueType, isMutableEdge: true);
+            builder.AddEdge(mapType, mapType.ValueType, isMutableEdge: false);
             worklist.Enqueue(mapType.ValueType);
           }
           break;
 
         case SetType setType:
-          // SETLIB-3 / SETLIB-4 / SETLIB-9: set elements are mutable via add/remove.
+          // AD-003 / D-177 / SET-7: value semantics with CoW; sets cannot form reference cycles.
           if (!setType.ElementType.IsError) {
-            builder.AddEdge(setType, setType.ElementType, isMutableEdge: true);
+            builder.AddEdge(setType, setType.ElementType, isMutableEdge: false);
             worklist.Enqueue(setType.ElementType);
           }
           break;
 
         case UnionType unionType: {
-            // Conservative: spec/features/unions.md states no explicit rule that payloads are immutable.
+            // UNION-24 / D-182: union payloads are deeply immutable inductive values.
             ImmutableArray<TypeParameterSymbol> tParams = unionType.Definition.TypeParameters;
             ImmutableArray<TypeSymbol> tArgs = unionType.TypeArguments;
             foreach (UnionVariantSymbol variant in unionType.Definition.Variants) {
               foreach (UnionVariantField field in variant.Fields) {
                 TypeSymbol payloadType = TypeSubstitution.Substitute(field.Type, tParams, tArgs, types);
                 if (!payloadType.IsError) {
-                  builder.AddEdge(unionType, payloadType, isMutableEdge: true);
+                  builder.AddEdge(unionType, payloadType, isMutableEdge: false);
                   worklist.Enqueue(payloadType);
                 }
               }
@@ -187,13 +187,13 @@ internal static class ReachabilityBuilder {
           break;
 
         case InterfaceType ifaceType: {
-            // Conservative heap edge for opaque satisfying structs (IFACE-2..4, STRUCT-7).
+            // AD-003 / D-177: interface values wrap value-semantic structs (cycles only possible via D-056 closure captures).
             ImmutableArray<TypeParameterSymbol> tParams = ifaceType.Definition.TypeParameters;
             ImmutableArray<TypeSymbol> tArgs = ifaceType.TypeArguments;
             foreach (InterfaceProperty prop in ifaceType.Definition.Properties) {
               TypeSymbol propType = TypeSubstitution.Substitute(prop.Type, tParams, tArgs, types);
               if (!propType.IsError) {
-                builder.AddEdge(ifaceType, propType, isMutableEdge: true);
+                builder.AddEdge(ifaceType, propType, isMutableEdge: false);
                 worklist.Enqueue(propType);
               }
             }
@@ -201,13 +201,13 @@ internal static class ReachabilityBuilder {
               foreach (ParameterSymbol param in method.Parameters) {
                 TypeSymbol paramType = TypeSubstitution.Substitute(param.Type, tParams, tArgs, types);
                 if (!paramType.IsError) {
-                  builder.AddEdge(ifaceType, paramType, isMutableEdge: true);
+                  builder.AddEdge(ifaceType, paramType, isMutableEdge: false);
                   worklist.Enqueue(paramType);
                 }
               }
               TypeSymbol retType = TypeSubstitution.Substitute(method.ReturnType, tParams, tArgs, types);
               if (!retType.IsError) {
-                builder.AddEdge(ifaceType, retType, isMutableEdge: true);
+                builder.AddEdge(ifaceType, retType, isMutableEdge: false);
                 worklist.Enqueue(retType);
               }
             }
@@ -217,9 +217,9 @@ internal static class ReachabilityBuilder {
         case FunctionType fnType:
           // Closure environment containment edges come from recorded CaptureLists (D-056 / FN-21)
           // above; parameter/return types are visited as nodes without adding spurious self-containment edges.
-          foreach (TypeSymbol paramType in fnType.ParameterTypes) {
-            if (!paramType.IsError) {
-              worklist.Enqueue(paramType);
+          foreach (FunctionParameter param in fnType.Parameters) {
+            if (!param.Type.IsError) {
+              worklist.Enqueue(param.Type);
             }
           }
           if (!fnType.ReturnType.IsError) {
@@ -248,12 +248,12 @@ internal static class ReachabilityBuilder {
     if ((uint) nodeId < (uint) state.DeclaredSymbols.Length
         && state.DeclaredSymbols[nodeId] is FunctionSymbol fnSym
         && fnSym.TypeParameters.IsEmpty) {
-      var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(fnSym.Parameters.Length);
+      var parameters = ImmutableArray.CreateBuilder<FunctionParameter>(fnSym.Parameters.Length);
       foreach (ParameterSymbol p in fnSym.Parameters) {
-        paramTypes.Add(p.Type);
+        parameters.Add(new FunctionParameter(p.Type, p.IsMutable));
       }
 
-      return types.GetFunction(paramTypes.MoveToImmutable(), fnSym.ReturnType);
+      return types.GetFunction(parameters.MoveToImmutable(), fnSym.ReturnType);
     }
 
     return null;

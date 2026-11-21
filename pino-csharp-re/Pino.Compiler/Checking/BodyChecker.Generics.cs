@@ -33,17 +33,19 @@ internal sealed partial class BodyChecker {
         EnsureStructMethodsResolved(argStruct.Definition);
       }
 
-      if (!TypeCompatibility.SatisfiesInterface(
+      if (!TypeCompatibility.TrySatisfiesInterface(
           argType,
           constraint,
           _types,
+          out string? detail,
           _state.Module,
           _session.InterfaceSatisfactionCache)) {
         SourceSpan span = i < argSpans.Length ? argSpans[i] : fallbackSpan;
+        string suffix = detail is not null ? $" ({detail})" : string.Empty;
         Report(
             DiagnosticCodes.GenericConstraintNotSatisfied,
             span,
-            $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{tp.Name}'.");
+            $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{tp.Name}'{suffix}.");
       }
     }
   }
@@ -383,11 +385,12 @@ internal sealed partial class BodyChecker {
         TypeSymbol actualType = unifier.Zonk(rawActual);
         SyntaxNode targetNode = fieldInit.Value is { } v ? v : fieldInit;
         if (!TryConvert(targetNode, actualType, concreteFieldType)) {
-          if (concreteFieldType is InterfaceType) {
+          if (concreteFieldType is InterfaceType expectedIface) {
+            string detail = FormatInterfaceMismatchDetail(actualType, expectedIface);
             Report(
                 DiagnosticCodes.InterfaceNotSatisfied,
                 targetNode.Span,
-                $"Cannot assign type '{actualType.DisplayName}' to field '{fieldSym.Name}' in struct '{structSym.Name}'; expected type '{concreteFieldType.DisplayName}', but got '{actualType.DisplayName}'.");
+                $"Cannot assign type '{actualType.DisplayName}' to field '{fieldSym.Name}' in struct '{structSym.Name}'; expected type '{concreteFieldType.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
           } else {
             Report(
                 DiagnosticCodes.TypeMismatch,
@@ -495,9 +498,11 @@ internal sealed partial class BodyChecker {
       ImmutableArray<TypeParameterSymbol> combinedParams = [.. ownerTypeParams, .. methodTypeParams];
       ImmutableArray<TypeSymbol> combinedArgs = [.. ownerTypeArgs, .. explicitArgs];
 
-      var expectedParamTypes = ImmutableArray.CreateBuilder<TypeSymbol>(parameters.Length);
+      var expectedParamTypes = ImmutableArray.CreateBuilder<FunctionParameter>(parameters.Length);
       foreach (ParameterSymbol p in parameters) {
-        expectedParamTypes.Add(TypeSubstitution.Substitute(p.Type, combinedParams, combinedArgs, _types));
+        expectedParamTypes.Add(new FunctionParameter(
+            TypeSubstitution.Substitute(p.Type, combinedParams, combinedArgs, _types),
+            p.IsMutable));
       }
 
       CheckCallArguments(call, expectedParamTypes, calleeKind, calleeName);
@@ -667,10 +672,10 @@ internal sealed partial class BodyChecker {
     CheckGenericBounds(methodTypeParams, finalMethodArgs, argSpansBuilder.MoveToImmutable(), call.Span);
 
     // Finalize concrete parameter types and verify conversions / remaining mismatches.
-    var finalParamTypes = ImmutableArray.CreateBuilder<TypeSymbol>(parameters.Length);
+    var finalParamTypes = ImmutableArray.CreateBuilder<FunctionParameter>(parameters.Length);
     for (int i = 0; i < parameters.Length; i++) {
       TypeSymbol concreteParam = TypeSubstitution.Substitute(parameters[i].Type, allParams, finalAllArgs, _types);
-      finalParamTypes.Add(concreteParam);
+      finalParamTypes.Add(new FunctionParameter(concreteParam, parameters[i].IsMutable));
       if (i < argCount && !argReportedError[i] && argActualTypes[i] is { } rawActual) {
         TypeSymbol actual = unifier.Zonk(rawActual);
         ExpressionSyntax argExpr = call.Arguments[i].Expression;
@@ -678,10 +683,13 @@ internal sealed partial class BodyChecker {
           string code = concreteParam is InterfaceType
               ? DiagnosticCodes.InterfaceNotSatisfied
               : DiagnosticCodes.TypeMismatch;
+          string detail = concreteParam is InterfaceType iface
+              ? FormatInterfaceMismatchDetail(actual, iface)
+              : string.Empty;
           Report(
               code,
               argExpr.Span,
-              $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{concreteParam.DisplayName}', but got '{actual.DisplayName}'.");
+              $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{concreteParam.DisplayName}', but got '{actual.DisplayName}'{detail}.");
         }
       }
     }
@@ -712,14 +720,14 @@ internal sealed partial class BodyChecker {
       if (partialExpected is FunctionType expectedFn) {
         // Never leak TypeVariableType into SynthesizeLambda: pass only concrete parameter types
         // and concrete return type (null when return contains an unsolved variable so it synthesizes).
-        var concreteParams = ImmutableArray.CreateBuilder<TypeSymbol>(expectedFn.ParameterTypes.Length);
+        var concreteParams = ImmutableArray.CreateBuilder<FunctionParameter>(expectedFn.Parameters.Length);
         bool allParamsConcrete = true;
-        foreach (TypeSymbol pt in expectedFn.ParameterTypes) {
-          if (Unifier.ContainsTypeVariable(pt)) {
+        foreach (FunctionParameter fp in expectedFn.Parameters) {
+          if (Unifier.ContainsTypeVariable(fp.Type)) {
             allParamsConcrete = false;
-            concreteParams.Add(_types.Error);
+            concreteParams.Add(new FunctionParameter(_types.Error, fp.IsMutable));
           } else {
-            concreteParams.Add(pt);
+            concreteParams.Add(fp);
           }
         }
 
@@ -730,7 +738,7 @@ internal sealed partial class BodyChecker {
         lambdaType = SynthesizeLambda(
             lambda,
             expectedFunction: null,
-            expectedParamTypesOverride: allParamsConcrete ? concreteParams.MoveToImmutable() : null,
+            expectedParamsOverride: allParamsConcrete ? concreteParams.MoveToImmutable() : null,
             expectedReturnOverride: concreteRet);
       } else {
         lambdaType = SynthesizeLambda(lambda, expectedFunction: null);
@@ -799,7 +807,7 @@ internal sealed partial class BodyChecker {
       string calleeName,
       Unifier unifier,
       ref bool hadError) {
-    if (expectedFn.ParameterTypes.Length != 1) {
+    if (expectedFn.Parameters.Length != 1) {
       Report(
           DiagnosticCodes.InvalidImplicitIt,
           argExpression.Span,
@@ -808,7 +816,7 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
-    TypeSymbol itParamType = expectedFn.ParameterTypes[0];
+    TypeSymbol itParamType = expectedFn.Parameters[0].Type;
     if (Unifier.ContainsTypeVariable(itParamType)) {
       hadError = true;
       return _types.Error;
@@ -822,7 +830,9 @@ internal sealed partial class BodyChecker {
         argExpression,
         itParamType,
         concreteRet,
-        expectedFunctionForMismatch: concreteRet is not null ? _types.GetFunction([itParamType], concreteRet) : null,
+        expectedFunctionForMismatch: concreteRet is not null
+            ? _types.GetFunction([new FunctionParameter(itParamType, IsMutable: false)], concreteRet)
+            : null,
         argIndex,
         calleeKind,
         calleeName);
@@ -1055,10 +1065,13 @@ internal sealed partial class BodyChecker {
         string code = concreteFieldType is InterfaceType
             ? DiagnosticCodes.InterfaceNotSatisfied
             : DiagnosticCodes.VariantArgumentMismatch;
+        string detail = concreteFieldType is InterfaceType iface
+            ? FormatInterfaceMismatchDetail(actual, iface)
+            : string.Empty;
         Report(
             code,
             argExpr.Span,
-            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{concreteFieldType.DisplayName}', but got '{actual.DisplayName}'.");
+            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{concreteFieldType.DisplayName}', but got '{actual.DisplayName}'{detail}.");
       }
     }
 

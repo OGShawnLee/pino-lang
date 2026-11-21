@@ -156,19 +156,21 @@ public sealed class TupleType : TypeSymbol {
       $"@({string.Join(", ", fields.Select(static f => $"{f.Label} {f.Type.DisplayName}"))})";
 }
 
+public readonly record struct FunctionParameter(TypeSymbol Type, bool IsMutable);
+
 public sealed class FunctionType : TypeSymbol {
-  internal FunctionType(ImmutableArray<TypeSymbol> parameterTypes, TypeSymbol returnType) {
-    ParameterTypes = parameterTypes;
+  internal FunctionType(ImmutableArray<FunctionParameter> parameters, TypeSymbol returnType) {
+    Parameters = parameters;
     ReturnType = returnType;
-    ContainsError = returnType.ContainsError || parameterTypes.Any(static p => p.ContainsError);
+    ContainsError = returnType.ContainsError || parameters.Any(static p => p.Type.ContainsError);
   }
 
-  public ImmutableArray<TypeSymbol> ParameterTypes { get; }
+  public ImmutableArray<FunctionParameter> Parameters { get; }
 
   public TypeSymbol ReturnType { get; }
 
   public override string DisplayName =>
-      $"fn ({string.Join(", ", ParameterTypes.Select(static p => p.DisplayName))}) -> {ReturnType.DisplayName}";
+      $"fn ({string.Join(", ", Parameters.Select(static p => p.IsMutable ? $"mut {p.Type.DisplayName}" : p.Type.DisplayName))}) -> {ReturnType.DisplayName}";
 }
 
 public sealed class StructType : TypeSymbol {

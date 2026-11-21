@@ -81,12 +81,12 @@ public sealed class CheckerReachabilityTests {
     Assert.False(graph.IsPointerFree(types.GetVector(types.Int)));
     Assert.False(graph.IsPointerFree(types.GetMap(types.String, types.Int)));
     Assert.False(graph.IsPointerFree(types.GetSet(types.Int)));
-    Assert.False(graph.IsPointerFree(types.GetFunction([types.Int], types.Int)));
+    Assert.False(graph.IsPointerFree(types.GetFunction([new FunctionParameter(types.Int, false)], types.Int)));
     Assert.False(graph.IsPointerFree(types.GetUnion(compilation.Prelude.OptionUnion, [types.String])));
   }
 
   [Fact]
-  public void ReachabilityGraph_DetectsCycleCapableTypesAcrossMutableEdgesAndConservativeUnions() {
+  public void ReachabilityGraph_AD003_PureDataStructsCollectionsUnionsAndInterfacesAreAcyclic() {
     const string Code = """
       struct Point {
         x int
@@ -94,19 +94,28 @@ public sealed class CheckerReachabilityTests {
       }
 
       struct Node {
-        next Option[Node]
+        mut next Option[Node]
+        mut children []Node
       }
 
       struct Tree {
-        children []Tree
+        mut children []Tree
       }
 
       struct MapNode {
-        edges map[string, MapNode]
+        mut edges map[string, MapNode]
       }
 
       struct SetNode {
-        peers set[SetNode]
+        mut peers set[SetNode]
+      }
+
+      struct AST {
+        mut decls []Decl
+      }
+
+      struct Decl {
+        mut body AST
       }
 
       union NonRecUnion {
@@ -114,9 +123,14 @@ public sealed class CheckerReachabilityTests {
         Empty
       }
 
-      union RecUnion {
-        Leaf(int)
-        Branch(RecUnion, RecUnion)
+      union Expr {
+        Lit(int)
+        Add(Expr, Expr)
+      }
+
+      interface NodeLike {
+        mut next Option[NodeLike]
+        mut fn step(mut n NodeLike) NodeLike
       }
       """;
 
@@ -137,20 +151,27 @@ public sealed class CheckerReachabilityTests {
     VectorType vecTreeType = types.GetVector(treeType);
     StructType mapNodeType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["MapNode"]);
     StructType setNodeType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["SetNode"]);
+    StructType astType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["AST"]);
+    StructType declType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["Decl"]);
+    VectorType vecDeclType = types.GetVector(declType);
     UnionType nonRecUnion = types.GetUnion((UnionSymbol) modScope.DeclaredSymbols["NonRecUnion"]);
-    UnionType recUnion = types.GetUnion((UnionSymbol) modScope.DeclaredSymbols["RecUnion"]);
+    UnionType exprUnion = types.GetUnion((UnionSymbol) modScope.DeclaredSymbols["Expr"]);
+    InterfaceType nodeLikeIface = types.GetInterface((InterfaceSymbol) modScope.DeclaredSymbols["NodeLike"]);
 
+    // Under AD-003 / D-177 value semantics with CoW, all pure data edges are immutable (`isMutableEdge: false`),
+    // so recursive structs, collections, mutual AST cycles, unions, and interfaces are NOT cycle-capable.
     Assert.False(graph.IsCycleCapable(pointType));
     Assert.False(graph.IsCycleCapable(nonRecUnion));
-
-    Assert.True(graph.IsCycleCapable(nodeType));
-    Assert.True(graph.IsCycleCapable(optNodeType));
-    Assert.True(graph.IsCycleCapable(treeType));
-    Assert.True(graph.IsCycleCapable(vecTreeType));
-    Assert.True(graph.IsCycleCapable(mapNodeType));
-    Assert.True(graph.IsCycleCapable(setNodeType));
-
-    // Conservative union payload edge (spec/features/unions.md has no payload immutability rule).
-    Assert.True(graph.IsCycleCapable(recUnion));
+    Assert.False(graph.IsCycleCapable(nodeType));
+    Assert.False(graph.IsCycleCapable(optNodeType));
+    Assert.False(graph.IsCycleCapable(treeType));
+    Assert.False(graph.IsCycleCapable(vecTreeType));
+    Assert.False(graph.IsCycleCapable(mapNodeType));
+    Assert.False(graph.IsCycleCapable(setNodeType));
+    Assert.False(graph.IsCycleCapable(astType));
+    Assert.False(graph.IsCycleCapable(declType));
+    Assert.False(graph.IsCycleCapable(vecDeclType));
+    Assert.False(graph.IsCycleCapable(exprUnion));
+    Assert.False(graph.IsCycleCapable(nodeLikeIface));
   }
 }

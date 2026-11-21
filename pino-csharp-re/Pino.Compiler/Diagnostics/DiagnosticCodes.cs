@@ -107,6 +107,15 @@ public static class DiagnosticCodes {
   public const string InvalidStaticOrInstanceAccess = "PN3209";
   public const string InvalidImplicitIt = "PN3210";
   public const string InvalidIndexOperation = "PN3211";
+  public const string CannotMutateImmutableValue = "PN3220";
+  public const string CannotMutateReadOnlyField = "PN3221";
+  public const string CannotMutateSelfInNonMutMethod = "PN3222";
+  public const string MissingMutAtCallSite = "PN3223";
+  public const string UnexpectedMutAtCallSite = "PN3224";
+  public const string InvalidMutArgument = "PN3225";
+  public const string OverlappingMutArguments = "PN3226";
+  public const string CannotBindMutatingMethod = "PN3227";
+  public const string CannotCaptureMutParameter = "PN3228";
 
   // Patterns, Match, Unions, Enums & Tuples (PN3301–PN3349)
   public const string MixedPatternBindings = "PN3301";

@@ -752,6 +752,7 @@ internal sealed partial class BodyChecker {
         _state.ShorthandValueSymbols[node.Id] = null;
         _state.ConstantValues[node.Id] = null;
         _state.PatternBindings[node.Id] = null;
+        _state.MutationPlaces[node.Id] = null;
 
         if (node is VariableDeclarationSyntax or DestructureFieldSyntax
             || (node is ParameterSyntax && _state.ParentsByNodeId[node.Id] is LambdaExpressionSyntax)) {
@@ -880,11 +881,12 @@ internal sealed partial class BodyChecker {
 
     TypeSymbol actual = CheckWithContextualExpectation(returnValue, declaredReturnType);
     if (!TryConvert(returnValue, actual, declaredReturnType)) {
-      if (declaredReturnType is InterfaceType) {
+      if (declaredReturnType is InterfaceType expectedIface) {
+        string detail = FormatInterfaceMismatchDetail(actual, expectedIface);
         Report(
             DiagnosticCodes.InterfaceNotSatisfied,
             returnValue.Span,
-            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type; expected type '{declaredReturnType.DisplayName}', but got '{actual.DisplayName}'.");
+            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type; expected type '{declaredReturnType.DisplayName}', but got '{actual.DisplayName}'{detail}.");
       } else {
         Report(
             DiagnosticCodes.ReturnTypeMismatch,

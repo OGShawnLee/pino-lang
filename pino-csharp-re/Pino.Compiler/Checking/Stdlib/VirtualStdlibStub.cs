@@ -138,7 +138,9 @@ public sealed class VirtualStdlibStub {
         ? string.Empty
         : $"@@Generic[{string.Join(", ", signature.MethodTypeParameterNames)}] ";
 
-    string prefix = descriptor.Receiver == StdlibReceiverKind.Global ? "pub fn " : "fn ";
+    string prefix = descriptor.Receiver == StdlibReceiverKind.Global
+        ? "pub fn "
+        : (descriptor.MutatesReceiver ? "mut fn " : "fn ");
     string paramList = string.Join(
         ", ",
         signature.Parameters.Select(p => {

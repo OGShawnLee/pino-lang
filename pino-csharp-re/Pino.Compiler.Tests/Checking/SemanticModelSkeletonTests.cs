@@ -68,6 +68,7 @@ public sealed class SemanticModelSkeletonTests {
       Assert.Null(model.GetConstantValue(badNode));
       Assert.Null(model.GetLoopInfo(badNode));
       Assert.Null(model.GetPatternBindings(badNode));
+      Assert.Null(model.GetMutationPlace(badNode));
     }
     Assert.Null(model.GetCallResolution(syntheticCall));
 

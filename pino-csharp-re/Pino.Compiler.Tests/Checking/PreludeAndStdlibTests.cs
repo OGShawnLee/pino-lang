@@ -224,5 +224,26 @@ public sealed class PreludeAndStdlibTests {
     foreach (IntrinsicId id in Enum.GetValues<IntrinsicId>()) {
       Assert.True(stub.TryGetEntry(id, out _), $"Missing VirtualStdlibStub entry for {id}.");
     }
+
+    IntrinsicId[] expectedMutatingIds = [
+      IntrinsicId.VecPush,
+      IntrinsicId.VecPop,
+      IntrinsicId.MapRemove,
+      IntrinsicId.SetAdd,
+      IntrinsicId.SetRemove,
+    ];
+    IntrinsicId[] actualMutatingIds = StdlibCatalog.AllDescriptors
+        .Where(static d => d.MutatesReceiver)
+        .SelectMany(static d => d.Signatures.Select(static s => s.Id))
+        .Distinct()
+        .OrderBy(static id => id)
+        .ToArray();
+    Assert.Equal(expectedMutatingIds.OrderBy(static id => id).ToArray(), actualMutatingIds);
+
+    foreach (IntrinsicDescriptor mutDesc in StdlibCatalog.AllDescriptors.Where(static d => d.MutatesReceiver)) {
+      Assert.True(stub.TryGetEntry(mutDesc.Receiver, mutDesc.Name, out VirtualStdlibEntry? mutEntry));
+      Assert.StartsWith("mut fn ", mutEntry!.SignatureText, StringComparison.Ordinal);
+      Assert.Equal(mutDesc.Name, stub.Source.AsSpan(mutEntry.NameSpan).ToString());
+    }
   }
 }

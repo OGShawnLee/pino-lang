@@ -162,7 +162,12 @@ internal sealed partial class CheckerSession {
               [new RelatedLocation(existing.Span, $"'{propName}' was previously declared here", state.FilePath)]);
         } else {
           seenNames.Add(propName, (propSyntax.NameToken.Span, propName));
-          properties.Add(new InterfaceProperty(propName, propType, propSyntax.Id, propSyntax.NameToken.Span));
+          properties.Add(new InterfaceProperty(
+              propName,
+              propType,
+              propSyntax.Id,
+              propSyntax.NameToken.Span,
+              IsMutable: propSyntax.MutKeyword is not null));
         }
       } else if (member is InterfaceMethodSyntax methodSyntax) {
         if (IsMissingToken(methodSyntax.NameToken)) {
@@ -181,7 +186,8 @@ internal sealed partial class CheckerSession {
             ReturnInferenceState.Explicit,
             methodSyntax.Id,
             methodSyntax.NameToken.Span,
-            state.FilePath);
+            state.FilePath,
+            isMutating: methodSyntax.MutKeyword is not null);
 
         methodSymbol.Parameters = ResolveParameterList(
             state,
@@ -303,7 +309,8 @@ internal sealed partial class CheckerSession {
                 sym,
                 fieldSyntax.Id,
                 fieldSyntax.NameToken.Span,
-                state.FilePath);
+                state.FilePath,
+                isMutable: fieldSyntax.MutKeyword is not null);
 
             if (directMembers.TryGetValue(fieldName, out Symbol? existing)) {
               ReportDuplicate(state, fieldName, fieldSyntax.NameToken.Span, existing);
@@ -380,7 +387,8 @@ internal sealed partial class CheckerSession {
                 methodSyntax.ReturnType is not null ? ReturnInferenceState.Explicit : ReturnInferenceState.Unchecked,
                 methodSyntax.Id,
                 methodSyntax.NameToken.Span,
-                state.FilePath);
+                state.FilePath,
+                isMutating: !isStatic && methodSyntax.MutKeyword is not null);
 
             foreach (TypeParameterSymbol tp in methodTypeParams) {
               tp.Owner = methodSym;
@@ -583,7 +591,8 @@ internal sealed partial class CheckerSession {
             embField.DeclaringNodeId,
             embField.NameSpan,
             embField.FilePath,
-            chain);
+            chain,
+            isMutable: embField.IsMutable);
         seenFields.Add(embField.Name, promotedField);
         allFields.Add(promotedField);
       }
@@ -609,7 +618,8 @@ internal sealed partial class CheckerSession {
             embMethod.FilePath,
             embMethod.Intrinsic,
             chain,
-            promotedFrom: embMethod.PromotedFrom ?? embMethod);
+            promotedFrom: embMethod.PromotedFrom ?? embMethod,
+            isMutating: embMethod.IsMutating);
         seenMethods.Add(embMethod.Name);
         allMethods.Add(promotedMethod);
       }
@@ -656,6 +666,7 @@ internal sealed partial class CheckerSession {
     state.SetScope(structSyntax, memberScope);
 
     // Connect instance methods' method scopes to MemberScope so ticket 037 sees self, fields, and sibling methods.
+    // Bind `self` per instance method scope with `isMutable: methodSym.IsMutating` (D-179 / STRUCT-5).
     foreach (SyntaxNode member in structSyntax.Members) {
       if (member is MethodDeclarationSyntax methodSyntax
           && methodSyntax.StaticKeyword is null
@@ -668,6 +679,18 @@ internal sealed partial class CheckerSession {
         }
         foreach (ParameterSymbol param in methodSym.Parameters) {
           linkedMethodScope.TryDeclare(param, out _);
+        }
+        if (!linkedMethodScope.TryLookupLocal("self", out _)) {
+          var methodSelf = new LocalSymbol(
+              "self",
+              selfStructType,
+              isMutable: methodSym.IsMutating,
+              LocalKind.Variable,
+              methodSym.DeclaringNodeId,
+              methodSym.NameSpan,
+              methodSym.FilePath,
+              methodSym);
+          linkedMethodScope.TryDeclare(methodSelf, out _);
         }
 
         state.SetScope(methodSyntax, linkedMethodScope);
@@ -722,7 +745,8 @@ internal sealed partial class CheckerSession {
           paramSyntax.Id,
           paramSyntax.NameToken.Span,
           state.FilePath,
-          ownerCallable);
+          ownerCallable,
+          isMutable: paramSyntax.MutKeyword is not null);
 
       if (!paramScope.TryDeclare(paramSymbol, out Symbol? existing)) {
         ReportDuplicate(state, paramName, paramSyntax.NameToken.Span, existing!);

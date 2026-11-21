@@ -581,9 +581,11 @@ internal sealed partial class BodyChecker {
                 $"Static method '{method.Name}' is not generic and does not accept type arguments.");
           }
 
-          var expectedParamTypes = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
+          var expectedParamTypes = ImmutableArray.CreateBuilder<FunctionParameter>(method.Parameters.Length);
           foreach (ParameterSymbol param in method.Parameters) {
-            expectedParamTypes.Add(TypeSubstitution.Substitute(param.Type, ownerParams, ownerArgs, _types));
+            expectedParamTypes.Add(new FunctionParameter(
+                TypeSubstitution.Substitute(param.Type, ownerParams, ownerArgs, _types),
+                param.IsMutable));
           }
 
           CheckCallArguments(call, expectedParamTypes, "static method", method.Name);
@@ -645,9 +647,9 @@ internal sealed partial class BodyChecker {
           $"Function '{fnSym.Name}' is not generic and does not accept type arguments.");
     }
 
-    var expectedParams = ImmutableArray.CreateBuilder<TypeSymbol>(fnSym.Parameters.Length);
+    var expectedParams = ImmutableArray.CreateBuilder<FunctionParameter>(fnSym.Parameters.Length);
     foreach (ParameterSymbol p in fnSym.Parameters) {
-      expectedParams.Add(p.Type);
+      expectedParams.Add(new FunctionParameter(p.Type, p.IsMutable));
     }
 
     CheckCallArguments(call, expectedParams, "function", fnSym.Name);
@@ -691,9 +693,11 @@ internal sealed partial class BodyChecker {
           $"Method '{method.Name}' is not generic and does not accept type arguments.");
     }
 
-    var expectedParams = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
+    var expectedParams = ImmutableArray.CreateBuilder<FunctionParameter>(method.Parameters.Length);
     foreach (ParameterSymbol p in method.Parameters) {
-      expectedParams.Add(TypeSubstitution.Substitute(p.Type, ownerTypeParams, ownerTypeArgs, _types));
+      expectedParams.Add(new FunctionParameter(
+          TypeSubstitution.Substitute(p.Type, ownerTypeParams, ownerTypeArgs, _types),
+          p.IsMutable));
     }
 
     CheckCallArguments(call, expectedParams, "method", method.Name);
@@ -814,10 +818,13 @@ internal sealed partial class BodyChecker {
         string code = expectedFieldType is InterfaceType
             ? DiagnosticCodes.InterfaceNotSatisfied
             : DiagnosticCodes.VariantArgumentMismatch;
+        string detail = expectedFieldType is InterfaceType iface
+            ? FormatInterfaceMismatchDetail(actualType, iface)
+            : string.Empty;
         Report(
             code,
             arg.Expression.Span,
-            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{expectedFieldType.DisplayName}', but got '{actualType.DisplayName}'.");
+            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{expectedFieldType.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
       }
     }
 
@@ -847,7 +854,7 @@ internal sealed partial class BodyChecker {
       string calleeName,
       bool hasImplicitSelf,
       Symbol? indexSymbol = null) {
-    CheckCallArguments(call, fnType.ParameterTypes, calleeKind, calleeName);
+    CheckCallArguments(call, fnType.Parameters, calleeKind, calleeName);
     _state.CallResolutions[call.Id] = new CallResolution(
         callKind,
         TargetSymbol: targetSymbol,
@@ -857,7 +864,7 @@ internal sealed partial class BodyChecker {
 
   private void CheckCallArguments(
       CallExpressionSyntax call,
-      IReadOnlyList<TypeSymbol> expectedParameters,
+      IReadOnlyList<FunctionParameter> expectedParameters,
       string calleeKind,
       string calleeName) {
     string capitalizedKind = char.ToUpperInvariant(calleeKind[0]) + calleeKind[1..];
@@ -875,7 +882,7 @@ internal sealed partial class BodyChecker {
         continue;
       }
 
-      TypeSymbol expectedParam = expectedParameters[i];
+      TypeSymbol expectedParam = expectedParameters[i].Type;
       if (expectedParam is FunctionType expectedFn && ShouldWrapImplicitIt(arg.Expression)) {
         CheckImplicitItArgument(arg.Expression, expectedFn, i, calleeKind, calleeName);
         continue;
@@ -886,10 +893,13 @@ internal sealed partial class BodyChecker {
         string code = expectedParam is InterfaceType
             ? DiagnosticCodes.InterfaceNotSatisfied
             : DiagnosticCodes.TypeMismatch;
+        string detail = expectedParam is InterfaceType iface
+            ? FormatInterfaceMismatchDetail(actualType, iface)
+            : string.Empty;
         Report(
             code,
             arg.Expression.Span,
-            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'.");
+            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
       }
     }
 
@@ -1108,10 +1118,13 @@ internal sealed partial class BodyChecker {
         string code = expectedParam is InterfaceType
             ? DiagnosticCodes.InterfaceNotSatisfied
             : DiagnosticCodes.TypeMismatch;
+        string detail = expectedParam is InterfaceType iface
+            ? FormatInterfaceMismatchDetail(actualType, iface)
+            : string.Empty;
         Report(
             code,
             arg.Expression.Span,
-            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'.");
+            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
       }
     }
 
@@ -1177,7 +1190,7 @@ internal sealed partial class BodyChecker {
             elemType,
             expectedReturn: expectedCallbackReturnForMap,
             expectedFunctionForMismatch: explicitMapReturn is not null && !explicitMapReturn.IsError
-                ? _types.GetFunction([elemType], explicitMapReturn)
+                ? _types.GetFunction([new FunctionParameter(elemType, IsMutable: false)], explicitMapReturn)
                 : null,
             argIndex: 0,
             calleeKind: "method",
@@ -1213,13 +1226,13 @@ internal sealed partial class BodyChecker {
 
       if (selectedByArity is not null && !selectedByArity.MethodTypeParameterNames.IsEmpty) {
         // `map`: push parameter types [T] or [T, int] into untyped lambda and infer R from return type.
-        ImmutableArray<TypeSymbol> mapParamTypes = lambda.Parameters.Length == 1
-            ? [elemType]
-            : [elemType, _types.Int];
+        ImmutableArray<FunctionParameter> mapParamTypes = lambda.Parameters.Length == 1
+            ? [new FunctionParameter(elemType, IsMutable: false)]
+            : [new FunctionParameter(elemType, IsMutable: false), new FunctionParameter(_types.Int, IsMutable: false)];
         TypeSymbol lambdaType = SynthesizeLambda(
             lambda,
             expectedFunction: null,
-            expectedParamTypesOverride: mapParamTypes,
+            expectedParamsOverride: mapParamTypes,
             expectedReturnOverride: expectedCallbackReturnForMap);
         SetWrappedExpressionType(arg0.Expression, lambdaType);
 
@@ -1271,7 +1284,7 @@ internal sealed partial class BodyChecker {
       SetWrappedExpressionType(arg0.Expression, wrongArityType);
       TypeSymbol expected1Desc = sig1.MethodTypeParameterNames.IsEmpty
           ? sig1.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, [])
-          : _types.GetFunction([elemType], _types.Error);
+          : _types.GetFunction([new FunctionParameter(elemType, IsMutable: false)], _types.Error);
       Report(
           DiagnosticCodes.TypeMismatch,
           arg0.Expression.Span,
@@ -1289,7 +1302,7 @@ internal sealed partial class BodyChecker {
       IntrinsicSignature fallbackSig = sig1;
       TypeSymbol expectedFnType = sig1.MethodTypeParameterNames.IsEmpty
           ? fallbackSig.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, [])
-          : _types.GetFunction([receiverArgs[0]], _types.Error);
+          : _types.GetFunction([new FunctionParameter(receiverArgs[0], IsMutable: false)], _types.Error);
       Report(
           DiagnosticCodes.TypeMismatch,
           arg0.Expression.Span,
@@ -1298,14 +1311,14 @@ internal sealed partial class BodyChecker {
     }
 
     IntrinsicSignature selected;
-    if (fnCallback.ParameterTypes.Length == 1) {
+    if (fnCallback.Parameters.Length == 1) {
       selected = sig1;
-    } else if (fnCallback.ParameterTypes.Length == 2) {
+    } else if (fnCallback.Parameters.Length == 2) {
       selected = sig2;
     } else {
       TypeSymbol expected1 = sig1.MethodTypeParameterNames.IsEmpty
           ? sig1.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, [])
-          : _types.GetFunction([receiverArgs[0]], _types.Error);
+          : _types.GetFunction([new FunctionParameter(receiverArgs[0], IsMutable: false)], _types.Error);
       Report(
           DiagnosticCodes.TypeMismatch,
           arg0.Expression.Span,

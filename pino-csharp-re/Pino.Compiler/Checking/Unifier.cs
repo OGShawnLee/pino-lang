@@ -125,9 +125,14 @@ internal sealed class Unifier {
         }
         return true;
 
-      case FunctionType pf when actual is FunctionType af && pf.ParameterTypes.Length == af.ParameterTypes.Length:
-        for (int i = 0; i < pf.ParameterTypes.Length; i++) {
-          if (!Unify(pf.ParameterTypes[i], af.ParameterTypes[i], siteSpan, out conflict, allowIntToFloat: false)) {
+      case FunctionType pf when actual is FunctionType af && pf.Parameters.Length == af.Parameters.Length:
+        for (int i = 0; i < pf.Parameters.Length; i++) {
+          if (pf.Parameters[i].IsMutable != af.Parameters[i].IsMutable) {
+            conflict = new UnifyConflict(null, ZonkPartial(pattern), ZonkPartial(actual), siteSpan, IsOccursCheck: false);
+            return false;
+          }
+
+          if (!Unify(pf.Parameters[i].Type, af.Parameters[i].Type, siteSpan, out conflict, allowIntToFloat: false)) {
             return false;
           }
         }
@@ -214,11 +219,20 @@ internal sealed class Unifier {
         }
         break;
 
-      case FunctionType pf when expected is FunctionType ef && pf.ParameterTypes.Length == ef.ParameterTypes.Length:
-        for (int i = 0; i < pf.ParameterTypes.Length; i++) {
-          BindUnboundFromExpected(pf.ParameterTypes[i], ef.ParameterTypes[i], siteSpan);
+      case FunctionType pf when expected is FunctionType ef && pf.Parameters.Length == ef.Parameters.Length:
+        bool mutsMatch = true;
+        for (int i = 0; i < pf.Parameters.Length; i++) {
+          if (pf.Parameters[i].IsMutable != ef.Parameters[i].IsMutable) {
+            mutsMatch = false;
+            break;
+          }
         }
-        BindUnboundFromExpected(pf.ReturnType, ef.ReturnType, siteSpan);
+        if (mutsMatch) {
+          for (int i = 0; i < pf.Parameters.Length; i++) {
+            BindUnboundFromExpected(pf.Parameters[i].Type, ef.Parameters[i].Type, siteSpan);
+          }
+          BindUnboundFromExpected(pf.ReturnType, ef.ReturnType, siteSpan);
+        }
         break;
 
       case StructType pst when expected is StructType est
@@ -262,7 +276,7 @@ internal sealed class Unifier {
     MapType m => ContainsTypeVariable(m.KeyType) || ContainsTypeVariable(m.ValueType),
     SetType s => ContainsTypeVariable(s.ElementType),
     TupleType t => t.Fields.Any(static f => ContainsTypeVariable(f.Type)),
-    FunctionType f => ContainsTypeVariable(f.ReturnType) || f.ParameterTypes.Any(static p => ContainsTypeVariable(p)),
+    FunctionType f => ContainsTypeVariable(f.ReturnType) || f.Parameters.Any(static p => ContainsTypeVariable(p.Type)),
     StructType st => st.TypeArguments.Any(static a => ContainsTypeVariable(a)),
     UnionType ut => ut.TypeArguments.Any(static a => ContainsTypeVariable(a)),
     InterfaceType it => it.TypeArguments.Any(static a => ContainsTypeVariable(a)),
@@ -275,7 +289,7 @@ internal sealed class Unifier {
     MapType m => IsConcreteType(m.KeyType) && IsConcreteType(m.ValueType),
     SetType s => IsConcreteType(s.ElementType),
     TupleType t => t.Fields.All(static f => IsConcreteType(f.Type)),
-    FunctionType f => IsConcreteType(f.ReturnType) && f.ParameterTypes.All(static p => IsConcreteType(p)),
+    FunctionType f => IsConcreteType(f.ReturnType) && f.Parameters.All(static p => IsConcreteType(p.Type)),
     StructType st => st.TypeArguments.All(static a => IsConcreteType(a)),
     UnionType ut => ut.TypeArguments.All(static a => IsConcreteType(a)),
     InterfaceType it => it.TypeArguments.All(static a => IsConcreteType(a)),
@@ -348,7 +362,7 @@ internal sealed class Unifier {
       MapType m => OccursIn(needle, m.KeyType) || OccursIn(needle, m.ValueType),
       SetType s => OccursIn(needle, s.ElementType),
       TupleType t => t.Fields.Any(f => OccursIn(needle, f.Type)),
-      FunctionType f => OccursIn(needle, f.ReturnType) || f.ParameterTypes.Any(p => OccursIn(needle, p)),
+      FunctionType f => OccursIn(needle, f.ReturnType) || f.Parameters.Any(p => OccursIn(needle, p.Type)),
       StructType st => st.TypeArguments.Any(a => OccursIn(needle, a)),
       UnionType ut => ut.TypeArguments.Any(a => OccursIn(needle, a)),
       InterfaceType it => it.TypeArguments.Any(a => OccursIn(needle, a)),
@@ -372,7 +386,7 @@ internal sealed class Unifier {
       SetType s => _types.GetSet(ZonkCore(s.ElementType, unboundToError)),
       TupleType t => _types.GetTuple([.. t.Fields.Select(f => new TupleField(f.Label, ZonkCore(f.Type, unboundToError)))]),
       FunctionType f => _types.GetFunction(
-          [.. f.ParameterTypes.Select(p => ZonkCore(p, unboundToError))],
+          [.. f.Parameters.Select(p => new FunctionParameter(ZonkCore(p.Type, unboundToError), p.IsMutable))],
           ZonkCore(f.ReturnType, unboundToError)),
       StructType st when !st.TypeArguments.IsEmpty => _types.GetStruct(
           st.Definition,

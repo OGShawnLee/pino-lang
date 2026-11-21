@@ -161,15 +161,32 @@ internal sealed partial class BodyChecker {
       TypeSymbol expected,
       string targetDescription,
       string? targetSuffix = null) {
-    if (expected is InterfaceType) {
+    if (expected is InterfaceType expectedInterface) {
+      string detail = FormatInterfaceMismatchDetail(actual, expectedInterface);
       Report(
           DiagnosticCodes.InterfaceNotSatisfied,
           expression.Span,
-          $"Cannot assign type '{actual.DisplayName}' to {targetDescription}{targetSuffix}; expected type '{expected.DisplayName}', but got '{actual.DisplayName}'.");
+          $"Cannot assign type '{actual.DisplayName}' to {targetDescription}{targetSuffix}; expected type '{expected.DisplayName}', but got '{actual.DisplayName}'{detail}.");
       return;
     }
 
     ReportCannotAssign(expression, actual, expected, targetDescription, targetSuffix);
+  }
+
+  private string FormatInterfaceMismatchDetail(TypeSymbol actual, InterfaceType expected) {
+    if (actual is StructType or InterfaceType or TypeParameterType
+        && !TypeCompatibility.TrySatisfiesInterface(
+            actual,
+            expected,
+            _types,
+            out string? reason,
+            _state.Module,
+            _session.InterfaceSatisfactionCache)
+        && reason is not null) {
+      return $" ({reason})";
+    }
+
+    return string.Empty;
   }
 
   private void ReportCannotAssign(
@@ -246,12 +263,13 @@ internal sealed partial class BodyChecker {
     if (actual is FunctionType actualFn
         && expected is FunctionType expectedFn
         && (actualFn.ContainsError || expectedFn.ContainsError)
-        && actualFn.ParameterTypes.Length == expectedFn.ParameterTypes.Length) {
+        && actualFn.Parameters.Length == expectedFn.Parameters.Length) {
       bool compatible = true;
-      for (int i = 0; i < actualFn.ParameterTypes.Length; i++) {
-        TypeSymbol ap = actualFn.ParameterTypes[i];
-        TypeSymbol ep = expectedFn.ParameterTypes[i];
-        if (!ap.IsError && !ep.IsError && !ReferenceEquals(ap, ep)) {
+      for (int i = 0; i < actualFn.Parameters.Length; i++) {
+        FunctionParameter ap = actualFn.Parameters[i];
+        FunctionParameter ep = expectedFn.Parameters[i];
+        if (ap.IsMutable != ep.IsMutable
+            || (!ap.Type.IsError && !ep.Type.IsError && !ReferenceEquals(ap.Type, ep.Type))) {
           compatible = false;
           break;
         }
@@ -465,9 +483,9 @@ internal sealed partial class BodyChecker {
     }
 
     TypeSymbol ret = EnsureCallableReturnType(function);
-    ImmutableArray<TypeSymbol>.Builder parameterTypes = ImmutableArray.CreateBuilder<TypeSymbol>(function.Parameters.Length);
+    ImmutableArray<FunctionParameter>.Builder parameterTypes = ImmutableArray.CreateBuilder<FunctionParameter>(function.Parameters.Length);
     foreach (ParameterSymbol parameter in function.Parameters) {
-      parameterTypes.Add(parameter.Type);
+      parameterTypes.Add(new FunctionParameter(parameter.Type, parameter.IsMutable));
     }
 
     return _types.GetFunction(parameterTypes.ToImmutable(), ret);
@@ -482,9 +500,11 @@ internal sealed partial class BodyChecker {
     }
 
     TypeSymbol rawRet = EnsureCallableReturnType(method);
-    ImmutableArray<TypeSymbol>.Builder parameterTypes = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
+    ImmutableArray<FunctionParameter>.Builder parameterTypes = ImmutableArray.CreateBuilder<FunctionParameter>(method.Parameters.Length);
     foreach (ParameterSymbol parameter in method.Parameters) {
-      parameterTypes.Add(TypeSubstitution.Substitute(parameter.Type, ownerTypeParams, ownerTypeArgs, _types));
+      parameterTypes.Add(new FunctionParameter(
+          TypeSubstitution.Substitute(parameter.Type, ownerTypeParams, ownerTypeArgs, _types),
+          parameter.IsMutable));
     }
 
     TypeSymbol ret = TypeSubstitution.Substitute(rawRet, ownerTypeParams, ownerTypeArgs, _types);
