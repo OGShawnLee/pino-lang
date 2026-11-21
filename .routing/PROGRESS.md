@@ -399,7 +399,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - passing a `val mut` as a `mut` argument is allowed
     - `val mut @(...)`, `var mut` and `mut val` are PN2022 parse errors
     - ~~`val mut` on a scalar is allowed~~ Owner overrode this: `val mut` on a type with nothing mutable inside is error VAR-E13 (scalars, enums, unions, tuples, functions, structs and interfaces without `mut` members). 051 was steered mid-run.
-  - [ ] **051-val-mut-and-module-state-facts** (Gemini 4 Neon High, worktree): spec (D-183, VAR-12, VAR-13, VAR-E12), `-re` parser and checker, purity facts, cases. Dispatched.
+  - [ ] **051-val-mut-and-module-state-facts** (Gemini 4 Neon High, worktree): spec (D-183, VAR-12, VAR-13, VAR-E12, VAR-E13), `-re` parser and checker, purity facts, cases.
+    - **PAUSED (2026-11-21):** the Gemini quota ran out mid-run. Work in progress is uncommitted:
+      - worktree `C:/Users/OGSha/.t3/worktrees/Pino/t3-aa7e287a-afdccd84c0fefdad`
+      - branch `t3/val-mut-module-state-facts`, based on `e069f35`
+      - about 15 modified files in the `-re` checker, parser tests and conformance known-failures
+    - **To resume:** send "continue" to the same 051 child thread, which keeps its context. It must re-read task.md and spec.md (the VAR-E13 steer arrived just before the stop). Then rebase onto main before integrating. Don't delete the worktree.
   - [ ] **052-docs-pino-guide-quirks-and-values** (Claude Sonnet 5.5 High, draft, after 051): `docs/guide/values-and-mutation.md`, `docs/guide/surprises.md` and an index. The owner asked for a ticket documenting all of Pino's quirks. `docs/guide/` is a new folder chosen by the router; the owner may move it.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
