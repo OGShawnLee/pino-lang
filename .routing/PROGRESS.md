@@ -359,7 +359,13 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - The 5 `identity-*` cases are retired.
       - 20 rules are tagged `[no-case: pending … (ticket 050)]`.
       - Router verification in main: legacy 2051/2051, `-re` 3886/3886, `main.pino` 0 errors.
-    - [ ] **046-re-parser-mut-and-remove-identity-ops** (Gemini 4 Hydrogen High, worktree): dispatched.
+    - [x] **046-re-parser-mut-and-remove-identity-ops** (`a725818`, Gemini 4 Hydrogen High).
+      - `TokenKind.MutKeyword`, parsed in all 7 positions; `FunctionTypeParameterSyntax`.
+      - `===`/`!==` lex as `==`+`=` and `!=`+`=`, then report PN2023 ("Identity operator '===' has been removed; use '=='.").
+      - PN2022 for `mut pub`, `static mut` and `mut static`.
+      - 44 parser tests.
+      - Router verification in main: `-re` 3932/3932, 0 warnings, format clean, `main.pino` 0 errors; both new errors probed and rendered.
+    - [ ] **047-re-checker-mut-symbols-types-and-memory-facts** (Gemini 4 Hydrogen High) and **048-conformance-migrate-mut-out-cases** (Gemini 4 Hydrogen Medium): dispatched in parallel, in worktrees.
     - The IR design follows 049.
   - [ ] **Pending: a "values, not objects" user guide.** It covers:
     - the linked-data caveat (a stored struct is a copy)
