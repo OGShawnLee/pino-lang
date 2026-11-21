@@ -221,6 +221,11 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Regex syntax stays open (only RGX-E1 is decided).
     - `LANGUAGE_REFERENCE.md`/README fixes (`to_string`, `join`, `val` parameter, `for cond`) are not made.
     - `import-capitalized-file` passes legacy only on case-insensitive file systems.
+  - **Owner answers (2026-11-20):**
+    - D-063: at **each** directory, walking up, try `modules/<Name>.pino` and then `modules/<lowercased>.pino` before moving to the parent. Pending idea (owner): make capitalized module file names mandatory, so a file's casing matches the module name in `import`.
+    - Confirmed: `else` is the only catch-all arm (MATCH-11).
+    - `Result[void, E]`: the owner wants the **bare `Result::Success`** (cleaner). This replaces 033's `Result::Success()` rule (ERR-E8); every reference must be updated by a spec follow-up ticket. Exact form (bare only, or bare plus `()`) asked.
+    - The five undecided points: options sent to the owner.
 - [ ] **Checker implementation tickets 034–040** (drafted by the 031 Neon designer, router-reviewed; status `draft`, models chosen at dispatch). Sequential: each starts after the previous one is integrated, and 034 after 033.
   - 034 types/symbols/prelude/`StdlibCatalog`/`PN3xxx` codes (design §7.2 is authoritative for code numbers)
   - 035 hoisting, type resolution, visibility, module loading (OQ-33 lookup), AD-002 reachability and pointer-free analysis
