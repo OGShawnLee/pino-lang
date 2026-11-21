@@ -78,11 +78,50 @@ internal sealed partial class BodyChecker {
   }
 
   private TypeSymbol CheckWithContextualExpectation(ExpressionSyntax expression, TypeSymbol expected) {
-    TypeSymbol type = expression switch {
-      CallExpressionSyntax call => SynthesizeCall(call, expected),
-      StaticAccessExpressionSyntax staticAccess => SynthesizeStaticAccess(staticAccess, expected),
-      _ => SynthesizeCore(expression),
-    };
+    TypeSymbol type;
+    switch (expression) {
+      case ParenthesizedExpressionSyntax paren:
+        type = CheckWithContextualExpectation(paren.Expression, expected);
+        break;
+
+      case LambdaExpressionSyntax lambda:
+        type = SynthesizeLambda(lambda, expected as FunctionType);
+        break;
+
+      case IfExpressionSyntax ifExpression: {
+          CheckCondition(ifExpression.Condition, "'if' condition");
+          TypeSymbol thenType = CheckWithContextualExpectation(ifExpression.ThenBranch, expected);
+          TypeSymbol elseType = CheckWithContextualExpectation(ifExpression.ElseBranch, expected);
+          bool thenOk = TryConvert(ifExpression.ThenBranch, thenType, expected);
+          bool elseOk = TryConvert(ifExpression.ElseBranch, elseType, expected);
+          type = thenOk && elseOk
+              ? (thenType.IsError || elseType.IsError ? _types.Error : expected)
+              : JoinBranches(ifExpression, thenType, elseType);
+          break;
+        }
+
+      case VectorLiteralExpressionSyntax vector when expected is VectorType expectedVector: {
+          foreach (ExpressionSyntax element in vector.Elements) {
+            Check(element, expectedVector.ElementType, "vector element");
+          }
+
+          type = expected;
+          break;
+        }
+
+      case CallExpressionSyntax call:
+        type = SynthesizeCall(call, expected);
+        break;
+
+      case StaticAccessExpressionSyntax staticAccess:
+        type = SynthesizeStaticAccess(staticAccess, expected);
+        break;
+
+      default:
+        type = SynthesizeCore(expression);
+        break;
+    }
+
     _state.SetNodeType(expression, type);
     return type;
   }
@@ -120,7 +159,7 @@ internal sealed partial class BodyChecker {
   /// is required, recording the implicit conversion (if any) on <paramref name="expression"/>.
   /// </summary>
   private bool TryConvert(SyntaxNode expression, TypeSymbol actual, TypeSymbol expected) {
-    if (actual.IsError || expected.IsError || ReferenceEquals(actual, expected)) {
+    if (actual.IsError || expected.IsError || actual is PendingReturnType || expected is PendingReturnType || ReferenceEquals(actual, expected)) {
       return true;
     }
 
@@ -135,18 +174,23 @@ internal sealed partial class BodyChecker {
     }
 
     if (expected is InterfaceType targetInterface
-        && actual is StructType or InterfaceType
-        && TypeCompatibility.SatisfiesInterface(
-            actual,
-            targetInterface,
-            _types,
-            _state.Module,
-            _session.InterfaceSatisfactionCache)) {
-      _state.Conversions[expression.Id] = new ConversionInfo(
-          ConversionKind.StructToInterface,
-          expected,
-          targetInterface);
-      return true;
+        && actual is StructType or InterfaceType) {
+      if (actual is StructType actualStruct) {
+        EnsureStructMethodsResolved(actualStruct.Definition);
+      }
+
+      if (TypeCompatibility.SatisfiesInterface(
+          actual,
+          targetInterface,
+          _types,
+          _state.Module,
+          _session.InterfaceSatisfactionCache)) {
+        _state.Conversions[expression.Id] = new ConversionInfo(
+            ConversionKind.StructToInterface,
+            expected,
+            targetInterface);
+        return true;
+      }
     }
 
     // A4: if a FunctionType contains an ErrorType (for instance a broken body return) while all
@@ -182,7 +226,7 @@ internal sealed partial class BodyChecker {
   /// <summary>IF-E4 / D-032: a condition must be <c>bool</c>.</summary>
   private void CheckCondition(ExpressionSyntax condition, string what) {
     TypeSymbol type = Synthesize(condition);
-    if (!IsSilent(type) && !ReferenceEquals(type, _types.Bool)) {
+    if (!IsSilent(type) && type is not PendingReturnType && !ReferenceEquals(type, _types.Bool)) {
       Report(
           DiagnosticCodes.InvalidConditionType,
           condition.Span,
@@ -278,7 +322,7 @@ internal sealed partial class BodyChecker {
       }
 
       TypeSymbol operandType = Synthesize(interpolation.Expression);
-      if (operandType.IsError || operandType.IsNever) {
+      if (operandType.IsError || operandType.IsNever || operandType is PendingReturnType) {
         continue;
       }
 
@@ -304,7 +348,7 @@ internal sealed partial class BodyChecker {
     }
 
     string name = NameOf(identifier.IdentifierToken);
-    if (!_scope.TryLookup(name, out Symbol? symbol)) {
+    if (!TryLookupAndRecordCapture(name, out Symbol? symbol)) {
       if (_isStaticMethod && _currentStruct is not null) {
         if (string.Equals(name, "self", StringComparison.Ordinal)) {
           Report(
@@ -331,8 +375,7 @@ internal sealed partial class BodyChecker {
         }
       }
 
-      // `it` as an implicit lambda parameter in call arguments is typed by ticket 038.
-      if (_tolerantNames == 0 && !string.Equals(name, "it", StringComparison.Ordinal)) {
+      if (_tolerantNames == 0) {
         Report(
             DiagnosticCodes.UndeclaredIdentifier,
             identifier.Span,
@@ -368,13 +411,13 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
-    // Before ticket 038 implements D-050 two-phase return inference, unannotated functions keep Void.
+    TypeSymbol ret = EnsureCallableReturnType(function);
     ImmutableArray<TypeSymbol>.Builder parameterTypes = ImmutableArray.CreateBuilder<TypeSymbol>(function.Parameters.Length);
     foreach (ParameterSymbol parameter in function.Parameters) {
       parameterTypes.Add(parameter.Type);
     }
 
-    return _types.GetFunction(parameterTypes.ToImmutable(), function.ReturnType);
+    return _types.GetFunction(parameterTypes.ToImmutable(), ret);
   }
 
   private TypeSymbol MethodValueType(
@@ -385,12 +428,13 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
+    TypeSymbol rawRet = EnsureCallableReturnType(method);
     ImmutableArray<TypeSymbol>.Builder parameterTypes = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
     foreach (ParameterSymbol parameter in method.Parameters) {
       parameterTypes.Add(TypeSubstitution.Substitute(parameter.Type, ownerTypeParams, ownerTypeArgs, _types));
     }
 
-    TypeSymbol ret = TypeSubstitution.Substitute(method.ReturnType, ownerTypeParams, ownerTypeArgs, _types);
+    TypeSymbol ret = TypeSubstitution.Substitute(rawRet, ownerTypeParams, ownerTypeArgs, _types);
     return _types.GetFunction(parameterTypes.ToImmutable(), ret);
   }
 
@@ -405,6 +449,18 @@ internal sealed partial class BodyChecker {
   private TypeSymbol JoinBranches(IfExpressionSyntax ifExpression, TypeSymbol thenType, TypeSymbol elseType) {
     if (thenType.IsError || elseType.IsError) {
       return _types.Error;
+    }
+
+    if (thenType is PendingReturnType && elseType is PendingReturnType) {
+      return thenType;
+    }
+
+    if (thenType is PendingReturnType) {
+      return elseType.IsNever ? thenType : elseType;
+    }
+
+    if (elseType is PendingReturnType) {
+      return thenType.IsNever ? elseType : thenType;
     }
 
     if (thenType.IsNever) {

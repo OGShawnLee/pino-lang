@@ -214,12 +214,18 @@ public sealed class CheckerControlFlowBasicTests {
       """);
 
     Diagnostic[] errors = CheckerErrors(compilation);
-    Assert.Equal(3, errors.Length);
-    Assert.All(errors, static d => Assert.Equal(DiagnosticCodes.TypeMismatch, d.Code));
+    Assert.Equal(4, errors.Length);
+    Assert.Equal(DiagnosticCodes.TypeMismatch, errors[0].Code);
     Assert.Contains("vector element of type 'int'", errors[0].Message);
+    Assert.Equal(DiagnosticCodes.TypeMismatch, errors[1].Code);
     Assert.Contains("vector length of type 'int'", errors[1].Message);
     // A function reference with the exact `fn (int) -> T` signature is accepted as `init`.
+    Assert.Equal(DiagnosticCodes.TypeMismatch, errors[2].Code);
     Assert.Contains("'fn (int) -> string' to vector element of type 'int'", errors[2].Message);
+    // Outside `init:`, `it` is not in scope (PN3001).
+    Assert.Equal(DiagnosticCodes.UndeclaredIdentifier, errors[3].Code);
+    Assert.Contains("'it'", errors[3].Message);
+    Assert.Same(compilation.Types.Error, Local(compilation, "outside").Type);
     Assert.Same(compilation.Types.GetVector(compilation.Types.String), Local(compilation, "by_reference").Type);
 
     TypeInterner types = compilation.Types;

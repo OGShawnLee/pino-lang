@@ -78,16 +78,40 @@ public sealed class Scope {
     return _symbols.TryGetValue(name, out symbol);
   }
 
-  public bool TryLookup(string name, [NotNullWhen(true)] out Symbol? symbol) {
+  public bool TryLookup(string name, [NotNullWhen(true)] out Symbol? symbol) =>
+      TryLookupWithScope(name, out symbol, out _);
+
+  internal bool TryLookupWithScope(
+      string name,
+      [NotNullWhen(true)] out Symbol? symbol,
+      [NotNullWhen(true)] out Scope? declaringScope) {
     ArgumentNullException.ThrowIfNull(name);
     for (Scope? current = this; current is not null; current = current.Parent) {
       if (current._symbols.TryGetValue(name, out symbol)) {
+        declaringScope = current;
         return true;
       }
     }
 
     symbol = null;
+    declaringScope = null;
     return false;
+  }
+
+  /// <summary>
+  /// Removes all non-hoisted bindings declared in this scope while preserving Phase-1 hoisted
+  /// declarations, so Phase 3a fixed-point rounds and Phase 3b can re-check a callable body cleanly.
+  /// </summary>
+  internal void ResetNonHoisted() {
+    if (_hoistedDeclarations.Count == 0) {
+      _symbols.Clear();
+      return;
+    }
+
+    _symbols.Clear();
+    foreach (Symbol hoisted in _hoistedDeclarations) {
+      _symbols[hoisted.Name] = hoisted;
+    }
   }
 
   internal void Freeze() {

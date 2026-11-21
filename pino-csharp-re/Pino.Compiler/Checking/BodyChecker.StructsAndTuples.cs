@@ -114,7 +114,7 @@ internal sealed partial class BodyChecker {
         }
       } else if (fieldInit.ColonToken is null) {
         // D-104 / STRUCT-15: shorthand `Point { x }` resolves `x` in the enclosing scope.
-        if (!_scope.TryLookup(fieldName, out Symbol? localSym)) {
+        if (!TryLookupAndRecordCapture(fieldName, out Symbol? localSym)) {
           if (_tolerantNames == 0) {
             Report(
                 DiagnosticCodes.UndeclaredIdentifier,
@@ -189,6 +189,10 @@ internal sealed partial class BodyChecker {
 
   private TypeSymbol SynthesizeMemberAccess(MemberAccessExpressionSyntax member) {
     TypeSymbol targetType = Synthesize(member.Target);
+    if (targetType is PendingReturnType) {
+      return targetType;
+    }
+
     if (IsMissing(member.MemberToken) || IsSilent(targetType)) {
       return _types.Error;
     }
@@ -308,6 +312,11 @@ internal sealed partial class BodyChecker {
       MemberAccessExpressionSyntax member,
       TokenKind op) {
     TypeSymbol targetType = Synthesize(member.Target);
+    if (targetType is PendingReturnType) {
+      Synthesize(assignment.Value);
+      return targetType;
+    }
+
     if (IsMissing(member.MemberToken) || IsSilent(targetType)) {
       Synthesize(assignment.Value);
       return _types.Error;
@@ -692,17 +701,22 @@ internal sealed partial class BodyChecker {
       if (i < typeParams.Length
           && typeParams[i].Constraint is { } constraint
           && !argType.IsError
-          && !constraint.IsError
-          && !TypeCompatibility.SatisfiesInterface(
-              argType,
-              constraint,
-              _types,
-              _state.Module,
-              _session.InterfaceSatisfactionCache)) {
-        Report(
-            DiagnosticCodes.GenericConstraintNotSatisfied,
-            argSyntax.Span,
-            $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{typeParams[i].Name}'.");
+          && !constraint.IsError) {
+        if (argType is StructType argStruct) {
+          EnsureStructMethodsResolved(argStruct.Definition);
+        }
+
+        if (!TypeCompatibility.SatisfiesInterface(
+            argType,
+            constraint,
+            _types,
+            _state.Module,
+            _session.InterfaceSatisfactionCache)) {
+          Report(
+              DiagnosticCodes.GenericConstraintNotSatisfied,
+              argSyntax.Span,
+              $"Type '{argType.DisplayName}' does not satisfy generic constraint '{constraint.DisplayName}' for parameter '{typeParams[i].Name}'.");
+        }
       }
       builder.Add(argType);
     }
@@ -857,7 +871,7 @@ internal sealed partial class BodyChecker {
         }
       } else if (fieldSyntax.ColonToken is null) {
         // TUP-3: shorthand `@(x, y)` resolves `x` in enclosing scope.
-        if (!_scope.TryLookup(label, out Symbol? sym)) {
+        if (!TryLookupAndRecordCapture(label, out Symbol? sym)) {
           if (_tolerantNames == 0) {
             Report(
                 DiagnosticCodes.UndeclaredIdentifier,

@@ -22,9 +22,15 @@ internal sealed partial class BodyChecker {
   private TypeSymbol SynthesizeElements(ImmutableArray<ExpressionSyntax> elements, string description) {
     var types = new TypeSymbol[elements.Length];
     TypeSymbol? joined = null;
+    TypeSymbol? pending = null;
     for (int i = 0; i < elements.Length; i++) {
       types[i] = Synthesize(elements[i]);
       TypeSymbol current = types[i];
+      if (current is PendingReturnType) {
+        pending ??= current;
+        continue;
+      }
+
       if (IsSilent(current)) {
         continue;
       }
@@ -41,7 +47,7 @@ internal sealed partial class BodyChecker {
     }
 
     if (joined is null) {
-      return _types.Error;
+      return pending ?? _types.Error;
     }
 
     if (ReferenceEquals(joined, _types.Float)) {

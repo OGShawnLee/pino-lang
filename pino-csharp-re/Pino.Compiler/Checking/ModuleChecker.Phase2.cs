@@ -616,7 +616,8 @@ internal sealed partial class CheckerSession {
             embMethod.NameSpan,
             embMethod.FilePath,
             embMethod.Intrinsic,
-            chain);
+            chain,
+            promotedFrom: embMethod.PromotedFrom ?? embMethod);
         seenMethods.Add(embMethod.Name);
         allMethods.Add(promotedMethod);
       }

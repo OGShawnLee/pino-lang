@@ -217,7 +217,8 @@ public sealed class MethodSymbol : Symbol {
       SourceSpan nameSpan,
       string? filePath,
       IntrinsicId? intrinsic = null,
-      ImmutableArray<FieldSymbol> embeddedChain = default)
+      ImmutableArray<FieldSymbol> embeddedChain = default,
+      MethodSymbol? promotedFrom = null)
       : base(name, visibility, declaringNodeId, nameSpan, filePath, containingType) {
     IsStatic = isStatic;
     ContainingType = containingType;
@@ -227,6 +228,7 @@ public sealed class MethodSymbol : Symbol {
     ReturnState = returnState;
     Intrinsic = intrinsic;
     EmbeddedChain = embeddedChain.IsDefault ? [] : embeddedChain;
+    PromotedFrom = promotedFrom;
   }
 
   public bool IsStatic { get; }
@@ -246,6 +248,8 @@ public sealed class MethodSymbol : Symbol {
   public ImmutableArray<FieldSymbol> EmbeddedChain { get; }
 
   public bool IsPromotedFromEmbedded => !EmbeddedChain.IsEmpty;
+
+  internal MethodSymbol? PromotedFrom { get; }
 }
 
 public sealed class StructSymbol : Symbol {

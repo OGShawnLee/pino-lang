@@ -23,6 +23,10 @@ internal sealed partial class BodyChecker {
 
   private TypeSymbol SynthesizeUnary(UnaryExpressionSyntax unary) {
     TypeSymbol operand = Synthesize(unary.Operand);
+    if (operand is PendingReturnType) {
+      return operand;
+    }
+
     if (IsSilent(operand)) {
       return _types.Error;
     }
@@ -84,6 +88,14 @@ internal sealed partial class BodyChecker {
       case TokenKind.Slash:
       case TokenKind.SlashSlash:
       case TokenKind.Percent: {
+          if (left is PendingReturnType) {
+            return left;
+          }
+
+          if (right is PendingReturnType) {
+            return right;
+          }
+
           if (IsSilent(left) || IsSilent(right)) {
             return _types.Error;
           }
@@ -113,7 +125,7 @@ internal sealed partial class BodyChecker {
   private TypeSymbol CheckLogical(BinaryExpressionSyntax binary, TypeSymbol left, TypeSymbol right) {
     string op = binary.OperatorToken.Kind == TokenKind.And ? "and" : "or";
     foreach ((TypeSymbol type, ExpressionSyntax operand) in new[] { (left, binary.Left), (right, binary.Right) }) {
-      if (!IsSilent(type) && !ReferenceEquals(type, _types.Bool)) {
+      if (!IsSilent(type) && type is not PendingReturnType && !ReferenceEquals(type, _types.Bool)) {
         Report(
             DiagnosticCodes.InvalidOperatorOperands,
             operand.Span,
@@ -126,7 +138,7 @@ internal sealed partial class BodyChecker {
 
   /// <summary>EQ-1–EQ-13 / D-019: structural and identity equality, <c>int</c> widens to <c>float</c>.</summary>
   private TypeSymbol CheckEquality(BinaryExpressionSyntax binary, TypeSymbol left, TypeSymbol right) {
-    if (IsSilent(left) || IsSilent(right)) {
+    if (IsSilent(left) || IsSilent(right) || left is PendingReturnType || right is PendingReturnType) {
       return _types.Bool;
     }
 
@@ -161,14 +173,18 @@ internal sealed partial class BodyChecker {
       return _types.Bool;
     }
 
-    if (left is StructType && right is InterfaceType rightIface
-        && TypeCompatibility.SatisfiesInterface(left, rightIface, _types, _state.Module, _session.InterfaceSatisfactionCache)) {
-      return _types.Bool;
+    if (left is StructType leftStruct && right is InterfaceType rightIface) {
+      EnsureStructMethodsResolved(leftStruct.Definition);
+      if (TypeCompatibility.SatisfiesInterface(left, rightIface, _types, _state.Module, _session.InterfaceSatisfactionCache)) {
+        return _types.Bool;
+      }
     }
 
-    if (right is StructType && left is InterfaceType leftIface
-        && TypeCompatibility.SatisfiesInterface(right, leftIface, _types, _state.Module, _session.InterfaceSatisfactionCache)) {
-      return _types.Bool;
+    if (right is StructType rightStruct && left is InterfaceType leftIface) {
+      EnsureStructMethodsResolved(rightStruct.Definition);
+      if (TypeCompatibility.SatisfiesInterface(right, leftIface, _types, _state.Module, _session.InterfaceSatisfactionCache)) {
+        return _types.Bool;
+      }
     }
 
     if (left is InterfaceType && right is InterfaceType
@@ -190,7 +206,7 @@ internal sealed partial class BodyChecker {
   }
 
   private TypeSymbol CheckComparison(BinaryExpressionSyntax binary, TypeSymbol left, TypeSymbol right) {
-    if (IsSilent(left) || IsSilent(right)) {
+    if (IsSilent(left) || IsSilent(right) || left is PendingReturnType || right is PendingReturnType) {
       return _types.Bool;
     }
 
@@ -221,7 +237,7 @@ internal sealed partial class BodyChecker {
 
   /// <summary><c>in</c> / <c>not in</c> over <c>[]T</c>, <c>map[K, V]</c>, <c>set[T]</c> and <c>string</c> (VEC-10, MAP-7, SETLIB-8, STRLIB-17).</summary>
   private TypeSymbol CheckMembership(BinaryExpressionSyntax binary, TypeSymbol left, TypeSymbol right, bool negated) {
-    if (IsSilent(right)) {
+    if (IsSilent(right) || right is PendingReturnType) {
       return _types.Bool;
     }
 
@@ -442,6 +458,9 @@ internal sealed partial class BodyChecker {
       case LocalSymbol local:
         // AD-002: every local or parameter that is a target of `=` / `op=` is recorded.
         _state.AssignedSymbols.Add(local);
+        if (_scope.TryLookupWithScope(local.Name, out _, out Scope? localDeclScope)) {
+          RecordCaptureIfOuter(local, localDeclScope, isMutation: true);
+        }
         if (!local.IsMutable) {
           ReportImmutableAssignment(identifier, local);
         }
@@ -450,6 +469,9 @@ internal sealed partial class BodyChecker {
 
       case ParameterSymbol parameter:
         _state.AssignedSymbols.Add(parameter);
+        if (_scope.TryLookupWithScope(parameter.Name, out _, out Scope? paramDeclScope)) {
+          RecordCaptureIfOuter(parameter, paramDeclScope, isMutation: true);
+        }
         break;
 
       case FieldSymbol:
@@ -525,9 +547,9 @@ internal sealed partial class BodyChecker {
       ExpressionSyntax target,
       TypeSymbol targetType,
       TokenKind op) {
-    if (targetType.IsError) {
+    if (targetType.IsError || targetType is PendingReturnType) {
       Synthesize(assignment.Value);
-      return _types.Error;
+      return targetType;
     }
 
     if (op == TokenKind.Assign) {
@@ -536,7 +558,7 @@ internal sealed partial class BodyChecker {
     }
 
     TypeSymbol valueType = Synthesize(assignment.Value);
-    if (IsSilent(valueType)) {
+    if (IsSilent(valueType) || valueType is PendingReturnType) {
       return targetType;
     }
 
@@ -566,6 +588,10 @@ internal sealed partial class BodyChecker {
     TypeSymbol target = Synthesize(index.Target);
 
     switch (target) {
+      case PendingReturnType:
+        Synthesize(index.Index);
+        return target;
+
       case var t when t.IsError || t.IsNever:
         Synthesize(index.Index);
         return _types.Error;
@@ -598,7 +624,7 @@ internal sealed partial class BodyChecker {
 
   private void CheckIntegerIndex(IndexExpressionSyntax index, string what) {
     TypeSymbol indexType = Synthesize(index.Index);
-    if (!IsSilent(indexType) && !ReferenceEquals(indexType, _types.Int)) {
+    if (!IsSilent(indexType) && indexType is not PendingReturnType && !ReferenceEquals(indexType, _types.Int)) {
       Report(
           DiagnosticCodes.InvalidIndexOperation,
           index.Index.Span,

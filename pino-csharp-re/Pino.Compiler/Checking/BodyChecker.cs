@@ -10,9 +10,10 @@ namespace Pino.Compiler.Checking;
 /// <summary>
 /// Phase 3 of the checker: bidirectional <c>Synthesize</c> / <c>Check</c> over the statements and
 /// expressions of one module (variables, operators, collections, <c>if</c>, <c>for</c>,
-/// <c>assert</c>, <c>test</c>, structs, methods, interfaces, enums, tuples, and direct/stdlib calls).
-/// Return inference, contextual lambdas, and captures land in ticket 038; <c>@@Generic</c>
-/// unification and <c>?</c>/<c>or</c> in 039; patterns and flow in 040.
+/// <c>assert</c>, <c>test</c>, structs, methods, interfaces, enums, tuples, direct/stdlib calls,
+/// two-phase SCC return-type inference, contextual lambdas, implicit <c>it</c>, and AD-002 closure
+/// capture lists). <c>@@Generic</c> unification and <c>?</c>/<c>or</c> land in ticket 039;
+/// patterns and flow in 040.
 /// </summary>
 internal sealed partial class BodyChecker {
   private readonly CheckerSession _session;
@@ -25,7 +26,6 @@ internal sealed partial class BodyChecker {
   private Symbol? _currentCallable;
   private StructSymbol? _currentStruct;
   private bool _isStaticMethod;
-  private List<TypeSymbol>? _lambdaReturnTypes;
 
   public BodyChecker(CheckerSession session, ModuleCheckState state, CancellationToken cancellationToken) {
     _session = session;
@@ -34,6 +34,9 @@ internal sealed partial class BodyChecker {
     _types = session.Types;
     _prelude = session.Prelude;
     _scope = state.ModuleScope;
+    _rootDiagnostics = state.Diagnostics;
+    _rootAssignedSymbols = state.AssignedSymbols;
+    InitializeCallableRegistry();
   }
 
   /// <summary>Checks every top-level item of the module in textual order (OQ-16 Option 2).</summary>
@@ -54,6 +57,16 @@ internal sealed partial class BodyChecker {
     foreach (SyntaxNode item in root.Items) {
       _cancellationToken.ThrowIfCancellationRequested();
       CheckItem(item);
+    }
+
+    // Sync promoted embedded methods' inferred return types with their declaring embedded methods.
+    foreach ((_, StructSymbol structSym, _, _) in _state.Structs) {
+      foreach (MethodSymbol method in structSym.Methods) {
+        if (method.PromotedFrom is { } original) {
+          method.ReturnType = original.ReturnType;
+          method.ReturnState = original.ReturnState;
+        }
+      }
     }
   }
 
@@ -132,28 +145,7 @@ internal sealed partial class BodyChecker {
       return;
     }
 
-    Scope functionScope = ScopeOf(function, ScopeKind.Function);
-    int tolerant = (ContainsIsPattern(function.Body) ? 1 : 0)
-        + (HasMissingHeaderParts(function.OpenParenToken, function.CloseParenToken, function.Parameters) ? 1 : 0);
-    _tolerantNames += tolerant;
-    Symbol? prevCallable = _currentCallable;
-    StructSymbol? prevStruct = _currentStruct;
-    bool prevStatic = _isStaticMethod;
-    List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
-    _currentCallable = fnSymbol;
-    _currentStruct = null;
-    _isStaticMethod = false;
-    _lambdaReturnTypes = null;
-    try {
-      using ScopeRestore _ = EnterScope(functionScope);
-      CheckBlock(function.Body);
-    } finally {
-      _lambdaReturnTypes = prevLambdaReturns;
-      _isStaticMethod = prevStatic;
-      _currentStruct = prevStruct;
-      _currentCallable = prevCallable;
-      _tolerantNames -= tolerant;
-    }
+    EnsureCallableBodyChecked(fnSymbol);
   }
 
   private void CheckStruct(StructDeclarationSyntax structDeclaration) {
@@ -169,130 +161,12 @@ internal sealed partial class BodyChecker {
   }
 
   private void CheckMethod(StructSymbol structSymbol, MethodDeclarationSyntax methodDeclaration) {
+    _ = structSymbol;
     if (_state.DeclaredSymbols[methodDeclaration.Id] is not MethodSymbol methodSymbol) {
       return;
     }
 
-    Scope methodScope = ScopeOf(methodDeclaration, ScopeKind.Method);
-    int tolerant = (ContainsIsPattern(methodDeclaration.Body) ? 1 : 0)
-        + (HasMissingHeaderParts(
-            methodDeclaration.OpenParenToken,
-            methodDeclaration.CloseParenToken,
-            methodDeclaration.Parameters) ? 1 : 0);
-    _tolerantNames += tolerant;
-    Symbol? prevCallable = _currentCallable;
-    StructSymbol? prevStruct = _currentStruct;
-    bool prevStatic = _isStaticMethod;
-    List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
-    _currentCallable = methodSymbol;
-    _currentStruct = structSymbol;
-    _isStaticMethod = methodSymbol.IsStatic;
-    _lambdaReturnTypes = null;
-    try {
-      using ScopeRestore _ = EnterScope(methodScope);
-      CheckBlock(methodDeclaration.Body);
-    } finally {
-      _lambdaReturnTypes = prevLambdaReturns;
-      _isStaticMethod = prevStatic;
-      _currentStruct = prevStruct;
-      _currentCallable = prevCallable;
-      _tolerantNames -= tolerant;
-    }
-  }
-
-  private void CheckReturn(ReturnStatementSyntax returnStatement) {
-    if (_lambdaReturnTypes is not null) {
-      if (returnStatement.Expression is null) {
-        _lambdaReturnTypes.Add(_types.Void);
-      } else if (returnStatement.Expression is TupleLiteralExpressionSyntax tupleLit) {
-        TypeSymbol tupleType = SynthesizeTupleReturnForInference(tupleLit);
-        _lambdaReturnTypes.Add(tupleType);
-      } else {
-        _lambdaReturnTypes.Add(Synthesize(returnStatement.Expression));
-      }
-      return;
-    }
-
-    if (_currentCallable is null) {
-      if (returnStatement.Expression is { } orphanValue) {
-        if (orphanValue is TupleLiteralExpressionSyntax orphanTuple) {
-          SynthesizeTupleLiteralOutsideReturn(orphanTuple);
-        } else {
-          Synthesize(orphanValue);
-        }
-      }
-
-      Report(
-          DiagnosticCodes.ReturnOutsideFunction,
-          returnStatement.Span,
-          "Return statement is only allowed inside a function or method.");
-      return;
-    }
-
-    (ReturnInferenceState returnState, TypeSymbol declaredReturnType, string callableName) = _currentCallable switch {
-      FunctionSymbol fn => (fn.ReturnState, fn.ReturnType, fn.Name),
-      MethodSymbol method => (method.ReturnState, method.ReturnType, method.Name),
-      _ => (ReturnInferenceState.Explicit, _types.Error, _currentCallable.Name),
-    };
-
-    if (returnState != ReturnInferenceState.Explicit) {
-      // Unannotated functions temporarily keep Void until ticket 038 implements D-050 two-phase return inference.
-      if (returnStatement.Expression is { } expr) {
-        if (expr is TupleLiteralExpressionSyntax tupleLit) {
-          CheckTupleReturn(tupleLit, expectedReturn: null, callableName);
-        } else {
-          Synthesize(expr);
-        }
-      }
-      return;
-    }
-
-    if (returnStatement.Expression is null) {
-      if (!declaredReturnType.IsVoid && !declaredReturnType.IsError) {
-        Report(
-            DiagnosticCodes.BareReturnInNonVoidFunction,
-            returnStatement.Span,
-            $"Function '{callableName}' must return a value of type '{declaredReturnType.DisplayName}'.");
-      }
-      return;
-    }
-
-    ExpressionSyntax returnValue = returnStatement.Expression;
-    if (returnValue is TupleLiteralExpressionSyntax tupleLiteral) {
-      CheckTupleReturn(tupleLiteral, declaredReturnType, callableName);
-      return;
-    }
-
-    if (declaredReturnType.IsVoid) {
-      TypeSymbol actualVoid = Synthesize(returnValue);
-      if (!IsSilent(actualVoid)) {
-        Report(
-            DiagnosticCodes.ReturnTypeMismatch,
-            returnValue.Span,
-            $"Cannot return a value of type '{actualVoid.DisplayName}' from '{callableName}' with declared return type 'void'.");
-      }
-      return;
-    }
-
-    if (declaredReturnType.IsError) {
-      Synthesize(returnValue);
-      return;
-    }
-
-    TypeSymbol actual = CheckWithContextualExpectation(returnValue, declaredReturnType);
-    if (!TryConvert(returnValue, actual, declaredReturnType)) {
-      if (declaredReturnType is InterfaceType) {
-        Report(
-            DiagnosticCodes.InterfaceNotSatisfied,
-            returnValue.Span,
-            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type; expected type '{declaredReturnType.DisplayName}', but got '{actual.DisplayName}'.");
-      } else {
-        Report(
-            DiagnosticCodes.ReturnTypeMismatch,
-            returnValue.Span,
-            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type '{declaredReturnType.DisplayName}', but returned '{actual.DisplayName}'.");
-      }
-    }
+    EnsureCallableBodyChecked(methodSymbol);
   }
 
   private void CheckTest(TestDeclarationSyntax test) {
@@ -310,16 +184,16 @@ internal sealed partial class BodyChecker {
     Symbol? prevCallable = _currentCallable;
     StructSymbol? prevStruct = _currentStruct;
     bool prevStatic = _isStaticMethod;
-    List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
+    ReturnCollector? prevCollector = _activeReturnCollector;
     _currentCallable = null;
     _currentStruct = null;
     _isStaticMethod = false;
-    _lambdaReturnTypes = null;
+    _activeReturnCollector = null;
     try {
       using ScopeRestore _ = EnterScope(testScope);
       CheckBlock(test.Body);
     } finally {
-      _lambdaReturnTypes = prevLambdaReturns;
+      _activeReturnCollector = prevCollector;
       _isStaticMethod = prevStatic;
       _currentStruct = prevStruct;
       _currentCallable = prevCallable;
@@ -439,7 +313,7 @@ internal sealed partial class BodyChecker {
 
   private void CheckForCondition(ForStatementSyntax forStatement, ForConditionHeaderSyntax header, Scope loopScope) {
     TypeSymbol conditionType = Synthesize(header.Condition);
-    if (conditionType.IsError || conditionType.IsNever) {
+    if (conditionType.IsError || conditionType.IsNever || conditionType is PendingReturnType) {
       return;
     }
 
@@ -481,7 +355,7 @@ internal sealed partial class BodyChecker {
     LoopKind? kind = null;
 
     switch (collectionType) {
-      case var t when t.IsError || t.IsNever:
+      case var t when t.IsError || t.IsNever || t is PendingReturnType:
         break;
 
       case PrimitiveType { Kind: PrimitiveKind.Int }:

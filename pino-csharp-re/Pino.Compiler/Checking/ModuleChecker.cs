@@ -59,7 +59,22 @@ internal sealed class ModuleCheckState {
 
   public Scope ModuleScope { get; }
 
-  public DiagnosticBag Diagnostics { get; } = new();
+  private DiagnosticBag _diagnostics = new();
+  private HashSet<Symbol> _assignedSymbols = new(ReferenceEqualityComparer.Instance);
+
+  public DiagnosticBag Diagnostics => _diagnostics;
+
+  public DiagnosticBag SwapDiagnostics(DiagnosticBag replacement) {
+    DiagnosticBag previous = _diagnostics;
+    _diagnostics = replacement;
+    return previous;
+  }
+
+  public HashSet<Symbol> SwapAssignedSymbols(HashSet<Symbol> replacement) {
+    HashSet<Symbol> previous = _assignedSymbols;
+    _assignedSymbols = replacement;
+    return previous;
+  }
 
   public Dictionary<string, ModuleSymbol> ImportedModules { get; } = new(StringComparer.Ordinal);
 
@@ -83,7 +98,7 @@ internal sealed class ModuleCheckState {
 
   public List<Scope> AllScopes { get; } = [];
 
-  public HashSet<Symbol> AssignedSymbols { get; } = new(ReferenceEqualityComparer.Instance);
+  public HashSet<Symbol> AssignedSymbols => _assignedSymbols;
 
   public TypeSymbol?[] NodeTypes { get; }
 

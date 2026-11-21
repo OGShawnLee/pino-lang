@@ -28,6 +28,11 @@ internal sealed partial class BodyChecker {
 
       default: {
           TypeSymbol calleeType = Synthesize(call.Callee);
+          if (calleeType is PendingReturnType) {
+            SynthesizeCallArguments(call);
+            return calleeType;
+          }
+
           if (IsSilent(calleeType)) {
             SynthesizeCallArguments(call);
             return _types.Error;
@@ -66,11 +71,12 @@ internal sealed partial class BodyChecker {
 
     if (call.Callee is IdentifierExpressionSyntax id && !IsMissing(id.IdentifierToken)) {
       string calleeName = NameOf(id.IdentifierToken);
-      if (_scope.TryLookup(calleeName, out Symbol? sym)
+      if (_scope.TryLookupWithScope(calleeName, out Symbol? sym, out Scope? containerDeclScope)
           && sym is LocalSymbol or ParameterSymbol or FieldSymbol) {
         containerSymbol = sym;
         containerType = SymbolValueType(sym);
         if (containerType is VectorType or MapType) {
+          RecordCaptureIfOuter(sym, containerDeclScope, isMutation: false);
           _state.SetReferencedSymbol(id, sym);
           _state.SetNodeType(id, containerType);
         } else {
@@ -101,7 +107,7 @@ internal sealed partial class BodyChecker {
     string idxName = NameOf(indexNameSyntax.NameToken);
     Symbol? idxSymbol = null;
     TypeSymbol idxType = _types.Error;
-    if (!_scope.TryLookup(idxName, out idxSymbol)) {
+    if (!TryLookupAndRecordCapture(idxName, out idxSymbol)) {
       if (_tolerantNames == 0) {
         Report(
             DiagnosticCodes.UndeclaredIdentifier,
@@ -172,7 +178,7 @@ internal sealed partial class BodyChecker {
     }
 
     string name = NameOf(identifier.IdentifierToken);
-    if (!_scope.TryLookup(name, out Symbol? symbol)) {
+    if (!TryLookupAndRecordCapture(name, out Symbol? symbol)) {
       if (_isStaticMethod && _currentStruct is not null) {
         if (_currentStruct.Methods.Any(m => !m.IsStatic && string.Equals(m.Name, name, StringComparison.Ordinal))) {
           Report(
@@ -276,6 +282,11 @@ internal sealed partial class BodyChecker {
       MemberAccessExpressionSyntax member,
       TypeSymbol? expectedType) {
     TypeSymbol targetType = Synthesize(member.Target);
+    if (targetType is PendingReturnType) {
+      SynthesizeCallArguments(call);
+      return targetType;
+    }
+
     if (IsMissing(member.MemberToken) || IsSilent(targetType)) {
       SynthesizeCallArguments(call);
       return _types.Error;
@@ -530,9 +541,10 @@ internal sealed partial class BodyChecker {
             expectedParamTypes.Add(TypeSubstitution.Substitute(param.Type, combinedParams, combinedArgs, _types));
           }
 
-          TypeSymbol retType = TypeSubstitution.Substitute(method.ReturnType, combinedParams, combinedArgs, _types);
-          _state.SetNodeType(staticAccess, _types.GetFunction(expectedParamTypes.ToImmutable(), retType));
           CheckCallArguments(call, expectedParamTypes, "static method", method.Name);
+          TypeSymbol rawRetType = EnsureCallableReturnType(method);
+          TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, combinedParams, combinedArgs, _types);
+          _state.SetNodeType(staticAccess, _types.GetFunction(expectedParamTypes.ToImmutable(), retType));
           _state.CallResolutions[call.Id] = new CallResolution(CallKind.StaticMethod, TargetSymbol: method);
           return retType;
         }
@@ -591,12 +603,13 @@ internal sealed partial class BodyChecker {
               : TypeSubstitution.Substitute(p.Type, fnSym.TypeParameters, typeArgs, _types));
     }
 
+    CheckCallArguments(call, expectedParams, "function", fnSym.Name);
+    TypeSymbol rawRetType = EnsureCallableReturnType(fnSym);
     TypeSymbol retType = typeArgs.IsEmpty
-        ? fnSym.ReturnType
-        : TypeSubstitution.Substitute(fnSym.ReturnType, fnSym.TypeParameters, typeArgs, _types);
+        ? rawRetType
+        : TypeSubstitution.Substitute(rawRetType, fnSym.TypeParameters, typeArgs, _types);
 
     _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
-    CheckCallArguments(call, expectedParams, "function", fnSym.Name);
     _state.CallResolutions[call.Id] = new CallResolution(CallKind.DirectFunction, TargetSymbol: fnSym);
     return retType;
   }
@@ -635,9 +648,10 @@ internal sealed partial class BodyChecker {
       expectedParams.Add(TypeSubstitution.Substitute(p.Type, combinedParams, combinedArgs, _types));
     }
 
-    TypeSymbol retType = TypeSubstitution.Substitute(method.ReturnType, combinedParams, combinedArgs, _types);
-    _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
     CheckCallArguments(call, expectedParams, "method", method.Name);
+    TypeSymbol rawRetType = EnsureCallableReturnType(method);
+    TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, combinedParams, combinedArgs, _types);
+    _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
     _state.CallResolutions[call.Id] = new CallResolution(
         CallKind.InstanceMethod,
         TargetSymbol: method,
@@ -778,6 +792,11 @@ internal sealed partial class BodyChecker {
       }
 
       TypeSymbol expectedParam = expectedParameters[i];
+      if (expectedParam is FunctionType expectedFn && ShouldWrapImplicitIt(arg.Expression)) {
+        CheckImplicitItArgument(arg.Expression, expectedFn, i, calleeKind, calleeName);
+        continue;
+      }
+
       TypeSymbol actualType = CheckWithContextualExpectation(arg.Expression, expectedParam);
       if (!TryConvert(arg.Expression, actualType, expectedParam)) {
         string code = expectedParam is InterfaceType
@@ -987,6 +1006,11 @@ internal sealed partial class BodyChecker {
       }
 
       TypeSymbol expectedParam = param.TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
+      if (expectedParam is FunctionType expectedFn && ShouldWrapImplicitIt(arg.Expression)) {
+        CheckImplicitItArgument(arg.Expression, expectedFn, i, calleeKind, calleeName);
+        continue;
+      }
+
       TypeSymbol actualType = CheckWithContextualExpectation(arg.Expression, expectedParam);
       if (!TryConvert(arg.Expression, actualType, expectedParam)) {
         string code = expectedParam is InterfaceType
@@ -1036,13 +1060,117 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
-    // Untyped lambdas and implicit-`it` arguments land in ticket 038; handle explicitly-typed callbacks here.
-    if (arg0.Expression is LambdaExpressionSyntax lambda && lambda.Parameters.Any(static p => p.Type is null)) {
+    TypeSymbol? expectedCallbackReturnForMap = expectedReturnType is VectorType ev ? ev.ElementType : null;
+    TypeSymbol elemType = receiverArgs[0];
+
+    // 1. Implicit `it` argument (FN-16, VECLIB-24, design §6.3): always selects 1-arg signature sig1.
+    if (ShouldWrapImplicitIt(arg0.Expression)) {
+      if (!sig1.MethodTypeParameterNames.IsEmpty) {
+        // `map(it * 3)`: 1-arg callback with element type T, return type R inferred from body.
+        TypeSymbol implicitFn = CheckImplicitItCore(
+            arg0.Expression,
+            elemType,
+            expectedReturn: expectedCallbackReturnForMap,
+            expectedFunctionForMismatch: null,
+            argIndex: 0,
+            calleeKind: "method",
+            calleeName: descriptor.Name);
+        TypeSymbol rType = implicitFn is FunctionType fnT ? fnT.ReturnType : _types.Error;
+        if (rType.IsVoid) {
+          Report(
+              DiagnosticCodes.InvalidVoidTypePosition,
+              arg0.Expression.Span,
+              "Callback for 'map' cannot return 'void'.");
+          rType = _types.Error;
+        }
+
+        _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: sig1.Id);
+        return rType.IsError ? _types.Error : sig1.ReturnType.Resolve(_types, _prelude, receiverArgs, [rType]);
+      }
+
+      var expected1Fn = (FunctionType) sig1.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
+      CheckImplicitItArgument(arg0.Expression, expected1Fn, argIndex: 0, calleeKind: "method", calleeName: descriptor.Name);
+      _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: sig1.Id);
+      return sig1.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+    }
+
+    // 2. Lambda argument (D-167, design §6.3): select 1- vs 2-arg signature by lambda.Parameters.Length.
+    if (UnwrapParens(arg0.Expression) is LambdaExpressionSyntax lambda) {
+      IntrinsicSignature? selectedByArity = lambda.Parameters.Length switch {
+        1 => sig1,
+        2 => sig2,
+        _ => null,
+      };
+
+      if (selectedByArity is not null && !selectedByArity.MethodTypeParameterNames.IsEmpty) {
+        // `map`: push parameter types [T] or [T, int] into untyped lambda and infer R from return type.
+        ImmutableArray<TypeSymbol> mapParamTypes = lambda.Parameters.Length == 1
+            ? [elemType]
+            : [elemType, _types.Int];
+        TypeSymbol lambdaType = SynthesizeLambda(
+            lambda,
+            expectedFunction: null,
+            expectedParamTypesOverride: mapParamTypes,
+            expectedReturnOverride: expectedCallbackReturnForMap);
+        SetWrappedExpressionType(arg0.Expression, lambdaType);
+
+        if (lambdaType is FunctionType fnMapCallback) {
+          TypeSymbol rType = fnMapCallback.ReturnType;
+          if (rType.IsVoid) {
+            Report(
+                DiagnosticCodes.InvalidVoidTypePosition,
+                arg0.Expression.Span,
+                "Callback for 'map' cannot return 'void'.");
+            rType = _types.Error;
+          }
+
+          TypeSymbol[] methodArgs = [rType];
+          TypeSymbol expectedFn = selectedByArity.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, methodArgs);
+          if (!TryConvert(arg0.Expression, fnMapCallback, expectedFn)) {
+            Report(
+                DiagnosticCodes.TypeMismatch,
+                arg0.Expression.Span,
+                $"Argument 1 for method '{descriptor.Name}' expected type '{expectedFn.DisplayName}', but got '{fnMapCallback.DisplayName}'.");
+          }
+
+          _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: selectedByArity.Id);
+          return rType.IsError ? _types.Error : selectedByArity.ReturnType.Resolve(_types, _prelude, receiverArgs, methodArgs);
+        }
+
+        return _types.Error;
+      }
+
+      if (selectedByArity is not null) {
+        var expectedCallbackFn = (FunctionType) selectedByArity.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
+        TypeSymbol lambdaType = SynthesizeLambda(lambda, expectedCallbackFn);
+        SetWrappedExpressionType(arg0.Expression, lambdaType);
+        if (!TryConvert(arg0.Expression, lambdaType, expectedCallbackFn)) {
+          Report(
+              DiagnosticCodes.TypeMismatch,
+              arg0.Expression.Span,
+              $"Argument 1 for method '{descriptor.Name}' expected type '{expectedCallbackFn.DisplayName}', but got '{lambdaType.DisplayName}'.");
+        }
+
+        _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: selectedByArity.Id);
+        return selectedByArity.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+      }
+
+      // Wrong lambda arity (0 or >= 3): synthesize without expected signature and report mismatch.
+      TypeSymbol wrongArityType = SynthesizeLambda(lambda, expectedFunction: null);
+      SetWrappedExpressionType(arg0.Expression, wrongArityType);
+      TypeSymbol expected1Desc = sig1.MethodTypeParameterNames.IsEmpty
+          ? sig1.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, [])
+          : _types.GetFunction([elemType], _types.Error);
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          arg0.Expression.Span,
+          $"Argument 1 for method '{descriptor.Name}' expected type '{expected1Desc.DisplayName}', but got '{wrongArityType.DisplayName}'.");
       return _types.Error;
     }
 
+    // 3. Non-lambda expression (e.g., function value variable): synthesize and match arity.
     TypeSymbol callbackType = Synthesize(arg0.Expression);
-    if (IsSilent(callbackType)) {
+    if (IsSilent(callbackType) || callbackType is PendingReturnType) {
       return _types.Error;
     }
 
@@ -1095,7 +1223,6 @@ internal sealed partial class BodyChecker {
       }
 
       _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: selected.Id);
-      _ = expectedReturnType;
       return rType.IsError ? _types.Error : selected.ReturnType.Resolve(_types, _prelude, receiverArgs, methodArgs);
     }
 
@@ -1134,12 +1261,14 @@ internal sealed partial class BodyChecker {
       return;
     }
 
-    if (arg0.Expression is LambdaExpressionSyntax lambda && lambda.Parameters.Any(static p => p.Type is null)) {
+    var expectedFn = (FunctionType) sig.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
+    if (ShouldWrapImplicitIt(arg0.Expression)) {
+      CheckImplicitItArgument(arg0.Expression, expectedFn, argIndex: 0, calleeKind: "method", calleeName: methodName);
+      _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: sig.Id);
       return;
     }
 
-    TypeSymbol expectedFn = sig.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
-    TypeSymbol actualType = Synthesize(arg0.Expression);
+    TypeSymbol actualType = CheckWithContextualExpectation(arg0.Expression, expectedFn);
     if (!TryConvert(arg0.Expression, actualType, expectedFn)) {
       Report(
           DiagnosticCodes.TypeMismatch,
@@ -1150,96 +1279,15 @@ internal sealed partial class BodyChecker {
     _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: sig.Id);
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // Explicitly-typed lambdas (contextual lambda inference and captures land in ticket 038)
-  // ---------------------------------------------------------------------------------------------
-
-  private TypeSymbol SynthesizeLambda(LambdaExpressionSyntax lambda) {
-    if (lambda.Parameters.Any(static p => p.Type is null)) {
-      // Untyped lambda inference (D-167, FN-E11) lands in ticket 038.
-      return _types.Error;
-    }
-
-    Scope lambdaScope = ScopeOf(lambda, ScopeKind.Lambda);
-    var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(lambda.Parameters.Length);
-
-    for (int i = 0; i < lambda.Parameters.Length; i++) {
-      ParameterSyntax paramSyntax = lambda.Parameters[i];
-      if (IsMissing(paramSyntax.NameToken)) {
-        paramTypes.Add(_types.Error);
-        continue;
-      }
-
-      string paramName = NameOf(paramSyntax.NameToken);
-      TypeSymbol paramType = _session.ResolveType(
-          _state,
-          paramSyntax.Type!,
-          lambdaScope,
-          TypePosition.ParameterType);
-
-      var paramSymbol = new ParameterSymbol(
-          paramName,
-          paramType,
-          i,
-          hasDefault: false,
-          paramSyntax.Id,
-          paramSyntax.NameToken.Span,
-          _state.FilePath,
-          lambdaScope.Owner);
-      if (!lambdaScope.TryDeclare(paramSymbol, out Symbol? existing)) {
-        CheckerSession.ReportDuplicate(_state, paramName, paramSyntax.NameToken.Span, existing!);
-      }
-
-      _state.SetDeclaredSymbol(paramSyntax, paramSymbol);
-      _state.SetNodeType(paramSyntax, paramType);
-      paramTypes.Add(paramType);
-    }
-
-    TypeSymbol returnType;
-    using (EnterScope(lambdaScope)) {
-      if (lambda.BodyExpression is { } bodyExpr) {
-        returnType = Synthesize(bodyExpr);
-      } else if (lambda.BodyBlock is { } bodyBlock) {
-        List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
-        var collectedReturns = new List<TypeSymbol>();
-        _lambdaReturnTypes = collectedReturns;
-        try {
-          CheckBlock(bodyBlock);
-        } finally {
-          _lambdaReturnTypes = prevLambdaReturns;
-        }
-
-        returnType = JoinLambdaBlockReturns(collectedReturns);
+  private void SetWrappedExpressionType(ExpressionSyntax expression, TypeSymbol type) {
+    ExpressionSyntax current = expression;
+    while (true) {
+      _state.SetNodeType(current, type);
+      if (current is ParenthesizedExpressionSyntax paren) {
+        current = paren.Expression;
       } else {
-        returnType = _types.Void;
+        break;
       }
     }
-
-    return _types.GetFunction(paramTypes.MoveToImmutable(), returnType);
-  }
-
-  private TypeSymbol JoinLambdaBlockReturns(List<TypeSymbol> returns) {
-    if (returns.Count == 0) {
-      return _types.Void;
-    }
-
-    TypeSymbol? joined = null;
-    foreach (TypeSymbol t in returns) {
-      if (t.IsError || t.IsNever) {
-        continue;
-      }
-
-      if (joined is null) {
-        joined = t;
-      } else if (ReferenceEquals(joined, _types.Int) && ReferenceEquals(t, _types.Float)) {
-        joined = _types.Float;
-      } else if (ReferenceEquals(joined, _types.Float) && ReferenceEquals(t, _types.Int)) {
-        // already float
-      } else if (!ReferenceEquals(joined, t)) {
-        return _types.Error;
-      }
-    }
-
-    return joined ?? _types.Void;
   }
 }
