@@ -399,13 +399,17 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - passing a `val mut` as a `mut` argument is allowed
     - `val mut @(...)`, `var mut` and `mut val` are PN2022 parse errors
     - ~~`val mut` on a scalar is allowed~~ Owner overrode this: `val mut` on a type with nothing mutable inside is error VAR-E13 (scalars, enums, unions, tuples, functions, structs and interfaces without `mut` members). 051 was steered mid-run.
-  - [ ] **051-val-mut-and-module-state-facts** (Gemini 4 Neon High, worktree): spec (D-183, VAR-12, VAR-13, VAR-E12, VAR-E13), `-re` parser and checker, purity facts, cases.
-    - **PAUSED (2026-11-21):** the Gemini quota ran out mid-run. Work in progress is uncommitted:
-      - worktree `C:/Users/OGSha/.t3/worktrees/Pino/t3-aa7e287a-afdccd84c0fefdad`
-      - branch `t3/val-mut-module-state-facts`, based on `e069f35`
-      - about 15 modified files in the `-re` checker, parser tests and conformance known-failures
-    - **To resume:** send "continue" to the same 051 child thread, which keeps its context. It must re-read task.md and spec.md (the VAR-E13 steer arrived just before the stop). Then rebase onto main before integrating. Don't delete the worktree.
-  - [ ] **052-docs-pino-guide-quirks-and-values** (Claude Sonnet 5.5 High, draft, after 051): `docs/guide/values-and-mutation.md`, `docs/guide/surprises.md` and an index. The owner asked for a ticket documenting all of Pino's quirks. `docs/guide/` is a new folder chosen by the router; the owner may move it.
+  - [x] **051-val-mut-and-module-state-facts** (`5789e8c`, Gemini 4 Neon High; resumed after a quota pause): D-183 (accepted), VAR-12, VAR-13, VAR-E12, VAR-E13, and the rewordings; D-177 and D-182 extended; grammar updated.
+    - Parser: `val mut` with an optional `MutKeyword`. PN2022 for `var mut`, `mut val`, `mut var` and `val mut @(...)`.
+    - Checker: PN3229 (VAR-E12, reassigning a `val mut`) and PN3230 (VAR-E13, nothing to mutate). MAIN-E3 (PN3410) and MOD-E9 (PN3007) extended to `val mut`.
+    - `ModuleStateEffectAnalyzer`: Tarjan SCC fixed point exposed as `SemanticModel.GetModuleStateEffects(FunctionSymbol | MethodSymbol)`. Calls through function values and interface dispatch count as unknown, so both facts are `true`. No diagnostics.
+    - 7 cases (+ `modules/ErrorLog.pino` helper); 21 legacy known-failure lines citing D-183, no crashes; STATUS regenerated.
+    - Router verification after rebasing onto main: legacy 2186/2186; `-re` 4218/4220 (only the 2 worktree-only lexer items); 0 warnings; format clean; `main.pino` 0 errors.
+    - Every spec.md probe matches. Also checked: a struct with a `mut` field and a `mut` argument are accepted; a struct with no `mut` field and `Option` give PN3230.
+    - The changelog lists 9 top-level and 73 local `val mut` candidates in the self-host, for the owner's hand migration.
+    - Nit: the PN3220 help still says only "declare 'v' with 'var'". It could also suggest `val mut` when the value is mutated but never reassigned. Small; batch it with the next checker ticket.
+    - Open (generics design): should instantiating `val mut x T` with an immutable `T` be diagnosed after monomorphization? It's allowed at declaration time for now.
+  - [ ] **052-docs-pino-guide-quirks-and-values** (Claude Sonnet 5.5 High, in progress): `docs/guide/values-and-mutation.md`, `docs/guide/surprises.md` and an index. The owner asked for a ticket documenting all of Pino's quirks. `docs/guide/` is a new folder chosen by the router; the owner may move it.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
