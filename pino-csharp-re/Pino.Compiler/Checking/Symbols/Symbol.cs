@@ -277,6 +277,8 @@ public sealed class StructSymbol : Symbol {
   public ImmutableArray<StructSymbol> EmbeddedStructs { get; internal set; }
 
   public ImmutableArray<MethodSymbol> Methods { get; internal set; }
+
+  public Scope? MemberScope { get; internal set; }
 }
 
 public sealed class EnumMemberSymbol : Symbol {

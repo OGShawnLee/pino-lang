@@ -57,67 +57,31 @@ public sealed class Compilation {
     ArgumentNullException.ThrowIfNull(rootTree);
     cancellationToken.ThrowIfCancellationRequested();
 
-    _ = moduleSource ?? NullModuleSource.Instance;
-    PreludeSymbols prelude = PreludeSymbols.Instance;
-    var types = new TypeInterner();
-
-    int nodeCount = Math.Max(0, rootTree.NodeCount);
-    SyntaxNode?[] parentsByNodeId = BuildParentMap(rootTree.Root, nodeCount, cancellationToken);
-
-    string? filePath = rootTree.Source.FilePath;
-    string moduleName = string.IsNullOrEmpty(filePath)
-        ? "<main>"
-        : Path.GetFileNameWithoutExtension(filePath);
-    var rootModule = new ModuleSymbol(
-        moduleName,
-        rootTree.Root.Id,
-        rootTree.Root.Span,
-        filePath);
-
-    var scopesByBlockId = new Scope?[nodeCount];
-    var rootScope = new Scope(ScopeKind.Module, prelude.Scope, rootModule);
-    if ((uint) rootTree.Root.Id < (uint) scopesByBlockId.Length) {
-      scopesByBlockId[rootTree.Root.Id] = rootScope;
-    }
-
-    var rootModel = new SemanticModel(
-        rootTree,
-        rootModule,
-        isProgramMode: false,
-        rootTree.Diagnostics,
-        AssignedBindings.Empty,
-        new TypeSymbol?[nodeCount],
-        new Symbol?[nodeCount],
-        new Symbol?[nodeCount],
-        new ConversionInfo?[nodeCount],
-        new CallResolution?[nodeCount],
-        scopesByBlockId,
-        new ConstantValue?[nodeCount],
-        new CaptureList?[nodeCount],
-        new LoopInfo?[nodeCount],
-        new PatternBindingInfo?[nodeCount],
-        parentsByNodeId);
-
-    string moduleKey = string.IsNullOrEmpty(filePath) ? moduleName : filePath;
-    var modules = new Dictionary<string, ModuleSymbol>(StringComparer.Ordinal) {
-      [moduleKey] = rootModule,
-    }.ToFrozenDictionary(StringComparer.Ordinal);
-
-    var modelsByTree = new Dictionary<ParseResult, SemanticModel>(ReferenceEqualityComparer.Instance) {
-      [rootTree] = rootModel,
-    }.ToFrozenDictionary(ReferenceEqualityComparer.Instance);
-
-    return new Compilation(
-        rootTree,
-        rootModel,
-        modules,
-        modelsByTree,
-        prelude,
-        types,
-        TypeReachabilityGraph.Empty,
-        rootTree.Diagnostics,
-        []);
+    IModuleSource effectiveSource = moduleSource ?? NullModuleSource.Instance;
+    var session = new CheckerSession(effectiveSource, cancellationToken);
+    return session.BuildCompilation(rootTree);
   }
+
+  internal static Compilation CreateFromSession(
+      ParseResult rootTree,
+      SemanticModel rootModel,
+      FrozenDictionary<string, ModuleSymbol> modules,
+      FrozenDictionary<ParseResult, SemanticModel> modelsByTree,
+      PreludeSymbols prelude,
+      TypeInterner types,
+      TypeReachabilityGraph reachability,
+      ImmutableArray<Diagnostic> diagnostics,
+      ImmutableArray<GenericInstantiation> genericInstantiations) =>
+      new(
+          rootTree,
+          rootModel,
+          modules,
+          modelsByTree,
+          prelude,
+          types,
+          reachability,
+          diagnostics,
+          genericInstantiations);
 
   public SemanticModel? GetSemanticModel(ParseResult tree) {
     ArgumentNullException.ThrowIfNull(tree);
