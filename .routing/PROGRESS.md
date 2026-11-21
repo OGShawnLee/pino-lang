@@ -311,7 +311,13 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - Owner: bundle small tech debt into one ticket so it's worth a worker's time.
   - The IR design waits for 043, because value vs reference semantics shapes the IR.
   - [ ] **043-mut-and-deep-immutability-design** (Gemini 4 Neon High, read-only design, main checkout): `val` depth, aliasing options (value semantics with copy-on-write vs mutability in the type vs borrowing vs shallow), field and receiver `mut`, parameters, captures, stdlib mutating methods, AD-002 cycle impact, migration counts. Owner questions are `MQ-n`.
-  - [ ] **044-small-debt-rune-string-and-runner** (Gemini 4 Hydrogen High, worktree): STR-12 `rune + string` in spec, conformance and `-re`; a `CRASH` known-failure marker so crashing legacy engines aren't run; a RUNE-E2 case; case-sensitive `.err` matching in `CheckerConformanceTests`; the `LANGUAGE_REFERENCE.md` fence.
+  - [x] **044-small-debt-rune-string-and-runner** (`23404d4`, Gemini 4 Hydrogen High).
+    - STR-12 `rune + string` added in spec, conformance and `-re`. All three legacy engines already pass it.
+    - Known-failure lines whose reason starts with `CRASH` are never run. This fixes the RUNE-E2 tech debt above.
+    - The RUNE-E2 case has a `CRASH` line for C; TreeWalk and VM have known failures, since both print `ab`.
+    - `CheckerConformanceTests` matches with `Ordinal`. That surfaced one case-only mismatch, the UNION-E9 message, now "Pattern for 'U::V' cannot mix positional and label bindings."
+    - The `LANGUAGE_REFERENCE.md` fence is closed.
+    - Router verification in main: legacy 2066/2066, `-re` 3911/3911, 0 warnings, format clean.
   - Still needing an owner answer:
     - the `str(m)` print form (`key: value` vs `key -> value`, MAP-9)
     - OQ-42, which happens when `-re` joins conformance at run time
