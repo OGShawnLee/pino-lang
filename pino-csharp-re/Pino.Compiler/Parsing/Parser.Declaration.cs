@@ -356,11 +356,26 @@ public sealed partial class Parser {
         continue;
       }
 
+      Token? mutKeyword = Current.Kind == TokenKind.MutKeyword ? Consume() : null;
       if (Current.Kind != TokenKind.Identifier) {
         ReportError(
             DiagnosticCodes.ExpectedIdentifier,
             Current.Span,
             $"Expected parameter name, found {DescribeToken(Current)}.");
+        if (mutKeyword is { } mk) {
+          Token missingName = MissingTokenAt(TokenKind.Identifier, mk.Span.End);
+          parameters.Add(new ParameterSyntax(
+              NextId(),
+              mk.Span,
+              missingName,
+              null,
+              null,
+              null,
+              null,
+              mk));
+          continue;
+        }
+
         break;
       }
 
@@ -406,6 +421,7 @@ public sealed partial class Parser {
         }
       }
 
+      int paramStart = (mutKeyword ?? paramName).Span.Start;
       int paramEnd = commaToken is { } c
           ? c.Span.End
           : defaultValue is not null
@@ -417,12 +433,13 @@ public sealed partial class Parser {
                       : paramName.Span.End;
       parameters.Add(new ParameterSyntax(
           NextId(),
-          SourceSpan.FromBounds(paramName.Span.Start, paramEnd),
+          SourceSpan.FromBounds(paramStart, paramEnd),
           paramName,
           paramType,
           equalsToken,
           defaultValue,
-          commaToken));
+          commaToken,
+          mutKeyword));
 
       if (commaToken is { } && Current.Kind == TokenKind.CloseParen) {
         break;
@@ -499,6 +516,8 @@ public sealed partial class Parser {
     int beforeMemberId = _nextId;
     GenericDecoratorSyntax? memberGeneric = null;
     Token? staticKeyword = null;
+    Token? mutKeyword = null;
+    int mutTokenIndex = -1;
 
     if (IsAdjacentDoubleAt() && !IsTestableStart()) {
       if (IsIdentifierText(Peek(2), "Generic")) {
@@ -512,38 +531,81 @@ public sealed partial class Parser {
       memberGeneric = ParseDeprecatedGenericDecorator();
     }
 
-    // D-163: `pub` or `@@Testable` on struct fields and methods.
+    // D-163 / D-179: `[pub | @@Testable] [static | mut]` on struct fields and methods (`pub mut` valid; `mut pub` / `static mut` / `mut static` -> PN2022).
     VisibilityTokens? pendingVisibility = null;
-    while (IsVisibilityStart()) {
-      VisibilityTokens visibilityTokens = ParseVisibilityTokens();
-      if (pendingVisibility is null) {
-        pendingVisibility = visibilityTokens;
-      } else {
-        ReportErrorAt(
-            _pos - 1,
-            DiagnosticCodes.ExpectedStatement,
-            visibilityTokens.Span,
-            "'pub' and '@@Testable' cannot be combined on the same member.");
-        var errTokens = ImmutableArray.CreateBuilder<Token>();
-        if (memberGeneric is not null) {
-          AppendRealTokens(errTokens, memberGeneric);
-          memberGeneric = null;
-          _nextId = beforeMemberId;
+    while (IsVisibilityStart() || Current.Kind is TokenKind.StaticKeyword or TokenKind.MutKeyword) {
+      if (IsVisibilityStart()) {
+        if (staticKeyword is not null) {
+          break;
         }
-        pendingVisibility.Value.AppendTo(errTokens);
-        members.Add(MakeErrorMemberFromTokens(errTokens.ToImmutable()));
-        beforeMemberId = _nextId;
-        pendingVisibility = visibilityTokens;
+
+        VisibilityTokens visibilityTokens = ParseVisibilityTokens();
+        if (mutKeyword is { } mk && mutTokenIndex >= 0) {
+          ReportInvalidMutModifierPlacement(mutTokenIndex, mk.Span);
+        }
+
+        if (pendingVisibility is null) {
+          pendingVisibility = visibilityTokens;
+        } else {
+          ReportErrorAt(
+              _pos - 1,
+              DiagnosticCodes.ExpectedStatement,
+              visibilityTokens.Span,
+              "'pub' and '@@Testable' cannot be combined on the same member.");
+          var errTokens = ImmutableArray.CreateBuilder<Token>();
+          if (memberGeneric is not null) {
+            AppendRealTokens(errTokens, memberGeneric);
+            memberGeneric = null;
+          }
+
+          if (mutKeyword is { } mkBefore && mkBefore.Span.Start < pendingVisibility.Value.Span.Start) {
+            errTokens.Add(mkBefore);
+            mutKeyword = null;
+            mutTokenIndex = -1;
+          }
+
+          pendingVisibility.Value.AppendTo(errTokens);
+          if (mutKeyword is { } mkAfter) {
+            errTokens.Add(mkAfter);
+            mutKeyword = null;
+            mutTokenIndex = -1;
+          }
+
+          _nextId = beforeMemberId;
+          members.Add(MakeErrorMemberFromTokens(errTokens.ToImmutable()));
+          beforeMemberId = _nextId;
+          pendingVisibility = visibilityTokens;
+        }
+      } else if (Current.Kind == TokenKind.StaticKeyword) {
+        if (staticKeyword is not null) {
+          ReportError(
+              DiagnosticCodes.ExpectedStatement,
+              Current.Span,
+              "Duplicate 'static' modifier on struct member.");
+          FlushStructMemberPrefix(members, ref beforeMemberId, ref memberGeneric, ref pendingVisibility, ref staticKeyword, ref mutKeyword, ref mutTokenIndex);
+        }
+
+        staticKeyword = Consume();
+        if (mutKeyword is { } mk && mutTokenIndex >= 0) {
+          ReportInvalidMutModifierPlacement(mutTokenIndex, mk.Span);
+        }
+      } else {
+        if (mutKeyword is not null) {
+          ReportInvalidMutModifierPlacement(_pos, Current.Span);
+          FlushStructMemberPrefix(members, ref beforeMemberId, ref memberGeneric, ref pendingVisibility, ref staticKeyword, ref mutKeyword, ref mutTokenIndex);
+        }
+
+        mutTokenIndex = _pos;
+        mutKeyword = Consume();
+        if (staticKeyword is not null) {
+          ReportInvalidMutModifierPlacement(mutTokenIndex, mutKeyword.Value.Span);
+        }
       }
     }
 
     VisibilitySyntax? memberVisibility = pendingVisibility is { } pv
         ? BuildVisibilitySyntax(pv)
         : null;
-
-    if (Current.Kind == TokenKind.StaticKeyword) {
-      staticKeyword = Consume();
-    }
 
     if (Current.Kind == TokenKind.FnKeyword) {
       Token fnKeyword = Consume();
@@ -556,10 +618,7 @@ public sealed partial class Parser {
       (Token? arrowToken, Token? secondaryArrowToken, BlockStatementSyntax body) =
           ParseFunctionOrMethodBody();
 
-      int start = memberGeneric?.Span.Start
-          ?? memberVisibility?.Span.Start
-          ?? staticKeyword?.Span.Start
-          ?? fnKeyword.Span.Start;
+      int start = MinModifierStart(memberGeneric, memberVisibility, staticKeyword, mutKeyword, fnKeyword.Span.Start);
       members.Add(new MethodDeclarationSyntax(
           NextId(),
           SourceSpan.FromBounds(start, body.Span.End),
@@ -574,7 +633,8 @@ public sealed partial class Parser {
           returnType,
           body,
           arrowToken,
-          secondaryArrowToken));
+          secondaryArrowToken,
+          mutKeyword));
       return;
     }
 
@@ -589,12 +649,8 @@ public sealed partial class Parser {
       if (memberGeneric is not null) {
         AppendRealTokens(prefixTokens, memberGeneric);
       }
-      if (memberVisibility is not null) {
-        AppendRealTokens(prefixTokens, memberVisibility);
-      }
-      if (staticKeyword is { } st) {
-        prefixTokens.Add(st);
-      }
+
+      AppendStructMemberModifiersByStart(prefixTokens, memberVisibility, staticKeyword, mutKeyword);
       if (prefixTokens.Count > 0) {
         _nextId = beforeMemberId;
         members.Add(MakeErrorMemberFromTokens(prefixTokens.ToImmutable()));
@@ -610,28 +666,31 @@ public sealed partial class Parser {
 
       if (hasTypeOnSameLine) {
         TypeSyntax fieldType = ParseType();
-        int start = memberVisibility?.Span.Start ?? memberName.Span.Start;
+        int start = MinModifierStart(null, memberVisibility, null, mutKeyword, memberName.Span.Start);
         members.Add(new FieldDeclarationSyntax(
             NextId(),
             SourceSpan.FromBounds(start, fieldType.Span.End),
             memberVisibility,
             memberName,
-            fieldType));
+            fieldType,
+            mutKeyword));
         return;
       }
 
-      if (memberVisibility is not null) {
+      if (memberVisibility is not null || mutKeyword is not null) {
         ReportError(
             DiagnosticCodes.ExpectedType,
             Current.Span,
             $"Expected field type for '{GetTokenText(memberName)}', found {DescribeToken(Current)}.");
         var missingType = new MissingTypeSyntax(NextId(), new SourceSpan(CurrentMissingOffset(), 0));
+        int start = MinModifierStart(null, memberVisibility, null, mutKeyword, memberName.Span.Start);
         members.Add(new FieldDeclarationSyntax(
             NextId(),
-            SourceSpan.FromBounds(memberVisibility.Span.Start, memberName.Span.End),
+            SourceSpan.FromBounds(start, memberName.Span.End),
             memberVisibility,
             memberName,
-            missingType));
+            missingType,
+            mutKeyword));
         return;
       }
 
@@ -639,13 +698,15 @@ public sealed partial class Parser {
       return;
     }
 
-    if (memberVisibility is not null) {
+    if (memberVisibility is not null || mutKeyword is not null) {
       ReportError(
           DiagnosticCodes.ExpectedStatement,
           Current.Span,
-          $"Expected field or method after visibility modifier, found {DescribeToken(Current)}.");
+          mutKeyword is not null && memberVisibility is null
+              ? $"Expected field or method after 'mut' modifier, found {DescribeToken(Current)}."
+              : $"Expected field or method after visibility modifier, found {DescribeToken(Current)}.");
       var visTokens = ImmutableArray.CreateBuilder<Token>();
-      AppendRealTokens(visTokens, memberVisibility);
+      AppendStructMemberModifiersByStart(visTokens, memberVisibility, null, mutKeyword);
       _nextId = beforeMemberId;
       members.Add(MakeErrorMemberFromTokens(visTokens.ToImmutable()));
       return;
@@ -656,6 +717,97 @@ public sealed partial class Parser {
         Current.Span,
         $"Expected field, embedded struct, or method in struct body, found {DescribeToken(Current)}.");
     members.Add(SkipToNextMemberStart());
+  }
+
+  private void ReportInvalidMutModifierPlacement(int mutTokenIndex, SourceSpan mutSpan) =>
+      ReportErrorAt(
+          mutTokenIndex,
+          DiagnosticCodes.InvalidMutModifierPlacement,
+          mutSpan,
+          "'mut' must appear after 'pub' ('pub mut'), and cannot be combined with 'static'.",
+          help: "write 'pub mut <field>' for a public mutable field, or remove 'static'/'mut'");
+
+  private static int MinModifierStart(
+      GenericDecoratorSyntax? genericDecorator,
+      VisibilitySyntax? visibility,
+      Token? staticKeyword,
+      Token? mutKeyword,
+      int fallbackStart) {
+    int start = fallbackStart;
+    if (genericDecorator is not null && genericDecorator.Span.Start < start) {
+      start = genericDecorator.Span.Start;
+    }
+    if (visibility is not null && visibility.Span.Start < start) {
+      start = visibility.Span.Start;
+    }
+    if (staticKeyword is { } st && st.Span.Start < start) {
+      start = st.Span.Start;
+    }
+    if (mutKeyword is { } mk && mk.Span.Start < start) {
+      start = mk.Span.Start;
+    }
+    return start;
+  }
+
+  private static void AppendStructMemberModifiersByStart(
+      ImmutableArray<Token>.Builder builder,
+      VisibilitySyntax? visibility,
+      Token? staticKeyword,
+      Token? mutKeyword) {
+    foreach (SyntaxElement element in ModifierOrdering.YieldByStart(visibility, staticKeyword, mutKeyword)) {
+      if (element.IsNode) {
+        AppendRealTokens(builder, element.AsNode());
+      } else if ((element.AsToken().Flags & TokenFlags.Missing) == 0) {
+        builder.Add(element.AsToken());
+      }
+    }
+  }
+
+  private void FlushStructMemberPrefix(
+      ImmutableArray<SyntaxNode>.Builder members,
+      ref int beforeMemberId,
+      ref GenericDecoratorSyntax? memberGeneric,
+      ref VisibilityTokens? pendingVisibility,
+      ref Token? staticKeyword,
+      ref Token? mutKeyword,
+      ref int mutTokenIndex) {
+    var errTokens = ImmutableArray.CreateBuilder<Token>();
+    if (memberGeneric is not null) {
+      AppendRealTokens(errTokens, memberGeneric);
+      memberGeneric = null;
+    }
+
+    var modifiers = new List<(int Start, Token Token)>();
+    if (pendingVisibility is { } pv) {
+      if (pv.AtToken is { } at) {
+        modifiers.Add((at.Span.Start, at));
+      }
+      if (pv.SecondAtToken is { } sat) {
+        modifiers.Add((sat.Span.Start, sat));
+      }
+      modifiers.Add((pv.KeywordOrIdent.Span.Start, pv.KeywordOrIdent));
+      pendingVisibility = null;
+    }
+    if (staticKeyword is { } st) {
+      modifiers.Add((st.Span.Start, st));
+      staticKeyword = null;
+    }
+    if (mutKeyword is { } mk) {
+      modifiers.Add((mk.Span.Start, mk));
+      mutKeyword = null;
+      mutTokenIndex = -1;
+    }
+
+    modifiers.Sort(static (a, b) => a.Start.CompareTo(b.Start));
+    foreach ((_, Token tok) in modifiers) {
+      errTokens.Add(tok);
+    }
+
+    if (errTokens.Count > 0) {
+      _nextId = beforeMemberId;
+      members.Add(MakeErrorMemberFromTokens(errTokens.ToImmutable()));
+      beforeMemberId = _nextId;
+    }
   }
 
   private InterfaceDeclarationSyntax ParseInterfaceDeclaration(
@@ -675,6 +827,12 @@ public sealed partial class Parser {
           }
 
           int startPos = _pos;
+          if (Current.Kind == TokenKind.Error) {
+            members.Add(ConsumeErrorTokensAsMember());
+            continue;
+          }
+
+          Token? mutKeyword = Current.Kind == TokenKind.MutKeyword ? Consume() : null;
           if (Current.Kind == TokenKind.FnKeyword) {
             Token fnKeyword = Consume();
             Token methodName = ExpectIdentifier();
@@ -684,28 +842,36 @@ public sealed partial class Parser {
                 && CanStartType(Current, disallowNewlineBeforeBracket: true)
                 ? ParseType()
                 : null;
+            int startOffset = mutKeyword?.Span.Start ?? fnKeyword.Span.Start;
             int endOffset = returnType?.Span.End
                 ?? closeParen?.Span.End
                 ?? methodName.Span.End;
             members.Add(new InterfaceMethodSyntax(
                 NextId(),
-                SourceSpan.FromBounds(fnKeyword.Span.Start, endOffset),
+                SourceSpan.FromBounds(startOffset, endOffset),
                 fnKeyword,
                 methodName,
                 openParen,
                 parameters,
                 closeParen,
-                returnType));
+                returnType,
+                mutKeyword));
           } else if (Current.Kind == TokenKind.Identifier) {
             Token propName = Consume();
             TypeSyntax propType = ParseType();
+            int startOffset = mutKeyword?.Span.Start ?? propName.Span.Start;
             members.Add(new InterfacePropertySyntax(
                 NextId(),
-                SourceSpan.FromBounds(propName.Span.Start, propType.Span.End),
+                SourceSpan.FromBounds(startOffset, propType.Span.End),
                 propName,
-                propType));
-          } else if (Current.Kind == TokenKind.Error) {
-            members.Add(ConsumeErrorTokensAsMember());
+                propType,
+                mutKeyword));
+          } else if (mutKeyword is { } mk) {
+            ReportError(
+                DiagnosticCodes.ExpectedStatement,
+                Current.Span,
+                $"Expected property or method signature after 'mut' in interface body, found {DescribeToken(Current)}.");
+            members.Add(new ErrorMemberSyntax(NextId(), mk.Span, [mk]));
           } else {
             ReportError(
                 DiagnosticCodes.ExpectedStatement,
@@ -1109,7 +1275,7 @@ public sealed partial class Parser {
         break;
       }
 
-      if (Current.Kind is TokenKind.FnKeyword or TokenKind.StaticKeyword or TokenKind.PubKeyword
+      if (Current.Kind is TokenKind.FnKeyword or TokenKind.StaticKeyword or TokenKind.MutKeyword or TokenKind.PubKeyword
           || IsAdjacentDoubleAt()
           || IsDeprecatedPubTestingStart()
           || (Current.Kind == TokenKind.At && IsIdentifierText(Peek(1), "generic"))) {

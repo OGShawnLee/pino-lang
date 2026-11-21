@@ -313,8 +313,6 @@ public sealed class CheckerTypeAndOperatorTests {
     Compilation compilation = Compile("""
       val ok = true and not false or 1 < 2
       val same = "a" == "a"
-      val ident = 1 === 1
-      val nope = 1 !== 2
       val in_vec = 2 in [1, 2, 3]
       val not_in_map = "k" not in map[string, int] { "a" -> 1 }
       val in_set = 1 in set[int] { 1 }
@@ -333,7 +331,7 @@ public sealed class CheckerTypeAndOperatorTests {
     Assert.Equal(7, errors.Length);
     Assert.All(errors, static d => Assert.Equal(DiagnosticCodes.InvalidOperatorOperands, d.Code));
 
-    foreach (string name in new[] { "ok", "same", "ident", "nope", "in_vec", "not_in_map", "in_set", "in_str", "in_float_vec" }) {
+    foreach (string name in new[] { "ok", "same", "in_vec", "not_in_map", "in_set", "in_str", "in_float_vec" }) {
       Assert.Same(compilation.Types.Bool, Local(compilation, name).Type);
     }
 

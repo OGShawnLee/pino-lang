@@ -438,13 +438,13 @@ internal sealed partial class CheckerSession {
       Scope scope,
       StructSymbol? staticMethodEnclosingStruct,
       string? staticMethodName) {
-    var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(fnType.ParameterTypes.Length);
+    var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(fnType.Parameters.Length);
     bool anyError = false;
 
-    foreach (TypeSyntax paramSyntax in fnType.ParameterTypes) {
+    foreach (FunctionTypeParameterSyntax paramSyntax in fnType.Parameters) {
       TypeSymbol pt = ResolveType(
           state,
-          paramSyntax,
+          paramSyntax.Type,
           scope,
           TypePosition.ParameterType,
           staticMethodEnclosingStruct,

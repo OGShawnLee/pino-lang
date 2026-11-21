@@ -60,6 +60,8 @@ public static class DiagnosticCodes {
   public const string ExpectedBlockBody = "PN2019";
   public const string MaxNestingDepthExceeded = "PN2020";
   public const string DeprecatedVisibilitySyntax = "PN2021";
+  public const string InvalidMutModifierPlacement = "PN2022";
+  public const string RemovedIdentityOperator = "PN2023";
 
   // -------------------------------------------------------------------------
   // PN3xxx — Checker

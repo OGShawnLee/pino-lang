@@ -103,26 +103,40 @@ public sealed record SetTypeSyntax(
   }
 }
 
+public sealed record FunctionTypeParameterSyntax(
+    int Id,
+    SourceSpan Span,
+    Token? MutKeyword,
+    TypeSyntax Type,
+    Token? CommaToken = null) : SyntaxNode(Id, Span) {
+  public override IEnumerable<SyntaxElement> GetChildren() {
+    if (MutKeyword is { } mut) {
+      yield return mut;
+    }
+    yield return Type;
+    if (CommaToken is { } comma) {
+      yield return comma;
+    }
+  }
+}
+
 public sealed record FunctionTypeSyntax(
     int Id,
     SourceSpan Span,
     Token FnKeyword,
     Token? OpenParenToken,
-    ImmutableArray<TypeSyntax> ParameterTypes,
+    ImmutableArray<FunctionTypeParameterSyntax> Parameters,
     Token? CloseParenToken,
     Token? ArrowToken,
     TypeSyntax? ReturnType,
-    ImmutableArray<Token> CommaTokens = default,
     Token? SecondaryArrowToken = null) : TypeSyntax(Id, Span) {
-  public ImmutableArray<Token> CommaTokens { get; init; } = CommaTokens.IsDefault ? [] : CommaTokens;
-
   public override IEnumerable<SyntaxElement> GetChildren() {
     yield return FnKeyword;
     if (OpenParenToken is { } openParen) {
       yield return openParen;
     }
-    foreach (SyntaxElement item in InterleaveBySpan(ParameterTypes, CommaTokens)) {
-      yield return item;
+    foreach (FunctionTypeParameterSyntax parameter in Parameters) {
+      yield return parameter;
     }
     if (CloseParenToken is { } closeParen) {
       yield return closeParen;

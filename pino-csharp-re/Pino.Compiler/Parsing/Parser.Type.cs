@@ -197,8 +197,7 @@ public sealed partial class Parser {
     Token fnKeyword = Consume();
     Token? openParen = null;
     Token? closeParen = null;
-    var paramTypes = ImmutableArray.CreateBuilder<TypeSyntax>();
-    var commas = ImmutableArray.CreateBuilder<Token>();
+    var parameters = ImmutableArray.CreateBuilder<FunctionTypeParameterSyntax>();
 
     if (Current.Kind == TokenKind.OpenParen) {
       openParen = Consume();
@@ -216,23 +215,29 @@ public sealed partial class Parser {
               DiagnosticCodes.UnexpectedComma,
               leadingComma.Span,
               "Unexpected ',' before parameter type.");
-          commas.Add(leadingComma);
+          var missingType = new MissingTypeSyntax(NextId(), new SourceSpan(leadingComma.Span.Start, 0));
+          parameters.Add(new FunctionTypeParameterSyntax(
+              NextId(),
+              leadingComma.Span,
+              MutKeyword: null,
+              missingType,
+              leadingComma));
           continue;
         }
 
+        Token? mutKeyword = Current.Kind == TokenKind.MutKeyword ? Consume() : null;
         int beforeParamId = _nextId;
         TypeSyntax paramType = ParseType();
-        if (paramType is MissingTypeSyntax && _pos == startPos) {
+        if (mutKeyword is null && paramType is MissingTypeSyntax && _pos == startPos) {
           _nextId = beforeParamId;
           break;
         }
 
-        paramTypes.Add(paramType);
-
+        Token? commaToken = null;
         if (Current.Kind == TokenKind.Comma) {
           int commaIndex = _pos;
           Token comma = Consume();
-          commas.Add(comma);
+          commaToken = comma;
           if (Current.Kind == TokenKind.CloseParen) {
             ReportErrorAt(
                 commaIndex,
@@ -240,16 +245,32 @@ public sealed partial class Parser {
                 comma.Span,
                 "Trailing comma is not allowed.",
                 help: "Remove the trailing ','.");
-            break;
-          }
-
-          if (Current.Kind == TokenKind.Comma) {
+          } else if (Current.Kind == TokenKind.Comma) {
             ReportErrorAt(
                 _pos,
                 DiagnosticCodes.UnexpectedComma,
                 Current.Span,
                 "Expected type before consecutive ','.");
           }
+        }
+
+        int paramStart = mutKeyword?.Span.Start ?? paramType.Span.Start;
+        int paramEnd = commaToken is { } c
+            ? c.Span.End
+            : Math.Max(paramType.Span.End, mutKeyword?.Span.End ?? 0);
+        parameters.Add(new FunctionTypeParameterSyntax(
+            NextId(),
+            SourceSpan.FromBounds(paramStart, paramEnd),
+            mutKeyword,
+            paramType,
+            commaToken));
+
+        if (commaToken is { } && Current.Kind == TokenKind.CloseParen) {
+          break;
+        }
+
+        if (_pos == startPos) {
+          break;
         }
       }
 
@@ -278,11 +299,10 @@ public sealed partial class Parser {
         SourceSpan.FromBounds(fnKeyword.Span.Start, endOffset),
         fnKeyword,
         openParen,
-        paramTypes.ToImmutable(),
+        parameters.ToImmutable(),
         closeParen,
         arrowToken,
         returnType,
-        commas.ToImmutable(),
         secondaryArrow);
   }
 

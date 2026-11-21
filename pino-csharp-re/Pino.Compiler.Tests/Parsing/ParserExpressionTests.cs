@@ -40,7 +40,7 @@ public sealed class ParserExpressionTests {
   [InlineData("a += b -= 1", "(AssignmentExpression (IdentifierExpression a) += (AssignmentExpression (IdentifierExpression b) -= (LiteralExpression 1)))")]
   [InlineData("a or b or c", "(BinaryExpression (BinaryExpression (IdentifierExpression a) or (IdentifierExpression b)) or (IdentifierExpression c))")]
   [InlineData("a and b and c", "(BinaryExpression (BinaryExpression (IdentifierExpression a) and (IdentifierExpression b)) and (IdentifierExpression c))")]
-  [InlineData("a == b != c === d !== e", "(BinaryExpression (BinaryExpression (BinaryExpression (BinaryExpression (IdentifierExpression a) == (IdentifierExpression b)) != (IdentifierExpression c)) === (IdentifierExpression d)) !== (IdentifierExpression e))")]
+  [InlineData("a == b != c == d != e", "(BinaryExpression (BinaryExpression (BinaryExpression (BinaryExpression (IdentifierExpression a) == (IdentifierExpression b)) != (IdentifierExpression c)) == (IdentifierExpression d)) != (IdentifierExpression e))")]
   [InlineData("a < b <= c > d >= e", "(BinaryExpression (BinaryExpression (BinaryExpression (BinaryExpression (IdentifierExpression a) < (IdentifierExpression b)) <= (IdentifierExpression c)) > (IdentifierExpression d)) >= (IdentifierExpression e))")]
   [InlineData("a + b - c", "(BinaryExpression (BinaryExpression (IdentifierExpression a) + (IdentifierExpression b)) - (IdentifierExpression c))")]
   [InlineData("a * b / c % d", "(BinaryExpression (BinaryExpression (BinaryExpression (IdentifierExpression a) * (IdentifierExpression b)) / (IdentifierExpression c)) % (IdentifierExpression d))")]

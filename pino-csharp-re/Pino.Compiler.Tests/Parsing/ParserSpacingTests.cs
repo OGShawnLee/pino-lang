@@ -176,6 +176,6 @@ public sealed class ParserSpacingTests {
     Assert.Equal(DiagnosticCodes.DeprecatedFatArrow, diag.Code);
     Assert.Equal("=>", result.Lex.Source.AsSpan(diag.Span).ToString());
     Assert.Equal("replace '=>' with '->'", diag.Help);
-    Assert.Equal("(FunctionType (NamedType int) = > (NamedType string))", SyntaxPrinter.Print(result.Node, result.Lex.Source));
+    Assert.Equal("(FunctionType (FunctionTypeParameter (NamedType int)) = > (NamedType string))", SyntaxPrinter.Print(result.Node, result.Lex.Source));
   }
 }

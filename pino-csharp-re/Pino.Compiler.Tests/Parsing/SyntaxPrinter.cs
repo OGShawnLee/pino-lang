@@ -52,6 +52,7 @@ internal static class SyntaxPrinter {
           or TokenKind.Not
           or TokenKind.InKeyword
           or TokenKind.IsKeyword
+          or TokenKind.MutKeyword
           or TokenKind.PubKeyword
           or TokenKind.StaticKeyword
           or TokenKind.ValKeyword
@@ -75,8 +76,6 @@ internal static class SyntaxPrinter {
           or TokenKind.GreaterEqual
           or TokenKind.EqualEqual
           or TokenKind.BangEqual
-          or TokenKind.EqualEqualEqual
-          or TokenKind.BangEqualEqual
           or TokenKind.Colon
           or TokenKind.ColonColon
           or TokenKind.Arrow

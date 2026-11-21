@@ -47,6 +47,7 @@ public static class Lexer {
     ["for"] = TokenKind.ForKeyword,
     ["match"] = TokenKind.MatchKeyword,
     ["module"] = TokenKind.ModuleKeyword,
+    ["mut"] = TokenKind.MutKeyword,
     ["pub"] = TokenKind.PubKeyword,
     ["return"] = TokenKind.ReturnKeyword,
     ["static"] = TokenKind.StaticKeyword,
@@ -310,16 +311,11 @@ public static class Lexer {
 
           return;
         case '=':
-          if (Peek(1) == '=') {
-            Multi(Peek(2) == '=' ? 3 : 2, Peek(2) == '=' ? TokenKind.EqualEqualEqual : TokenKind.EqualEqual);
-          } else {
-            Single(TokenKind.Assign);
-          }
-
+          WithOptionalEquals(TokenKind.Assign, TokenKind.EqualEqual);
           return;
         case '!':
           if (Peek(1) == '=') {
-            Multi(Peek(2) == '=' ? 3 : 2, Peek(2) == '=' ? TokenKind.BangEqualEqual : TokenKind.BangEqual);
+            Multi(2, TokenKind.BangEqual);
           } else {
             ScanUnexpected();
           }

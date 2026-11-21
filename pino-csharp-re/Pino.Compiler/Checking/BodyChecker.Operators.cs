@@ -75,8 +75,6 @@ internal sealed partial class BodyChecker {
 
       case TokenKind.EqualEqual:
       case TokenKind.BangEqual:
-      case TokenKind.EqualEqualEqual:
-      case TokenKind.BangEqualEqual:
         return CheckEquality(binary, left, right);
 
       case TokenKind.Less:
@@ -292,8 +290,6 @@ internal sealed partial class BodyChecker {
   private static string OperatorText(BinaryExpressionSyntax binary) => binary.OperatorToken.Kind switch {
     TokenKind.EqualEqual => "==",
     TokenKind.BangEqual => "!=",
-    TokenKind.EqualEqualEqual => "===",
-    TokenKind.BangEqualEqual => "!==",
     TokenKind.Less => "<",
     TokenKind.LessEqual => "<=",
     TokenKind.Greater => ">",

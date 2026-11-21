@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Lexing;
@@ -128,14 +129,17 @@ public sealed partial class Parser {
           break;
         }
 
+        int binaryIndex = _pos;
         Token binaryOp = Consume();
+        Token? secondaryOp = TryConsumeRemovedIdentityAssign(binaryIndex, binaryOp);
         ExpressionSyntax rhs = ParseExpression(infixBP + 1, context);
         left = new BinaryExpressionSyntax(
             NextId(),
-            SourceSpan.FromBounds(left.Span.Start, rhs.Span.End),
+            SourceSpan.FromBounds(left.Span.Start, Math.Max(rhs.Span.End, (secondaryOp ?? binaryOp).Span.End)),
             left,
             binaryOp,
-            rhs);
+            rhs,
+            secondaryOp);
       }
 
       return left;
@@ -555,9 +559,10 @@ public sealed partial class Parser {
         continue;
       }
 
+      Token? mutKeyword = Current.Kind == TokenKind.MutKeyword ? Consume() : null;
       int beforeExprId = _nextId;
       ExpressionSyntax argExpr = ParseExpression(0, ExprContext.AllowBraceLiteral | ExprContext.InCommaOptionalList);
-      if (argExpr is MissingExpressionSyntax && _pos == startPos) {
+      if (mutKeyword is null && argExpr is MissingExpressionSyntax && _pos == startPos) {
         _nextId = beforeExprId;
         if (IsStatementSyncToken(Current.Kind) || IsCloserOrEOF(Current.Kind)) {
           break;
@@ -588,12 +593,16 @@ public sealed partial class Parser {
         }
       }
 
-      int endOffset = commaToken is { } c ? c.Span.End : argExpr.Span.End;
+      int startOffset = mutKeyword?.Span.Start ?? argExpr.Span.Start;
+      int endOffset = commaToken is { } c
+          ? c.Span.End
+          : Math.Max(argExpr.Span.End, mutKeyword?.Span.End ?? 0);
       args.Add(new ArgumentSyntax(
           NextId(),
-          SourceSpan.FromBounds(argExpr.Span.Start, endOffset),
+          SourceSpan.FromBounds(startOffset, endOffset),
           argExpr,
-          commaToken));
+          commaToken,
+          mutKeyword));
 
       if (commaToken is { } && Current.Kind == TokenKind.CloseParen) {
         break;
@@ -1380,11 +1389,26 @@ public sealed partial class Parser {
         continue;
       }
 
+      Token? mutKeyword = Current.Kind == TokenKind.MutKeyword ? Consume() : null;
       if (Current.Kind != TokenKind.Identifier) {
         ReportError(
             DiagnosticCodes.ExpectedIdentifier,
             Current.Span,
             $"Expected parameter name, found {DescribeToken(Current)}.");
+        if (mutKeyword is { } mk) {
+          Token missingName = MissingTokenAt(TokenKind.Identifier, mk.Span.End);
+          parameters.Add(new ParameterSyntax(
+              NextId(),
+              mk.Span,
+              missingName,
+              null,
+              null,
+              null,
+              null,
+              mk));
+          continue;
+        }
+
         break;
       }
 
@@ -1416,6 +1440,7 @@ public sealed partial class Parser {
         }
       }
 
+      int startOffset = (mutKeyword ?? paramName).Span.Start;
       int endOffset = commaToken is { } c
           ? c.Span.End
           : paramType is not null
@@ -1423,12 +1448,13 @@ public sealed partial class Parser {
               : paramName.Span.End;
       parameters.Add(new ParameterSyntax(
           NextId(),
-          SourceSpan.FromBounds(paramName.Span.Start, endOffset),
+          SourceSpan.FromBounds(startOffset, endOffset),
           paramName,
           paramType,
           null,
           null,
-          commaToken));
+          commaToken,
+          mutKeyword));
 
       if (commaToken is { } && Current.Kind == TokenKind.CloseParen) {
         break;
@@ -1839,6 +1865,30 @@ public sealed partial class Parser {
         skipped.ToImmutable());
   }
 
+  [MethodImpl(MethodImplOptions.NoInlining)]
+  private Token? TryConsumeRemovedIdentityAssign(int binaryIndex, Token binaryOp) {
+    if (binaryOp.Kind is not (TokenKind.EqualEqual or TokenKind.BangEqual)
+        || Current.Kind != TokenKind.Assign
+        || HasLeadingSpace(Current)
+        || binaryOp.Span.End != Current.Span.Start) {
+      return null;
+    }
+
+    Token secondary = Consume();
+    bool isEqual = binaryOp.Kind == TokenKind.EqualEqual;
+    ReportErrorAt(
+        binaryIndex,
+        DiagnosticCodes.RemovedIdentityOperator,
+        SourceSpan.FromBounds(binaryOp.Span.Start, secondary.Span.End),
+        isEqual
+            ? "Identity operator '===' has been removed; use '=='."
+            : "Identity operator '!==' has been removed; use '!='.",
+        help: isEqual
+            ? "replace '===' with '=='"
+            : "replace '!==' with '!='");
+    return secondary;
+  }
+
   private static bool IsAssignmentOperator(TokenKind kind) =>
       kind is TokenKind.Assign
           or TokenKind.PlusAssign
@@ -1852,7 +1902,7 @@ public sealed partial class Parser {
       kind switch {
         TokenKind.Or => 20,
         TokenKind.And => 30,
-        TokenKind.EqualEqual or TokenKind.BangEqual or TokenKind.EqualEqualEqual or TokenKind.BangEqualEqual => 40,
+        TokenKind.EqualEqual or TokenKind.BangEqual => 40,
         TokenKind.Less or TokenKind.LessEqual or TokenKind.Greater or TokenKind.GreaterEqual or TokenKind.InKeyword => 50,
         TokenKind.Plus or TokenKind.Minus => 60,
         TokenKind.Star or TokenKind.Slash or TokenKind.SlashSlash or TokenKind.Percent => 70,

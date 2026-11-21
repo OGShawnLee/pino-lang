@@ -453,9 +453,9 @@ internal sealed partial class BodyChecker {
           return r == 0 || (l == long.MinValue && r == -1) ? null : ConstantValue.FromInt(FloorDiv(l, r));
         case TokenKind.Percent:
           return r == 0 || (l == long.MinValue && r == -1) ? null : ConstantValue.FromInt(FloorMod(l, r));
-        case TokenKind.EqualEqual or TokenKind.EqualEqualEqual:
+        case TokenKind.EqualEqual:
           return ConstantValue.FromBool(l == r);
-        case TokenKind.BangEqual or TokenKind.BangEqualEqual:
+        case TokenKind.BangEqual:
           return ConstantValue.FromBool(l != r);
         case TokenKind.Less:
           return ConstantValue.FromBool(l < r);
@@ -485,9 +485,9 @@ internal sealed partial class BodyChecker {
           return rd == 0.0 ? null : ConstantValue.FromFloat(Math.Floor(ld / rd));
         case TokenKind.Percent:
           return rd == 0.0 ? null : ConstantValue.FromFloat(ld - (Math.Floor(ld / rd) * rd));
-        case TokenKind.EqualEqual or TokenKind.EqualEqualEqual:
+        case TokenKind.EqualEqual:
           return ConstantValue.FromBool(ld == rd);
-        case TokenKind.BangEqual or TokenKind.BangEqualEqual:
+        case TokenKind.BangEqual:
           return ConstantValue.FromBool(ld != rd);
         case TokenKind.Less:
           return ConstantValue.FromBool(ld < rd);

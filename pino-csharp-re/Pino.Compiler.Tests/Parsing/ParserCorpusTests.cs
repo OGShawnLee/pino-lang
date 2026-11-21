@@ -79,8 +79,9 @@ public sealed class ParserCorpusTests(ITestOutputHelper output) {
             "Uses legacy '=>' match arms instead of '->' (D-100).",
             DiagnosticCodes.DeprecatedFatArrow),
         ["projects/pino-compiler/test/reference_equality_test.pino"] = Allow(
-            "Uses legacy map ':' entries instead of '->' (MAP-E4).",
-            DiagnosticCodes.ExpectedIdentifier),
+            "Uses legacy map ':' entries instead of '->' (MAP-E4) and removed '==='/'!==' operators (D-178).",
+            DiagnosticCodes.ExpectedIdentifier,
+            DiagnosticCodes.RemovedIdentityOperator),
         ["projects/pino-compiler/test/str_conversion_test.pino"] = Allow(
             "Uses legacy map ':' entries instead of '->' (MAP-E4).",
             DiagnosticCodes.ExpectedToken,

@@ -34,6 +34,7 @@ public sealed class LexerCoreTests {
         { "for", TokenKind.ForKeyword },
         { "match", TokenKind.MatchKeyword },
         { "module", TokenKind.ModuleKeyword },
+        { "mut", TokenKind.MutKeyword },
         { "pub", TokenKind.PubKeyword },
         { "return", TokenKind.ReturnKeyword },
         { "static", TokenKind.StaticKeyword },
@@ -135,8 +136,6 @@ public sealed class LexerCoreTests {
         { ">=", TokenKind.GreaterEqual },
         { "==", TokenKind.EqualEqual },
         { "!=", TokenKind.BangEqual },
-        { "===", TokenKind.EqualEqualEqual },
-        { "!==", TokenKind.BangEqualEqual },
         { ":", TokenKind.Colon },
         { "::", TokenKind.ColonColon },
         { "->", TokenKind.Arrow },
@@ -167,11 +166,11 @@ public sealed class LexerCoreTests {
   [Fact]
   public void OperatorsUseMaximalMunch() {
     Assert.Equal(
-        [TokenKind.EqualEqualEqual, TokenKind.Assign, TokenKind.EqualEqual, TokenKind.Arrow, TokenKind.ColonColon, TokenKind.Colon],
+        [TokenKind.EqualEqual, TokenKind.Assign, TokenKind.Assign, TokenKind.EqualEqual, TokenKind.Arrow, TokenKind.ColonColon, TokenKind.Colon],
         KindsWithoutEOF("=== = == -> :: :"));
-    Assert.Equal([TokenKind.EqualEqualEqual, TokenKind.Assign], KindsWithoutEOF("===="));
+    Assert.Equal([TokenKind.EqualEqual, TokenKind.EqualEqual], KindsWithoutEOF("===="));
     Assert.Equal([TokenKind.EqualEqual, TokenKind.Assign], KindsWithoutEOF("==\t="));
-    Assert.Equal([TokenKind.BangEqualEqual, TokenKind.BangEqual], KindsWithoutEOF("!== !="));
+    Assert.Equal([TokenKind.BangEqual, TokenKind.Assign, TokenKind.BangEqual], KindsWithoutEOF("!== !="));
   }
 
   [Fact]

@@ -28,9 +28,10 @@ public sealed class LexerParityTests {
   [Fact]
   public void IdentifiersAndKeywords() {
     AssertWords(
-      "var val fn if else match when for struct enum break continue return identifier_name",
+      "var val mut fn if else match when for struct enum break continue return identifier_name",
       TokenKind.VarKeyword,
       TokenKind.ValKeyword,
+      TokenKind.MutKeyword,
       TokenKind.FnKeyword,
       TokenKind.IfKeyword,
       TokenKind.ElseKeyword,

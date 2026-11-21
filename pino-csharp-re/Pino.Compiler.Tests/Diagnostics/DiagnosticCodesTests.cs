@@ -49,6 +49,12 @@ public sealed class DiagnosticCodesTests {
   }
 
   [Fact]
+  public void ParserCodesPN2022AndPN2023_MutAndRemovedIdentityOps_Exist() {
+    Assert.Equal("PN2022", DiagnosticCodes.InvalidMutModifierPlacement);
+    Assert.Equal("PN2023", DiagnosticCodes.RemovedIdentityOperator);
+  }
+
+  [Fact]
   public void CheckerCodesPN3xxx_ExistWithExpectedNames() {
     var expected = new (string Name, string Code)[] {
       (nameof(DiagnosticCodes.UndeclaredIdentifier), "PN3001"),

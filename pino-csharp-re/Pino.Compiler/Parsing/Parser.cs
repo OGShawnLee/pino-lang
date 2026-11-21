@@ -523,6 +523,7 @@ public sealed partial class Parser {
           or TokenKind.ForKeyword
           or TokenKind.MatchKeyword
           or TokenKind.ModuleKeyword
+          or TokenKind.MutKeyword
           or TokenKind.PubKeyword
           or TokenKind.ReturnKeyword
           or TokenKind.StaticKeyword

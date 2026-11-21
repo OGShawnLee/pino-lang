@@ -182,8 +182,12 @@ public sealed record ArgumentSyntax(
     int Id,
     SourceSpan Span,
     ExpressionSyntax Expression,
-    Token? CommaToken = null) : SyntaxNode(Id, Span) {
+    Token? CommaToken = null,
+    Token? MutKeyword = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
+    if (MutKeyword is { } mut) {
+      yield return mut;
+    }
     yield return Expression;
     if (CommaToken is { } comma) {
       yield return comma;

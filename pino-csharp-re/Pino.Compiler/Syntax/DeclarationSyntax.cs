@@ -74,8 +74,12 @@ public sealed record ParameterSyntax(
     TypeSyntax? Type,
     Token? EqualsToken,
     ExpressionSyntax? DefaultValue,
-    Token? CommaToken = null) : SyntaxNode(Id, Span) {
+    Token? CommaToken = null,
+    Token? MutKeyword = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
+    if (MutKeyword is { } mut) {
+      yield return mut;
+    }
     yield return NameToken;
     if (Type is not null) {
       yield return Type;
@@ -189,10 +193,24 @@ public sealed record FieldDeclarationSyntax(
     SourceSpan Span,
     VisibilitySyntax? Visibility,
     Token NameToken,
-    TypeSyntax Type) : SyntaxNode(Id, Span) {
+    TypeSyntax Type,
+    Token? MutKeyword = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
-    if (Visibility is not null) {
-      yield return Visibility;
+    if (Visibility is not null && MutKeyword is { } mut) {
+      if (mut.Span.Start < Visibility.Span.Start) {
+        yield return mut;
+        yield return Visibility;
+      } else {
+        yield return Visibility;
+        yield return mut;
+      }
+    } else {
+      if (Visibility is not null) {
+        yield return Visibility;
+      }
+      if (MutKeyword is { } mutOnly) {
+        yield return mutOnly;
+      }
     }
     yield return NameToken;
     yield return Type;
@@ -222,16 +240,14 @@ public sealed record MethodDeclarationSyntax(
     TypeSyntax? ReturnType,
     BlockStatementSyntax Body,
     Token? ArrowToken = null,
-    Token? SecondaryArrowToken = null) : SyntaxNode(Id, Span) {
+    Token? SecondaryArrowToken = null,
+    Token? MutKeyword = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
     if (GenericDecorator is not null) {
       yield return GenericDecorator;
     }
-    if (Visibility is not null) {
-      yield return Visibility;
-    }
-    if (StaticKeyword is { } staticKeyword) {
-      yield return staticKeyword;
+    foreach (SyntaxElement modifier in ModifierOrdering.YieldByStart(Visibility, StaticKeyword, MutKeyword)) {
+      yield return modifier;
     }
     yield return FnKeyword;
     yield return NameToken;
@@ -292,8 +308,12 @@ public sealed record InterfacePropertySyntax(
     int Id,
     SourceSpan Span,
     Token NameToken,
-    TypeSyntax Type) : SyntaxNode(Id, Span) {
+    TypeSyntax Type,
+    Token? MutKeyword = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
+    if (MutKeyword is { } mut) {
+      yield return mut;
+    }
     yield return NameToken;
     yield return Type;
   }
@@ -307,8 +327,12 @@ public sealed record InterfaceMethodSyntax(
     Token? OpenParenToken,
     ImmutableArray<ParameterSyntax> Parameters,
     Token? CloseParenToken,
-    TypeSyntax? ReturnType) : SyntaxNode(Id, Span) {
+    TypeSyntax? ReturnType,
+    Token? MutKeyword = null) : SyntaxNode(Id, Span) {
   public override IEnumerable<SyntaxElement> GetChildren() {
+    if (MutKeyword is { } mut) {
+      yield return mut;
+    }
     yield return FnKeyword;
     yield return NameToken;
     if (OpenParenToken is { } openParen) {
@@ -467,4 +491,52 @@ public sealed record ErrorMemberSyntax(
       yield return token;
     }
   }
+}
+
+internal static class ModifierOrdering {
+  public static IEnumerable<SyntaxElement> YieldByStart(
+      SyntaxNode? visibility,
+      Token? staticKeyword,
+      Token? mutKeyword) {
+    if (mutKeyword is null && staticKeyword is null) {
+      if (visibility is not null) {
+        yield return visibility;
+      }
+
+      yield break;
+    }
+
+    SyntaxElement? a = visibility is not null ? (SyntaxElement?) visibility : null;
+    SyntaxElement? b = staticKeyword is { } st ? (SyntaxElement?) st : null;
+    SyntaxElement? c = mutKeyword is { } mk ? (SyntaxElement?) mk : null;
+
+    if (StartKey(b) < StartKey(a)) {
+      (a, b) = (b, a);
+    }
+
+    if (StartKey(c) < StartKey(b)) {
+      (b, c) = (c, b);
+    }
+
+    if (StartKey(b) < StartKey(a)) {
+      (a, b) = (b, a);
+    }
+
+    if (a is { } first) {
+      yield return first;
+    }
+
+    if (b is { } second) {
+      yield return second;
+    }
+
+    if (c is { } third) {
+      yield return third;
+    }
+  }
+
+  private static int StartKey(SyntaxElement? element) =>
+      element is { } value
+          ? (value.IsNode ? value.AsNode().Span.Start : value.AsToken().Span.Start)
+          : int.MaxValue;
 }

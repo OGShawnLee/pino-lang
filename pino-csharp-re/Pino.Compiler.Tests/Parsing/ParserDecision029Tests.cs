@@ -63,7 +63,7 @@ public sealed class ParserDecision029Tests {
   [InlineData("val r Result[int, string] = f()", "(VariableDeclaration val r (GenericType (NamedType Result) (TypeArgumentList (NamedType int) (NamedType string))) = (CallExpression (IdentifierExpression f)))")]
   [InlineData("val xs []int = []", "(VariableDeclaration val xs (VectorType (NamedType int)) = (VectorLiteralExpression))")]
   [InlineData("val m map[string, int] = map[string, int]", "(VariableDeclaration val m (MapType map (NamedType string) (NamedType int)) = (MapLiteralExpression (MapType map (NamedType string) (NamedType int))))")]
-  [InlineData("val g fn (int) -> int = h", "(VariableDeclaration val g (FunctionType (NamedType int) -> (NamedType int)) = (IdentifierExpression h))")]
+  [InlineData("val g fn (int) -> int = h", "(VariableDeclaration val g (FunctionType (FunctionTypeParameter (NamedType int)) -> (NamedType int)) = (IdentifierExpression h))")]
   [InlineData("val u void = f()", "(VariableDeclaration val u (NamedType void) = (CallExpression (IdentifierExpression f)))")]
   [InlineData("pub val LIMIT int = 3", "(VariableDeclaration (Visibility pub) val LIMIT (NamedType int) = (LiteralExpression 3))")]
   public void VariableDeclaration_TakesAnOptionalTypeAfterTheName(string source, string expected) {
