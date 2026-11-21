@@ -1,0 +1,1245 @@
+using System.Collections.Immutable;
+
+using Pino.Compiler.Diagnostics;
+using Pino.Compiler.Lexing;
+using Pino.Compiler.Syntax;
+
+namespace Pino.Compiler.Checking;
+
+internal sealed partial class BodyChecker {
+  // ---------------------------------------------------------------------------------------------
+  // Calls (FN-1..19, FN-E1, FN-E9, D-055, D-057, STRUCT-12..14, UNION-2, UNION-E1, StdlibCatalog)
+  // ---------------------------------------------------------------------------------------------
+
+  private TypeSymbol SynthesizeCall(CallExpressionSyntax call, TypeSymbol? expectedType) {
+    if (TryCheckIndexedElementCall(call, out TypeSymbol indexedReturn)) {
+      return indexedReturn;
+    }
+
+    switch (call.Callee) {
+      case IdentifierExpressionSyntax identifier:
+        return CheckIdentifierCall(call, identifier, expectedType);
+
+      case MemberAccessExpressionSyntax member:
+        return CheckMemberCall(call, member, expectedType);
+
+      case StaticAccessExpressionSyntax staticAccess:
+        return CheckStaticCall(call, staticAccess, expectedType);
+
+      default: {
+          TypeSymbol calleeType = Synthesize(call.Callee);
+          if (IsSilent(calleeType)) {
+            SynthesizeCallArguments(call);
+            return _types.Error;
+          }
+
+          if (calleeType is FunctionType fnType) {
+            CheckFunctionTypeCall(call, fnType, CallKind.IndirectFunctionValue, targetSymbol: null, "value", "<callable>", hasImplicitSelf: false);
+            return fnType.ReturnType;
+          }
+
+          SynthesizeCallArguments(call);
+          Report(
+              DiagnosticCodes.NotCallable,
+              call.Callee.Span,
+              $"Cannot call value of non-function type '{calleeType.DisplayName}'.");
+          return _types.Error;
+        }
+    }
+  }
+
+  /// <summary>
+  /// D-055: <c>fns[i](9)</c> parses speculatively with <see cref="CallExpressionSyntax.TypeArguments"/>
+  /// of length 1 containing <see cref="NamedTypeSyntax"/>. When the callee is a non-generic
+  /// indexable value (<c>[]T</c> or <c>map[K, V]</c>), reinterpret it as an indexed element call.
+  /// </summary>
+  private bool TryCheckIndexedElementCall(CallExpressionSyntax call, out TypeSymbol resultType) {
+    if (call.TypeArguments is not { Arguments.Length: 1 } typeArgs
+        || typeArgs.Arguments[0] is not NamedTypeSyntax indexNameSyntax
+        || IsMissing(indexNameSyntax.NameToken)) {
+      resultType = _types.Error;
+      return false;
+    }
+
+    TypeSymbol? containerType = null;
+    Symbol? containerSymbol = null;
+
+    if (call.Callee is IdentifierExpressionSyntax id && !IsMissing(id.IdentifierToken)) {
+      string calleeName = NameOf(id.IdentifierToken);
+      if (_scope.TryLookup(calleeName, out Symbol? sym)
+          && sym is LocalSymbol or ParameterSymbol or FieldSymbol) {
+        containerSymbol = sym;
+        containerType = SymbolValueType(sym);
+        if (containerType is VectorType or MapType) {
+          _state.SetReferencedSymbol(id, sym);
+          _state.SetNodeType(id, containerType);
+        } else {
+          containerType = null;
+        }
+      }
+    } else if (call.Callee is MemberAccessExpressionSyntax member && !IsMissing(member.MemberToken)) {
+      TypeSymbol receiver = Synthesize(member.Target);
+      if (receiver is StructType st && FindStructField(st.Definition, NameOf(member.MemberToken)) is { } field) {
+        TypeSymbol fType = TypeSubstitution.Substitute(field.Type, st.Definition.TypeParameters, st.TypeArguments, _types);
+        if (fType is VectorType or MapType) {
+          if (!IsFieldVisibleInCurrentModule(field)) {
+            ReportPrivateField(member.Span, st.Definition.Name, field);
+          }
+          _state.SetReferencedSymbol(member, field);
+          _state.SetNodeType(member, fType);
+          containerSymbol = field;
+          containerType = fType;
+        }
+      }
+    }
+
+    if (containerType is null) {
+      resultType = _types.Error;
+      return false;
+    }
+
+    string idxName = NameOf(indexNameSyntax.NameToken);
+    Symbol? idxSymbol = null;
+    TypeSymbol idxType = _types.Error;
+    if (!_scope.TryLookup(idxName, out idxSymbol)) {
+      if (_tolerantNames == 0) {
+        Report(
+            DiagnosticCodes.UndeclaredIdentifier,
+            indexNameSyntax.Span,
+            $"Identifier '{idxName}' is not declared.");
+      }
+    } else {
+      _state.SetReferencedSymbol(indexNameSyntax, idxSymbol);
+      idxType = SymbolValueType(idxSymbol);
+      _state.SetNodeType(indexNameSyntax, idxType);
+    }
+
+    TypeSymbol elemType = _types.Error;
+    if (containerType is VectorType vec) {
+      if (!IsSilent(idxType) && !ReferenceEquals(idxType, _types.Int)) {
+        Report(
+            DiagnosticCodes.InvalidIndexOperation,
+            indexNameSyntax.Span,
+            $"Vector index must have type 'int', but got '{idxType.DisplayName}'.");
+      }
+      elemType = vec.ElementType;
+    } else if (containerType is MapType map) {
+      if (!IsSilent(idxType) && !TryConvert(indexNameSyntax, idxType, map.KeyType)) {
+        Report(
+            DiagnosticCodes.TypeMismatch,
+            indexNameSyntax.Span,
+            $"Cannot assign type '{idxType.DisplayName}' to map key of type '{map.KeyType.DisplayName}'.");
+      }
+      elemType = map.ValueType;
+    }
+
+    if (IsSilent(elemType)) {
+      SynthesizeCallArguments(call);
+      resultType = _types.Error;
+      return true;
+    }
+
+    if (elemType is FunctionType fnType) {
+      CheckFunctionTypeCall(
+          call,
+          fnType,
+          CallKind.IndexedElementCall,
+          containerSymbol,
+          "value",
+          containerSymbol?.Name ?? "<indexed>",
+          hasImplicitSelf: false,
+          indexSymbol: idxSymbol);
+      resultType = fnType.ReturnType;
+      return true;
+    }
+
+    SynthesizeCallArguments(call);
+    Report(
+        DiagnosticCodes.NotCallable,
+        call.Callee.Span,
+        $"Cannot call element of non-function type '{elemType.DisplayName}'.");
+    resultType = _types.Error;
+    return true;
+  }
+
+  private TypeSymbol CheckIdentifierCall(
+      CallExpressionSyntax call,
+      IdentifierExpressionSyntax identifier,
+      TypeSymbol? expectedType) {
+    if (IsMissing(identifier.IdentifierToken)) {
+      SynthesizeCallArguments(call);
+      return _types.Error;
+    }
+
+    string name = NameOf(identifier.IdentifierToken);
+    if (!_scope.TryLookup(name, out Symbol? symbol)) {
+      if (_isStaticMethod && _currentStruct is not null) {
+        if (_currentStruct.Methods.Any(m => !m.IsStatic && string.Equals(m.Name, name, StringComparison.Ordinal))) {
+          Report(
+              DiagnosticCodes.InvalidStaticOrInstanceAccess,
+              identifier.Span,
+              $"Cannot call instance method '{name}' from static method in struct '{_currentStruct.Name}'.");
+          SynthesizeCallArguments(call);
+          return _types.Error;
+        }
+
+        if (_currentStruct.AllFields.Any(f => string.Equals(f.Name, name, StringComparison.Ordinal))) {
+          Report(
+              DiagnosticCodes.InvalidStaticOrInstanceAccess,
+              identifier.Span,
+              $"Cannot access instance field '{name}' from static method in struct '{_currentStruct.Name}'.");
+          SynthesizeCallArguments(call);
+          return _types.Error;
+        }
+      }
+
+      if (_tolerantNames == 0) {
+        Report(
+            DiagnosticCodes.UndeclaredIdentifier,
+            identifier.Span,
+            $"Identifier '{name}' is not declared.");
+      }
+
+      SynthesizeCallArguments(call);
+      return _types.Error;
+    }
+
+    _state.SetReferencedSymbol(identifier, symbol);
+
+    switch (symbol) {
+      case FunctionSymbol fnSym when fnSym.Intrinsic is not null:
+        if (StdlibCatalog.TryGetGlobal(fnSym.Name, out IntrinsicDescriptor? globalDesc)) {
+          return CheckIntrinsicCall(call, globalDesc, receiverType: null, fnSym, expectedType);
+        }
+
+        SynthesizeCallArguments(call);
+        return _types.Error;
+
+      case FunctionSymbol fnSym:
+        return CheckDeclaredFunctionCall(call, fnSym, identifier);
+
+      case MethodSymbol methodSym: {
+          // D-075 / STRUCT-19: bare sibling method call inside an instance method.
+          ImmutableArray<TypeParameterSymbol> ownerParams = _currentStruct?.TypeParameters ?? [];
+          ImmutableArray<TypeSymbol> ownerArgs = [.. ownerParams.Select(static tp => (TypeSymbol) tp.Type)];
+          return CheckMethodCallCore(
+              call,
+              methodSym,
+              ownerParams,
+              ownerArgs,
+              identifier,
+              hasImplicitSelf: true);
+        }
+
+      case LocalSymbol or ParameterSymbol or FieldSymbol: {
+          TypeSymbol valType = SymbolValueType(symbol);
+          _state.SetNodeType(identifier, valType);
+          if (IsSilent(valType)) {
+            SynthesizeCallArguments(call);
+            return _types.Error;
+          }
+
+          if (valType is FunctionType fnType) {
+            CallKind kind = symbol is FieldSymbol ? CallKind.CallableField : CallKind.IndirectFunctionValue;
+            string descKind = symbol is FieldSymbol ? "callable field" : "function";
+            CheckFunctionTypeCall(
+                call,
+                fnType,
+                kind,
+                symbol,
+                descKind,
+                symbol.Name,
+                hasImplicitSelf: symbol is FieldSymbol);
+            return fnType.ReturnType;
+          }
+
+          SynthesizeCallArguments(call);
+          Report(
+              DiagnosticCodes.NotCallable,
+              call.Callee.Span,
+              $"Cannot call value '{name}' of non-function type '{valType.DisplayName}'.");
+          return _types.Error;
+        }
+
+      default:
+        SynthesizeCallArguments(call);
+        Report(
+            DiagnosticCodes.NotCallable,
+            call.Callee.Span,
+            $"'{symbol.Name}' is not callable.");
+        return _types.Error;
+    }
+  }
+
+  private TypeSymbol CheckMemberCall(
+      CallExpressionSyntax call,
+      MemberAccessExpressionSyntax member,
+      TypeSymbol? expectedType) {
+    TypeSymbol targetType = Synthesize(member.Target);
+    if (IsMissing(member.MemberToken) || IsSilent(targetType)) {
+      SynthesizeCallArguments(call);
+      return _types.Error;
+    }
+
+    string memberName = NameOf(member.MemberToken);
+
+    switch (targetType) {
+      case StructType structType: {
+          StructSymbol structSym = structType.Definition;
+          if (FindStructMethod(structSym, memberName) is { } method) {
+            if (method.IsStatic) {
+              SynthesizeCallArguments(call);
+              Report(
+                  DiagnosticCodes.InvalidStaticOrInstanceAccess,
+                  member.Span,
+                  $"Cannot call static method '{memberName}' of struct '{structSym.Name}' on an instance.");
+              return _types.Error;
+            }
+
+            _state.SetReferencedSymbol(member, method);
+            return CheckMethodCallCore(
+                call,
+                method,
+                structSym.TypeParameters,
+                structType.TypeArguments,
+                member,
+                hasImplicitSelf: false);
+          }
+
+          if (FindStructField(structSym, memberName) is { } field) {
+            if (!IsFieldVisibleInCurrentModule(field)) {
+              ReportPrivateField(member.Span, structSym.Name, field);
+            }
+
+            _state.SetReferencedSymbol(member, field);
+            TypeSymbol fieldType = TypeSubstitution.Substitute(
+                field.Type,
+                structSym.TypeParameters,
+                structType.TypeArguments,
+                _types);
+            _state.SetNodeType(member, fieldType);
+
+            if (IsSilent(fieldType)) {
+              SynthesizeCallArguments(call);
+              return _types.Error;
+            }
+
+            if (fieldType is FunctionType fnType) {
+              CheckFunctionTypeCall(
+                  call,
+                  fnType,
+                  CallKind.CallableField,
+                  field,
+                  "callable field",
+                  field.Name,
+                  hasImplicitSelf: false);
+              return fnType.ReturnType;
+            }
+
+            // STRUCT-E10
+            SynthesizeCallArguments(call);
+            Report(
+                DiagnosticCodes.UnknownMember,
+                member.MemberToken.Span,
+                $"Struct '{structSym.Name}' does not have method '{memberName}'.");
+            return _types.Error;
+          }
+
+          // STRUCT-E2
+          SynthesizeCallArguments(call);
+          Report(
+              DiagnosticCodes.UnknownMember,
+              member.MemberToken.Span,
+              $"Struct '{structSym.Name}' does not have method '{memberName}'.");
+          return _types.Error;
+        }
+
+      case InterfaceType ifaceType:
+        return CheckInterfaceMemberCall(call, member, ifaceType, memberName);
+
+      case TypeParameterType tpType:
+        if (tpType.Symbol.Constraint is { } constraint) {
+          return CheckInterfaceMemberCall(call, member, constraint, memberName);
+        }
+
+        SynthesizeCallArguments(call);
+        Report(
+            DiagnosticCodes.UnknownMember,
+            member.MemberToken.Span,
+            $"Struct '{tpType.DisplayName}' does not have field or instance method '{memberName}'.");
+        return _types.Error;
+
+      default:
+        if (StdlibCatalog.TryGetMember(targetType, memberName, out IntrinsicDescriptor? descriptor)) {
+          if (descriptor.IsProperty) {
+            SynthesizeCallArguments(call);
+            Report(
+                DiagnosticCodes.NotCallable,
+                member.Span,
+                $"Property '{memberName}' on type '{targetType.DisplayName}' is not callable.");
+            return _types.Error;
+          }
+
+          return CheckIntrinsicCall(call, descriptor, targetType, targetSymbol: null, expectedType);
+        }
+
+        SynthesizeCallArguments(call);
+        Report(
+            DiagnosticCodes.UnknownMember,
+            member.MemberToken.Span,
+            $"Type '{targetType.DisplayName}' does not have method '{memberName}'.");
+        return _types.Error;
+    }
+  }
+
+  private TypeSymbol CheckInterfaceMemberCall(
+      CallExpressionSyntax call,
+      MemberAccessExpressionSyntax member,
+      InterfaceType ifaceType,
+      string memberName) {
+    InterfaceSymbol ifaceSym = ifaceType.Definition;
+
+    if (FindInterfaceMethod(ifaceSym, memberName) is { } method) {
+      _state.SetReferencedSymbol(member, method);
+      return CheckMethodCallCore(
+          call,
+          method,
+          ifaceSym.TypeParameters,
+          ifaceType.TypeArguments,
+          member,
+          hasImplicitSelf: false);
+    }
+
+    if (FindInterfaceProperty(ifaceSym, memberName) is { } prop) {
+      TypeSymbol propType = TypeSubstitution.Substitute(
+          prop.Type,
+          ifaceSym.TypeParameters,
+          ifaceType.TypeArguments,
+          _types);
+      _state.SetNodeType(member, propType);
+
+      if (IsSilent(propType)) {
+        SynthesizeCallArguments(call);
+        return _types.Error;
+      }
+
+      if (propType is FunctionType fnType) {
+        CheckFunctionTypeCall(
+            call,
+            fnType,
+            CallKind.CallableField,
+            targetSymbol: null,
+            "callable field",
+            prop.Name,
+            hasImplicitSelf: false);
+        return fnType.ReturnType;
+      }
+    }
+
+    SynthesizeCallArguments(call);
+    Report(
+        DiagnosticCodes.UnknownMember,
+        member.MemberToken.Span,
+        $"Interface '{ifaceSym.Name}' does not have method or callable field '{memberName}'.");
+    return _types.Error;
+  }
+
+  private TypeSymbol CheckStaticCall(
+      CallExpressionSyntax call,
+      StaticAccessExpressionSyntax staticAccess,
+      TypeSymbol? expectedType) {
+    Symbol? targetSym = ResolveStaticTargetSymbol(staticAccess.Target, out _);
+    if (IsMissing(staticAccess.MemberToken) || targetSym is null) {
+      SynthesizeCallArguments(call);
+      return _types.Error;
+    }
+
+    string memberName = NameOf(staticAccess.MemberToken);
+
+    switch (targetSym) {
+      case ModuleSymbol module: {
+          Symbol? member = CheckerSession.FindModuleDeclaration(module, memberName);
+          if (member is null) {
+            SynthesizeCallArguments(call);
+            Report(
+                DiagnosticCodes.ModuleMemberNotFound,
+                staticAccess.MemberToken.Span,
+                $"Module '{module.Name}' does not define '{memberName}'.");
+            return _types.Error;
+          }
+
+          if (!IsModuleSymbolAccessible(module, member)) {
+            SynthesizeCallArguments(call);
+            Report(
+                DiagnosticCodes.SymbolNotPublic,
+                staticAccess.Span,
+                $"Function '{module.Name}::{memberName}' is private.");
+            return _types.Error;
+          }
+
+          _state.SetReferencedSymbol(staticAccess, member);
+          if (member is FunctionSymbol fnSym) {
+            return CheckDeclaredFunctionCall(call, fnSym, staticAccess);
+          }
+
+          SynthesizeCallArguments(call);
+          Report(
+              DiagnosticCodes.NotCallable,
+              staticAccess.Span,
+              $"'{module.Name}::{memberName}' is not callable.");
+          return _types.Error;
+        }
+
+      case StructSymbol structSym: {
+          if (FindStructMethod(structSym, memberName) is not { } method) {
+            SynthesizeCallArguments(call);
+            Report(
+                DiagnosticCodes.UnknownMember,
+                staticAccess.MemberToken.Span,
+                $"Struct '{structSym.Name}' does not have static method '{memberName}'.");
+            return _types.Error;
+          }
+
+          if (!method.IsStatic) {
+            SynthesizeCallArguments(call);
+            Report(
+                DiagnosticCodes.InvalidStaticOrInstanceAccess,
+                staticAccess.Span,
+                $"Method '{memberName}' of struct '{structSym.Name}' is not static.");
+            return _types.Error;
+          }
+
+          _state.SetReferencedSymbol(staticAccess, method);
+          ImmutableArray<TypeSymbol> ownerArgs = ResolveOptionalTypeArguments(
+              staticAccess.TargetTypeArguments,
+              structSym.TypeParameters,
+              structSym.Name,
+              staticAccess.Span);
+          ImmutableArray<TypeParameterSymbol> methodParams = method.TypeParameters;
+          ImmutableArray<TypeSymbol> methodArgs = ResolveOptionalTypeArguments(
+              call.TypeArguments,
+              methodParams,
+              method.Name,
+              call.Span);
+
+          ImmutableArray<TypeParameterSymbol> combinedParams = [.. structSym.TypeParameters, .. methodParams];
+          ImmutableArray<TypeSymbol> combinedArgs = [.. ownerArgs, .. methodArgs];
+
+          var expectedParamTypes = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
+          foreach (ParameterSymbol param in method.Parameters) {
+            expectedParamTypes.Add(TypeSubstitution.Substitute(param.Type, combinedParams, combinedArgs, _types));
+          }
+
+          TypeSymbol retType = TypeSubstitution.Substitute(method.ReturnType, combinedParams, combinedArgs, _types);
+          _state.SetNodeType(staticAccess, _types.GetFunction(expectedParamTypes.ToImmutable(), retType));
+          CheckCallArguments(call, expectedParamTypes, "static method", method.Name);
+          _state.CallResolutions[call.Id] = new CallResolution(CallKind.StaticMethod, TargetSymbol: method);
+          return retType;
+        }
+
+      case UnionSymbol unionSym:
+        return CheckUnionConstructorCall(call, staticAccess, unionSym, memberName, expectedType);
+
+      case EnumSymbol enumSym:
+        SynthesizeCallArguments(call);
+        Report(
+            DiagnosticCodes.NotCallable,
+            staticAccess.Span,
+            $"Enum '{enumSym.Name}' members are not callable.");
+        return _types.Error;
+
+      default:
+        SynthesizeCallArguments(call);
+        Report(
+            DiagnosticCodes.NotCallable,
+            staticAccess.Span,
+            $"'{targetSym.Name}' is not callable.");
+        return _types.Error;
+    }
+  }
+
+  private TypeSymbol CheckDeclaredFunctionCall(
+      CallExpressionSyntax call,
+      FunctionSymbol fnSym,
+      ExpressionSyntax calleeNode) {
+    ImmutableArray<TypeSymbol> typeArgs = [];
+    if (!fnSym.TypeParameters.IsEmpty) {
+      if (call.TypeArguments is null) {
+        // Unification of @@Generic calls without explicit type arguments lands in ticket 039.
+        SynthesizeCallArguments(call);
+        _state.CallResolutions[call.Id] = new CallResolution(CallKind.DirectFunction, TargetSymbol: fnSym);
+        return _types.Error;
+      }
+
+      typeArgs = ResolveOptionalTypeArguments(call.TypeArguments, fnSym.TypeParameters, fnSym.Name, call.Span);
+      if (typeArgs.Length != fnSym.TypeParameters.Length) {
+        SynthesizeCallArguments(call);
+        return _types.Error;
+      }
+    } else if (call.TypeArguments is not null) {
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          call.TypeArguments.Span,
+          $"Function '{fnSym.Name}' is not generic and does not accept type arguments.");
+    }
+
+    var expectedParams = ImmutableArray.CreateBuilder<TypeSymbol>(fnSym.Parameters.Length);
+    foreach (ParameterSymbol p in fnSym.Parameters) {
+      expectedParams.Add(
+          typeArgs.IsEmpty
+              ? p.Type
+              : TypeSubstitution.Substitute(p.Type, fnSym.TypeParameters, typeArgs, _types));
+    }
+
+    TypeSymbol retType = typeArgs.IsEmpty
+        ? fnSym.ReturnType
+        : TypeSubstitution.Substitute(fnSym.ReturnType, fnSym.TypeParameters, typeArgs, _types);
+
+    _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
+    CheckCallArguments(call, expectedParams, "function", fnSym.Name);
+    _state.CallResolutions[call.Id] = new CallResolution(CallKind.DirectFunction, TargetSymbol: fnSym);
+    return retType;
+  }
+
+  private TypeSymbol CheckMethodCallCore(
+      CallExpressionSyntax call,
+      MethodSymbol method,
+      ImmutableArray<TypeParameterSymbol> ownerTypeParams,
+      ImmutableArray<TypeSymbol> ownerTypeArgs,
+      ExpressionSyntax calleeNode,
+      bool hasImplicitSelf) {
+    ImmutableArray<TypeSymbol> methodArgs = [];
+    if (!method.TypeParameters.IsEmpty) {
+      if (call.TypeArguments is null) {
+        // Generic method unification lands in ticket 039.
+        SynthesizeCallArguments(call);
+        _state.CallResolutions[call.Id] = new CallResolution(
+            CallKind.InstanceMethod,
+            TargetSymbol: method,
+            HasImplicitSelf: hasImplicitSelf);
+        return _types.Error;
+      }
+
+      methodArgs = ResolveOptionalTypeArguments(call.TypeArguments, method.TypeParameters, method.Name, call.Span);
+      if (methodArgs.Length != method.TypeParameters.Length) {
+        SynthesizeCallArguments(call);
+        return _types.Error;
+      }
+    }
+
+    ImmutableArray<TypeParameterSymbol> combinedParams = [.. ownerTypeParams, .. method.TypeParameters];
+    ImmutableArray<TypeSymbol> combinedArgs = [.. ownerTypeArgs, .. methodArgs];
+
+    var expectedParams = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
+    foreach (ParameterSymbol p in method.Parameters) {
+      expectedParams.Add(TypeSubstitution.Substitute(p.Type, combinedParams, combinedArgs, _types));
+    }
+
+    TypeSymbol retType = TypeSubstitution.Substitute(method.ReturnType, combinedParams, combinedArgs, _types);
+    _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
+    CheckCallArguments(call, expectedParams, "method", method.Name);
+    _state.CallResolutions[call.Id] = new CallResolution(
+        CallKind.InstanceMethod,
+        TargetSymbol: method,
+        HasImplicitSelf: hasImplicitSelf);
+    return retType;
+  }
+
+  private TypeSymbol CheckUnionConstructorCall(
+      CallExpressionSyntax call,
+      StaticAccessExpressionSyntax staticAccess,
+      UnionSymbol unionSym,
+      string memberName,
+      TypeSymbol? expectedType) {
+    UnionVariantSymbol? variant = FindUnionVariant(unionSym, memberName);
+    if (variant is null) {
+      SynthesizeCallArguments(call);
+      Report(
+          DiagnosticCodes.InvalidIsPattern,
+          staticAccess.MemberToken.Span,
+          $"Union '{unionSym.Name}' has no variant '{memberName}'.");
+      return _types.Error;
+    }
+
+    _state.SetReferencedSymbol(staticAccess, variant);
+
+    // D-162 / ERR-E8: `Result[void, E]` must write bare `Result::Success`, not `Result::Success()`.
+    if (ReferenceEquals(unionSym, _prelude.ResultUnion)
+        && ReferenceEquals(variant, _prelude.ResultSuccessVariant)
+        && call.Arguments.IsEmpty
+        && expectedType is UnionType eu
+        && ReferenceEquals(eu.Definition, _prelude.ResultUnion)
+        && eu.TypeArguments.Length == 2
+        && eu.TypeArguments[0].IsVoid) {
+      Report(
+          DiagnosticCodes.VariantArgumentMismatch,
+          call.Span,
+          "For 'Result[void, E]', write `Result::Success` without parentheses.");
+      return eu;
+    }
+
+    ImmutableArray<TypeSymbol> typeArgs = [];
+    if (!unionSym.TypeParameters.IsEmpty) {
+      if (staticAccess.TargetTypeArguments is not null) {
+        typeArgs = ResolveOptionalTypeArguments(
+            staticAccess.TargetTypeArguments,
+            unionSym.TypeParameters,
+            unionSym.Name,
+            staticAccess.Span);
+        if (typeArgs.Length != unionSym.TypeParameters.Length || typeArgs.Any(static a => a.IsError)) {
+          SynthesizeCallArguments(call);
+          return _types.Error;
+        }
+      } else {
+        // Generic union unification (Option::Some(x), Result::Failure(e)) lands in ticket 039.
+        SynthesizeCallArguments(call);
+        return _types.Error;
+      }
+    }
+
+    UnionType unionType = _types.GetUnion(unionSym, typeArgs);
+    if (!IsMissing(call.CloseParenToken) && call.Arguments.Length != variant.Fields.Length) {
+      Report(
+          DiagnosticCodes.VariantArgumentMismatch,
+          call.Span,
+          $"Variant constructor '{unionSym.Name}::{variant.Name}' expected {variant.Fields.Length} arguments, but got {call.Arguments.Length}.");
+    }
+
+    int count = Math.Min(call.Arguments.Length, variant.Fields.Length);
+    for (int i = 0; i < count; i++) {
+      ArgumentSyntax arg = call.Arguments[i];
+      if (arg.Expression is MissingExpressionSyntax) {
+        continue;
+      }
+
+      TypeSymbol expectedFieldType = typeArgs.IsEmpty
+          ? variant.Fields[i].Type
+          : TypeSubstitution.Substitute(variant.Fields[i].Type, unionSym.TypeParameters, typeArgs, _types);
+      TypeSymbol actualType = CheckWithContextualExpectation(arg.Expression, expectedFieldType);
+      if (!TryConvert(arg.Expression, actualType, expectedFieldType)) {
+        string code = expectedFieldType is InterfaceType
+            ? DiagnosticCodes.InterfaceNotSatisfied
+            : DiagnosticCodes.VariantArgumentMismatch;
+        Report(
+            code,
+            arg.Expression.Span,
+            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{expectedFieldType.DisplayName}', but got '{actualType.DisplayName}'.");
+      }
+    }
+
+    for (int i = count; i < call.Arguments.Length; i++) {
+      if (call.Arguments[i].Expression is not MissingExpressionSyntax) {
+        Synthesize(call.Arguments[i].Expression);
+      }
+    }
+
+    _state.CallResolutions[call.Id] = new CallResolution(
+        CallKind.UnionVariantConstructor,
+        TargetSymbol: variant,
+        ConstructedUnionType: unionType);
+    return unionType;
+  }
+
+  private void CheckFunctionTypeCall(
+      CallExpressionSyntax call,
+      FunctionType fnType,
+      CallKind callKind,
+      Symbol? targetSymbol,
+      string calleeKind,
+      string calleeName,
+      bool hasImplicitSelf,
+      Symbol? indexSymbol = null) {
+    CheckCallArguments(call, fnType.ParameterTypes, calleeKind, calleeName);
+    _state.CallResolutions[call.Id] = new CallResolution(
+        callKind,
+        TargetSymbol: targetSymbol,
+        HasImplicitSelf: hasImplicitSelf,
+        IndexSymbol: indexSymbol);
+  }
+
+  private void CheckCallArguments(
+      CallExpressionSyntax call,
+      IReadOnlyList<TypeSymbol> expectedParameters,
+      string calleeKind,
+      string calleeName) {
+    string capitalizedKind = char.ToUpperInvariant(calleeKind[0]) + calleeKind[1..];
+    if (!IsMissing(call.CloseParenToken) && call.Arguments.Length != expectedParameters.Count) {
+      Report(
+          DiagnosticCodes.WrongArgumentCount,
+          call.Span,
+          $"{capitalizedKind} '{calleeName}' expected {expectedParameters.Count} arguments, but got {call.Arguments.Length}.");
+    }
+
+    int count = Math.Min(call.Arguments.Length, expectedParameters.Count);
+    for (int i = 0; i < count; i++) {
+      ArgumentSyntax arg = call.Arguments[i];
+      if (arg.Expression is MissingExpressionSyntax) {
+        continue;
+      }
+
+      TypeSymbol expectedParam = expectedParameters[i];
+      TypeSymbol actualType = CheckWithContextualExpectation(arg.Expression, expectedParam);
+      if (!TryConvert(arg.Expression, actualType, expectedParam)) {
+        string code = expectedParam is InterfaceType
+            ? DiagnosticCodes.InterfaceNotSatisfied
+            : DiagnosticCodes.TypeMismatch;
+        Report(
+            code,
+            arg.Expression.Span,
+            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'.");
+      }
+    }
+
+    for (int i = count; i < call.Arguments.Length; i++) {
+      if (call.Arguments[i].Expression is not MissingExpressionSyntax) {
+        Synthesize(call.Arguments[i].Expression);
+      }
+    }
+  }
+
+  private void SynthesizeCallArguments(CallExpressionSyntax call) {
+    foreach (ArgumentSyntax arg in call.Arguments) {
+      if (arg.Expression is not MissingExpressionSyntax) {
+        Synthesize(arg.Expression);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Stdlib / Intrinsic dispatch (BUILTIN-1..16, STRLIB-1..19, VECLIB-1..25, MAPLIB-1..7, SETLIB-*, RGX-*)
+  // ---------------------------------------------------------------------------------------------
+
+  private TypeSymbol CheckIntrinsicCall(
+      CallExpressionSyntax call,
+      IntrinsicDescriptor descriptor,
+      TypeSymbol? receiverType,
+      Symbol? targetSymbol,
+      TypeSymbol? expectedReturnType) {
+    TypeSymbol[] receiverArgs = receiverType is not null ? GetReceiverTypeArgs(receiverType) : [];
+    string calleeKind = receiverType is null ? "function" : "method";
+    string capitalizedKind = receiverType is null ? "Function" : "Method";
+
+    // 1. Variadic builtin: println(args...)
+    if (descriptor.Signatures.Length == 1
+        && descriptor.Signatures[0].Parameters.Length == 1
+        && descriptor.Signatures[0].Parameters[0].IsVariadic) {
+      IntrinsicSignature sig = descriptor.Signatures[0];
+      foreach (ArgumentSyntax arg in call.Arguments) {
+        if (arg.Expression is MissingExpressionSyntax) {
+          continue;
+        }
+
+        TypeSymbol argType = Synthesize(arg.Expression);
+        if (argType.IsVoid) {
+          Report(
+              DiagnosticCodes.TypeMismatch,
+              arg.Expression.Span,
+              $"Cannot pass a 'void' value to '{descriptor.Name}'.");
+        }
+      }
+
+      _state.CallResolutions[call.Id] = new CallResolution(
+          CallKind.Intrinsic,
+          TargetSymbol: targetSymbol,
+          Intrinsic: sig.Id);
+      return sig.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+    }
+
+    // 2. Arity-disambiguated optional-argument globals: readline() vs readline(prompt), rand() vs rand(limit)
+    if (descriptor.Receiver == StdlibReceiverKind.Global
+        && descriptor.Name is "readline" or "rand") {
+      if (call.Arguments.Length == 0) {
+        IntrinsicSignature zeroSig = descriptor.Signatures[0];
+        _state.CallResolutions[call.Id] = new CallResolution(
+            CallKind.Intrinsic,
+            TargetSymbol: targetSymbol,
+            Intrinsic: zeroSig.Id);
+        return zeroSig.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+      }
+
+      if (call.Arguments.Length == 1) {
+        IntrinsicSignature oneSig = descriptor.Signatures[1];
+        CheckIntrinsicSingleSignature(call, oneSig, receiverArgs, targetSymbol, calleeKind, descriptor.Name);
+        return oneSig.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+      }
+
+      SynthesizeCallArguments(call);
+      if (!IsMissing(call.CloseParenToken)) {
+        Report(
+            DiagnosticCodes.WrongArgumentCount,
+            call.Span,
+            $"{capitalizedKind} '{descriptor.Name}' expected 0 or 1 arguments, but got {call.Arguments.Length}.");
+      }
+
+      return descriptor.Signatures[0].ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+    }
+
+    // 3. Type-disambiguated numeric/string conversion globals: int(v), float(v), rune(v)
+    if (descriptor.Receiver == StdlibReceiverKind.Global
+        && descriptor.Name is "int" or "float" or "rune") {
+      if (call.Arguments.Length != 1) {
+        SynthesizeCallArguments(call);
+        if (!IsMissing(call.CloseParenToken)) {
+          Report(
+              DiagnosticCodes.WrongArgumentCount,
+              call.Span,
+              $"{capitalizedKind} '{descriptor.Name}' expected 1 arguments, but got {call.Arguments.Length}.");
+        }
+
+        return _types.Error;
+      }
+
+      ArgumentSyntax arg0 = call.Arguments[0];
+      if (arg0.Expression is MissingExpressionSyntax) {
+        return _types.Error;
+      }
+
+      TypeSymbol argType = Synthesize(arg0.Expression);
+      if (IsSilent(argType)) {
+        return _types.Error;
+      }
+
+      IntrinsicSignature? matched = null;
+      if (descriptor.Name is "int" or "float") {
+        if (argType is PrimitiveType { IsNumeric: true }) {
+          matched = descriptor.Signatures[0];
+        } else if (ReferenceEquals(argType, _types.String)) {
+          matched = descriptor.Signatures[1];
+        }
+      } else {
+        if (ReferenceEquals(argType, _types.Int)) {
+          matched = descriptor.Signatures[0];
+        } else if (ReferenceEquals(argType, _types.String)) {
+          matched = descriptor.Signatures[1];
+        }
+      }
+
+      if (matched is null) {
+        string expectedDesc = descriptor.Name == "rune" ? "'int' or 'string'" : "numeric or 'string'";
+        Report(
+            DiagnosticCodes.TypeMismatch,
+            arg0.Expression.Span,
+            $"Argument 1 for {calleeKind} '{descriptor.Name}' expected {expectedDesc} value, but got '{argType.DisplayName}'.");
+        return _types.Error;
+      }
+
+      _state.CallResolutions[call.Id] = new CallResolution(
+          CallKind.Intrinsic,
+          TargetSymbol: targetSymbol,
+          Intrinsic: matched.Id);
+      return matched.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+    }
+
+    // 4. Vector 1- vs 2-arg callback methods (`each`, `map`, `filter`, `find`, `find_index`, `any`, `all`, `count`)
+    if (descriptor.Receiver == StdlibReceiverKind.Vector && descriptor.Signatures.Length == 2) {
+      return CheckVectorCallbackIntrinsic(call, descriptor, receiverArgs, expectedReturnType);
+    }
+
+    // 5. Set 1-arg callback methods (`any`, `all`, `each`)
+    if (descriptor.Receiver == StdlibReceiverKind.Set
+        && descriptor.Signatures.Length == 1
+        && descriptor.Signatures[0].Parameters.Length == 1
+        && descriptor.Signatures[0].Parameters[0].TypeSpec is StdlibTypeSpec.Function) {
+      IntrinsicSignature sig = descriptor.Signatures[0];
+      CheckCallbackIntrinsicSignature(call, sig, receiverArgs, descriptor.Name);
+      return sig.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+    }
+
+    // 6. Standard single-signature intrinsic (`str`, `type`, `time`, `sleep`, `clear`, `panic`, `regex`,
+    //    `read_file`, `write_file`, `file_exists`, `string:*`, `vec:push/add/pop/join`, `map:*`, `set:add/remove`, `regex:*`)
+    IntrinsicSignature primary = descriptor.Signatures[0];
+    CheckIntrinsicSingleSignature(call, primary, receiverArgs, targetSymbol, calleeKind, descriptor.Name);
+    return primary.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+  }
+
+  private void CheckIntrinsicSingleSignature(
+      CallExpressionSyntax call,
+      IntrinsicSignature sig,
+      TypeSymbol[] receiverArgs,
+      Symbol? targetSymbol,
+      string calleeKind,
+      string calleeName) {
+    string capitalizedKind = char.ToUpperInvariant(calleeKind[0]) + calleeKind[1..];
+    if (!IsMissing(call.CloseParenToken) && call.Arguments.Length != sig.Parameters.Length) {
+      Report(
+          DiagnosticCodes.WrongArgumentCount,
+          call.Span,
+          $"{capitalizedKind} '{calleeName}' expected {sig.Parameters.Length} arguments, but got {call.Arguments.Length}.");
+    }
+
+    int count = Math.Min(call.Arguments.Length, sig.Parameters.Length);
+    for (int i = 0; i < count; i++) {
+      ArgumentSyntax arg = call.Arguments[i];
+      if (arg.Expression is MissingExpressionSyntax) {
+        continue;
+      }
+
+      IntrinsicParameter param = sig.Parameters[i];
+      if (param.Kind == IntrinsicParamKind.AnyValue) {
+        TypeSymbol anyType = Synthesize(arg.Expression);
+        if (anyType.IsVoid) {
+          Report(
+              DiagnosticCodes.TypeMismatch,
+              arg.Expression.Span,
+              $"Argument {i + 1} for {calleeKind} '{calleeName}' cannot be 'void'.");
+        }
+        continue;
+      }
+
+      TypeSymbol expectedParam = param.TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
+      TypeSymbol actualType = CheckWithContextualExpectation(arg.Expression, expectedParam);
+      if (!TryConvert(arg.Expression, actualType, expectedParam)) {
+        string code = expectedParam is InterfaceType
+            ? DiagnosticCodes.InterfaceNotSatisfied
+            : DiagnosticCodes.TypeMismatch;
+        Report(
+            code,
+            arg.Expression.Span,
+            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'.");
+      }
+    }
+
+    for (int i = count; i < call.Arguments.Length; i++) {
+      if (call.Arguments[i].Expression is not MissingExpressionSyntax) {
+        Synthesize(call.Arguments[i].Expression);
+      }
+    }
+
+    _state.CallResolutions[call.Id] = new CallResolution(
+        CallKind.Intrinsic,
+        TargetSymbol: targetSymbol,
+        Intrinsic: sig.Id);
+  }
+
+  private TypeSymbol CheckVectorCallbackIntrinsic(
+      CallExpressionSyntax call,
+      IntrinsicDescriptor descriptor,
+      TypeSymbol[] receiverArgs,
+      TypeSymbol? expectedReturnType) {
+    IntrinsicSignature sig1 = descriptor.Signatures[0];
+    IntrinsicSignature sig2 = descriptor.Signatures[1];
+
+    if (call.Arguments.Length != 1) {
+      SynthesizeCallArguments(call);
+      if (!IsMissing(call.CloseParenToken)) {
+        Report(
+            DiagnosticCodes.WrongArgumentCount,
+            call.Span,
+            $"Method '{descriptor.Name}' expected 1 arguments, but got {call.Arguments.Length}.");
+      }
+
+      return _types.Error;
+    }
+
+    ArgumentSyntax arg0 = call.Arguments[0];
+    if (arg0.Expression is MissingExpressionSyntax) {
+      return _types.Error;
+    }
+
+    // Untyped lambdas and implicit-`it` arguments land in ticket 038; handle explicitly-typed callbacks here.
+    if (arg0.Expression is LambdaExpressionSyntax lambda && lambda.Parameters.Any(static p => p.Type is null)) {
+      return _types.Error;
+    }
+
+    TypeSymbol callbackType = Synthesize(arg0.Expression);
+    if (IsSilent(callbackType)) {
+      return _types.Error;
+    }
+
+    if (callbackType is not FunctionType fnCallback) {
+      IntrinsicSignature fallbackSig = sig1;
+      TypeSymbol expectedFnType = sig1.MethodTypeParameterNames.IsEmpty
+          ? fallbackSig.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, [])
+          : _types.GetFunction([receiverArgs[0]], _types.Error);
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          arg0.Expression.Span,
+          $"Argument 1 for method '{descriptor.Name}' expected type '{expectedFnType.DisplayName}', but got '{callbackType.DisplayName}'.");
+      return _types.Error;
+    }
+
+    IntrinsicSignature selected;
+    if (fnCallback.ParameterTypes.Length == 1) {
+      selected = sig1;
+    } else if (fnCallback.ParameterTypes.Length == 2) {
+      selected = sig2;
+    } else {
+      TypeSymbol expected1 = sig1.MethodTypeParameterNames.IsEmpty
+          ? sig1.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, [])
+          : _types.GetFunction([receiverArgs[0]], _types.Error);
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          arg0.Expression.Span,
+          $"Argument 1 for method '{descriptor.Name}' expected type '{expected1.DisplayName}', but got '{callbackType.DisplayName}'.");
+      return _types.Error;
+    }
+
+    if (!selected.MethodTypeParameterNames.IsEmpty) {
+      // `map`: infer method type parameter R from the callback's return type.
+      TypeSymbol rType = fnCallback.ReturnType;
+      if (rType.IsVoid) {
+        Report(
+            DiagnosticCodes.InvalidVoidTypePosition,
+            arg0.Expression.Span,
+            "Callback for 'map' cannot return 'void'.");
+        rType = _types.Error;
+      }
+
+      TypeSymbol[] methodArgs = [rType];
+      TypeSymbol expectedFn = selected.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, methodArgs);
+      if (!TryConvert(arg0.Expression, fnCallback, expectedFn)) {
+        Report(
+            DiagnosticCodes.TypeMismatch,
+            arg0.Expression.Span,
+            $"Argument 1 for method '{descriptor.Name}' expected type '{expectedFn.DisplayName}', but got '{fnCallback.DisplayName}'.");
+      }
+
+      _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: selected.Id);
+      _ = expectedReturnType;
+      return rType.IsError ? _types.Error : selected.ReturnType.Resolve(_types, _prelude, receiverArgs, methodArgs);
+    }
+
+    TypeSymbol expectedCallback = selected.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
+    if (!TryConvert(arg0.Expression, fnCallback, expectedCallback)) {
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          arg0.Expression.Span,
+          $"Argument 1 for method '{descriptor.Name}' expected type '{expectedCallback.DisplayName}', but got '{fnCallback.DisplayName}'.");
+    }
+
+    _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: selected.Id);
+    return selected.ReturnType.Resolve(_types, _prelude, receiverArgs, []);
+  }
+
+  private void CheckCallbackIntrinsicSignature(
+      CallExpressionSyntax call,
+      IntrinsicSignature sig,
+      TypeSymbol[] receiverArgs,
+      string methodName) {
+    if (!IsMissing(call.CloseParenToken) && call.Arguments.Length != 1) {
+      SynthesizeCallArguments(call);
+      Report(
+          DiagnosticCodes.WrongArgumentCount,
+          call.Span,
+          $"Method '{methodName}' expected 1 arguments, but got {call.Arguments.Length}.");
+      return;
+    }
+
+    if (call.Arguments.IsEmpty) {
+      return;
+    }
+
+    ArgumentSyntax arg0 = call.Arguments[0];
+    if (arg0.Expression is MissingExpressionSyntax) {
+      return;
+    }
+
+    if (arg0.Expression is LambdaExpressionSyntax lambda && lambda.Parameters.Any(static p => p.Type is null)) {
+      return;
+    }
+
+    TypeSymbol expectedFn = sig.Parameters[0].TypeSpec.Resolve(_types, _prelude, receiverArgs, []);
+    TypeSymbol actualType = Synthesize(arg0.Expression);
+    if (!TryConvert(arg0.Expression, actualType, expectedFn)) {
+      Report(
+          DiagnosticCodes.TypeMismatch,
+          arg0.Expression.Span,
+          $"Argument 1 for method '{methodName}' expected type '{expectedFn.DisplayName}', but got '{actualType.DisplayName}'.");
+    }
+
+    _state.CallResolutions[call.Id] = new CallResolution(CallKind.Intrinsic, Intrinsic: sig.Id);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Explicitly-typed lambdas (contextual lambda inference and captures land in ticket 038)
+  // ---------------------------------------------------------------------------------------------
+
+  private TypeSymbol SynthesizeLambda(LambdaExpressionSyntax lambda) {
+    if (lambda.Parameters.Any(static p => p.Type is null)) {
+      // Untyped lambda inference (D-167, FN-E11) lands in ticket 038.
+      return _types.Error;
+    }
+
+    Scope lambdaScope = ScopeOf(lambda, ScopeKind.Lambda);
+    var paramTypes = ImmutableArray.CreateBuilder<TypeSymbol>(lambda.Parameters.Length);
+
+    for (int i = 0; i < lambda.Parameters.Length; i++) {
+      ParameterSyntax paramSyntax = lambda.Parameters[i];
+      if (IsMissing(paramSyntax.NameToken)) {
+        paramTypes.Add(_types.Error);
+        continue;
+      }
+
+      string paramName = NameOf(paramSyntax.NameToken);
+      TypeSymbol paramType = _session.ResolveType(
+          _state,
+          paramSyntax.Type!,
+          lambdaScope,
+          TypePosition.ParameterType);
+
+      var paramSymbol = new ParameterSymbol(
+          paramName,
+          paramType,
+          i,
+          hasDefault: false,
+          paramSyntax.Id,
+          paramSyntax.NameToken.Span,
+          _state.FilePath,
+          lambdaScope.Owner);
+      if (!lambdaScope.TryDeclare(paramSymbol, out Symbol? existing)) {
+        CheckerSession.ReportDuplicate(_state, paramName, paramSyntax.NameToken.Span, existing!);
+      }
+
+      _state.SetDeclaredSymbol(paramSyntax, paramSymbol);
+      _state.SetNodeType(paramSyntax, paramType);
+      paramTypes.Add(paramType);
+    }
+
+    TypeSymbol returnType;
+    using (EnterScope(lambdaScope)) {
+      if (lambda.BodyExpression is { } bodyExpr) {
+        returnType = Synthesize(bodyExpr);
+      } else if (lambda.BodyBlock is { } bodyBlock) {
+        List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
+        var collectedReturns = new List<TypeSymbol>();
+        _lambdaReturnTypes = collectedReturns;
+        try {
+          CheckBlock(bodyBlock);
+        } finally {
+          _lambdaReturnTypes = prevLambdaReturns;
+        }
+
+        returnType = JoinLambdaBlockReturns(collectedReturns);
+      } else {
+        returnType = _types.Void;
+      }
+    }
+
+    return _types.GetFunction(paramTypes.MoveToImmutable(), returnType);
+  }
+
+  private TypeSymbol JoinLambdaBlockReturns(List<TypeSymbol> returns) {
+    if (returns.Count == 0) {
+      return _types.Void;
+    }
+
+    TypeSymbol? joined = null;
+    foreach (TypeSymbol t in returns) {
+      if (t.IsError || t.IsNever) {
+        continue;
+      }
+
+      if (joined is null) {
+        joined = t;
+      } else if (ReferenceEquals(joined, _types.Int) && ReferenceEquals(t, _types.Float)) {
+        joined = _types.Float;
+      } else if (ReferenceEquals(joined, _types.Float) && ReferenceEquals(t, _types.Int)) {
+        // already float
+      } else if (!ReferenceEquals(joined, t)) {
+        return _types.Error;
+      }
+    }
+
+    return joined ?? _types.Void;
+  }
+}

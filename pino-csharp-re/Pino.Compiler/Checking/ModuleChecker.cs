@@ -34,6 +34,7 @@ internal sealed class ModuleCheckState {
     LoopInfos = new LoopInfo?[nodeCount];
     PatternBindings = new PatternBindingInfo?[nodeCount];
     ParentsByNodeId = parentsByNodeId;
+    ShorthandValueSymbols = new Symbol?[nodeCount];
 
     if ((uint) tree.Root.Id < (uint) ScopesByBlockId.Length) {
       ScopesByBlockId[tree.Root.Id] = moduleScope;
@@ -106,6 +107,8 @@ internal sealed class ModuleCheckState {
 
   public SyntaxNode?[] ParentsByNodeId { get; }
 
+  public Symbol?[] ShorthandValueSymbols { get; }
+
   public void SetScope(SyntaxNode node, Scope scope) {
     AllScopes.Add(scope);
     if ((uint) node.Id < (uint) ScopesByBlockId.Length) {
@@ -131,6 +134,12 @@ internal sealed class ModuleCheckState {
     }
   }
 
+  public void SetShorthandValueSymbol(StructFieldInitSyntax node, Symbol symbol) {
+    if ((uint) node.Id < (uint) ShorthandValueSymbols.Length) {
+      ShorthandValueSymbols[node.Id] = symbol;
+    }
+  }
+
   public SemanticModel BuildSemanticModel() {
     foreach (Scope scope in AllScopes) {
       scope.Freeze();
@@ -153,7 +162,8 @@ internal sealed class ModuleCheckState {
         CapturesByCallableId,
         LoopInfos,
         PatternBindings,
-        ParentsByNodeId);
+        ParentsByNodeId,
+        ShorthandValueSymbols);
   }
 }
 
@@ -163,6 +173,8 @@ internal sealed partial class CheckerSession {
   private readonly Dictionary<string, ModuleCheckState> _modulesByPath = new(StringComparer.Ordinal);
   private readonly HashSet<string> _activeModulePaths = new(StringComparer.Ordinal);
   private readonly List<ModuleCheckState> _orderedModules = [];
+
+  public Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), bool> InterfaceSatisfactionCache { get; } = [];
 
   public CheckerSession(IModuleSource moduleSource, CancellationToken cancellationToken) {
     _moduleSource = moduleSource;

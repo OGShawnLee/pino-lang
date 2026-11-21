@@ -21,6 +21,7 @@ public sealed class SemanticModel {
   private readonly LoopInfo?[] _loopInfos;
   private readonly PatternBindingInfo?[] _patternBindings;
   private readonly SyntaxNode?[] _parentsByNodeId;
+  private readonly Symbol?[] _shorthandValueSymbols;
 
   internal SemanticModel(
       ParseResult tree,
@@ -38,7 +39,8 @@ public sealed class SemanticModel {
       CaptureList?[] capturesByCallableId,
       LoopInfo?[] loopInfos,
       PatternBindingInfo?[] patternBindings,
-      SyntaxNode?[] parentsByNodeId) {
+      SyntaxNode?[] parentsByNodeId,
+      Symbol?[]? shorthandValueSymbols = null) {
     Tree = tree;
     Module = module;
     IsProgramMode = isProgramMode;
@@ -55,6 +57,7 @@ public sealed class SemanticModel {
     _loopInfos = loopInfos;
     _patternBindings = patternBindings;
     _parentsByNodeId = parentsByNodeId;
+    _shorthandValueSymbols = shorthandValueSymbols ?? [];
   }
 
   public ParseResult Tree { get; }
@@ -120,6 +123,11 @@ public sealed class SemanticModel {
   public PatternBindingInfo? GetPatternBindings(SyntaxNode node) {
     ArgumentNullException.ThrowIfNull(node);
     return Lookup(_patternBindings, node.Id);
+  }
+
+  public Symbol? GetShorthandValueSymbol(StructFieldInitSyntax node) {
+    ArgumentNullException.ThrowIfNull(node);
+    return Lookup(_shorthandValueSymbols, node.Id);
   }
 
   public bool IsAssignedAfterInit(Symbol symbol) => AssignedBindings.IsAssignedAfterInit(symbol);

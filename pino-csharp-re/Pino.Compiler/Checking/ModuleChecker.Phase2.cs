@@ -51,7 +51,7 @@ internal sealed partial class CheckerSession {
     // 4. Verify generic type argument bounds after all struct/interface members are resolved.
     foreach ((TypeSyntax argSyntax, TypeParameterSymbol tp, TypeSymbol argType) in state.DeferredConstraintChecks) {
       if (tp.Constraint is { } constraint && !argType.IsError && !constraint.IsError) {
-        if (!TypeCompatibility.SatisfiesInterface(argType, constraint, Types)) {
+        if (!TypeCompatibility.SatisfiesInterface(argType, constraint, Types, state.Module, InterfaceSatisfactionCache)) {
           state.Diagnostics.ReportError(
               DiagnosticCodes.GenericConstraintNotSatisfied,
               argSyntax.Span,

@@ -76,6 +76,8 @@ internal static class TypeCompatibility {
       TypeSymbol candidate,
       InterfaceType target,
       TypeInterner types,
+      ModuleSymbol? currentModule = null,
+      Dictionary<(TypeSymbol Candidate, InterfaceType Target, ModuleSymbol? Module), bool>? memo = null,
       HashSet<(TypeSymbol, TypeSymbol)>? visited = null) {
     if (candidate.IsError || target.IsError) {
       return true;
@@ -85,40 +87,84 @@ internal static class TypeCompatibility {
       return true;
     }
 
+    if (visited is null && memo is not null && memo.TryGetValue((candidate, target, currentModule), out bool cached)) {
+      return cached;
+    }
+
     visited ??= new HashSet<(TypeSymbol, TypeSymbol)>();
     if (!visited.Add((candidate, target))) {
       return true;
     }
 
+    bool result;
     if (candidate is TypeParameterType tp) {
-      return tp.Symbol.Constraint is { } constraint
-          && SatisfiesInterface(constraint, target, types, visited);
+      result = tp.Symbol.Constraint is { } constraint
+          && SatisfiesInterface(constraint, target, types, currentModule, memo, visited);
+    } else if (candidate is StructType structType) {
+      result = StructSatisfiesInterface(structType, target, types, currentModule);
+    } else if (candidate is InterfaceType candidateIface) {
+      result = InterfaceSatisfiesInterface(candidateIface, target, types);
+    } else {
+      result = false;
     }
 
-    if (candidate is StructType structType) {
-      return StructSatisfiesInterface(structType, target, types);
+    if (memo is not null) {
+      memo[(candidate, target, currentModule)] = result;
     }
 
-    if (candidate is InterfaceType candidateIface) {
-      return InterfaceSatisfiesInterface(candidateIface, target, types);
+    return result;
+  }
+
+  internal static ModuleSymbol? GetDeclaringModule(Symbol? symbol) {
+    while (symbol is not null) {
+      if (symbol is ModuleSymbol module) {
+        return module;
+      }
+
+      symbol = symbol.ContainingSymbol;
     }
 
-    return false;
+    return null;
+  }
+
+  internal static StructSymbol GetOriginalFieldStruct(FieldSymbol field) =>
+      field.EmbeddedChain.IsEmpty
+          ? field.ContainingStruct
+          : ((StructType) field.EmbeddedChain[^1].Type).Definition;
+
+  internal static bool IsFieldVisibleTo(
+      FieldSymbol field,
+      ModuleSymbol? targetModule,
+      ModuleSymbol? currentModule) {
+    if (field.Visibility == SymbolVisibility.Public) {
+      return true;
+    }
+
+    ModuleSymbol? fieldModule = GetDeclaringModule(GetOriginalFieldStruct(field));
+    if (fieldModule is null) {
+      return true;
+    }
+
+    bool matchesTarget = targetModule is not null && ReferenceEquals(fieldModule, targetModule);
+    bool matchesCurrent = currentModule is null || ReferenceEquals(fieldModule, currentModule);
+    return matchesTarget && matchesCurrent;
   }
 
   private static bool StructSatisfiesInterface(
       StructType structType,
       InterfaceType target,
-      TypeInterner types) {
+      TypeInterner types,
+      ModuleSymbol? currentModule) {
     ImmutableArray<TypeParameterSymbol> targetParams = target.Definition.TypeParameters;
     ImmutableArray<TypeSymbol> targetArgs = target.TypeArguments;
     ImmutableArray<TypeParameterSymbol> structParams = structType.Definition.TypeParameters;
     ImmutableArray<TypeSymbol> structArgs = structType.TypeArguments;
+    ModuleSymbol? targetIfaceModule = GetDeclaringModule(target.Definition);
 
     foreach (InterfaceProperty prop in target.Definition.Properties) {
       TypeSymbol expectedPropType = TypeSubstitution.Substitute(prop.Type, targetParams, targetArgs, types);
       FieldSymbol? matchingField = FindStructField(structType.Definition, prop.Name);
-      if (matchingField is null) {
+      if (matchingField is null || !IsFieldVisibleTo(matchingField, targetIfaceModule, currentModule)) {
         return false;
       }
 
@@ -130,7 +176,7 @@ internal static class TypeCompatibility {
     }
 
     foreach (MethodSymbol ifaceMethod in target.Definition.Methods) {
-      if (!StructHasMatchingMethod(structType, ifaceMethod, targetParams, targetArgs, types)) {
+      if (!StructHasMatchingMethod(structType, ifaceMethod, targetParams, targetArgs, targetIfaceModule, currentModule, types)) {
         return false;
       }
     }
@@ -212,6 +258,8 @@ internal static class TypeCompatibility {
       MethodSymbol ifaceMethod,
       ImmutableArray<TypeParameterSymbol> targetParams,
       ImmutableArray<TypeSymbol> targetArgs,
+      ModuleSymbol? targetIfaceModule,
+      ModuleSymbol? currentModule,
       TypeInterner types) {
     ImmutableArray<TypeParameterSymbol> structParams = structType.Definition.TypeParameters;
     ImmutableArray<TypeSymbol> structArgs = structType.TypeArguments;
@@ -235,7 +283,7 @@ internal static class TypeCompatibility {
 
     // Also allow a callable field of matching FunctionType (STRUCT-12).
     FieldSymbol? callableField = FindStructField(structType.Definition, ifaceMethod.Name);
-    if (callableField is not null) {
+    if (callableField is not null && IsFieldVisibleTo(callableField, targetIfaceModule, currentModule)) {
       TypeSymbol fieldType = TypeSubstitution.Substitute(callableField.Type, structParams, structArgs, types);
       if (fieldType is FunctionType fnType) {
         if (fnType.ParameterTypes.Length != ifaceMethod.Parameters.Length) {

@@ -827,7 +827,7 @@ internal sealed partial class CheckerSession {
           new ErrorSymbol(memberName, -1, nameToken.Span, state.FilePath),
           out _);
 
-  private static Symbol? FindModuleDeclaration(ModuleSymbol module, string name) {
+  internal static Symbol? FindModuleDeclaration(ModuleSymbol module, string name) {
     if (module.TryGetExport(name, out Symbol? exported)) {
       return exported;
     }

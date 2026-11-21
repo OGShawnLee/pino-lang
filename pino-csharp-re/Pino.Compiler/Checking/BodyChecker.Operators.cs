@@ -161,8 +161,24 @@ internal sealed partial class BodyChecker {
       return _types.Bool;
     }
 
-    // Struct/interface/union/generic comparisons are refined by tickets 037 and 039.
-    if (IsNominalOrGeneric(left) || IsNominalOrGeneric(right)) {
+    if (left is StructType && right is InterfaceType rightIface
+        && TypeCompatibility.SatisfiesInterface(left, rightIface, _types, _state.Module, _session.InterfaceSatisfactionCache)) {
+      return _types.Bool;
+    }
+
+    if (right is StructType && left is InterfaceType leftIface
+        && TypeCompatibility.SatisfiesInterface(right, leftIface, _types, _state.Module, _session.InterfaceSatisfactionCache)) {
+      return _types.Bool;
+    }
+
+    if (left is InterfaceType && right is InterfaceType
+        && (TypeCompatibility.SatisfiesInterface(left, (InterfaceType) right, _types, _state.Module, _session.InterfaceSatisfactionCache)
+            || TypeCompatibility.SatisfiesInterface(right, (InterfaceType) left, _types, _state.Module, _session.InterfaceSatisfactionCache))) {
+      return _types.Bool;
+    }
+
+    // Generic parameter comparisons are refined by ticket 039.
+    if (left is TypeParameterType || right is TypeParameterType) {
       return _types.Bool;
     }
 
@@ -172,9 +188,6 @@ internal sealed partial class BodyChecker {
         $"Cannot compare '{left.DisplayName}' with '{right.DisplayName}' using '{op}'.");
     return _types.Bool;
   }
-
-  private static bool IsNominalOrGeneric(TypeSymbol type) =>
-      type is StructType or InterfaceType or UnionType or EnumType or TypeParameterType;
 
   private TypeSymbol CheckComparison(BinaryExpressionSyntax binary, TypeSymbol left, TypeSymbol right) {
     if (IsSilent(left) || IsSilent(right)) {
@@ -402,11 +415,8 @@ internal sealed partial class BodyChecker {
       case IndexExpressionSyntax index:
         return AssignToIndex(assignment, index, op);
 
-      case MemberAccessExpressionSyntax:
-        // Field targets (`p:x = 1`, STRUCT-7) are typed by ticket 037.
-        Synthesize(target);
-        Synthesize(assignment.Value);
-        return _types.Error;
+      case MemberAccessExpressionSyntax member:
+        return AssignToMember(assignment, member, op);
 
       default:
         Synthesize(target);
@@ -442,12 +452,24 @@ internal sealed partial class BodyChecker {
         _state.AssignedSymbols.Add(parameter);
         break;
 
+      case FieldSymbol:
+        // STRUCT-4: bare field assignment updates the receiver's field (does not rebind a local/param).
+        break;
+
       case FunctionSymbol function:
         Synthesize(assignment.Value);
         Report(
             DiagnosticCodes.InvalidAssignmentTarget,
             identifier.Span,
             $"Cannot assign to function '{function.Name}'.");
+        return _types.Error;
+
+      case MethodSymbol method:
+        Synthesize(assignment.Value);
+        Report(
+            DiagnosticCodes.InvalidAssignmentTarget,
+            identifier.Span,
+            $"Cannot assign to method '{method.Name}'.");
         return _types.Error;
 
       default:

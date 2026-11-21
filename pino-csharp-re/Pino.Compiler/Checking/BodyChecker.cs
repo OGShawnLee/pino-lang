@@ -8,11 +8,11 @@ using Pino.Compiler.Text;
 namespace Pino.Compiler.Checking;
 
 /// <summary>
-/// Phase 3a of the checker: bidirectional <c>Synthesize</c> / <c>Check</c> over the statements and
+/// Phase 3 of the checker: bidirectional <c>Synthesize</c> / <c>Check</c> over the statements and
 /// expressions of one module (variables, operators, collections, <c>if</c>, <c>for</c>,
-/// <c>assert</c> and <c>test</c>). Structs, interfaces, enums, calls, lambdas, generics, patterns
-/// and flow analysis land in tickets 037–040; their expression forms are visited for name
-/// resolution only and otherwise absorb into <see cref="ErrorType"/> without diagnostics.
+/// <c>assert</c>, <c>test</c>, structs, methods, interfaces, enums, tuples, and direct/stdlib calls).
+/// Return inference, contextual lambdas, and captures land in ticket 038; <c>@@Generic</c>
+/// unification and <c>?</c>/<c>or</c> in 039; patterns and flow in 040.
 /// </summary>
 internal sealed partial class BodyChecker {
   private readonly CheckerSession _session;
@@ -22,6 +22,10 @@ internal sealed partial class BodyChecker {
   private readonly PreludeSymbols _prelude;
   private Scope _scope;
   private int _tolerantNames;
+  private Symbol? _currentCallable;
+  private StructSymbol? _currentStruct;
+  private bool _isStaticMethod;
+  private List<TypeSymbol>? _lambdaReturnTypes;
 
   public BodyChecker(CheckerSession session, ModuleCheckState state, CancellationToken cancellationToken) {
     _session = session;
@@ -68,6 +72,10 @@ internal sealed partial class BodyChecker {
         CheckFunction(function);
         break;
 
+      case StructDeclarationSyntax structDeclaration:
+        CheckStruct(structDeclaration);
+        break;
+
       case TestDeclarationSyntax test:
         CheckTest(test);
         break;
@@ -92,9 +100,8 @@ internal sealed partial class BodyChecker {
         CheckAssert(assertStatement);
         break;
 
-      case ReturnStatementSyntax { Expression: { } returnValue }:
-        // Return typing and inference are ticket 038; the value is still visited for names.
-        Synthesize(returnValue);
+      case ReturnStatementSyntax returnStatement:
+        CheckReturn(returnStatement);
         break;
 
       case YieldStatementSyntax yieldStatement:
@@ -112,37 +119,6 @@ internal sealed partial class BodyChecker {
     }
   }
 
-  /// <summary>
-  /// Tuple typing is ticket 037: the initializer is visited and every destructured name is bound
-  /// with <see cref="ErrorType"/> so later references resolve without cascading diagnostics.
-  /// </summary>
-  private void CheckTupleDestructuring(TupleDestructuringStatementSyntax destructuring) {
-    Synthesize(destructuring.Initializer);
-    bool isVal = destructuring.KeywordToken.Kind == TokenKind.ValKeyword;
-    foreach (DestructureFieldSyntax field in destructuring.Fields) {
-      Token nameToken = field.VariableToken ?? field.LabelToken;
-      if (IsMissing(nameToken)) {
-        continue;
-      }
-
-      string name = NameOf(nameToken);
-      var symbol = new LocalSymbol(
-          name,
-          _types.Error,
-          !isVal,
-          LocalKind.Variable,
-          field.Id,
-          nameToken.Span,
-          _state.FilePath,
-          _scope.Owner);
-      if (!_scope.TryDeclare(symbol, out Symbol? existing)) {
-        CheckerSession.ReportDuplicate(_state, name, nameToken.Span, existing!);
-      }
-
-      _state.SetDeclaredSymbol(field, symbol);
-    }
-  }
-
   private void CheckBlock(BlockStatementSyntax block) {
     Scope blockScope = ScopeOf(block, ScopeKind.Block);
     using ScopeRestore _ = EnterScope(blockScope);
@@ -152,7 +128,7 @@ internal sealed partial class BodyChecker {
   }
 
   private void CheckFunction(FunctionDeclarationSyntax function) {
-    if (_state.DeclaredSymbols[function.Id] is not FunctionSymbol) {
+    if (_state.DeclaredSymbols[function.Id] is not FunctionSymbol fnSymbol) {
       return;
     }
 
@@ -160,11 +136,162 @@ internal sealed partial class BodyChecker {
     int tolerant = (ContainsIsPattern(function.Body) ? 1 : 0)
         + (HasMissingHeaderParts(function.OpenParenToken, function.CloseParenToken, function.Parameters) ? 1 : 0);
     _tolerantNames += tolerant;
+    Symbol? prevCallable = _currentCallable;
+    StructSymbol? prevStruct = _currentStruct;
+    bool prevStatic = _isStaticMethod;
+    List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
+    _currentCallable = fnSymbol;
+    _currentStruct = null;
+    _isStaticMethod = false;
+    _lambdaReturnTypes = null;
     try {
       using ScopeRestore _ = EnterScope(functionScope);
       CheckBlock(function.Body);
     } finally {
+      _lambdaReturnTypes = prevLambdaReturns;
+      _isStaticMethod = prevStatic;
+      _currentStruct = prevStruct;
+      _currentCallable = prevCallable;
       _tolerantNames -= tolerant;
+    }
+  }
+
+  private void CheckStruct(StructDeclarationSyntax structDeclaration) {
+    if (_state.DeclaredSymbols[structDeclaration.Id] is not StructSymbol structSymbol) {
+      return;
+    }
+
+    foreach (SyntaxNode member in structDeclaration.Members) {
+      if (member is MethodDeclarationSyntax methodDeclaration) {
+        CheckMethod(structSymbol, methodDeclaration);
+      }
+    }
+  }
+
+  private void CheckMethod(StructSymbol structSymbol, MethodDeclarationSyntax methodDeclaration) {
+    if (_state.DeclaredSymbols[methodDeclaration.Id] is not MethodSymbol methodSymbol) {
+      return;
+    }
+
+    Scope methodScope = ScopeOf(methodDeclaration, ScopeKind.Method);
+    int tolerant = (ContainsIsPattern(methodDeclaration.Body) ? 1 : 0)
+        + (HasMissingHeaderParts(
+            methodDeclaration.OpenParenToken,
+            methodDeclaration.CloseParenToken,
+            methodDeclaration.Parameters) ? 1 : 0);
+    _tolerantNames += tolerant;
+    Symbol? prevCallable = _currentCallable;
+    StructSymbol? prevStruct = _currentStruct;
+    bool prevStatic = _isStaticMethod;
+    List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
+    _currentCallable = methodSymbol;
+    _currentStruct = structSymbol;
+    _isStaticMethod = methodSymbol.IsStatic;
+    _lambdaReturnTypes = null;
+    try {
+      using ScopeRestore _ = EnterScope(methodScope);
+      CheckBlock(methodDeclaration.Body);
+    } finally {
+      _lambdaReturnTypes = prevLambdaReturns;
+      _isStaticMethod = prevStatic;
+      _currentStruct = prevStruct;
+      _currentCallable = prevCallable;
+      _tolerantNames -= tolerant;
+    }
+  }
+
+  private void CheckReturn(ReturnStatementSyntax returnStatement) {
+    if (_lambdaReturnTypes is not null) {
+      if (returnStatement.Expression is null) {
+        _lambdaReturnTypes.Add(_types.Void);
+      } else if (returnStatement.Expression is TupleLiteralExpressionSyntax tupleLit) {
+        TypeSymbol tupleType = SynthesizeTupleReturnForInference(tupleLit);
+        _lambdaReturnTypes.Add(tupleType);
+      } else {
+        _lambdaReturnTypes.Add(Synthesize(returnStatement.Expression));
+      }
+      return;
+    }
+
+    if (_currentCallable is null) {
+      if (returnStatement.Expression is { } orphanValue) {
+        if (orphanValue is TupleLiteralExpressionSyntax orphanTuple) {
+          SynthesizeTupleLiteralOutsideReturn(orphanTuple);
+        } else {
+          Synthesize(orphanValue);
+        }
+      }
+
+      Report(
+          DiagnosticCodes.ReturnOutsideFunction,
+          returnStatement.Span,
+          "Return statement is only allowed inside a function or method.");
+      return;
+    }
+
+    (ReturnInferenceState returnState, TypeSymbol declaredReturnType, string callableName) = _currentCallable switch {
+      FunctionSymbol fn => (fn.ReturnState, fn.ReturnType, fn.Name),
+      MethodSymbol method => (method.ReturnState, method.ReturnType, method.Name),
+      _ => (ReturnInferenceState.Explicit, _types.Error, _currentCallable.Name),
+    };
+
+    if (returnState != ReturnInferenceState.Explicit) {
+      // Unannotated functions temporarily keep Void until ticket 038 implements D-050 two-phase return inference.
+      if (returnStatement.Expression is { } expr) {
+        if (expr is TupleLiteralExpressionSyntax tupleLit) {
+          CheckTupleReturn(tupleLit, expectedReturn: null, callableName);
+        } else {
+          Synthesize(expr);
+        }
+      }
+      return;
+    }
+
+    if (returnStatement.Expression is null) {
+      if (!declaredReturnType.IsVoid && !declaredReturnType.IsError) {
+        Report(
+            DiagnosticCodes.BareReturnInNonVoidFunction,
+            returnStatement.Span,
+            $"Function '{callableName}' must return a value of type '{declaredReturnType.DisplayName}'.");
+      }
+      return;
+    }
+
+    ExpressionSyntax returnValue = returnStatement.Expression;
+    if (returnValue is TupleLiteralExpressionSyntax tupleLiteral) {
+      CheckTupleReturn(tupleLiteral, declaredReturnType, callableName);
+      return;
+    }
+
+    if (declaredReturnType.IsVoid) {
+      TypeSymbol actualVoid = Synthesize(returnValue);
+      if (!IsSilent(actualVoid)) {
+        Report(
+            DiagnosticCodes.ReturnTypeMismatch,
+            returnValue.Span,
+            $"Cannot return a value of type '{actualVoid.DisplayName}' from '{callableName}' with declared return type 'void'.");
+      }
+      return;
+    }
+
+    if (declaredReturnType.IsError) {
+      Synthesize(returnValue);
+      return;
+    }
+
+    TypeSymbol actual = CheckWithContextualExpectation(returnValue, declaredReturnType);
+    if (!TryConvert(returnValue, actual, declaredReturnType)) {
+      if (declaredReturnType is InterfaceType) {
+        Report(
+            DiagnosticCodes.InterfaceNotSatisfied,
+            returnValue.Span,
+            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type; expected type '{declaredReturnType.DisplayName}', but got '{actual.DisplayName}'.");
+      } else {
+        Report(
+            DiagnosticCodes.ReturnTypeMismatch,
+            returnValue.Span,
+            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type '{declaredReturnType.DisplayName}', but returned '{actual.DisplayName}'.");
+      }
     }
   }
 
@@ -180,10 +307,22 @@ internal sealed partial class BodyChecker {
     Scope testScope = ScopeOf(test, ScopeKind.Block);
     int tolerant = ContainsIsPattern(test.Body) ? 1 : 0;
     _tolerantNames += tolerant;
+    Symbol? prevCallable = _currentCallable;
+    StructSymbol? prevStruct = _currentStruct;
+    bool prevStatic = _isStaticMethod;
+    List<TypeSymbol>? prevLambdaReturns = _lambdaReturnTypes;
+    _currentCallable = null;
+    _currentStruct = null;
+    _isStaticMethod = false;
+    _lambdaReturnTypes = null;
     try {
       using ScopeRestore _ = EnterScope(testScope);
       CheckBlock(test.Body);
     } finally {
+      _lambdaReturnTypes = prevLambdaReturns;
+      _isStaticMethod = prevStatic;
+      _currentStruct = prevStruct;
+      _currentCallable = prevCallable;
       _tolerantNames -= tolerant;
     }
   }

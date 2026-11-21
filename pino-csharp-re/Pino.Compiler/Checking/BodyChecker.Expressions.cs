@@ -27,7 +27,11 @@ internal sealed partial class BodyChecker {
   public TypeSymbol Check(ExpressionSyntax expression, TypeSymbol expected) =>
       Check(expression, expected, "target");
 
-  private TypeSymbol Check(ExpressionSyntax expression, TypeSymbol expected, string targetDescription) {
+  private TypeSymbol Check(
+      ExpressionSyntax expression,
+      TypeSymbol expected,
+      string targetDescription,
+      string? targetSuffix = null) {
     _cancellationToken.ThrowIfCancellationRequested();
     if (expected.IsError) {
       return Synthesize(expression);
@@ -35,15 +39,15 @@ internal sealed partial class BodyChecker {
 
     switch (expression) {
       case ParenthesizedExpressionSyntax paren: {
-          Check(paren.Expression, expected, targetDescription);
+          Check(paren.Expression, expected, targetDescription, targetSuffix);
           _state.SetNodeType(paren, expected);
           return expected;
         }
 
       case IfExpressionSyntax ifExpression: {
           CheckCondition(ifExpression.Condition, "'if' condition");
-          Check(ifExpression.ThenBranch, expected, targetDescription);
-          Check(ifExpression.ElseBranch, expected, targetDescription);
+          Check(ifExpression.ThenBranch, expected, targetDescription, targetSuffix);
+          Check(ifExpression.ElseBranch, expected, targetDescription, targetSuffix);
           _state.SetNodeType(ifExpression, expected);
           return expected;
         }
@@ -56,27 +60,66 @@ internal sealed partial class BodyChecker {
           _state.SetNodeType(vector, expected);
           return expected;
         }
+
+      case StaticAccessExpressionSyntax staticAccess
+          when expected is UnionType expectedUnion && !expectedUnion.Definition.TypeParameters.IsEmpty: {
+          TypeSymbol unionAccessType = CheckGenericUnionStaticAccess(staticAccess, expectedUnion);
+          _state.SetNodeType(staticAccess, unionAccessType);
+          return expected;
+        }
     }
 
-    TypeSymbol actual = Synthesize(expression);
+    TypeSymbol actual = CheckWithContextualExpectation(expression, expected);
     if (!TryConvert(expression, actual, expected)) {
-      ReportCannotAssign(expression, actual, expected, targetDescription);
+      ReportTargetTypeMismatch(expression, actual, expected, targetDescription, targetSuffix);
     }
 
     return expected;
   }
 
-  private void ReportCannotAssign(ExpressionSyntax expression, TypeSymbol actual, TypeSymbol expected, string targetDescription) =>
+  private TypeSymbol CheckWithContextualExpectation(ExpressionSyntax expression, TypeSymbol expected) {
+    TypeSymbol type = expression switch {
+      CallExpressionSyntax call => SynthesizeCall(call, expected),
+      StaticAccessExpressionSyntax staticAccess => SynthesizeStaticAccess(staticAccess, expected),
+      _ => SynthesizeCore(expression),
+    };
+    _state.SetNodeType(expression, type);
+    return type;
+  }
+
+  private void ReportTargetTypeMismatch(
+      ExpressionSyntax expression,
+      TypeSymbol actual,
+      TypeSymbol expected,
+      string targetDescription,
+      string? targetSuffix = null) {
+    if (expected is InterfaceType) {
+      Report(
+          DiagnosticCodes.InterfaceNotSatisfied,
+          expression.Span,
+          $"Cannot assign type '{actual.DisplayName}' to {targetDescription}{targetSuffix}; expected type '{expected.DisplayName}', but got '{actual.DisplayName}'.");
+      return;
+    }
+
+    ReportCannotAssign(expression, actual, expected, targetDescription, targetSuffix);
+  }
+
+  private void ReportCannotAssign(
+      ExpressionSyntax expression,
+      TypeSymbol actual,
+      TypeSymbol expected,
+      string targetDescription,
+      string? targetSuffix = null) =>
       Report(
           DiagnosticCodes.TypeMismatch,
           expression.Span,
-          $"Cannot assign type '{actual.DisplayName}' to {targetDescription} of type '{expected.DisplayName}'.");
+          $"Cannot assign type '{actual.DisplayName}' to {targetDescription} of type '{expected.DisplayName}'{targetSuffix}.");
 
   /// <summary>
   /// Whether a value of <paramref name="actual"/> can be stored where <paramref name="expected"/>
   /// is required, recording the implicit conversion (if any) on <paramref name="expression"/>.
   /// </summary>
-  private bool TryConvert(ExpressionSyntax expression, TypeSymbol actual, TypeSymbol expected) {
+  private bool TryConvert(SyntaxNode expression, TypeSymbol actual, TypeSymbol expected) {
     if (actual.IsError || expected.IsError || ReferenceEquals(actual, expected)) {
       return true;
     }
@@ -93,7 +136,12 @@ internal sealed partial class BodyChecker {
 
     if (expected is InterfaceType targetInterface
         && actual is StructType or InterfaceType
-        && TypeCompatibility.SatisfiesInterface(actual, targetInterface, _types)) {
+        && TypeCompatibility.SatisfiesInterface(
+            actual,
+            targetInterface,
+            _types,
+            _state.Module,
+            _session.InterfaceSatisfactionCache)) {
       _state.Conversions[expression.Id] = new ConversionInfo(
           ConversionKind.StructToInterface,
           expected,
@@ -101,10 +149,34 @@ internal sealed partial class BodyChecker {
       return true;
     }
 
+    // A4: if a FunctionType contains an ErrorType (for instance a broken body return) while all
+    // non-error parameter/return components agree, suppress cascading mismatch errors.
+    if (actual is FunctionType actualFn
+        && expected is FunctionType expectedFn
+        && (actualFn.ContainsError || expectedFn.ContainsError)
+        && actualFn.ParameterTypes.Length == expectedFn.ParameterTypes.Length) {
+      bool compatible = true;
+      for (int i = 0; i < actualFn.ParameterTypes.Length; i++) {
+        TypeSymbol ap = actualFn.ParameterTypes[i];
+        TypeSymbol ep = expectedFn.ParameterTypes[i];
+        if (!ap.IsError && !ep.IsError && !ReferenceEquals(ap, ep)) {
+          compatible = false;
+          break;
+        }
+      }
+
+      if (compatible
+          && (actualFn.ReturnType.IsError
+              || expectedFn.ReturnType.IsError
+              || ReferenceEquals(actualFn.ReturnType, expectedFn.ReturnType))) {
+        return true;
+      }
+    }
+
     return false;
   }
 
-  private void RecordIntToFloat(ExpressionSyntax expression) =>
+  private void RecordIntToFloat(SyntaxNode expression) =>
       _state.Conversions[expression.Id] = new ConversionInfo(ConversionKind.IntToFloat, _types.Float);
 
   /// <summary>IF-E4 / D-032: a condition must be <c>bool</c>.</summary>
@@ -162,6 +234,24 @@ internal sealed partial class BodyChecker {
       case SetLiteralExpressionSyntax set:
         return SynthesizeSetLiteral(set);
 
+      case StructLiteralExpressionSyntax structLiteral:
+        return SynthesizeStructLiteral(structLiteral);
+
+      case MemberAccessExpressionSyntax member:
+        return SynthesizeMemberAccess(member);
+
+      case StaticAccessExpressionSyntax staticAccess:
+        return SynthesizeStaticAccess(staticAccess, expectedType: null);
+
+      case CallExpressionSyntax call:
+        return SynthesizeCall(call, expectedType: null);
+
+      case TupleLiteralExpressionSyntax tupleLiteral:
+        return SynthesizeTupleLiteralOutsideReturn(tupleLiteral);
+
+      case LambdaExpressionSyntax lambda:
+        return SynthesizeLambda(lambda);
+
       default:
         return SynthesizeDeferred(expression);
     }
@@ -215,7 +305,33 @@ internal sealed partial class BodyChecker {
 
     string name = NameOf(identifier.IdentifierToken);
     if (!_scope.TryLookup(name, out Symbol? symbol)) {
-      // `it` as an implicit lambda parameter in call arguments is typed by tickets 037/038.
+      if (_isStaticMethod && _currentStruct is not null) {
+        if (string.Equals(name, "self", StringComparison.Ordinal)) {
+          Report(
+              DiagnosticCodes.InvalidStaticOrInstanceAccess,
+              identifier.Span,
+              $"Cannot access 'self' from static method in struct '{_currentStruct.Name}'.");
+          return _types.Error;
+        }
+
+        if (_currentStruct.AllFields.Any(f => string.Equals(f.Name, name, StringComparison.Ordinal))) {
+          Report(
+              DiagnosticCodes.InvalidStaticOrInstanceAccess,
+              identifier.Span,
+              $"Cannot access instance field '{name}' from static method in struct '{_currentStruct.Name}'.");
+          return _types.Error;
+        }
+
+        if (_currentStruct.Methods.Any(m => !m.IsStatic && string.Equals(m.Name, name, StringComparison.Ordinal))) {
+          Report(
+              DiagnosticCodes.InvalidStaticOrInstanceAccess,
+              identifier.Span,
+              $"Cannot access instance method '{name}' from static method in struct '{_currentStruct.Name}'.");
+          return _types.Error;
+        }
+      }
+
+      // `it` as an implicit lambda parameter in call arguments is typed by ticket 038.
       if (_tolerantNames == 0 && !string.Equals(name, "it", StringComparison.Ordinal)) {
         Report(
             DiagnosticCodes.UndeclaredIdentifier,
@@ -227,28 +343,55 @@ internal sealed partial class BodyChecker {
     }
 
     _state.SetReferencedSymbol(identifier, symbol);
-    return symbol switch {
-      LocalSymbol local => local.Type,
-      ParameterSymbol parameter => parameter.Type,
-      FunctionSymbol function => FunctionValueType(function),
-      _ => _types.Error,
-    };
+    return SymbolValueType(symbol);
   }
+
+  private TypeSymbol SymbolValueType(Symbol symbol) =>
+      symbol switch {
+        LocalSymbol local => local.Type,
+        ParameterSymbol parameter => parameter.Type,
+        FieldSymbol field => field.Type,
+        FunctionSymbol function => FunctionValueType(function),
+        MethodSymbol method => _currentStruct is not null
+            ? MethodValueType(
+                method,
+                _currentStruct.TypeParameters,
+                [.. _currentStruct.TypeParameters.Select(static tp => (TypeSymbol) tp.Type)])
+            : _types.Error,
+        _ => _types.Error,
+      };
 
   private TypeSymbol FunctionValueType(FunctionSymbol function) {
     if (function.IsPrelude
         || function.Intrinsic is not null
-        || function.ReturnState != ReturnInferenceState.Explicit
         || !function.TypeParameters.IsEmpty) {
       return _types.Error;
     }
 
+    // Before ticket 038 implements D-050 two-phase return inference, unannotated functions keep Void.
     ImmutableArray<TypeSymbol>.Builder parameterTypes = ImmutableArray.CreateBuilder<TypeSymbol>(function.Parameters.Length);
     foreach (ParameterSymbol parameter in function.Parameters) {
       parameterTypes.Add(parameter.Type);
     }
 
     return _types.GetFunction(parameterTypes.ToImmutable(), function.ReturnType);
+  }
+
+  private TypeSymbol MethodValueType(
+      MethodSymbol method,
+      ImmutableArray<TypeParameterSymbol> ownerTypeParams,
+      ImmutableArray<TypeSymbol> ownerTypeArgs) {
+    if (!method.TypeParameters.IsEmpty) {
+      return _types.Error;
+    }
+
+    ImmutableArray<TypeSymbol>.Builder parameterTypes = ImmutableArray.CreateBuilder<TypeSymbol>(method.Parameters.Length);
+    foreach (ParameterSymbol parameter in method.Parameters) {
+      parameterTypes.Add(TypeSubstitution.Substitute(parameter.Type, ownerTypeParams, ownerTypeArgs, _types));
+    }
+
+    TypeSymbol ret = TypeSubstitution.Substitute(method.ReturnType, ownerTypeParams, ownerTypeArgs, _types);
+    return _types.GetFunction(parameterTypes.ToImmutable(), ret);
   }
 
   private TypeSymbol SynthesizeIfExpression(IfExpressionSyntax ifExpression) {
@@ -290,53 +433,12 @@ internal sealed partial class BodyChecker {
   }
 
   /// <summary>
-  /// Expression forms owned by tickets 037–040 (calls, member access, struct and tuple literals,
-  /// lambdas, <c>match</c>, <c>?</c>, <c>or</c>, <c>is</c>). Their sub-expressions are visited so that
-  /// names resolve and independent errors are still found, and the node itself is
-  /// <see cref="ErrorType"/> (or <c>bool</c> for <c>is</c>) without diagnostics.
+  /// Expression forms owned by tickets 039–040 (<c>match</c>, <c>?</c>, <c>or</c>, <c>is</c>).
+  /// Their sub-expressions are visited so that names resolve and independent errors are still found,
+  /// and the node itself is <see cref="ErrorType"/> (or <c>bool</c> for <c>is</c>) without diagnostics.
   /// </summary>
   private TypeSymbol SynthesizeDeferred(ExpressionSyntax expression) {
     switch (expression) {
-      case CallExpressionSyntax call:
-        Synthesize(call.Callee);
-        foreach (ArgumentSyntax argument in call.Arguments) {
-          VisitDeferredOperand(argument.Expression);
-        }
-
-        return _types.Error;
-
-      case MemberAccessExpressionSyntax member:
-        // A2: `obj:` still types its target so completion works right after the colon.
-        Synthesize(member.Target);
-        return _types.Error;
-
-      case StaticAccessExpressionSyntax staticAccess:
-        if (staticAccess.Target is IdentifierExpressionSyntax { } targetIdentifier
-            && !IsMissing(targetIdentifier.IdentifierToken)
-            && _scope.TryLookup(NameOf(targetIdentifier.IdentifierToken), out Symbol? targetSymbol)) {
-          _state.SetReferencedSymbol(targetIdentifier, targetSymbol);
-        }
-
-        return _types.Error;
-
-      case StructLiteralExpressionSyntax structLiteral:
-        foreach (StructFieldInitSyntax field in structLiteral.Fields) {
-          if (field.Value is { } value) {
-            VisitDeferredOperand(value);
-          }
-        }
-
-        return _types.Error;
-
-      case TupleLiteralExpressionSyntax tupleLiteral:
-        foreach (TupleFieldSyntax field in tupleLiteral.Fields) {
-          if (field.Value is { } value) {
-            VisitDeferredOperand(value);
-          }
-        }
-
-        return _types.Error;
-
       case BubbleExpressionSyntax bubble:
         Synthesize(bubble.Expression);
         return _types.Error;
@@ -354,16 +456,7 @@ internal sealed partial class BodyChecker {
         return _types.Bool;
 
       default:
-        // LambdaExpressionSyntax and unknown future forms.
         return _types.Error;
-    }
-  }
-
-  private void VisitDeferredOperand(ExpressionSyntax operand) {
-    if (operand is not LambdaExpressionSyntax) {
-      Synthesize(operand);
-    } else {
-      _state.SetNodeType(operand, _types.Error);
     }
   }
 }
