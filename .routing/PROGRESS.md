@@ -375,7 +375,15 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - Interface `mut` matching; `MutatesReceiver` on the 5 intrinsics; `MutationPlaceInfo` and `GetMutationPlace`.
       - `ReachabilityBuilder`: all data edges are immutable; only closure capture edges stay mutable (plain data can't form cycles).
       - Router verification in main (with 048): `-re` 3936/3936, 0 warnings, format clean, `main.pino` 0 errors.
-    - [ ] **049-re-checker-mut-body-enforcement** (Gemini 4 Neon High, worktree): dispatched.
+    - [x] **049-re-checker-mut-body-enforcement** (`b92d478`, Gemini 4 Neon High).
+      - `BodyChecker.Mutability.cs`: deep `val`, read-only fields, `mut fn` and `self` rules, `mut` parameters plus call-site `mut`, PN3226 for `mut`+`mut` only (FN-31 allows `mut`+read), closure capture bans, immutable loop variables, rejection of mutated temporaries.
+      - `push` returns `void`; `_mutationPlaces` is filled for all 5 root kinds.
+      - `CheckerConformanceTests`: 392 `.out` cases and 191 `.err` cases pass.
+      - Fuzz: 5,500 inputs in 6.9 s.
+      - Router verification in main: `-re` 3953/3953, 0 warnings, format clean, `main.pino` 0 errors.
+      - The router probe reported PN3220, PN3221, PN3223 and PN3226 correctly, and allowed `w:push(w[0])`.
+      - Nit: `CheckerMainPinoTests` special-cases the *committed* `main.pino` (an older file whose `Context` methods mutate `self` without `mut fn`), expecting exactly 2 PN3222 errors when `PINO_MAIN_PINO` is unset. The owner's working copy checks with 0 errors. Remove the special case once the owner commits their `main.pino`.
+    - [ ] **050-conformance-add-mut-err-and-cow-cases** (Gemini 4 Hydrogen High, worktree): dispatched.
     - The IR design follows 049.
   - [ ] **Pending: a "values, not objects" user guide.** It covers:
     - the linked-data caveat (a stored struct is a copy)
