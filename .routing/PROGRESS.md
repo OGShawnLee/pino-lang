@@ -369,7 +369,13 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - 20 `.out` cases migrated. Renamed: `push-chain` → `push-void`, `reference-semantics` → `value-semantics` (`.out` now `1`, `99`, `500`). `bound-method` wraps `m:increment` in a lambda.
       - Known failures: TreeWalk 7, VM 1 (plus 1 renamed), C 3, with 0 `CRASH` lines.
       - Router verification in main: legacy 2051/2051, `-re` 3932/3932.
-    - [ ] **047-re-checker-mut-symbols-types-and-memory-facts** (Gemini 4 Hydrogen High, worktree): running.
+    - [x] **047-re-checker-mut-symbols-types-and-memory-facts** (`a72dd04`, Gemini 4 Hydrogen High).
+      - PN3220–PN3228 added; `IsMutable`/`IsMutating` on symbols.
+      - `FunctionParameter(Type, IsMutable)`, so `fn (mut T)` and `fn (T)` are distinct types.
+      - Interface `mut` matching; `MutatesReceiver` on the 5 intrinsics; `MutationPlaceInfo` and `GetMutationPlace`.
+      - `ReachabilityBuilder`: all data edges are immutable; only closure capture edges stay mutable (plain data can't form cycles).
+      - Router verification in main (with 048): `-re` 3936/3936, 0 warnings, format clean, `main.pino` 0 errors.
+    - [ ] **049-re-checker-mut-body-enforcement** (Gemini 4 Neon High, worktree): dispatched.
     - The IR design follows 049.
   - [ ] **Pending: a "values, not objects" user guide.** It covers:
     - the linked-data caveat (a stored struct is a copy)
