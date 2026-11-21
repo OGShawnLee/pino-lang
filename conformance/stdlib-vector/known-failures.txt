@@ -26,7 +26,7 @@ VM map.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call la
 VM pop-empty.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
 VM pop.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
 VM predicate-index.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
-VM push-chain.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
+VM push-void.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
 VM push.pino  # VM: RUNTIME ERROR 'Value is not callable.' (the VM cannot call lambdas or vector/map methods)
 # --- C
 C each-index.pino  # C: wrong output, actual stdout "Index 16: 10 | Index -4: 20"

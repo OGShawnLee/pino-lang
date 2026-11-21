@@ -1,9 +1,9 @@
 # covers: STRUCT-9
 struct Character {
   name string
-  hp   int
+  mut hp   int
 
-  fn take_damage(dmg int) {
+  mut fn take_damage(dmg int) {
     self:hp -= dmg
     println("$name took $dmg damage.")
   }
@@ -14,7 +14,7 @@ struct Hero {
   mana int
 }
 
-val warrior = Hero {
+var warrior = Hero {
   name: "Guts",
   hp: 150,
   mana: 20

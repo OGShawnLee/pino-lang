@@ -16,10 +16,10 @@ struct OnState {
 }
 
 struct Machine {
-  state State
+  mut state State
 }
 
-val m = Machine { state: OffState {} }
+var m = Machine { state: OffState {} }
 println(m:state:name())
 m:state = OnState {}
 println(m:state:name())

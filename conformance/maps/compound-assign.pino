@@ -1,4 +1,4 @@
 # covers: MAP-6
-val m = map[string, int] { "James" -> 15 }
+var m = map[string, int] { "James" -> 15 }
 m["James"] += 5
 println(m["James"])

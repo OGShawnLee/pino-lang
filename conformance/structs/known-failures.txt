@@ -46,7 +46,6 @@ VM err-fn-field-bad-lambda.pino  # D-100: legacy parser uses => and fn(T) R inst
 VM field-shorthand.pino  # D-104: legacy parser does not support struct field shorthand
 
 # --- Semantics decisions (ticket 015)
-VM reference-semantics.pino  # D-070: VM has no struct support
 TreeWalk index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
 VM index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
 C index-after-field.pino  # D-076: legacy parser reads r:items[1] as generic call
@@ -71,3 +70,15 @@ C err-embedded-field-collision.pino  # D-078: legacy accepts the program and pri
 TreeWalk err-literal-omits-embedded-field.pino  # D-078: legacy accepts the program and prints '5' instead of failing with an error containing 'Missing property'
 VM err-literal-omits-embedded-field.pino  # D-078: legacy fails with 'RUNTIME ERROR: Value is not callable.' instead of an error containing 'Missing property'
 C err-literal-omits-embedded-field.pino  # D-078: legacy accepts the program and prints '5' instead of failing with an error containing 'Missing property'
+
+# --- AD-003 value semantics and mut (ticket 048)
+TreeWalk field-assign-outside.pino  # D-179: legacy parser/checker rejects 'mut' on struct fields
+C field-assign-outside.pino  # D-179: legacy parser/checker rejects 'mut' on struct fields
+TreeWalk embedding-methods.pino  # D-179: legacy parser/checker rejects 'mut' on struct field and 'mut fn'
+TreeWalk method-assigns-field.pino  # D-179: legacy parser/checker rejects 'mut' on struct field and 'mut fn'
+C method-assigns-field.pino  # D-179: legacy parser/checker rejects 'mut' on struct field and 'mut fn'
+TreeWalk self-compound-assign.pino  # D-179: legacy parser/checker rejects 'mut' on struct field and 'mut fn'
+TreeWalk bound-method.pino  # D-179: legacy parser/checker rejects 'mut' on struct field and 'mut fn'
+TreeWalk value-semantics.pino  # D-177/D-180: legacy parser rejects 'mut' on struct field and 'mut' parameter
+VM value-semantics.pino  # D-177/D-180: legacy parser rejects 'mut' on struct field and 'mut' parameter
+C value-semantics.pino  # D-177/D-180: legacy parser rejects 'mut' on struct field and 'mut' parameter

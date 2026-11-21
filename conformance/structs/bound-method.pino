@@ -8,9 +8,9 @@ struct Worker {
 }
 
 struct Mutator {
-  value int
+  mut value int
 
-  fn increment() {
+  mut fn increment() {
     value = value + 1
   }
 }
@@ -19,8 +19,8 @@ val w = Worker { factor: 10 }
 val bound = w:add
 println(bound(5))
 
-val m = Mutator { value: 42 }
-val inc = m:increment
+var m = Mutator { value: 42 }
+val inc = fn () { m:increment() }
 inc()
 inc()
 println(m:value)

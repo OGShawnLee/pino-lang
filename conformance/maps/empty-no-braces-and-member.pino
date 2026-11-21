@@ -1,5 +1,5 @@
 # covers: MAP-11
-val m = map[string, int]
+var m = map[string, int]
 m["a"] = 1
 val xs = [1, 2, 3]
 val ys = xs:map(fn (x int) -> x * 2)

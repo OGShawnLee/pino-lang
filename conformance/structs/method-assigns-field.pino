@@ -1,8 +1,8 @@
 # covers: STRUCT-4
 struct Counter {
-  value int
+  mut value int
 
-  fn increment() {
+  mut fn increment() {
     value = value + 1
   }
 
@@ -11,7 +11,7 @@ struct Counter {
   }
 }
 
-val c = Counter { value: 10 }
+var c = Counter { value: 10 }
 c:increment()
 c:increment()
 println(c:get())

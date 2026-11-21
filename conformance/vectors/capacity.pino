@@ -1,5 +1,5 @@
 # covers: VEC-7
-val tokens = []string { cap: 1000 }
+var tokens = []string { cap: 1000 }
 println(tokens:len)
 println(tokens:cap)
 tokens:push("a")

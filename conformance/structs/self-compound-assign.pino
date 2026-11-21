@@ -1,14 +1,14 @@
 # covers: STRUCT-6
 struct Character {
   name string
-  hp int
+  mut hp int
 
-  fn take_damage(dmg int) {
+  mut fn take_damage(dmg int) {
     self:hp -= dmg
     println("$name took $dmg damage.")
   }
 }
 
-val c = Character { name: "Guts", hp: 150 }
+var c = Character { name: "Guts", hp: 150 }
 c:take_damage(30)
 println(c:hp)

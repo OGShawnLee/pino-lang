@@ -1,5 +1,5 @@
 # covers: VECLIB-8
-val v = [1, 2]
+var v = [1, 2]
 val x = v:pop()
 println(x)
 println(v)

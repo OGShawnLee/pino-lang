@@ -1,15 +1,15 @@
 # covers: STRUCT-16
 struct Point {
-  x int
+  mut x int
   y int
 }
-val a = Point { x: 1, y: 2 }
-val b = a
+var a = Point { x: 1, y: 2 }
+var b = a
 b:x = 99
 println(a:x)
 println(b:x)
-fn bump(p Point) {
+fn bump(mut p Point) {
   p:x = 500
 }
-bump(a)
+bump(mut a)
 println(a:x)

@@ -26,3 +26,6 @@ C exact-signature-match.pino  # D-083: legacy fails: TCC compilation failed: / p
 # --- Checker design answers (ticket 033)
 VM parameter-names-ignored.pino  # D-083: legacy fails: RUNTIME ERROR: Value is not callable.
 C parameter-names-ignored.pino  # D-083: legacy fails: TCC error ',' expected (got "g")
+
+# --- AD-003 value semantics and mut (ticket 048)
+TreeWalk interface-typed-field.pino  # D-179: legacy parser/checker rejects 'mut' on struct field 'state'
