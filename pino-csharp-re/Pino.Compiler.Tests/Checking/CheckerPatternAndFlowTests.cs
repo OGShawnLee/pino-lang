@@ -324,7 +324,8 @@ public sealed class CheckerPatternAndFlowTests {
       val ch = '!'
       var msg = "hi" + ch
       msg += '?'
-      val bad_order = 'a' + "b"
+      val rune_left = 'a' + "b"
+      val bad_order = 1 + "b"
 
       var n = 10
       n /= 2
@@ -334,6 +335,7 @@ public sealed class CheckerPatternAndFlowTests {
       """;
 
     Compilation strAssign = CompileSource(StringAndAssignCode);
+    Assert.Same(strAssign.Types.String, Local(strAssign, "rune_left").Type);
     Assert.Contains(strAssign.Diagnostics, static d => d.Code == DiagnosticCodes.InvalidOperatorOperands && d.Message.Contains("string", StringComparison.Ordinal));
     Diagnostic varE9 = Assert.Single(strAssign.Diagnostics, static d => d.Code == DiagnosticCodes.TypeMismatch);
     Assert.Contains("//=", varE9.Message, StringComparison.Ordinal);

@@ -220,6 +220,8 @@ Tuples work seamlessly with higher-order function references and generic monomor
     }
     
     val @(value: v1, label: l1) = return_tuple[int](42)
+    ```
+
 ### Structural Equality vs. Reference Identity Operators
 
 Pino cleanly separates **Deep Structural Value Equality** (`==`, `!=`) from **Reference Memory Identity** (`===`, `!==`):

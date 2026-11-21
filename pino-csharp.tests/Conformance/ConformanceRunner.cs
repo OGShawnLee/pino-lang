@@ -16,7 +16,7 @@ public sealed record EngineRun(bool Succeeded, string Stdout, string Message);
 /// <summary>Verdict of an engine run compared against the case expectation.</summary>
 public sealed record CaseVerdict(bool Passed, string Detail);
 
-public sealed record KnownFailure(ConformanceEngine Engine, string CaseName, string Line, string File);
+public sealed record KnownFailure(ConformanceEngine Engine, string CaseName, string Line, string File, bool IsCrash = false);
 
 public static class ConformanceRunner {
   public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
@@ -99,13 +99,18 @@ public static class ConformanceRunner {
       var line = raw.Trim();
       if (line.Length == 0 || line.StartsWith('#')) continue;
       var body = line;
+      bool isCrash = false;
       int hash = body.IndexOf('#');
-      if (hash >= 0) body = body.Substring(0, hash).Trim();
+      if (hash >= 0) {
+        var comment = body.Substring(hash + 1).TrimStart();
+        isCrash = comment.StartsWith("CRASH", StringComparison.Ordinal);
+        body = body.Substring(0, hash).Trim();
+      }
       var parts = body.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
       if (parts.Length != 2 || !Enum.TryParse<ConformanceEngine>(parts[0], out var engine)) {
         throw new FormatException($"Malformed line '{line}' in {path}. Expected '<Engine> <case-file-name.pino>  # <reason>'.");
       }
-      result.Add(new KnownFailure(engine, parts[1], line, path));
+      result.Add(new KnownFailure(engine, parts[1], line, path, isCrash));
     }
     return result;
   }

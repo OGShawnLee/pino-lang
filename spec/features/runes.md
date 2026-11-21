@@ -18,7 +18,7 @@ A `rune` is a single Unicode code point written between single quotes. Runes com
 
 ## Errors
 - RUNE-E1: Raw NUL (`\u0000`) and other unescaped C0 control characters (except tab `\t`) inside a rune literal are rejected as a lexer error. [src: spec/decisions/D-091-control-chars-in-strings-and-runes.md]
-- RUNE-E2: Adding two runes (`a + b`) is a compile error whose message suggests `"$a$b"` or `str(a) + str(b)`. [src: spec/decisions/D-011-rune-plus-rune-result-type.md] [no-case: legacy C backend stack-overflows in ProcessStringAddition on rune + rune, crashing the dotnet test host process (see D-011)]
+- RUNE-E2: Adding two runes (`a + b`) is a compile error whose message suggests `"$a$b"` or `str(a) + str(b)`. [src: spec/decisions/D-011-rune-plus-rune-result-type.md]
 
 ## Examples
 Conformance cases: `conformance/runes/`.

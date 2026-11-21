@@ -889,7 +889,7 @@ internal sealed partial class BodyChecker {
       Report(
           DiagnosticCodes.MixedPatternBindings,
           varPat.Span,
-          $"Cannot mix positional and label bindings in pattern for '{unionSym.Name}::{variant.Name}'.");
+          $"Pattern for '{unionSym.Name}::{variant.Name}' cannot mix positional and label bindings.");
 
       // A4: bind every named identifier/label to ErrorType so the arm body doesn't cascade.
       foreach (PatternSyntax sub in subs) {

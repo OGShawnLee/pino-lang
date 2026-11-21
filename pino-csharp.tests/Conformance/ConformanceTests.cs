@@ -14,8 +14,12 @@ public class ConformanceTests {
   [Theory]
   [MemberData(nameof(AllCases))]
   public void RunCase(ConformanceEngine engine, string caseRelativePath) {
-    var verdict = ConformanceRunner.RunAndJudge(engine, caseRelativePath);
     var known = ConformanceRunner.FindKnownFailure(engine, caseRelativePath);
+    if (known is { IsCrash: true }) {
+      return; // crash-marked: skip running so the test host cannot crash
+    }
+
+    var verdict = ConformanceRunner.RunAndJudge(engine, caseRelativePath);
 
     if (known != null) {
       if (verdict.Passed) {
@@ -49,6 +53,8 @@ public class ConformanceTests {
       }
       totals[feature]++;
       for (int i = 0; i < engines.Length; i++) {
+        var known = ConformanceRunner.FindKnownFailure(engines[i], casePath);
+        if (known is { IsCrash: true }) continue;
         if (ConformanceRunner.RunAndJudge(engines[i], casePath).Passed) passed[feature][i]++;
       }
     }

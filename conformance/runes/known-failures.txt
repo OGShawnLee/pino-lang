@@ -1,5 +1,6 @@
 # Known failures for conformance/runes/.
 # Format: <Engine> <case-file-name.pino>  # <reason>
+# Prefix <reason> with CRASH (e.g. `# CRASH D-011: ...`) to skip running an engine that crashes the test host.
 # A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
 
 # --- C backend: the type() and rune() builtins are not supported
@@ -27,3 +28,8 @@ TreeWalk string-index.pino  # D-023: TreeWalk indexes UTF-16 code units instead 
 VM comparisons.pino  # D-022: VM prints True/False instead of true/false
 VM from-int.pino  # D-022: VM prints True/False instead of true/false
 VM string-index.pino  # D-023: VM does not support string indexing
+
+# --- D-011 (ticket 044)
+C err-rune-plus-rune.pino  # CRASH D-011: legacy C backend stack-overflows in ProcessStringAddition on rune + rune
+TreeWalk err-rune-plus-rune.pino  # D-011: legacy checker/evaluator allows rune + rune and prints "ab"
+VM err-rune-plus-rune.pino  # D-011: legacy checker/VM allows rune + rune and prints "ab"

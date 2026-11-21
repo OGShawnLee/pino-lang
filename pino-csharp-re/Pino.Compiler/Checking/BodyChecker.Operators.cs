@@ -347,6 +347,10 @@ internal sealed partial class BodyChecker {
           return new ArithmeticResult(_types.String, false, false, ArithmeticFailure.None);
         }
 
+        if (leftRune && rightString) {
+          return new ArithmeticResult(_types.String, false, false, ArithmeticFailure.None);
+        }
+
         if (leftString || rightString) {
           return Failed(ArithmeticFailure.StringWithNonString);
         }

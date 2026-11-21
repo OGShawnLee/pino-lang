@@ -43,6 +43,8 @@ One file per feature directory: `conformance/<feature>/known-failures.txt`.
 
 `<Engine>` is `TreeWalk`, `VM` or `C`. A listed case **passes** the test while it fails. If a listed case starts passing, the test fails with `Known failure now passes: remove '<line>' from <file>`, so the list can only shrink as the compiler improves. Never list a case without a reason; reference the decision file (`D-xxx`) when there is one.
 
+If an engine crashes the test host process on a case (for example via a stack overflow), prefix the reason with `CRASH` (e.g. `# CRASH D-011: ...`). Crash-marked lines are skipped by both `RunCase` and `GenerateStatusReport` without running that engine, and count as not passed in `STATUS.md`.
+
 ## Running
 
 From the repo root:

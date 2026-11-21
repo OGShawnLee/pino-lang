@@ -1,0 +1,2 @@
+# covers: RUNE-E2
+println('a' + 'b')

@@ -174,12 +174,12 @@ public sealed class CheckerConformanceTests {
       Assert.Contains(
           checkerErrors,
           d => string.Equals(d.Code, allowed.Code, StringComparison.Ordinal)
-              && ((d.Message + "\n" + d.Help).Contains(allowed.Phrase, StringComparison.OrdinalIgnoreCase)));
+              && ((d.Message + "\n" + d.Help).Contains(allowed.Phrase, StringComparison.Ordinal)));
       return;
     }
 
     bool matchesErrText = checkerErrors.Any(d =>
-        (d.Message + "\n" + d.Help).Contains(expectedErr, StringComparison.OrdinalIgnoreCase));
+        (d.Message + "\n" + d.Help).Contains(expectedErr, StringComparison.Ordinal));
     Assert.True(
         matchesErrText,
         $"{relativePath}: checker diagnostic(s) [{string.Join(" | ", checkerErrors.Select(d => $"{d.Code}: {d.Message} (help: {d.Help})"))}] do not contain .err text '{expectedErr}'.");

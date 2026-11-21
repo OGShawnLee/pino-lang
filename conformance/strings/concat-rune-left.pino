@@ -1,0 +1,6 @@
+# covers: STR-12, STR-11
+println('a' + "bc")
+val ch = 'x'
+val s = "yz"
+println(ch + s)
+println('x' + "y" + 'z')

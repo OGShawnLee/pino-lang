@@ -253,6 +253,33 @@ public sealed class CheckerTypeAndOperatorTests {
   }
 
   [Fact]
+  public void RunePlusString_D025AndStr12_SynthesizesStringAndRejectsInvalidCombinations() {
+    Compilation compilation = Compile("""
+      val ch = 'x'
+      val s = "yz"
+      val lit = 'a' + "bc"
+      val vars = ch + s
+      val chain = 'x' + "y" + 'z'
+      val bad_runes = 'a' + 'b'
+      val bad_int_str = 1 + "a"
+      var r = 'a'
+      r += "bc"
+      """);
+
+    Diagnostic[] errors = CheckerErrors(compilation);
+    Assert.Equal(3, errors.Length);
+    Assert.Equal(DiagnosticCodes.InvalidOperatorOperands, errors[0].Code);
+    Assert.Contains("\"$a$b\"", errors[0].Message);
+    Assert.Equal(DiagnosticCodes.InvalidOperatorOperands, errors[1].Code);
+    Assert.Contains("string", errors[1].Message);
+    Assert.Equal(DiagnosticCodes.TypeMismatch, errors[2].Code);
+
+    Assert.Same(compilation.Types.String, Local(compilation, "lit").Type);
+    Assert.Same(compilation.Types.String, Local(compilation, "vars").Type);
+    Assert.Same(compilation.Types.String, Local(compilation, "chain").Type);
+  }
+
+  [Fact]
   public void StringIndexingAndInterpolation_StrE1AndDecisionD023() {
     Compilation compilation = Compile("""
       var s = "abc"
