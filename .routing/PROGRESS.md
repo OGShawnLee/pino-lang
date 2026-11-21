@@ -254,6 +254,13 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - a 5 s fuzz hang guard
   - Suggested models: Neon High for 038 and 039; Sonnet High for 036; Hydrogen High for 034, 035, 037 and 040.
   - Owner (2026-11-20, later): go. The router prepares and dispatches the chain autonomously and waits only on points that need owner feedback. 034 was dispatched on Hydrogen High in parallel with 041 (no shared files; only 039 depends on 041).
+  - [x] **034** (`22022d9`, Gemini 4 Hydrogen High):
+    - 67 `PN3xxx` codes per design §7.2
+    - the closed `TypeSymbol` hierarchy with interning; `Symbol`s and `Scope`
+    - the embedded prelude (`Option`, `Result`, `IOError`), 74 `IntrinsicId`s in `StdlibCatalog`, and a virtual stdlib stub
+    - side tables, `SemanticModel`/`Compilation` skeletons, and the AD-002 types (`CaptureList`, `AssignedBindings`, `TypeReachabilityGraph` with Tarjan SCC)
+    - Router: `-re` 3152/3152 in main, 0 warnings, format clean.
+  - [ ] **035** dispatched (Gemini 4 Hydrogen High); its task points at 041's MOD-7 and D-165 `var` changes.
 - Owner priority (2026-11-20): **`-re` first.** The legacy GC fix (032-Q1) is deferred.
 - [ ] **Deferred by owner (2026-11-20): sized numeric types** (`i8`…`i64`, `u8`…`u64`, `f16`, `f32`, `f64`). Pino stays simple for now (`int`, `float`). Raised by the owner while discussing data science (tensors, images, ML). Needs its own design before any rule: explicit conversion/casting syntax, the widening matrix (generalizing D-019), context-typed literals (Go-style: `val x f32 = 1.5`), overflow policy (wrap, panic, or debug-panic/release-wrap) and `u*` ↔ `i*` conversions. Router suggestion when revisited: keep `int` = `i64` and `float` = `f64` as the everyday names, with sized types opt-in by annotation. Ties in with the Data Science & FFI item below.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
