@@ -390,7 +390,18 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - The owner's hand-off list for `projects/pino-compiler/` (9 of 28 files) is in the 050 changelog.
       - Nit: LEX-E1 cites "Expected Identifier" (legacy text), while `-re` says "Expected identifier, found reserved keyword". Reword it with OQ-42.
       - Router verification in main: legacy 2165/2165, `-re` 4155/4155, `main.pino` 0 errors.
-    - **AD-003 implementation (045–050) is complete in `-re`.** Next: the `val mut` ticket, which waits on the owner's answer on module-level mutable state; then the IR design.
+    - **AD-003 implementation (045–050) is complete in `-re`.**
+  - **Owner decision (2026-11-21): module-level mutable state, option 1.**
+    - Private top-level `var` and `val mut` in imported modules stay allowed, with no syntax.
+    - The checker infers `ReadsModuleState` and `WritesModuleState` per function, transitively, as purity facts for later IR and arena passes.
+    - The docs recommend keeping state in `main` or a `Context` struct and passing it with `mut`.
+  - Router decisions made in writing 051 (the owner may override):
+    - passing a `val mut` as a `mut` argument is allowed
+    - `val mut @(...)`, `var mut` and `mut val` are PN2022 parse errors
+    - `val mut` on a scalar is allowed, with no warning (logged as open)
+  - [ ] **051-val-mut-and-module-state-facts** (Gemini 4 Neon High, worktree): spec (D-183, VAR-12, VAR-13, VAR-E12), `-re` parser and checker, purity facts, cases. Dispatched.
+  - [ ] **052-docs-pino-guide-quirks-and-values** (Claude Sonnet 5.5 High, draft, after 051): `docs/guide/values-and-mutation.md`, `docs/guide/surprises.md` and an index. The owner asked for a ticket documenting all of Pino's quirks. `docs/guide/` is a new folder chosen by the router; the owner may move it.
+  - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
