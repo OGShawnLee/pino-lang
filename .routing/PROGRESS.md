@@ -212,7 +212,15 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - Cycles can be built today in three spec-valid ways (structs pointing at each other, a closure stored in a struct it captures, a recursive lambda through a captured `var`). The self-host builds none at run time, but its AST types are cyclic at the type level, so the cycle collector's cost is the risk.
   - **Amends 031:** the checker stays neutral but must also record four facts: each lambda's capture set, whether each binding is ever assigned, a type reachability graph, and which types contain no pointers.
   - 6 owner questions (research §8). **Owner answers (2026-11-20): Q2–Q6 as recommended (recorded as AD-002); Q1, the legacy GC fix, is deferred because `-re` is the top priority.**
-- [ ] **`033-spec-record-checker-design-answers`** (Claude Sonnet 5.5 High, worktree): records the owner's answers to 031's 42 questions in `spec/` and `conformance/` (D-170 onward, plus accepting open decisions D-002, D-003, D-004, D-005, D-029, D-034, D-054, D-057, D-060, D-062, D-063, D-064, D-065, D-077 and D-079; D-036 stays open with an interim "no parameters on `main`" rule). Adds `spec/stdlib/set.md` and the "freeing time is not observable" sentence.
+- [x] **`033-spec-record-checker-design-answers`** (`993604a`, Claude Sonnet 5.5 High): D-170–D-176 new (OQ-4, 5, 9, 20, 27, 36, 37); 15 open decisions accepted; 11 accepted decisions extended (D-165 strict textual `val` order, D-063 case-preserving lookup first); D-036 still open with the interim rule. 39 rules added, 9 reworded; `spec/stdlib/set.md` (SETLIB-1–8); freeing-time sentence in `SPEC.md`. 54 cases (38 `.err`, 16 `.out`), no `.out` changed; 132 known-failure lines (TreeWalk 40, VM 45, C 47). Legacy 2030/2030 on the branch; router: `-re` 3114/3114 in main after integration.
+  - **Open points for the owner** (033 `changelog.md`):
+    - D-063: try the capitalized name in every parent directory before any lowercase one, or per directory?
+    - Confirm MATCH-11 names only `else` as the catch-all, now that a bare identifier isn't one (OQ-8 + OQ-24).
+    - Confirm that bare `Result::Success` (without `()`) is rejected for `Result[void, E]` (ERR-E8).
+    - Undecided, no rule: `is` patterns with too many bindings; `break` inside a lambda declared in a loop; `remove` of an absent set element; set iteration order; top-level `var` order in script mode.
+    - Regex syntax stays open (only RGX-E1 is decided).
+    - `LANGUAGE_REFERENCE.md`/README fixes (`to_string`, `join`, `val` parameter, `for cond`) are not made.
+    - `import-capitalized-file` passes legacy only on case-insensitive file systems.
 - [ ] **Checker implementation tickets 034–040** (drafted by the 031 Neon designer, router-reviewed; status `draft`, models chosen at dispatch). Sequential: each starts after the previous one is integrated, and 034 after 033.
   - 034 types/symbols/prelude/`StdlibCatalog`/`PN3xxx` codes (design §7.2 is authoritative for code numbers)
   - 035 hoisting, type resolution, visibility, module loading (OQ-33 lookup), AD-002 reachability and pointer-free analysis
