@@ -92,6 +92,25 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 ## Architecture decisions
 - **AD-001 — Single IR, two consumers (accepted by owner, 2026-11-19).** `pino-csharp-re` lowers the checked AST once into a Pino IR (TACKY-style, like `projects/pino-compiler/`). Two consumers read that IR: an IR interpreter/VM (dev loop, REPL, WASM playground, platforms without TCC) and a C emitter (TCC for dev builds, GCC/Clang for release). No engine re-implements semantics from the AST. Legacy `pino-csharp/` (Tree-Walk, VM, `TranspilerC`) stays as the reference oracle and is retired once `-re` matches Tree-Walk on the conformance suite. Legacy VM is frozen: no new investment.
 - **AD-002 — Memory model (accepted by owner, 2026-11-20, from ticket 032).** The target is Perceus-style compiler-inserted reference counting (borrow inference, reuse) plus a cycle collector restricted to cycle-capable types (Nim ORC style); cycles are collected automatically. Users write no ownership or lifetime annotations. The IR is designed RC-ready but neutral. The first `-re` C emitter uses a tracing GC; the RC pass comes later behind a flag, validated by the IR VM, and becomes the default only if experiments E1–E4 (032 §7) pass, with a precise tracing GC as the fallback. Native resource release timing is best-effort and unspecified. Future concurrency has no shared mutable heap. The checker stays neutral and records capture sets, assigned-anywhere, the type reachability graph and pointer-free types.
+- **AD-003 — Value semantics, deep immutability and `mut` (accepted by owner, 2026-11-21, from ticket 043).**
+  - Structs, vectors, maps, sets and unions are values with copy-on-write. This reverses D-070.
+  - `val` is deeply immutable; `var` stays.
+  - `mut` is a modifier on:
+    - fields (`mut`, `pub mut`)
+    - methods (`mut fn`)
+    - interface members
+    - parameters (`mut p T`), with `f(mut a)` required at the call site
+  - `===` and `!==` are removed.
+  - Plain data can't form cycles, so AD-002's cycle collector only watches closures that capture `var`s.
+  - The 18 answers are in design.md, "Owner answers".
+- **Owner direction (2026-11-21): target domains and memory.**
+  - Pino aims at **Go-like microservices** (small, fast, efficient native services) and **games**. The goal is the best balance of simplicity and performance for the people we love.
+  - The IR must be **arena-ready**:
+    - allocation sites carry escape facts
+    - the allocator is pluggable
+    - candidate scopes: per-request and per-frame arenas, and pure-function temporaries
+    - no syntax
+  - The IR must also leave room for atomic reference counts on values that cross threads.
 
 - [x] **`013-scan-self-host-syntax` (Gemini 4 Hydrogen Medium, read-only):** 79 syntax forms inventoried across self-host, legacy and spec (`.tickets/013-scan-self-host-syntax/inventory.md`); router spot-checked. The owner settled most of its questions (see the decision batch below).
 
@@ -321,7 +340,19 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - conformance: 23 of 397 `.out` cases, 0 `.err` cases; about 60–81 legacy known-failure lines
       - `projects/pino-compiler/`: 9 of 28 files (the owner fixes these by hand)
     - 18 owner questions (`MQ-1` to `MQ-18`) and a 4-ticket plan: spec, then the `-re` parser, then the `-re` checker, then the conformance migration.
-    - Waiting for the owner's answers. The IR design follows the checker ticket.
+    - **Owner answers (2026-11-21):** every recommendation, except MQ-4 → option 2 (`===`/`!==` removed). Recorded as AD-003.
+    - The 043 Neon designer drafts the implementation tickets (045+), and the router reviews them. The IR design follows the checker ticket.
+  - [ ] **Pending: a "values, not objects" user guide.** It covers:
+    - the linked-data caveat (a stored struct is a copy)
+    - the index/ID pattern
+    - where Pino shines: services, compilers, central-state games, pipelines, teaching
+    - where it is weaker: object webs, GUI trees with parent pointers, hard real-time, shared-memory concurrent structures
+    - surprise copies
+  - [ ] **Pending stdlib for the value model:**
+    - `Pool[T]` with checked or generational IDs for linked data
+    - later, with concurrency: `Mutex[T]`, `Atomic`, channels
+    - an opt-in `ref` type (D-070 option 3): not now
+  - [ ] **Pending: concurrency design**, after the IR. Values can't race. Closures that capture a `var` must not cross threads (like Swift's `Sendable`). Reference counts on values that cross threads become atomic (like Lean 4).
   - [x] **044-small-debt-rune-string-and-runner** (`23404d4`, Gemini 4 Hydrogen High).
     - STR-12 `rune + string` added in spec, conformance and `-re`. All three legacy engines already pass it.
     - Known-failure lines whose reason starts with `CRASH` are never run. This fixes the RUNE-E2 tech debt above.
