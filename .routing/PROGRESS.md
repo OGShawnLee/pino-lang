@@ -383,7 +383,14 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - Router verification in main: `-re` 3953/3953, 0 warnings, format clean, `main.pino` 0 errors.
       - The router probe reported PN3220, PN3221, PN3223 and PN3226 correctly, and allowed `w:push(w[0])`.
       - Nit: `CheckerMainPinoTests` special-cases the *committed* `main.pino` (an older file whose `Context` methods mutate `self` without `mut fn`), expecting exactly 2 PN3222 errors when `PINO_MAIN_PINO` is unset. The owner's working copy checks with 0 errors. Remove the special case once the owner commits their `main.pino`.
-    - [ ] **050-conformance-add-mut-err-and-cow-cases** (Gemini 4 Hydrogen High, worktree): dispatched. Steered: `err-mut-as-identifier` uses `fn mut()`, not `val mut = 1`.
+    - [x] **050-conformance-add-mut-err-and-cow-cases** (`3d0d0be`, Gemini 4 Hydrogen High).
+      - 12 `.out` cases (copy-on-write for vectors, maps and sets; FN-31; and others) and 26 `.err` cases, with 3 helper modules. `err-mut-as-identifier` uses `fn mut()`, as steered.
+      - All 20 `[no-case]` tags removed (some lines keep a harmless trailing space); `STATUS.md` regenerated with 623 cases.
+      - Known failures: TreeWalk +35, VM +37, C +36, with 0 `CRASH` lines.
+      - The owner's hand-off list for `projects/pino-compiler/` (9 of 28 files) is in the 050 changelog.
+      - Nit: LEX-E1 cites "Expected Identifier" (legacy text), while `-re` says "Expected identifier, found reserved keyword". Reword it with OQ-42.
+      - Router verification in main: legacy 2165/2165, `-re` 4155/4155, `main.pino` 0 errors.
+    - **AD-003 implementation (045–050) is complete in `-re`.** Next: the `val mut` ticket, which waits on the owner's answer on module-level mutable state; then the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
