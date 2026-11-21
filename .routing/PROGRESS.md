@@ -288,6 +288,14 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Note: an unresolved mutual cycle reports one PN3104 per function in the cycle.
   - Owner (2026-11-21): go, and the router handles the rest autonomously. 039 (Gemini 4 Neon High) and 042 (Gemini 4 Hydrogen Medium) were dispatched in parallel. They share no files; 039 is told to leave 042's three topics alone. **040 picks up 042's checker side** (allow `string + rune`, the `/=`-on-`int` error with its `//=` help, export `pub val`, reject `pub var`) in its router notes.
   - [x] **042** (`d535993`, Gemini 4 Hydrogen Medium): D-019, D-025 and D-163 extended. STR-11 (`string + rune`) and STR-E5 reworded; VAR-E9 (`/=` on an `int`, help `//=`); MOD-5 reworded and MOD-E9 (`pub var`). `compound-assign` now uses `//=` (`.out` unchanged); 4 new cases plus a helper module; 10 known-failure lines. Legacy 2060/2060 on the branch; router: `-re` 3278/3278 in main. Still open: `rune + string`. The checker side was added to 040's router notes.
+  - [x] **039** (`e987dc3`, Gemini 4 Neon High):
+    - `Unifier`: union-find, occurs check, zonking; no type variables escape
+    - generic structs, functions, methods and unions, including contextual and recursive ones; bounds (GEN-8–11, GEN-E1–E9); `[]T:map[R]`; D-055 index calls; deduplicated `GenericInstantiations`
+    - `?`, `or { }` and `yield`; bare `Result::Success` (ERR-23) and `Result::Success()` rejected (ERR-E8)
+    - generic and closure reachability edges
+    - `CheckerMainPinoTests` (`PINO_MAIN_PINO`) gives 0 errors on the owner's `main.pino`, with the exact §3.3 types
+    - Router: `-re` 3293/3293 in main (including `main.pino`), 0 warnings, format clean.
+  - [ ] **040** dispatched (Gemini 4 Hydrogen High): patterns, flow, constants, CLI wiring, the conformance/snapshot/fuzz/edit-locality suites, plus 042's checker side.
 - Owner priority (2026-11-20): **`-re` first.** The legacy GC fix (032-Q1) is deferred.
 - [ ] **Deferred by owner (2026-11-20): sized numeric types** (`i8`…`i64`, `u8`…`u64`, `f16`, `f32`, `f64`). Pino stays simple for now (`int`, `float`). Raised by the owner while discussing data science (tensors, images, ML). Needs its own design before any rule: explicit conversion/casting syntax, the widening matrix (generalizing D-019), context-typed literals (Go-style: `val x f32 = 1.5`), overflow policy (wrap, panic, or debug-panic/release-wrap) and `u*` ↔ `i*` conversions. Router suggestion when revisited: keep `int` = `i64` and `float` = `f64` as the everyday names, with sized types opt-in by annotation. Ties in with the Data Science & FFI item below.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
