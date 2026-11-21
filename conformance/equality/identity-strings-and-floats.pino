@@ -1,5 +1,0 @@
-# covers: EQ-10
-println("a" === "a")
-println("a" !== "b")
-println(1.5 === 1.5)
-println(1.5 !== 2.5)

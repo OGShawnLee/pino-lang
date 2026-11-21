@@ -10,8 +10,8 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 | :--- | :--- | :--- |
 | `len` / `length` | property | `int`, the number of elements |
 | `cap` / `capacity` | property | `int`, the allocated capacity |
-| `push(item)` / `add(item)` | `fn (T)` | the vector itself (mutated) |
-| `pop()` | `fn ()` | `Option[T]` (`Option::Some(last)` or `Option::None` when empty) |
+| `push(item)` / `add(item)` | `mut fn (T)` | `void` |
+| `pop()` | `mut fn ()` | `Option[T]` (`Option::Some(last)` or `Option::None` when empty) |
 | `each(fn)` | `fn (fn (T))` or `fn (fn (T, int))` | `void` |
 | `map(fn)` | `fn (fn (T) -> R)` or `fn (fn (T, int) -> R)` | a new vector of the results |
 | `filter(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | a new vector of the matching elements |
@@ -27,10 +27,10 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 - VECLIB-2: `v:length` is an alias of `v:len`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-3: `v:cap` returns the allocated capacity of `v`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-4: `v:capacity` is an alias of `v:cap`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; DataStructureTests.TestVectorCapacityInitialization]
-- VECLIB-5: `v:push(x)` appends `x` to the end of `v`, modifying `v`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
-- VECLIB-6: `v:push(x)` returns the modified vector, so calls can be chained as `v:push(a):push(b)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
-- VECLIB-7: `v:add(x)` is an alias of `v:push(x)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
-- VECLIB-8: `v:pop()` removes the last element `x` of `v` and returns `Option::Some(x)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-013-null-primitive-versus-option.md]
+- VECLIB-5: `v:push(x)` requires `v` to be a mutable place and appends `x` to the end of `v`, modifying `v` in place. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
+- VECLIB-6: `v:push(x)` and `v:add(x)` return `void` (matching `set:add`), so chaining such as `v:push(a):push(b)` is retired and rejected (VECLIB-E1). [src: spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
+- VECLIB-7: `v:add(x)` is an alias of `v:push(x)`, requiring a mutable receiver place and returning `void`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
+- VECLIB-8: `v:pop()` requires `v` to be a mutable place, removes the last element `x` of `v` and returns `Option::Some(x)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-013-null-primitive-versus-option.md; spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
 - VECLIB-9: `v:pop()` on an empty vector returns `Option::None`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; spec/decisions/D-013-null-primitive-versus-option.md]
 - VECLIB-10: `v:each(fn)` calls `fn` with each element in index order. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"; StdlibTests.TestStringSplit]
 - VECLIB-11: A callback of `each` may take the index as a second parameter, `fn(item, index)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
@@ -48,6 +48,9 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 - VECLIB-23: The callbacks of `find`, `find_index`, `any`, `all` and `count` may take the index as a second parameter, `fn(item, index)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-24: The callback of `count` may be written with the implicit `it`, as in `v:count(it % 2 == 0)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-25: `v:join(sep)` returns the elements converted to strings and joined with `sep`, and returns the empty string for an empty vector. [src: DataStructureTests.TestVectorJoinMethod]
+
+## Errors
+- VECLIB-E1: Chaining `v:push(a):push(b)` or using the result of `v:push(x)` or `v:add(x)` as a value is rejected by the checker because both return `void`. [src: spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md] [no-case: pending conformance migration (ticket 050)]
 
 ## Examples
 Conformance cases: `conformance/stdlib-vector/`.

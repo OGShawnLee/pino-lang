@@ -44,3 +44,5 @@ println(a:x)
 
 ## Decision
 Option 1, decided by the owner on 2026-11-19: structs have reference semantics; assignment and argument passing share the instance, and mutation through any name is visible everywhere. Consequence: `spec/features/structs.md` adds `STRUCT-16` for reference semantics.
+
+**Reversed on 2026-11-21 (AD-003 / 043, MQ-3), decided by the owner:** structs (as well as vectors, maps, sets, and unions) have **value semantics with copy-on-write (CoW)** rather than reference semantics; assignment and non-`mut` argument passing produce logically independent values, and mutating a caller's variable requires a `mut` parameter and call-site `mut`. Opt-in `ref` (Option 3) remains "not now". See `D-177-value-semantics-cow-and-mut.md`; `STRUCT-16`, `VEC-19`, `MAP-13`, `SET-7`, and `UNION-24` record the normative rules.

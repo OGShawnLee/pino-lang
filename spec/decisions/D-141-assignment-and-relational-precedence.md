@@ -18,3 +18,5 @@ Is assignment an expression or statement-only, and at which precedence levels do
 
 ## Decision
 Option 2: assignment (`=`, `+=`, `-=`, `*=`, `/=`, `%=`) is a right-associative expression at the loosest precedence level (`a = b = 0` is valid), `in`/`not in` bind at the `<` level, and `is`/`is not` bind at the `==` level, decided by the owner on 2026-11-19 (ticket 016, OQ-2).
+
+**Extended on 2026-11-21 (AD-003 / 043, MQ-4 Option 2, MQ-16), decided by the owner:** `===` and `!==` are removed from equality precedence level 4 (`TYPE-13`, `D-178`), and target path subexpressions in compound and nested assignments (`v[f()] += 1`, `a:b[f()] = g()`) are evaluated **exactly once** left-to-right before reading or mutating the target slot (`VAR-4`, `D-182`). See `D-178-remove-identity-operators.md` and `D-182-union-payload-and-loop-variable-immutability.md`.

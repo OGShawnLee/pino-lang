@@ -38,3 +38,5 @@ run_greet(User {})
 Option 1, decided by the owner on 2026-11-20: a struct satisfies a non-generic interface only when its methods' parameter and return types match exactly.
 
 **Extended on 2026-11-20 (ticket 031, OQ-30), Option 1, decided by the owner:** parameter names are ignored when a struct is matched against an interface: only the number of parameters, their types and the return type are compared. Normative rule: IFACE-6.
+
+**Extended on 2026-11-21 (AD-003 / 043, MQ-9), decided by the owner:** interfaces support `mut fn` methods and `mut prop Type` properties with safe covariance (`IFACE-1`, `IFACE-4`, `IFACE-6`, `IFACE-E7`): a non-`mut` interface method rejects a `mut fn` implementation, a `mut fn` interface method accepts either a `mut fn` or a plain `fn`, a read-only interface property accepts either a read-only or a `mut` struct field, and a `mut` interface property requires a `mut` struct field; method signatures must also match per-parameter `mut` modifiers (`D-180`). See `D-179-struct-field-and-method-mutability.md`.

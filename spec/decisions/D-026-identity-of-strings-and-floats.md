@@ -35,3 +35,5 @@ println(s === t)
 
 ## Decision
 Option 1, decided by the owner on 2026-11-19: `===` and `!==` on strings and floats compare values, like the other scalars. Consequence: `EQ-10` in `spec/features/equality.md` applies to all primitive values including `string` and `float`, and VM/C failures are recorded as known failures.
+
+**Superseded on 2026-11-21 (AD-003 / 043, MQ-4 Option 2), decided by the owner:** `===` and `!==` are **removed from the language entirely**; only structural `==` and `!=` remain, and using `===` or `!==` is a parse error (`EQ-E1`). `EQ-10`, `EQ-11`, and `EQ-12` are retired. See `D-178-remove-identity-operators.md`.

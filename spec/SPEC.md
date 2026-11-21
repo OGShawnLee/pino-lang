@@ -57,6 +57,8 @@ Stdlib files have a `## Signatures` table (`Member | Signature | Returns`) follo
 
 When the memory of a value is freed is not observable to a Pino program, and the spec defines no rule for it: the language has no destructors or finalizers. [src: owner decision of 2026-11-20, ticket 032; the memory model itself is architecture decision AD-002 and is not part of `spec/`] [no-case: freeing time is not observable]
 
+Structs, vectors, maps, sets, and unions have value semantics with copy-on-write (CoW), and `val` is deeply immutable; pure data graphs are acyclic, leaving closures capturing `var`s (`D-056`) as the only cycle-capable reference edges (`D-177`). [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; architecture decision AD-003]
+
 ## Conventions
 
 - **Conformance directory:** a feature file `features/<stem>.md` has its cases in `conformance/<stem>/`.

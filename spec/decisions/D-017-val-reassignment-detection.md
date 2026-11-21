@@ -33,3 +33,5 @@ println(name)
 
 ## Decision
 Option 1, decided by the owner on 2026-11-19: assigning to a `val` is a checker (compile-time) error. Consequence: `VAR-E1` requires a checker error before execution, and VM/C acceptance (plus TreeWalk runtime-only detection) are recorded as known failures.
+
+**Extended on 2026-11-21 (AD-003 / 043, MQ-1, MQ-2), decided by the owner:** `val` is **deeply (transitively) immutable** — neither reassignment (`VAR-E1`) nor any interior mutation (field write, index write, mutating method call, or passing as `mut`) at any depth is permitted (`VAR-1`, `VAR-E10`). `var` remains the sole mutable local binding form, and `mut` is a reserved modifier keyword rather than a third binding form (`LEX-2`). See `D-177-value-semantics-cow-and-mut.md`.

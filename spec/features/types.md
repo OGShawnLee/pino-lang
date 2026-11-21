@@ -20,7 +20,7 @@ The primitive types are `bool`, `int`, `float`, `rune` and `string`. Values of t
 - TYPE-11: `int(v)` and `float(v)` return a plain `int` or `float` for numeric arguments and `Result[int, string]` or `Result[float, string]` for `string` arguments, selected statically from the argument type. [src: spec/decisions/D-015-int-float-return-result.md]
 - TYPE-12: `null` is not a type or value of the language; absence is expressed only with `Option[T]`. [src: spec/decisions/D-013-null-primitive-versus-option.md]
 
-- TYPE-13: `in` and `not in` bind at the relational comparison level (`<`, `<=`, `>`, `>=`), while `is` and `is not` bind at the equality level (`==`, `!=`, `===`, `!==`). [src: spec/decisions/D-141-assignment-and-relational-precedence.md]
+- TYPE-13: `in` and `not in` bind at the relational comparison level (`<`, `<=`, `>`, `>=`), while `is` and `is not` bind at the equality level (`==`, `!=`). [src: spec/decisions/D-141-assignment-and-relational-precedence.md; spec/decisions/D-178-remove-identity-operators.md]
 
 - TYPE-14: `//` is floor division and `%` is the matching floored modulo, so `a == (a // b) * b + a % b` holds for `int` operands: `-7 // 2` is `-4`, `-7 % 2` is `1`, `7 // -2` is `-4` and `7 % -2` is `-1`. [src: spec/decisions/D-164-floor-division-and-modulo.md]
 - TYPE-15: `//` on `float` operands returns the floored `float`, so `7.0 // 2` is `3.0`, and with one `int` and one `float` operand the `int` widens to `float` as in TYPE-9. [src: spec/decisions/D-164-floor-division-and-modulo.md; spec/decisions/D-019-int-float-mixing-and-division.md]

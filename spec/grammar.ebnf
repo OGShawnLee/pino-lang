@@ -20,7 +20,7 @@ comment         = "#" , { any_char_except_newline } ;      (* runs to the end of
 
 IDENT           = ident_start , { ident_start | digit } ;
 ident_start     = letter | "_" ;                          (* D-021: "$" is not an identifier character *)
-keyword         = "var" | "val" | "fn" | "if" | "else" | "match" | "when" | "for"
+keyword         = "var" | "val" | "mut" | "fn" | "if" | "else" | "match" | "when" | "for"
                 | "struct" | "enum" | "break" | "continue" | "return" ;
                   (* the lexer reserves more words (import, from, module, pub, static, union, yield, is, as, in,
                      then, test, assert, interface); only the ones asserted by LexerTests are normative here *)
@@ -46,8 +46,8 @@ field_init      = IDENT , ":" , expression | IDENT ;                  (* D-104 *
 import_stmt     = "from" , IDENT , "import" , IDENT , { list_sep , IDENT } ;
 when_values     = "when" , expression , { list_sep , expression } ;
 param_list      = "(" , [ param , { list_sep , param } ] , ")" ;
-param           = IDENT , type_expr ;
-arg_list        = "(" , [ expression , { list_sep , expression } ] , ")" ;
+param           = [ "mut" ] , IDENT , type_expr ;
+arg_list        = "(" , [ [ "mut" ] , expression , { list_sep , [ "mut" ] , expression } ] , ")" ;
 
 (* === section: var (owner 005) === *)
 (* D-012: a declaration may write its type after the name, with no colon: `val n int = 12`. The initializer stays
@@ -78,7 +78,7 @@ type_expr       = primitive_type
      Level 1 (right-assoc): =, +=, -=, *=, /=, //=, %=  (assignment expression, D-141, D-164)
      Level 2 (left-assoc):  or                      (logical or)
      Level 3 (left-assoc):  and                     (logical and)
-     Level 4 (left-assoc):  ==, !=, ===, !==, is, is not   (equality and pattern test, D-141)
+     Level 4 (left-assoc):  ==, !=, is, is not        (equality and pattern test, D-141, D-178)
      Level 5 (left-assoc):  <, <=, >, >=, in, not in       (relational and membership, D-141)
      Level 6 (left-assoc):  +, -                    (additive)
      Level 7 (left-assoc):  *, /, //, %             (multiplicative; // is floor division, % floored modulo, D-164)
@@ -89,8 +89,8 @@ expression      = assign_expr ;
 assign_expr     = or_expr , [ assign_op , assign_expr ] ; (* right-associative (D-141) *)
 or_expr         = and_expr , { "or" , and_expr } ;        (* right operand evaluated only when needed *)
 and_expr        = eq_expr , { "and" , eq_expr } ;
-eq_expr         = cmp_expr , { ( "==" | "!=" | "===" | "!==" ) , cmp_expr
-                             | "is" , [ "not" ] , pattern } ;   (* D-141 *)
+eq_expr         = cmp_expr , { ( "==" | "!=" ) , cmp_expr
+                             | "is" , [ "not" ] , pattern } ;   (* D-141, D-178 *)
 cmp_expr        = add_expr , { ( "<" | "<=" | ">" | ">=" | "in" | "not" , "in" ) , add_expr } ;   (* D-141 *)
 add_expr        = mul_expr , { ( "+" | "-" ) , mul_expr } ;
 mul_expr        = unary_expr , { ( "*" | "/" | "//" | "%" ) , unary_expr } ;     (* D-164 *)
@@ -139,10 +139,9 @@ string_concat   = expression , "+" , expression ;         (* both operands strin
 str_conversion  = "str" , "(" , expression , ")" ;        (* textual representation of any value *)
 
 (* === section: eq (owner 005) === *)
-(* The four operators are the equality level `eq_expr` of section type; this section states their operand types
-   and meaning. Tuples (`@(a, b)`) take no part in equality (reference section 3, "Tuple Constraint"). *)
-structural_eq   = expression , ( "==" | "!=" ) , expression ;      (* primitives, vectors, maps, structs, unions, enums, regex *)
-identity_eq     = expression , ( "===" | "!==" ) , expression ;    (* scalars by value, heap objects by reference *)
+(* `==` and `!=` form the equality level `eq_expr` of section type; this section states their operand types
+   and meaning. `===` and `!==` are removed from the language (D-178). Tuples (`@(a, b)`) take no part in equality (reference section 3, "Tuple Constraint"). *)
+structural_eq   = expression , ( "==" | "!=" ) , expression ;      (* primitives, vectors, maps, sets, structs, unions, enums, regex *)
 
 (* === section: if (owner 006) === *)
 if_statement  = "if" , expression , block , [ "else" , ( if_statement | block ) ] ;
@@ -220,8 +219,8 @@ visibility      = "pub" | "@@Testable" ;      (* mutually exclusive; see section
 parameters      = (* empty: only when the next token is "{" *)
                 | "(" , [ parameter , { [ "," ] , parameter } ] , ")" ;   (* commas optional, see D-051 *)
 
-parameter       = IDENT , type , [ "=" , expression ]     (* a parameter named like a keyword, e.g. `val`, is rejected: D-054 *)
-                | IDENT , "=" , expression ;               (* default values parse, but the checker rejects them (FN-E12, D-173) *)
+parameter       = [ "mut" ] , IDENT , type , [ "=" , expression ]     (* a parameter named like a keyword, e.g. `val`, is rejected: D-054 *)
+                | [ "mut" ] , IDENT , "=" , expression ;               (* default values parse, but the checker rejects them (FN-E12, D-173) *)
 
 return_type     = type | tuple_type ;         (* tuple_type: section tup *)
 
@@ -229,15 +228,16 @@ lambda_expression = "fn" , lambda_parameters , ( "->" , expression | block ) ;
                                               (* D-052: `fn name(...) -> expr`, D-053: a lambda return type, and D-100: `=>` are not accepted *)
 lambda_parameters = "(" , [ lambda_param_list ] , ")" ;
 lambda_param_list = parameter , { [ "," ] , parameter }           (* typed params stay comma-optional *)
-                  | IDENT , { "," , IDENT } ;                     (* untyped params require commas (D-145); `fn (n m)` is 1 typed param *)
+                  | [ "mut" ] , IDENT , { "," , [ "mut" ] , IDENT } ;   (* untyped params require commas (D-145); `fn (n m)` is 1 typed param *)
 
-function_type   = "fn" , [ "(" , [ type , { [ "," ] , type } ] , ")" ] , [ "->" , ( type | tuple_type ) ] ;
-                                              (* D-101: `()` optional when empty; omitted return type means `void` *)
+function_type   = "fn" , [ "(" , [ fn_param_type , { [ "," ] , fn_param_type } ] , ")" ] , [ "->" , ( type | tuple_type ) ] ;
+                                              (* D-101, D-180: `()` optional when empty; omitted return type means `void` *)
+fn_param_type   = [ "mut" ] , type ;
 
 call_expression = postfix_expr , "(" , [ argument , { [ "," ] , argument } ] , ")" ;
                                               (* `(` must be on same line as callee (D-144); `fns[0](9)` is index+call when `[...]` holds an expression (D-055) *)
 
-argument        = expression ;                (* an argument that uses an undeclared `it` becomes an implicit
+argument        = [ "mut" ] , expression ;    (* `mut` is mandatory at the call site iff the parameter is `mut` (D-180); an argument that uses an undeclared `it` becomes an implicit
                                                  one-parameter lambda `fn (it) -> <argument>`; inside a `for N` body `it` is declared, so no lambda is made (LOOP-17, D-002) *)
 
 return_statement = "return" , [ expression ] ;   (* D-142: `return` at EOL continues onto the next line; bare only before `}` or EOF *)
@@ -303,11 +303,11 @@ struct_member      = field_declaration
                    | embedded_struct
                    | method_declaration ;
 
-field_declaration  = [ "pub" ] , IDENT , type ;   (* `name string`, `pub name string`, `increment fn (int) -> int`; fields are private to their module unless `pub` (D-163) *)
+field_declaration  = [ "pub" ] , [ "mut" ] , IDENT , type ;   (* `pub` always precedes `mut` (D-179); `name string`, `pub mut name string`, `increment fn (int) -> int`; fields are private to their module unless `pub` (D-163) *)
 embedded_struct    = IDENT ;                      (* a bare struct name embeds that struct *)
-method_declaration = [ generic_decorator ] , [ "static" ] , "fn" , IDENT ,
+method_declaration = [ generic_decorator ] , [ "static" | "mut" ] , "fn" , IDENT ,
                      [ "(" , [ param_list ] , ")" ] , [ type ] , block ;
-                                                  (* D-052/D-074: named functions and methods have block bodies only *)
+                                                  (* `static` and `mut` are mutually exclusive (D-179); D-052/D-074: named functions and methods have block bodies only *)
 
 struct_literal     = IDENT , [ "[" , type_arg_list , "]" ] , "{" , [ field_init , { [ "," ] , field_init } ] , "}" ;
 field_init         = IDENT , ":" , expression | IDENT ;
@@ -324,11 +324,10 @@ interface_declaration = [ generic_decorator ] , [ "pub" ] , "interface" , IDENT 
 interface_member      = interface_property
                       | interface_method ;
 
-interface_property    = IDENT , type ;            (* `name string` *)
-interface_method      = "fn" , IDENT , [ "(" , [ param_list ] , ")" ] , [ type ] ;   (* signature only, no body *)
+interface_property    = [ "mut" ] , IDENT , type ;            (* `name string`, `mut hp int` *)
+interface_method      = [ "mut" ] , "fn" , IDENT , [ "(" , [ param_list ] , ")" ] , [ type ] ;   (* signature only, no body *)
 
-(* There is no `implements` clause: a struct satisfies an interface structurally. D-083: whether method
-   signatures must match exactly is not defined by the sources. *)
+(* There is no `implements` clause: a struct satisfies an interface structurally (IFACE-6, D-083, D-179). *)
 
 (* === section: enum (owner 008) === *)
 enum_declaration = [ "pub" ] , "enum" , IDENT , "{" , [ IDENT , { [ "," ] , IDENT } ] , "}" ;

@@ -9,8 +9,8 @@ Members are called on a set with `:`, for example `s:len` for a property and `s:
 | Member | Signature | Returns |
 | :--- | :--- | :--- |
 | `len` / `length` | property | `int`, the number of elements |
-| `add(element)` | `fn (T)` | `void` |
-| `remove(element)` | `fn (T)` | `void` |
+| `add(element)` | `mut fn (T)` | `void` |
+| `remove(element)` | `mut fn (T)` | `void` |
 | `any(fn)` | `fn (fn (T) -> bool)` | `bool` |
 | `all(fn)` | `fn (fn (T) -> bool)` | `bool` |
 | `each(fn)` | `fn (fn (T))` | `void` |
@@ -19,8 +19,8 @@ Members are called on a set with `:`, for example `s:len` for a property and `s:
 ## Rules
 - SETLIB-1: `s:len` returns the number of elements of `s`. [src: spec/decisions/D-175-set-library-api.md]
 - SETLIB-2: `s:length` is an alias of `s:len`. [src: spec/decisions/D-175-set-library-api.md]
-- SETLIB-3: `s:add(x)` adds the element `x` of type `T` to `s` and returns `void`; adding an element that is already in `s` leaves `s` unchanged, because a set holds unique elements (SET-1). [src: spec/decisions/D-175-set-library-api.md]
-- SETLIB-4: `s:remove(x)` removes the element `x` from `s` and returns `void`. [src: spec/decisions/D-175-set-library-api.md]
+- SETLIB-3: `s:add(x)` requires `s` to be a mutable place, adds the element `x` of type `T` to `s` and returns `void`; adding an element that is already in `s` leaves `s` unchanged, because a set holds unique elements (SET-1). [src: spec/decisions/D-175-set-library-api.md; spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
+- SETLIB-4: `s:remove(x)` requires `s` to be a mutable place, removes the element `x` from `s` and returns `void`. [src: spec/decisions/D-175-set-library-api.md; spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
 - SETLIB-5: `s:any(f)` visits the elements of `s` in insertion order, returning true when `f` returns true for at least one element and false otherwise, where `f` takes one parameter of the element type. [src: spec/decisions/D-175-set-library-api.md]
 - SETLIB-6: `s:all(f)` visits the elements of `s` in insertion order, returning true when `f` returns true for every element and false otherwise, where `f` takes one parameter of the element type. [src: spec/decisions/D-175-set-library-api.md]
 - SETLIB-7: `s:each(f)` calls `f`, which takes one parameter of the element type, once with every element of `s` in insertion order (removing an element and inserting it again puts it at the end) and returns `void`. [src: spec/decisions/D-175-set-library-api.md]

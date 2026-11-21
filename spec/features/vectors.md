@@ -10,7 +10,7 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 - VEC-1: `[a, b, c]` creates a vector whose element type is inferred from its elements. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"]
 - VEC-2: The elements of a vector literal may be separated by whitespace or newlines instead of commas. [src: LANGUAGE_REFERENCE.md §1 "Syntax Guidelines"]
 - VEC-3: `v[i]` reads the element at zero-based index `i`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"]
-- VEC-4: `v[i] = x` replaces the element at index `i`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"]
+- VEC-4: `v[i] = x` replaces the element at index `i` and requires `v` to be a mutable place. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"; spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
 - VEC-5: `[]T` creates an empty vector of element type `T`, without curly braces. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"; DataStructureTests.TestVectorEmptyInitialization]
 - VEC-6: The element type of `[]T` may itself be a vector, a map or a function type, as in `[][]int`, `[]map[string, int]` and `[]fn (int) -> int`. [src: DataStructureTests.TestVectorEmptyInitializationComplex; spec/decisions/D-101-function-type-syntax.md]
 - VEC-7: `[]T { cap: n }` creates an empty vector of length 0 whose capacity is `n`. [src: LANGUAGE_REFERENCE.md §4 "Vectors (Arrays)"; DataStructureTests.TestVectorCapacityInitialization]
@@ -26,6 +26,7 @@ Vectors are dynamic arrays whose elements all have one type. A vector is created
 - VEC-17: A line break before `[` ends the expression, so a `[` at the start of a new line begins a new statement (a vector literal) rather than indexing the previous expression; indexing must be on the same line as its operand. [src: spec/decisions/D-058-bracket-starts-line-after-expression.md]
 
 - VEC-18: A vector literal whose elements mix `int` and `float` has the type `[]float`, so `[1, 2.5]` holds the floats `1.0` and `2.5`. [src: spec/decisions/D-168-literal-widening.md; spec/decisions/D-019-int-float-mixing-and-division.md]
+- VEC-19: Vectors have value semantics with copy-on-write (CoW): assignment and non-`mut` argument passing produce logically independent vectors, and mutating a caller's vector requires a `mut` parameter and call-site `mut`. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md] [no-case: pending conformance migration (ticket 050)]
 
 ## Errors
 - VEC-E1: A literal negative `len`, such as `[]int { len: -5, init: 0 }`, is rejected before execution with a type check error whose message contains "cannot be negative". [src: LANGUAGE_REFERENCE.md §4 "Vector Validation & Safety Semantics"; DataStructureTests.TestVectorCompileTimeValidation]

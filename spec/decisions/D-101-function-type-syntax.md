@@ -18,3 +18,5 @@ How should function-type return types and zero-argument or omitted-return functi
 
 ## Decision
 Option 1: function types are written `fn (int, int) -> int`, parentheses are optional when there are no parameters, and an omitted return type means `void` (so `fn` alone is `fn () -> void`), decided by the owner on 2026-11-19. Consequence: function types in `spec/` and `conformance/` use `->` before the return type, and `fn` / `fn (T)` denote `void`-returning function types.
+
+**Extended on 2026-11-21 (AD-003 / 043, MQ-10), decided by the owner:** function types carry per-parameter `mut` modifiers (`fn (mut T) -> R`), and `fn (mut T) -> R` is distinct and non-convertible from `fn (T) -> R` (`FN-12`, `FN-20`). See `D-180-mut-parameters-calls-and-closures.md`.
