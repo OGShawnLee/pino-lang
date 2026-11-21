@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Lexing;
 using Pino.Compiler.Syntax;
+using Pino.Compiler.Text;
 
 namespace Pino.Compiler.Checking;
 
@@ -14,6 +15,8 @@ internal sealed partial class BodyChecker {
     private readonly List<Symbol> _orderedSymbols = [];
     private readonly Dictionary<Symbol, (int Index, bool IsMutable, bool IsMutated)> _entries =
         new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<Symbol> _reportedMutCaptures =
+        new(ReferenceEqualityComparer.Instance);
 
     public CaptureFrame(SyntaxNode callableNode, Scope boundaryScope) {
       CallableNode = callableNode;
@@ -23,6 +26,8 @@ internal sealed partial class BodyChecker {
     public SyntaxNode CallableNode { get; }
     public Scope BoundaryScope { get; }
 
+    public bool TryMarkMutCaptureReported(Symbol symbol) => _reportedMutCaptures.Add(symbol);
+
     public void Record(Symbol symbol, bool isMutation) {
       if (_entries.TryGetValue(symbol, out (int Index, bool IsMutable, bool IsMutated) existing)) {
         if (isMutation && !existing.IsMutated) {
@@ -31,7 +36,8 @@ internal sealed partial class BodyChecker {
         return;
       }
 
-      bool isMutable = symbol is LocalSymbol { IsMutable: true };
+      // `self` inside a `mut fn` is never a D-056 heap-boxed `var` (only read snapshots are valid).
+      bool isMutable = symbol is LocalSymbol { IsMutable: true } local && !IsSelfLocal(local);
       int index = _orderedSymbols.Count;
       _orderedSymbols.Add(symbol);
       _entries.Add(symbol, (index, isMutable, isMutation));
@@ -77,21 +83,27 @@ internal sealed partial class BodyChecker {
   private bool TryLookupAndRecordCapture(
       string name,
       [NotNullWhen(true)] out Symbol? symbol,
-      bool isMutation = false) {
+      bool isMutation = false,
+      SourceSpan reportSpan = default) {
     if (!_scope.TryLookupWithScope(name, out symbol, out Scope? declaringScope)) {
       return false;
     }
 
-    RecordCaptureIfOuter(symbol, declaringScope, isMutation);
+    RecordCaptureIfOuter(symbol, declaringScope, isMutation, reportSpan);
     return true;
   }
 
-  private void RecordCaptureIfOuter(Symbol symbol, Scope declaringScope, bool isMutation) {
+  private void RecordCaptureIfOuter(
+      Symbol symbol,
+      Scope declaringScope,
+      bool isMutation,
+      SourceSpan reportSpan = default) {
     if (_captureStack.Count == 0) {
       return;
     }
 
     Symbol? capturedSymbol = null;
+    Scope effectiveDeclScope = declaringScope;
     if (symbol is LocalSymbol or ParameterSymbol) {
       capturedSymbol = symbol;
     } else if ((symbol is FieldSymbol || symbol is MethodSymbol { IsStatic: false })
@@ -99,6 +111,7 @@ internal sealed partial class BodyChecker {
       for (Scope? s = _scope; s is not null && !ReferenceEquals(s, declaringScope); s = s.Parent) {
         if (s.Kind == ScopeKind.Method && s.TryLookupLocal("self", out Symbol? methodSelf)) {
           capturedSymbol = methodSelf;
+          effectiveDeclScope = s;
           break;
         }
       }
@@ -112,17 +125,36 @@ internal sealed partial class BodyChecker {
       return;
     }
 
-    // Field/method access on implicit `self` reads `self`, never mutates the `self` binding itself.
-    bool effectiveMutation = isMutation && ReferenceEquals(capturedSymbol, symbol);
+    // Interior mutation on a `var` or bare field / bare `mut fn` call on implicit `self`
+    // propagates `isMutation: true` to the captured root (D-056, D-180).
+    bool effectiveMutation = isMutation;
+    bool isForbiddenMutParam = capturedSymbol is ParameterSymbol { IsMutable: true };
+    bool isForbiddenMutSelf = effectiveMutation
+        && capturedSymbol is LocalSymbol selfLocal
+        && IsSelfLocal(selfLocal)
+        && selfLocal.IsMutable;
+    bool shouldReportMutCapture = false;
 
-    // Walk lexically from _scope up to declaringScope; every active CaptureFrame whose
-    // BoundaryScope is crossed strictly before reaching declaringScope captures this symbol.
-    for (Scope? current = _scope; current is not null && !ReferenceEquals(current, declaringScope); current = current.Parent) {
+    // Walk lexically from _scope up to effectiveDeclScope; every active CaptureFrame whose
+    // BoundaryScope is crossed strictly before reaching effectiveDeclScope captures this symbol.
+    for (Scope? current = _scope; current is not null && !ReferenceEquals(current, effectiveDeclScope); current = current.Parent) {
       for (int i = _captureStack.Count - 1; i >= 0; i--) {
         CaptureFrame frame = _captureStack[i];
         if (ReferenceEquals(frame.BoundaryScope, current)) {
           frame.Record(capturedSymbol, effectiveMutation);
+          if ((isForbiddenMutParam || isForbiddenMutSelf) && frame.TryMarkMutCaptureReported(capturedSymbol)) {
+            shouldReportMutCapture = true;
+          }
         }
+      }
+    }
+
+    if (shouldReportMutCapture) {
+      SourceSpan span = reportSpan.Length > 0 ? reportSpan : capturedSymbol.NameSpan;
+      if (isForbiddenMutParam) {
+        ReportCannotCaptureMutParameter(span, (ParameterSymbol) capturedSymbol);
+      } else if (isForbiddenMutSelf) {
+        ReportCannotMutablyCaptureSelf(span, (LocalSymbol) capturedSymbol);
       }
     }
   }

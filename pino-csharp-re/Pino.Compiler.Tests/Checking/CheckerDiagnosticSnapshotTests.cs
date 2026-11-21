@@ -86,4 +86,137 @@ public sealed class CheckerDiagnosticSnapshotTests {
         "  |    ^^^^\n";
     Assert.Equal(Expected, rendered);
   }
+
+  [Fact]
+  public void Snapshot_DeepValMutation_PN3220_IncludesRelatedAndHelp() {
+    const string Code = "val xs = [1, 2]\nxs:push(3)\n";
+    string rendered = RenderPlain(Code);
+    const string Expected =
+        "error[PN3220]: Cannot mutate immutable variable 'xs' of type '[]int'.\n" +
+        " --> sample.pino:2:1\n" +
+        "  |\n" +
+        "1 | val xs = [1, 2]\n" +
+        "  |     -- 'xs' is declared immutable here\n" +
+        "2 | xs:push(3)\n" +
+        "  | ^^^^^^^^^^\n" +
+        "  = help: declare 'xs' with 'var'\n";
+    Assert.Equal(Expected, rendered);
+  }
+
+  [Fact]
+  public void Snapshot_ReadOnlyFieldMutation_PN3221_IncludesRelatedAndHelp() {
+    const string Code = "struct Point {\n  x int\n}\nvar p = Point { x: 1 }\np:x = 2\n";
+    string rendered = RenderPlain(Code);
+    const string Expected =
+        "error[PN3221]: Cannot mutate read-only field 'x' of struct 'Point'.\n" +
+        " --> sample.pino:5:1\n" +
+        "  |\n" +
+        "2 |   x int\n" +
+        "  |   - field 'x' is declared read-only here\n" +
+        "...\n" +
+        "5 | p:x = 2\n" +
+        "  | ^^^^^^^\n" +
+        "  = help: add 'mut' to field 'x' in struct 'Point' to allow mutation\n";
+    Assert.Equal(Expected, rendered);
+  }
+
+  [Fact]
+  public void Snapshot_MutateSelfInNonMutMethod_PN3222_IncludesRelatedAndHelp() {
+    const string Code = "struct Counter {\n  mut n int\n  fn inc() {\n    self:n += 1\n  }\n}\n";
+    string rendered = RenderPlain(Code);
+    const string Expected =
+        "error[PN3222]: Cannot mutate 'self' inside non-mutating method 'Counter:inc'.\n" +
+        " --> sample.pino:4:5\n" +
+        "  |\n" +
+        "3 |   fn inc() {\n" +
+        "  |      --- method 'inc' is declared non-mutating here\n" +
+        "4 |     self:n += 1\n" +
+        "  |     ^^^^^^^^^^^\n" +
+        "  = help: mark the method as 'mut fn inc(...)'\n";
+    Assert.Equal(Expected, rendered);
+  }
+
+  [Fact]
+  public void Snapshot_MissingAndOverlappingMutCallArgs_PN3223AndPN3226_IncludeRelatedAndHelp() {
+    const string MissingCode = "fn bump(mut n int) {\n  n += 1\n}\nvar a = 1\nbump(a)\n";
+    string renderedMissing = RenderPlain(MissingCode);
+    const string ExpectedMissing =
+        "error[PN3223]: Argument 1 for function 'bump' is a 'mut' parameter and must be marked 'mut' at the call site.\n" +
+        " --> sample.pino:5:6\n" +
+        "  |\n" +
+        "1 | fn bump(mut n int) {\n" +
+        "  |             - parameter 'n' is declared 'mut' here\n" +
+        "...\n" +
+        "5 | bump(a)\n" +
+        "  |      ^\n" +
+        "  = help: write 'mut a' at this call site\n";
+    Assert.Equal(ExpectedMissing, renderedMissing);
+
+    const string OverlapCode = "fn swap(mut a int, mut b int) {\n  val t = a\n  a = b\n  b = t\n}\nvar x = 1\nswap(mut x, mut x)\n";
+    string renderedOverlap = RenderPlain(OverlapCode);
+    const string ExpectedOverlap =
+        "error[PN3226]: Cannot pass 'x' as overlapping 'mut' arguments in the same call.\n" +
+        " --> sample.pino:7:13\n" +
+        "  |\n" +
+        "7 | swap(mut x, mut x)\n" +
+        "  |             ^^^^^\n" +
+        "  |      ----- 'x' is already mutably borrowed here\n" +
+        "  = help: pass distinct variables or mutate through a single 'mut' container\n";
+    Assert.Equal(ExpectedOverlap, renderedOverlap);
+  }
+
+  [Fact]
+  public void Snapshot_UnexpectedInvalidAndBoundMut_PN3224PN3225PN3227_IncludeHelp() {
+    const string UnexpectedCode = "fn read(n int) {}\nvar x = 1\nread(mut x)\n";
+    const string ExpectedUnexpected =
+        "error[PN3224]: Argument 1 for function 'read' is not a 'mut' parameter; remove 'mut' at the call site.\n" +
+        " --> sample.pino:3:6\n" +
+        "  |\n" +
+        "1 | fn read(n int) {}\n" +
+        "  |         - parameter 'n' is not declared 'mut' here\n" +
+        "...\n" +
+        "3 | read(mut x)\n" +
+        "  |      ^^^^^\n" +
+        "  = help: remove 'mut' before 'x'\n";
+    Assert.Equal(ExpectedUnexpected, RenderPlain(UnexpectedCode));
+
+    const string RvalueCode = "[1, 2]:push(3)\n";
+    const string ExpectedRvalue =
+        "error[PN3225]: Cannot mutate immutable or temporary expression.\n" +
+        " --> sample.pino:1:1\n" +
+        "  |\n" +
+        "1 | [1, 2]:push(3)\n" +
+        "  | ^^^^^^^^^^^^^^\n" +
+        "  = help: bind the value to a 'var' first if you need to mutate it\n";
+    Assert.Equal(ExpectedRvalue, RenderPlain(RvalueCode));
+
+    const string BoundCode = "struct Counter {\n  mut n int\n  mut fn inc() {\n    n += 1\n  }\n}\nvar c = Counter { n: 0 }\nval f = c:inc\n";
+    const string ExpectedBound =
+        "error[PN3227]: Cannot bind mutating method 'Counter:inc' as a standalone function value.\n" +
+        " --> sample.pino:8:9\n" +
+        "  |\n" +
+        "3 |   mut fn inc() {\n" +
+        "  |          --- mutating method 'inc' is declared here\n" +
+        "...\n" +
+        "8 | val f = c:inc\n" +
+        "  |         ^^^^^\n" +
+        "  = help: wrap the call in a lambda: fn () { c:inc() }\n";
+    Assert.Equal(ExpectedBound, RenderPlain(BoundCode));
+  }
+
+  [Fact]
+  public void Snapshot_CaptureMutParam_PN3228_IncludesRelatedAndHelp() {
+    const string Code = "fn leak(mut n int) fn () -> int {\n  return fn () -> n\n}\n";
+    string rendered = RenderPlain(Code);
+    const string Expected =
+        "error[PN3228]: Cannot capture 'mut' parameter 'n' inside a closure.\n" +
+        " --> sample.pino:2:19\n" +
+        "  |\n" +
+        "1 | fn leak(mut n int) fn () -> int {\n" +
+        "  |             - parameter 'n' is declared 'mut' here\n" +
+        "2 |   return fn () -> n\n" +
+        "  |                   ^\n" +
+        "  = help: copy the needed value into a local 'val' before the closure, or avoid capturing 'n'\n";
+    Assert.Equal(Expected, rendered);
+  }
 }

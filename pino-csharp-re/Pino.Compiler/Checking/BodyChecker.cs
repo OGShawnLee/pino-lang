@@ -498,7 +498,7 @@ internal sealed partial class BodyChecker {
     var symbol = new LocalSymbol(
         name,
         type,
-        isMutable: true,
+        isMutable: false,
         LocalKind.LoopVariable,
         header.Id,
         nameToken.Span,

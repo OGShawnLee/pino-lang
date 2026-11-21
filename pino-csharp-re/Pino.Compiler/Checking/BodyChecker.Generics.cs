@@ -292,7 +292,7 @@ internal sealed partial class BodyChecker {
               $"Cannot assign type '{actualType.DisplayName}' to field '{fieldSym.Name}' of type '{unifier.ZonkPartial(patternType).DisplayName}' in struct '{structSym.Name}'.");
         }
       } else if (fieldInit.ColonToken is null) {
-        if (!TryLookupAndRecordCapture(fieldSym.Name, out Symbol? localSym)) {
+        if (!TryLookupAndRecordCapture(fieldSym.Name, out Symbol? localSym, reportSpan: fieldInit.NameToken.Span)) {
           if (_tolerantNames == 0) {
             Report(
                 DiagnosticCodes.UndeclaredIdentifier,
@@ -479,7 +479,8 @@ internal sealed partial class BodyChecker {
       ImmutableArray<ParameterSymbol> parameters,
       Func<TypeSymbol> getRawReturnType,
       bool hasImplicitSelf,
-      TypeSymbol? expectedReturnType) {
+      TypeSymbol? expectedReturnType,
+      (Symbol Root, SourceSpan Span)? mutatingReceiverRoot = null) {
     string capitalizedKind = char.ToUpperInvariant(calleeKind[0]) + calleeKind[1..];
     bool hasExplicitTypeArgs = call.TypeArguments is not null;
 
@@ -505,7 +506,13 @@ internal sealed partial class BodyChecker {
             p.IsMutable));
       }
 
-      CheckCallArguments(call, expectedParamTypes, calleeKind, calleeName);
+      CheckCallArguments(
+          call,
+          expectedParamTypes,
+          calleeKind,
+          calleeName,
+          parameterSymbols: parameters,
+          mutatingReceiverRoot: mutatingReceiverRoot);
       TypeSymbol rawRet = getRawReturnType();
       TypeSymbol retType = TypeSubstitution.Substitute(rawRet, combinedParams, combinedArgs, _types);
       _state.SetNodeType(calleeNode, _types.GetFunction(expectedParamTypes.ToImmutable(), retType));
@@ -556,7 +563,7 @@ internal sealed partial class BodyChecker {
         continue;
       }
 
-      isDeferredArg[i] = IsDeferredGenericExpression(arg.Expression, paramPatterns[i]);
+      isDeferredArg[i] = !parameters[i].IsMutable && IsDeferredGenericExpression(arg.Expression, paramPatterns[i]);
     }
 
     // Pass 1: Non-deferred arguments.
@@ -577,7 +584,7 @@ internal sealed partial class BodyChecker {
         continue;
       }
 
-      if (!unifier.Unify(paramPatterns[i], actualType, arg.Expression.Span, out Unifier.UnifyConflict? conflict, allowIntToFloat: true)
+      if (!unifier.Unify(paramPatterns[i], actualType, arg.Expression.Span, out Unifier.UnifyConflict? conflict, allowIntToFloat: !parameters[i].IsMutable)
           && conflict is { } c) {
         argReportedError[i] = true;
         hadError = true;
@@ -621,7 +628,7 @@ internal sealed partial class BodyChecker {
         continue;
       }
 
-      if (!unifier.Unify(paramPatterns[i], actualType, arg.Expression.Span, out Unifier.UnifyConflict? conflict, allowIntToFloat: true)
+      if (!unifier.Unify(paramPatterns[i], actualType, arg.Expression.Span, out Unifier.UnifyConflict? conflict, allowIntToFloat: !parameters[i].IsMutable)
           && conflict is { } c) {
         argReportedError[i] = true;
         hadError = true;
@@ -679,11 +686,14 @@ internal sealed partial class BodyChecker {
       if (i < argCount && !argReportedError[i] && argActualTypes[i] is { } rawActual) {
         TypeSymbol actual = unifier.Zonk(rawActual);
         ExpressionSyntax argExpr = call.Arguments[i].Expression;
-        if (!TryConvert(argExpr, actual, concreteParam)) {
-          string code = concreteParam is InterfaceType
+        bool typeOk = parameters[i].IsMutable
+            ? TryMatchMutArgumentType(actual, concreteParam)
+            : TryConvert(argExpr, actual, concreteParam);
+        if (!typeOk) {
+          string code = !parameters[i].IsMutable && concreteParam is InterfaceType
               ? DiagnosticCodes.InterfaceNotSatisfied
               : DiagnosticCodes.TypeMismatch;
-          string detail = concreteParam is InterfaceType iface
+          string detail = !parameters[i].IsMutable && concreteParam is InterfaceType iface
               ? FormatInterfaceMismatchDetail(actual, iface)
               : string.Empty;
           Report(
@@ -694,10 +704,20 @@ internal sealed partial class BodyChecker {
       }
     }
 
+    ImmutableArray<FunctionParameter> finalizedParams = finalParamTypes.ToImmutable();
+    CheckCallArgumentMutability(
+        call,
+        argCount,
+        finalizedParams,
+        parameters,
+        calleeKind,
+        calleeName,
+        mutatingReceiverRoot);
+
     TypeSymbol finalRetType = TypeSubstitution.Substitute(rawReturn, allParams, finalAllArgs, _types);
     finalRetType = unifier.Zonk(finalRetType);
 
-    _state.SetNodeType(calleeNode, _types.GetFunction(finalParamTypes.ToImmutable(), finalRetType));
+    _state.SetNodeType(calleeNode, _types.GetFunction(finalizedParams, finalRetType));
     _state.CallResolutions[call.Id] = new CallResolution(callKind, TargetSymbol: callableSymbol, HasImplicitSelf: hasImplicitSelf);
 
     if (!methodTypeParams.IsEmpty && !finalMethodArgs.Any(static a => a.IsError)) {
@@ -1000,6 +1020,8 @@ internal sealed partial class BodyChecker {
         Synthesize(call.Arguments[i].Expression);
       }
     }
+
+    CheckNoUnexpectedMutArguments(call, "variant constructor", variant.Name);
 
     // When `allowPartialInference` is true (inside `?` or `or { ... }`), return any partially solved
     // Result[T, E] so the enclosing `?` / `or` can resolve the missing slot (or fill `never`) without

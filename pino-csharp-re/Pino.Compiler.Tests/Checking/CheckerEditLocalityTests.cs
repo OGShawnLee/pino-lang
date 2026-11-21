@@ -104,6 +104,61 @@ public sealed class CheckerEditLocalityTests {
     AssertSameSubtreeTypes(clean.RootModel, cleanTail2, edited.RootModel, editedTail2);
   }
 
+  [Fact]
+  public void BrokenMutDeclarationInMiddle_LeavesIndependentMutTailIdentical() {
+    const string Baseline = """
+      struct Counter {
+        mut n int
+        mut fn inc() { n += 1 }
+      }
+
+      fn edited_mut(mut c Counter) {
+        c:inc()
+      }
+
+      fn tail_mut(mut c Counter) int {
+        c:inc()
+        return c:n
+      }
+      """;
+
+    const string Broken = """
+      struct Counter {
+        mut n int
+        mut fn inc() { n += 1 }
+      }
+
+      fn edited_mut(mut c Counter) {
+        val f = fn () { c:inc() }
+        c:missing_field =
+      }
+
+      fn tail_mut(mut c Counter) int {
+        c:inc()
+        return c:n
+      }
+      """;
+
+    Compilation clean = Compilation.Create(Parser.Parse(new SourceText(Baseline, "mut_locality.pino")));
+    Assert.Empty(clean.Diagnostics);
+
+    Compilation edited = Compilation.Create(Parser.Parse(new SourceText(Broken, "mut_locality.pino")));
+    Assert.NotEmpty(edited.Diagnostics);
+
+    int tailOffset = Broken.IndexOf("fn tail_mut", StringComparison.Ordinal);
+    Assert.Empty(edited.Diagnostics.Where(d => d.Span.Start >= tailOffset));
+
+    FunctionDeclarationSyntax cleanTail = GetFunction(clean, "tail_mut");
+    FunctionDeclarationSyntax editedTail = GetFunction(edited, "tail_mut");
+    AssertSameSubtreeTypes(clean.RootModel, cleanTail, edited.RootModel, editedTail);
+
+    CallExpressionSyntax cleanCall = CheckerTestSupport.Descendants<CallExpressionSyntax>(cleanTail).Single();
+    CallExpressionSyntax editedCall = CheckerTestSupport.Descendants<CallExpressionSyntax>(editedTail).Single();
+    Assert.Equal(
+        clean.RootModel.GetMutationPlace(cleanCall)?.RootKind,
+        edited.RootModel.GetMutationPlace(editedCall)?.RootKind);
+  }
+
   private static FunctionDeclarationSyntax GetFunction(Compilation compilation, string name) =>
       CheckerTestSupport.Descendants<FunctionDeclarationSyntax>(compilation.RootTree.Root)
           .Single(fn => CheckerTestSupport.TextOf(compilation, fn.NameToken) == name);

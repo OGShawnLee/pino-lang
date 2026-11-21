@@ -120,7 +120,7 @@ internal sealed partial class BodyChecker {
         }
       } else if (fieldInit.ColonToken is null) {
         // D-104 / STRUCT-15: shorthand `Point { x }` resolves `x` in the enclosing scope.
-        if (!TryLookupAndRecordCapture(fieldName, out Symbol? localSym)) {
+        if (!TryLookupAndRecordCapture(fieldName, out Symbol? localSym, reportSpan: fieldInit.NameToken.Span)) {
           if (_tolerantNames == 0) {
             Report(
                 DiagnosticCodes.UndeclaredIdentifier,
@@ -235,6 +235,11 @@ internal sealed partial class BodyChecker {
             return descriptor.Signatures[0].ReturnType.Resolve(_types, _prelude, receiverArgs, []);
           }
 
+          if (descriptor.MutatesReceiver) {
+            ReportCannotBindMutatingMethod(member.Span, targetType.DisplayName, memberName, method: null, member.Target);
+            return _types.Error;
+          }
+
           if (descriptor.Signatures.Length == 1
               && descriptor.Signatures[0].MethodTypeParameterNames.IsEmpty
               && descriptor.Signatures[0].Parameters.All(static p => p.Kind == IntrinsicParamKind.Fixed)) {
@@ -286,6 +291,12 @@ internal sealed partial class BodyChecker {
       }
 
       _state.SetReferencedSymbol(member, method);
+      if (method.IsMutating) {
+        // STRUCT-E17 / D-179 (MQ-8 Option 1): uncalled binding of a `mut fn` is forbidden.
+        ReportCannotBindMutatingMethod(member.Span, structSym.Name, memberName, method, member.Target);
+        return _types.Error;
+      }
+
       return MethodValueType(method, structSym.TypeParameters, structType.TypeArguments);
     }
 
@@ -308,6 +319,11 @@ internal sealed partial class BodyChecker {
 
     if (FindInterfaceMethod(ifaceSym, memberName) is { } method) {
       _state.SetReferencedSymbol(member, method);
+      if (method.IsMutating) {
+        ReportCannotBindMutatingMethod(member.Span, ifaceSym.Name, memberName, method, member.Target);
+        return _types.Error;
+      }
+
       return MethodValueType(method, ifaceSym.TypeParameters, ifaceType.TypeArguments);
     }
 
@@ -349,6 +365,7 @@ internal sealed partial class BodyChecker {
             structType.TypeArguments,
             _types);
         _state.SetNodeType(member, fieldType);
+        CheckMutablePlaceAndRecord(assignment, member, MutationKind.FieldWrite, assignment.Span);
         return CheckAssignedValue(assignment, member, fieldType, op);
       }
 
@@ -378,6 +395,7 @@ internal sealed partial class BodyChecker {
             ifaceType.TypeArguments,
             _types);
         _state.SetNodeType(member, propType);
+        CheckMutablePlaceAndRecord(assignment, member, MutationKind.FieldWrite, assignment.Span);
         return CheckAssignedValue(assignment, member, propType, op);
       }
 
@@ -408,6 +426,7 @@ internal sealed partial class BodyChecker {
               constraint.TypeArguments,
               _types);
           _state.SetNodeType(member, propType);
+          CheckMutablePlaceAndRecord(assignment, member, MutationKind.FieldWrite, assignment.Span);
           return CheckAssignedValue(assignment, member, propType, op);
         }
 
@@ -932,7 +951,7 @@ internal sealed partial class BodyChecker {
         }
       } else if (fieldSyntax.ColonToken is null) {
         // TUP-3: shorthand `@(x, y)` resolves `x` in enclosing scope.
-        if (!TryLookupAndRecordCapture(label, out Symbol? sym)) {
+        if (!TryLookupAndRecordCapture(label, out Symbol? sym, reportSpan: fieldSyntax.NameToken.Span)) {
           if (_tolerantNames == 0) {
             Report(
                 DiagnosticCodes.UndeclaredIdentifier,

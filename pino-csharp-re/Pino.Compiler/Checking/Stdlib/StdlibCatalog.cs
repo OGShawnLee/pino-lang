@@ -415,9 +415,8 @@ public static class StdlibCatalog {
           Prop(StdlibReceiverKind.Vector, "length", IntrinsicId.VecLen, s_int, "Alias of vec:len.", ["VECLIB-2"]),
           Prop(StdlibReceiverKind.Vector, "cap", IntrinsicId.VecCap, s_int, "Allocated element capacity.", ["VECLIB-3"]),
           Prop(StdlibReceiverKind.Vector, "capacity", IntrinsicId.VecCap, s_int, "Alias of vec:cap.", ["VECLIB-4"]),
-          // 049: change return type to void after 048 migrates push-chain/add
-          Method(StdlibReceiverKind.Vector, "push", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], new StdlibTypeSpec.Vector(s_t0))], "Appends item in place and returns the vector.", ["VECLIB-5", "VECLIB-6"], mutatesReceiver: true),
-          Method(StdlibReceiverKind.Vector, "add", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], new StdlibTypeSpec.Vector(s_t0))], "Alias of vec:push(item).", ["VECLIB-7"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Vector, "push", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], s_void)], "Appends item in place.", ["VECLIB-5", "VECLIB-6"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Vector, "add", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], s_void)], "Alias of vec:push(item).", ["VECLIB-7"], mutatesReceiver: true),
           Method(StdlibReceiverKind.Vector, "pop", [Sig(IntrinsicId.VecPop, [], new StdlibTypeSpec.Option(s_t0))], "Removes and returns the last element as Option[T].", ["VECLIB-8", "VECLIB-9"], mutatesReceiver: true),
           Method(
               StdlibReceiverKind.Vector,

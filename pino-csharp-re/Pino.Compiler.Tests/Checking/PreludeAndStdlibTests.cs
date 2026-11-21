@@ -150,6 +150,16 @@ public sealed class PreludeAndStdlibTests {
       Assert.True(StdlibCatalog.TryGetMember(intVec, name, out _), $"Missing []T:{name}");
     }
 
+    Assert.True(StdlibCatalog.TryGetMember(intVec, "push", out IntrinsicDescriptor? vecPush));
+    Assert.True(vecPush!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.VecPush, vecPush.Signatures[0].Id);
+    Assert.Same(types.Void, vecPush.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+
+    Assert.True(StdlibCatalog.TryGetMember(intVec, "add", out IntrinsicDescriptor? vecAdd));
+    Assert.True(vecAdd!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.VecPush, vecAdd.Signatures[0].Id);
+    Assert.Same(types.Void, vecAdd.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+
     Assert.True(StdlibCatalog.TryGetMember(intVec, "map", out IntrinsicDescriptor? vecMap));
     Assert.Equal(2, vecMap!.Signatures.Length);
     Assert.Equal(IntrinsicId.VecMap1, vecMap.Signatures[0].Id);
@@ -245,5 +255,10 @@ public sealed class PreludeAndStdlibTests {
       Assert.StartsWith("mut fn ", mutEntry!.SignatureText, StringComparison.Ordinal);
       Assert.Equal(mutDesc.Name, stub.Source.AsSpan(mutEntry.NameSpan).ToString());
     }
+
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Vector, "push", out VirtualStdlibEntry? vecPushEntry));
+    Assert.Equal("mut fn push(item T) -> void", vecPushEntry!.SignatureText);
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Vector, "add", out VirtualStdlibEntry? vecAddEntry));
+    Assert.Equal("mut fn add(item T) -> void", vecAddEntry!.SignatureText);
   }
 }

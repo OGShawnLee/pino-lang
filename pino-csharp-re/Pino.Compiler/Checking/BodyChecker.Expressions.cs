@@ -419,7 +419,7 @@ internal sealed partial class BodyChecker {
     }
 
     string name = NameOf(identifier.IdentifierToken);
-    if (!TryLookupAndRecordCapture(name, out Symbol? symbol)) {
+    if (!TryLookupAndRecordCapture(name, out Symbol? symbol, reportSpan: identifier.Span)) {
       if (_isStaticMethod && _currentStruct is not null) {
         if (string.Equals(name, "self", StringComparison.Ordinal)) {
           Report(
@@ -457,6 +457,12 @@ internal sealed partial class BodyChecker {
     }
 
     _state.SetReferencedSymbol(identifier, symbol);
+    if (symbol is MethodSymbol { IsMutating: true } mutMethod) {
+      string ownerName = _currentStruct?.Name ?? mutMethod.ContainingType.Name;
+      ReportCannotBindMutatingMethod(identifier.Span, ownerName, mutMethod.Name, mutMethod, targetExpr: null);
+      return _types.Error;
+    }
+
     return SymbolValueType(symbol);
   }
 

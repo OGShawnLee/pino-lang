@@ -209,8 +209,8 @@ public sealed class CheckerCallAndStdlibTests {
 
       var v = [1, 2, 3]
       val vinfo = v:len + v:length + v:cap + v:capacity
-      val vp = v:push(4)
-      val va = v:add(5)
+      v:push(4)
+      v:add(5)
       val vpop = v:pop()
       val vj = v:join(",")
       v:each(fn (x int) { println(x) })
@@ -230,7 +230,7 @@ public sealed class CheckerCallAndStdlibTests {
       val vct1 = v:count(fn (x int) -> x > 1)
       val vct2 = v:count(fn (x int, i int) -> i > 0)
 
-      val m = map[string, int] { "a" -> 1 }
+      var m = map[string, int] { "a" -> 1 }
       val mlen = m:len + m:length
       val mkeys = m:keys()
       val mvals = m:values()

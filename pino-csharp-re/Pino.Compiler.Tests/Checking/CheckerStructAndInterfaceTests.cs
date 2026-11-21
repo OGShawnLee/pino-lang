@@ -15,9 +15,9 @@ public sealed class CheckerStructAndInterfaceTests {
     Compilation compilation = Compile("""
       struct Box {
         x int
-        hp int
+        mut hp int
 
-        fn move(x int) int {
+        mut fn move(x int) int {
           val local = self:x + x
           hp -= 5
           return local + area()
@@ -28,7 +28,7 @@ public sealed class CheckerStructAndInterfaceTests {
         }
       }
 
-      val b = Box { x: 10, hp: 100 }
+      var b = Box { x: 10, hp: 100 }
       val r = b:move(3)
       val f = b:area
       val via_bound = f()

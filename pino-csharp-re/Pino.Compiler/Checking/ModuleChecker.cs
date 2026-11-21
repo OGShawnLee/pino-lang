@@ -183,6 +183,12 @@ internal sealed class ModuleCheckState {
     }
   }
 
+  public void SetMutationPlace(SyntaxNode node, MutationPlaceInfo info) {
+    if ((uint) node.Id < (uint) MutationPlaces.Length) {
+      MutationPlaces[node.Id] = info;
+    }
+  }
+
   public SemanticModel BuildSemanticModel() {
     foreach (Scope scope in AllScopes) {
       scope.Freeze();

@@ -77,7 +77,7 @@ public sealed class CheckerTypeAndOperatorTests {
       var chain_a = 0
       var chain_b = 0
       chain_a = chain_b = 4
-      fn bump(p int, q int) {
+      fn bump(mut p int, q int) {
         p = p + 1
         val inner = q
       }

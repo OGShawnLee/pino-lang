@@ -472,32 +472,61 @@ internal sealed partial class BodyChecker {
     Symbol? symbol = _state.ReferencedSymbols[identifier.Id];
 
     switch (symbol) {
-      case null:
+      case null or ErrorSymbol:
         // Undeclared (already reported) or silently tolerated.
         Synthesize(assignment.Value);
         return _types.Error;
 
       case LocalSymbol local:
-        // AD-002: every local or parameter that is a target of `=` / `op=` is recorded.
-        _state.AssignedSymbols.Add(local);
-        if (_scope.TryLookupWithScope(local.Name, out _, out Scope? localDeclScope)) {
-          RecordCaptureIfOuter(local, localDeclScope, isMutation: true);
-        }
-        if (!local.IsMutable) {
-          ReportImmutableAssignment(identifier, local);
+        if (IsSelfLocal(local)) {
+          // MQ-7 Option 1: `self = ...` is always forbidden, even inside `mut fn`.
+          ReportCannotReassignSelf(identifier.Span);
+          break;
         }
 
+        if (!local.IsMutable) {
+          ReportImmutableAssignment(identifier, local);
+          break;
+        }
+
+        // AD-002 / AD-003: record valid mutable binding reassignment and mutation place.
+        _state.AssignedSymbols.Add(local);
+        Scope? localDeclScope = FindDeclaringScope(local);
+        if (localDeclScope is not null) {
+          RecordCaptureIfOuter(local, localDeclScope, isMutation: true, identifier.Span);
+        }
+
+        RecordMutationPlaceInfo(
+            assignment,
+            identifier,
+            op == TokenKind.Assign ? MutationKind.DirectAssign : MutationKind.CompoundAssign,
+            local,
+            ComputeLocalRootKind(localDeclScope));
         break;
 
       case ParameterSymbol parameter:
-        _state.AssignedSymbols.Add(parameter);
-        if (_scope.TryLookupWithScope(parameter.Name, out _, out Scope? paramDeclScope)) {
-          RecordCaptureIfOuter(parameter, paramDeclScope, isMutation: true);
+        if (!parameter.IsMutable) {
+          ReportImmutableParameterAssignment(identifier.Span, parameter);
+          break;
         }
+
+        _state.AssignedSymbols.Add(parameter);
+        Scope? paramDeclScope = FindDeclaringScope(parameter);
+        if (paramDeclScope is not null) {
+          RecordCaptureIfOuter(parameter, paramDeclScope, isMutation: true, identifier.Span);
+        }
+
+        RecordMutationPlaceInfo(
+            assignment,
+            identifier,
+            op == TokenKind.Assign ? MutationKind.DirectAssign : MutationKind.CompoundAssign,
+            parameter,
+            MutationRootKind.MutParameter);
         break;
 
       case FieldSymbol:
-        // STRUCT-4: bare field assignment updates the receiver's field (does not rebind a local/param).
+        // STRUCT-4 / D-179: bare field assignment requires enclosing `mut fn` and a `mut` field.
+        CheckMutablePlaceAndRecord(assignment, identifier, MutationKind.FieldWrite, assignment.Span);
         break;
 
       case FunctionSymbol function:
@@ -526,8 +555,11 @@ internal sealed partial class BodyChecker {
 
   private void ReportImmutableAssignment(IdentifierExpressionSyntax identifier, LocalSymbol local) {
     bool isVal = local.Kind == LocalKind.Variable;
-    ImmutableArray<RelatedLocation> related = isVal && local.NameSpan.Length > 0
-        ? [new RelatedLocation(local.NameSpan, $"'{local.Name}' is declared with 'val' here", local.FilePath)]
+    ImmutableArray<RelatedLocation> related = local.NameSpan.Length > 0
+        ? [new RelatedLocation(
+            local.NameSpan,
+            isVal ? $"'{local.Name}' is declared with 'val' here" : $"'{local.Name}' is declared immutable here",
+            local.FilePath)]
         : [];
     Report(
         DiagnosticCodes.CannotAssignToImmutable,
@@ -556,6 +588,7 @@ internal sealed partial class BodyChecker {
       return _types.Error;
     }
 
+    CheckMutablePlaceAndRecord(assignment, index.Target, MutationKind.IndexWrite, assignment.Span);
     return CheckAssignedValue(assignment, index, elementType, op);
   }
 

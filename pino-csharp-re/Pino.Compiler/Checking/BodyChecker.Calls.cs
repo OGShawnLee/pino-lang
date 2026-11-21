@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using Pino.Compiler.Diagnostics;
 using Pino.Compiler.Lexing;
 using Pino.Compiler.Syntax;
+using Pino.Compiler.Text;
 
 namespace Pino.Compiler.Checking;
 
@@ -80,7 +81,7 @@ internal sealed partial class BodyChecker {
         containerSymbol = sym;
         containerType = SymbolValueType(sym);
         if (containerType is VectorType or MapType) {
-          RecordCaptureIfOuter(sym, containerDeclScope, isMutation: false);
+          RecordCaptureIfOuter(sym, containerDeclScope, isMutation: false, id.Span);
           _state.SetReferencedSymbol(id, sym);
           _state.SetNodeType(id, containerType);
         } else {
@@ -131,7 +132,7 @@ internal sealed partial class BodyChecker {
     string idxName = NameOf(indexNameSyntax.NameToken);
     Symbol? idxSymbol = null;
     TypeSymbol idxType = _types.Error;
-    if (!TryLookupAndRecordCapture(idxName, out idxSymbol)) {
+    if (!TryLookupAndRecordCapture(idxName, out idxSymbol, reportSpan: indexNameSyntax.Span)) {
       if (_tolerantNames == 0) {
         Report(
             DiagnosticCodes.UndeclaredIdentifier,
@@ -202,7 +203,7 @@ internal sealed partial class BodyChecker {
     }
 
     string name = NameOf(identifier.IdentifierToken);
-    if (!TryLookupAndRecordCapture(name, out Symbol? symbol)) {
+    if (!TryLookupAndRecordCapture(name, out Symbol? symbol, reportSpan: identifier.Span)) {
       if (_isStaticMethod && _currentStruct is not null) {
         if (_currentStruct.Methods.Any(m => !m.IsStatic && string.Equals(m.Name, name, StringComparison.Ordinal))) {
           Report(
@@ -588,7 +589,7 @@ internal sealed partial class BodyChecker {
                 param.IsMutable));
           }
 
-          CheckCallArguments(call, expectedParamTypes, "static method", method.Name);
+          CheckCallArguments(call, expectedParamTypes, "static method", method.Name, parameterSymbols: method.Parameters);
           TypeSymbol rawRetType = EnsureCallableReturnType(method);
           TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, ownerParams, ownerArgs, _types);
           _state.SetNodeType(staticAccess, _types.GetFunction(expectedParamTypes.ToImmutable(), retType));
@@ -652,7 +653,7 @@ internal sealed partial class BodyChecker {
       expectedParams.Add(new FunctionParameter(p.Type, p.IsMutable));
     }
 
-    CheckCallArguments(call, expectedParams, "function", fnSym.Name);
+    CheckCallArguments(call, expectedParams, "function", fnSym.Name, parameterSymbols: fnSym.Parameters);
     TypeSymbol retType = EnsureCallableReturnType(fnSym);
 
     _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
@@ -669,6 +670,22 @@ internal sealed partial class BodyChecker {
       ExpressionSyntax calleeNode,
       bool hasImplicitSelf,
       TypeSymbol? expectedType) {
+    (Symbol Root, SourceSpan Span)? mutatingReceiverRoot = null;
+    if (method.IsMutating) {
+      if (hasImplicitSelf) {
+        mutatingReceiverRoot = CheckImplicitSelfMutation(call, calleeNode.Span);
+      } else if (calleeNode is MemberAccessExpressionSyntax memberCallee) {
+        MutablePlaceResult receiverPlace = CheckMutablePlaceAndRecord(
+            call,
+            memberCallee.Target,
+            MutationKind.MutatingCall,
+            call.Span);
+        if (receiverPlace.IsValid && !receiverPlace.WasSilent && receiverPlace.RootSymbol is { } recvRoot) {
+          mutatingReceiverRoot = (recvRoot, memberCallee.Target.Span);
+        }
+      }
+    }
+
     if (!method.TypeParameters.IsEmpty) {
       return CheckGenericCallableCall(
           call,
@@ -683,7 +700,8 @@ internal sealed partial class BodyChecker {
           method.Parameters,
           () => EnsureCallableReturnType(method),
           hasImplicitSelf,
-          expectedType);
+          expectedType,
+          mutatingReceiverRoot);
     }
 
     if (call.TypeArguments is not null) {
@@ -700,7 +718,13 @@ internal sealed partial class BodyChecker {
           p.IsMutable));
     }
 
-    CheckCallArguments(call, expectedParams, "method", method.Name);
+    CheckCallArguments(
+        call,
+        expectedParams,
+        "method",
+        method.Name,
+        parameterSymbols: method.Parameters,
+        mutatingReceiverRoot: mutatingReceiverRoot);
     TypeSymbol rawRetType = EnsureCallableReturnType(method);
     TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, ownerTypeParams, ownerTypeArgs, _types);
     _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
@@ -834,6 +858,8 @@ internal sealed partial class BodyChecker {
       }
     }
 
+    CheckNoUnexpectedMutArguments(call, "variant constructor", variant.Name);
+
     _state.CallResolutions[call.Id] = new CallResolution(
         CallKind.UnionVariantConstructor,
         TargetSymbol: variant,
@@ -866,7 +892,9 @@ internal sealed partial class BodyChecker {
       CallExpressionSyntax call,
       IReadOnlyList<FunctionParameter> expectedParameters,
       string calleeKind,
-      string calleeName) {
+      string calleeName,
+      IReadOnlyList<ParameterSymbol>? parameterSymbols = null,
+      (Symbol Root, SourceSpan Span)? mutatingReceiverRoot = null) {
     string capitalizedKind = char.ToUpperInvariant(calleeKind[0]) + calleeKind[1..];
     if (!IsMissing(call.CloseParenToken) && call.Arguments.Length != expectedParameters.Count) {
       Report(
@@ -882,18 +910,22 @@ internal sealed partial class BodyChecker {
         continue;
       }
 
-      TypeSymbol expectedParam = expectedParameters[i].Type;
-      if (expectedParam is FunctionType expectedFn && ShouldWrapImplicitIt(arg.Expression)) {
+      FunctionParameter expectedInfo = expectedParameters[i];
+      TypeSymbol expectedParam = expectedInfo.Type;
+      if (!expectedInfo.IsMutable && expectedParam is FunctionType expectedFn && ShouldWrapImplicitIt(arg.Expression)) {
         CheckImplicitItArgument(arg.Expression, expectedFn, i, calleeKind, calleeName);
         continue;
       }
 
       TypeSymbol actualType = CheckWithContextualExpectation(arg.Expression, expectedParam);
-      if (!TryConvert(arg.Expression, actualType, expectedParam)) {
-        string code = expectedParam is InterfaceType
+      bool typeOk = expectedInfo.IsMutable
+          ? TryMatchMutArgumentType(actualType, expectedParam)
+          : TryConvert(arg.Expression, actualType, expectedParam);
+      if (!typeOk) {
+        string code = !expectedInfo.IsMutable && expectedParam is InterfaceType
             ? DiagnosticCodes.InterfaceNotSatisfied
             : DiagnosticCodes.TypeMismatch;
-        string detail = expectedParam is InterfaceType iface
+        string detail = !expectedInfo.IsMutable && expectedParam is InterfaceType iface
             ? FormatInterfaceMismatchDetail(actualType, iface)
             : string.Empty;
         Report(
@@ -908,6 +940,15 @@ internal sealed partial class BodyChecker {
         Synthesize(call.Arguments[i].Expression);
       }
     }
+
+    CheckCallArgumentMutability(
+        call,
+        count,
+        expectedParameters,
+        parameterSymbols,
+        calleeKind,
+        calleeName,
+        mutatingReceiverRoot);
   }
 
   private void SynthesizeCallArguments(CallExpressionSyntax call) {
@@ -931,6 +972,12 @@ internal sealed partial class BodyChecker {
     TypeSymbol[] receiverArgs = receiverType is not null ? GetReceiverTypeArgs(receiverType) : [];
     string calleeKind = receiverType is null ? "function" : "method";
     string capitalizedKind = receiverType is null ? "Function" : "Method";
+
+    if (descriptor.MutatesReceiver && call.Callee is MemberAccessExpressionSyntax mutMember) {
+      CheckMutablePlaceAndRecord(call, mutMember.Target, MutationKind.MutatingCall, call.Span);
+    }
+
+    CheckNoUnexpectedMutArguments(call, calleeKind, descriptor.Name);
 
     // 1. Variadic builtin: println(args...)
     if (descriptor.Signatures.Length == 1

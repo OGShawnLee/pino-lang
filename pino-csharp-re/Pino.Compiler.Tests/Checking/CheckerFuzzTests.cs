@@ -76,10 +76,32 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
     val bad = []int { len: -1, cap: -2 }
     for false { break }
     """,
+    """
+    struct Counter {
+      mut n int
+      mut fn inc() { n += 1 }
+    }
+    fn bump(mut c Counter, mut x int) {
+      c:inc()
+      x += 1
+    }
+    var c = Counter { n: 0 }
+    var a = 1
+    bump(mut c, mut a)
+    """,
+    """
+    interface Stepper {
+      mut value int
+      mut fn step() void
+    }
+    fn leak(mut p Stepper) fn () -> int {
+      return fn () -> p:value
+    }
+    """,
   ];
 
   private static readonly string[] s_tokens = [
-    "fn", "val", "var", "pub", "match", "when", "else", "if", "for", "return", "yield",
+    "fn", "val", "var", "mut", "pub", "match", "when", "else", "if", "for", "return", "yield",
     "break", "continue", "is", "not", "and", "or", "union", "enum", "struct", "interface",
     "int", "float", "string", "bool", "rune", "void", "Option", "Result", "::", "->",
     "(", ")", "{", "}", "[", "]", ":", ",", ".", "=", "/=", "//=", "/", "//", "%", "+", "-", "*",

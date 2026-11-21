@@ -103,7 +103,7 @@ public sealed class CheckerGenericsTests {
 
       @@Generic[T, U]
       fn map_all(list []T, transform fn (T) -> U) []U {
-        val out = []U
+        var out = []U
         for x in list {
           out:push(transform(x))
         }
