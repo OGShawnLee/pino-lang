@@ -62,8 +62,87 @@ public static class DiagnosticCodes {
   public const string DeprecatedVisibilitySyntax = "PN2021";
 
   // -------------------------------------------------------------------------
-  // PN3xxx — Checker (reserved)
+  // PN3xxx — Checker
   // -------------------------------------------------------------------------
+
+  // Names, Scopes, Visibility & Modules (PN3001–PN3049)
+  public const string UndeclaredIdentifier = "PN3001";
+  public const string DuplicateDeclaration = "PN3002";
+  public const string UnknownType = "PN3003";
+  public const string ModuleNotFound = "PN3004";
+  public const string ModuleImportCycle = "PN3005";
+  public const string ModuleMemberNotFound = "PN3006";
+  public const string SymbolNotPublic = "PN3007";
+  public const string ModuleDefinesMain = "PN3008";
+  public const string PrivateFieldAccess = "PN3009";
+  public const string InvalidTypeNameCasing = "PN3010";
+  public const string GenericParameterNameConflict = "PN3011";
+
+  // Types, Annotations, Generics & Interfaces (PN3101–PN3149)
+  public const string InvalidVoidTypePosition = "PN3101";
+  public const string TypeMismatch = "PN3102";
+  public const string BranchTypeMismatch = "PN3103";
+  public const string CannotInferReturnType = "PN3104";
+  public const string ConflictingReturnTypes = "PN3105";
+  public const string InconsistentGenericInference = "PN3106";
+  public const string GenericConstraintNotSatisfied = "PN3107";
+  public const string InterfaceNotSatisfied = "PN3108";
+  public const string CannotInferLambdaParameter = "PN3109";
+  public const string CannotInferGenericArguments = "PN3110";
+  public const string StaticMethodUsesInstanceGeneric = "PN3111";
+  public const string InvalidConditionType = "PN3112";
+  public const string DefaultParameterNotSupported = "PN3113";
+
+  // Expressions, Operators, Calls, Structs & Collections (PN3201–PN3249)
+  public const string CannotAssignToImmutable = "PN3201";
+  public const string InvalidAssignmentTarget = "PN3202";
+  public const string InvalidOperatorOperands = "PN3203";
+  public const string NotCallable = "PN3204";
+  public const string WrongArgumentCount = "PN3205";
+  public const string ValInitializedWithOptionNone = "PN3206";
+  public const string MissingStructField = "PN3207";
+  public const string UnknownMember = "PN3208";
+  public const string InvalidStaticOrInstanceAccess = "PN3209";
+  public const string InvalidImplicitIt = "PN3210";
+  public const string InvalidIndexOperation = "PN3211";
+
+  // Patterns, Match, Unions, Enums & Tuples (PN3301–PN3349)
+  public const string MixedPatternBindings = "PN3301";
+  public const string TooManyPatternBindings = "PN3302";
+  public const string LabelPatternOnPositionalVariant = "PN3303";
+  public const string UnknownPatternFieldLabel = "PN3304";
+  public const string DuplicatePatternFieldLabel = "PN3305";
+  public const string NonExhaustiveMatch = "PN3306";
+  public const string InvalidIsPattern = "PN3307";
+  public const string UnknownEnumMember = "PN3308";
+  public const string TupleLiteralOutsideReturn = "PN3309";
+  public const string DuplicateTupleLabel = "PN3310";
+  public const string UnknownTupleField = "PN3311";
+  public const string DuplicateDestructureVariable = "PN3312";
+  public const string VariantArgumentMismatch = "PN3313";
+  public const string BareIdentifierPatternNotAllowed = "PN3314";
+
+  // Control Flow, Definite Return, Error Handling & Entry Point (PN3401–PN3449)
+  public const string BreakOrContinueOutsideLoop = "PN3401";
+  public const string ReturnOutsideFunction = "PN3402";
+  public const string BareReturnInNonVoidFunction = "PN3403";
+  public const string MissingReturnPath = "PN3404";
+  public const string YieldOutsideValidContext = "PN3405";
+  public const string YieldTypeMismatch = "PN3406";
+  public const string BubbleOutsideCompatibleFunction = "PN3407";
+  public const string BubbleErrorTypeMismatch = "PN3408";
+  public const string BubbleOnNonResultOrOption = "PN3409";
+  public const string InvalidTopLevelInProgramMode = "PN3410";
+  public const string ReturnTypeMismatch = "PN3411";
+  public const string MainFunctionHasParameters = "PN3412";
+
+  // Constant Checks & Warnings (PN3501–PN3599)
+  public const string ConstantDivisionByZero = "PN3501";
+  public const string NegativeVectorLength = "PN3502";
+  public const string NegativeVectorCapacity = "PN3503";
+  public const string VectorCapacityBelowLength = "PN3504";
+  public const string ConstantFalseLoop = "PN3550";
+  public const string UnreachableMatchArm = "PN3551";
 
   // -------------------------------------------------------------------------
   // PN4xxx — IR / Codegen (reserved)
