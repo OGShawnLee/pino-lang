@@ -267,7 +267,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - AD-002 reachability, with union payload edges treated as mutable (no spec rule says payloads are immutable; logged)
     - Router: messages match the `.err` texts for MAIN-E4, FN-E12 and STRUCT-E14. `-re` 3170/3170 in main, 0 warnings, format clean.
     - Note for 040: `conformance/modules/err-module-main.err` still expects the legacy "TYPE CHECK ERROR" (OQ-42).
-  - [ ] **036** dispatched (Claude Sonnet 5.5 High, to spare the Gemini quota).
+  - [x] **036** (`183ce22`, Claude Sonnet 5.5 High): `BodyChecker` with bidirectional checking for variables and annotations, operators (`//`, floored `%`, widening, runes, strings, equality), collections, `if`/`for`, `AssignedBindings`, and expression error tolerance. 49 new tests; 15 rules' `.err` texts asserted. Router: `-re` 3219/3219 in main, 0 warnings, format clean.
+    - **Owner questions (open; the chain continues around them):**
+      1. `string + rune`: STR-E5 rejects it, but `conformance/loops/in-string-runes.pino`, `loops/indexed-string.pino`, the self-host (`test/rune_test.pino`), `projects/c-compiler` and `pino.games/sable.pino` build strings with `s + ch`.
+      2. `n /= 2` on an `int`: rejected (`/` is always `float`, D-019), but `conformance/variables/compound-assign.pino` expects an integer result (`7 /= 2` → `3`).
+      3. Can `pub val`/`pub var` be imported? The spec doesn't say; `from M import v` currently reports PN3006.
+  - [ ] **037** dispatched (Gemini 4 Hydrogen High), told to leave the three open questions alone.
 - Owner priority (2026-11-20): **`-re` first.** The legacy GC fix (032-Q1) is deferred.
 - [ ] **Deferred by owner (2026-11-20): sized numeric types** (`i8`…`i64`, `u8`…`u64`, `f16`, `f32`, `f64`). Pino stays simple for now (`int`, `float`). Raised by the owner while discussing data science (tensors, images, ML). Needs its own design before any rule: explicit conversion/casting syntax, the widening matrix (generalizing D-019), context-typed literals (Go-style: `val x f32 = 1.5`), overflow policy (wrap, panic, or debug-panic/release-wrap) and `u*` ↔ `i*` conversions. Router suggestion when revisited: keep `int` = `i64` and `float` = `f64` as the everyday names, with sized types opt-in by annotation. Ties in with the Data Science & FFI item below.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
