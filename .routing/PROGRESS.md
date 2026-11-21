@@ -231,7 +231,13 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - removing an absent set element does nothing
       - **sets and maps iterate in insertion order** (revises D-004)
       - top-level `var`s follow strict textual order, like `val`
-- [ ] **`041-spec-record-033-follow-up-answers`** (Gemini 4 Hydrogen Medium, dispatched 2026-11-20 at the owner's go; owner chose speed): records the answers above in `spec/` and `conformance/`. Ticket 039 is updated to the bare `Result::Success` and now also waits for 041.
+- [x] **`041-spec-record-033-follow-up-answers`** (`826952b`, Gemini 4 Hydrogen Medium): 9 decisions extended (D-004, D-034, D-063, D-162, D-165, D-166, D-169, D-174, D-175).
+  - Rules: 4 added (UNION-E15, LOOP-18, SET-6, SETLIB-9) and 15 reworded (ERR-23 bare `Result::Success`, ERR-E8 rejects `()`, MOD-7 per-directory lookup, MATCH-11, LOOP-9/10/E1, MAP-9, VAR-7/E8, SETLIB-5–7, MAPLIB-3/4).
+  - Cases: 6 new; the `.err` case was renamed to `err-result-void-success-parens`. Known failures: 21 added, 3 stale removed.
+  - Results: legacy 2048/2048 on the branch; router: `-re` 3138/3138 in main after integration.
+  - Logged nits:
+    - `str(m)` still prints the old `"k": v` form (MAP-9); the print syntax should move to `->` someday
+    - the exact `str(s)` form for sets is unspecified (SET-6)
 - [ ] **Checker implementation tickets 034–040** (drafted by the 031 Neon designer, router-reviewed; status `draft`, models chosen at dispatch). Sequential: each starts after the previous one is integrated, and 034 after 033.
   - 034 types/symbols/prelude/`StdlibCatalog`/`PN3xxx` codes (design §7.2 is authoritative for code numbers)
   - 035 hoisting, type resolution, visibility, module loading (OQ-33 lookup), AD-002 reachability and pointer-free analysis
