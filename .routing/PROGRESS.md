@@ -304,6 +304,17 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Router: `-re` 3900/3900 in main, 0 warnings, format clean; `pino-re check main.pino` gives 0 errors. A CLI probe showed late-base-case inference (`f` → `int` flagged against `val x string`) and PN3501 rendering correctly.
     - Nit: `CheckerConformanceTests` matches `.err` text case-insensitively and also searches the help text; the legacy runner is case-sensitive on output. Tighten later.
 - **The `-re` checker is complete (034–040).** Next, per AD-001 and AD-002: the `-re` IR design (RC-ready but model-neutral IR, IR VM, C emitter with a tracing GC first). Also pending: the `mut` design idea, `rune + string`, the OQ-42 `.err` rewording, the `str(m)` print form, and the legacy GC fix.
+- **Owner direction (2026-11-21): deep immutability with `mut`.**
+  - Problem: `val` is shallow. A `val` vector, map or struct can be mutated, and struct fields have no read-only form.
+  - Goal: a stricter, more robust language, even if less nice to write.
+  - `rune + string` gives a `string` (decided).
+  - Owner: bundle small tech debt into one ticket so it's worth a worker's time.
+  - The IR design waits for 043, because value vs reference semantics shapes the IR.
+  - [ ] **043-mut-and-deep-immutability-design** (Gemini 4 Neon High, read-only design, main checkout): `val` depth, aliasing options (value semantics with copy-on-write vs mutability in the type vs borrowing vs shallow), field and receiver `mut`, parameters, captures, stdlib mutating methods, AD-002 cycle impact, migration counts. Owner questions are `MQ-n`.
+  - [ ] **044-small-debt-rune-string-and-runner** (Gemini 4 Hydrogen High, worktree): STR-12 `rune + string` in spec, conformance and `-re`; a `CRASH` known-failure marker so crashing legacy engines aren't run; a RUNE-E2 case; case-sensitive `.err` matching in `CheckerConformanceTests`; the `LANGUAGE_REFERENCE.md` fence.
+  - Still needing an owner answer:
+    - the `str(m)` print form (`key: value` vs `key -> value`, MAP-9)
+    - OQ-42, which happens when `-re` joins conformance at run time
 - Owner priority (2026-11-20): **`-re` first.** The legacy GC fix (032-Q1) is deferred.
 - [ ] **Deferred by owner (2026-11-20): sized numeric types** (`i8`…`i64`, `u8`…`u64`, `f16`, `f32`, `f64`). Pino stays simple for now (`int`, `float`). Raised by the owner while discussing data science (tensors, images, ML). Needs its own design before any rule: explicit conversion/casting syntax, the widening matrix (generalizing D-019), context-typed literals (Go-style: `val x f32 = 1.5`), overflow policy (wrap, panic, or debug-panic/release-wrap) and `u*` ↔ `i*` conversions. Router suggestion when revisited: keep `int` = `i64` and `float` = `f64` as the everyday names, with sized types opt-in by annotation. Ties in with the Data Science & FFI item below.
 - [ ] **`-re` Pino IR design (AD-001):** After `-re` parser + checker, design the IR and lowering; add `-re` as a conformance engine. Precompile Boehm GC once for faster `--c` builds.
