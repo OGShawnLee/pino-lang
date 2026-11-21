@@ -436,7 +436,25 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - a slot whose generation counter would overflow is retired
   - [ ] **053-disjoint-mut-slots** (draft, Gemini 4 Neon High): D-184, rewording FN-E16, FN-32 to FN-35, VECLIB-26 and 27, the `-re` checker, and a side table of run-time checks for the IR.
   - [ ] **054-pool-and-handle-types** (draft, Gemini 4 Neon High, after 053): D-185, `pools.md` and `pool.md`, EQ-14, LOOP-19 and 20, VAR-E13, the `-re` checker, and IR obligations. Open risk: parsing `Pool[Weapon]` as an expression.
-  - Both drafts are being reviewed read-only by a fresh Neon. After that, owner approval, then implementation. Running needs the IR and VM, so the IR design comes after these.
+  - **Neon review done** (read-only, Gemini 4 Neon High): 4 blockers, 13 should-fix, 4 nits. The router folded them all into the drafts:
+    - **B1:** the run-time check compares addresses at every unknown index step of the shared prefix, not the final addresses.
+    - **B2:** run-time panic `.err` cases are registered in `CheckerConformanceTests.RuntimeErrCases`.
+    - **B3:** `Pool` and `Handle` are dedicated `TypeSymbol`s like `set` and `map`, not prelude unions. A user type named `Pool` or `Handle` is PN3002, and the names are added to GEN-E4.
+    - **B4:** `Pool[...]` and `Handle[...]` parse in `ParseIdentifierLedPrimary` (D-147 precedent), so indexing a variable named `Pool` is a parse error. `Handle[T]` in an expression is PN3231.
+    - **Router decisions on equality proofs:**
+      - syntax only: no constant folding; negative int literals and parentheses are handled
+      - `n` must be the same *immutable* symbol (no `var`, `val mut`, `mut` parameter or field)
+      - same symbol means proven equal for any key type; a constant offset counts for int indexes only
+      - the branch fact matches by symbol, holds anywhere inside the then-branch including nested blocks, but not in lambdas, `else`, or through `and`/`or`
+    - **Other router decisions:**
+      - panic placeholders: `<callee>` is the unqualified name, or `function` for a call through a function value; `<root>` is the first identifier as written
+      - `mut m[k]` with a missing key panics per MAP-E1 before the check
+      - `swap` bounds-checks before its `i == j` no-op (VECLIB-E2)
+      - `str(p)`, `type(p)` and `type(h)` are unspecified, like SET-6
+      - the generation-limit rule is `[no-case]`
+    - The review also listed the `-re` integration points (`Mutability.cs:168`, `IsPointerFree`, `Unifier`, and so on), now in 054's Inputs.
+    - Nit for later: `Option` and `Result` can be silently shadowed by a user `struct Option` (no redefinition guard in `-re`).
+  - Awaiting owner approval of the revised 053 and 054. Running them needs the IR and VM, so the IR design comes after these.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
