@@ -42,6 +42,8 @@ public enum IrCmpOp : byte {
 
 public enum IrRuntimeOp : byte {
   PrintlnN,
+  Eprintln,
+  Exit,
   Readline,
   ParseInt,
   ParseFloat,
@@ -488,6 +490,16 @@ public sealed record VecNew(
   public override void CollectReadOperands(List<IrOperand> operands) => operands.AddRange(Elements);
 }
 
+public sealed record VecWithCap(
+    IrTempId Dest,
+    IrOperand Capacity,
+    AllocRegion Region,
+    SourceSpan Span = default) : IrInstruction(Span) {
+  public override IrTempId? DefinedTemp => Dest;
+  public override AllocRegion? AllocationRegion => Region;
+  public override void CollectReadOperands(List<IrOperand> operands) => operands.Add(Capacity);
+}
+
 public sealed record VecLen(IrTempId Dest, IrOperand Vec, SourceSpan Span = default) : IrInstruction(Span) {
   public override IrTempId? DefinedTemp => Dest;
   public override void CollectReadOperands(List<IrOperand> operands) => operands.Add(Vec);
@@ -852,6 +864,27 @@ public sealed record StrGetRune(IrTempId Dest, IrOperand Str, IrOperand Index, S
   public override void CollectReadOperands(List<IrOperand> operands) {
     operands.Add(Str);
     operands.Add(Index);
+  }
+}
+
+public sealed record StrByteLen(IrTempId Dest, IrOperand Str, SourceSpan Span = default) : IrInstruction(Span) {
+  public override IrTempId? DefinedTemp => Dest;
+  public override void CollectReadOperands(List<IrOperand> operands) => operands.Add(Str);
+}
+
+public sealed record StrDecodeRune(IrTempId Dest, IrOperand Str, IrOperand BytePos, SourceSpan Span = default) : IrInstruction(Span) {
+  public override IrTempId? DefinedTemp => Dest;
+  public override void CollectReadOperands(List<IrOperand> operands) {
+    operands.Add(Str);
+    operands.Add(BytePos);
+  }
+}
+
+public sealed record StrNextBytePos(IrTempId Dest, IrOperand Str, IrOperand BytePos, SourceSpan Span = default) : IrInstruction(Span) {
+  public override IrTempId? DefinedTemp => Dest;
+  public override void CollectReadOperands(List<IrOperand> operands) {
+    operands.Add(Str);
+    operands.Add(BytePos);
   }
 }
 

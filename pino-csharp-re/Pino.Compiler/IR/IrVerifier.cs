@@ -700,6 +700,13 @@ public static class IrVerifier {
         }
         break;
 
+      case VecWithCap v:
+        if (TryGetTempIrType(fn, types, v.Dest, out IrType? vwcDest) && vwcDest is not IrVectorType) {
+          errors.Add(new IrVerificationError("IR-TYPE-03", fnName, bb, idx, $"vec.with_cap dest must be []T, got '{vwcDest.Name}'."));
+        }
+        ExpectOperandType(fn, types, bb, idx, v.Capacity, types.Int, "vec.with_cap capacity", errors);
+        break;
+
       case VecLen v:
         if (TryGetVecType(fn, types, bb, idx, v.Vec, "vec.len", errors, out _)) {
           ExpectTempType(fn, types, bb, idx, v.Dest, types.Int, "vec.len", errors);
@@ -1056,6 +1063,23 @@ public static class IrVerifier {
         ExpectTempType(fn, types, bb, idx, s.Dest, types.Rune, "str.get_rune", errors);
         break;
 
+      case StrByteLen s:
+        ExpectOperandType(fn, types, bb, idx, s.Str, types.String, "str.byte_len", errors);
+        ExpectTempType(fn, types, bb, idx, s.Dest, types.Int, "str.byte_len", errors);
+        break;
+
+      case StrDecodeRune s:
+        ExpectOperandType(fn, types, bb, idx, s.Str, types.String, "str.decode_rune str", errors);
+        ExpectOperandType(fn, types, bb, idx, s.BytePos, types.Int, "str.decode_rune byte_pos", errors);
+        ExpectTempType(fn, types, bb, idx, s.Dest, types.Rune, "str.decode_rune", errors);
+        break;
+
+      case StrNextBytePos s:
+        ExpectOperandType(fn, types, bb, idx, s.Str, types.String, "str.next_byte_pos str", errors);
+        ExpectOperandType(fn, types, bb, idx, s.BytePos, types.Int, "str.next_byte_pos byte_pos", errors);
+        ExpectTempType(fn, types, bb, idx, s.Dest, types.Int, "str.next_byte_pos", errors);
+        break;
+
       case StrEq s:
         ExpectOperandType(fn, types, bb, idx, s.Left, types.String, "str.eq left", errors);
         ExpectOperandType(fn, types, bb, idx, s.Right, types.String, "str.eq right", errors);
@@ -1362,6 +1386,16 @@ public static class IrVerifier {
         VerifyCallReturn(fn, types, bb, idx, label, call.Dest, types.Void, errors);
         break;
 
+      case IrRuntimeOp.Eprintln:
+        ExpectRuntimeArgs(fn, types, bb, idx, call, label, [types.String], errors);
+        VerifyCallReturn(fn, types, bb, idx, label, call.Dest, types.Void, errors);
+        break;
+
+      case IrRuntimeOp.Exit:
+        ExpectRuntimeArgs(fn, types, bb, idx, call, label, [types.Int], errors);
+        VerifyCallReturn(fn, types, bb, idx, label, call.Dest, types.Void, errors);
+        break;
+
       case IrRuntimeOp.Readline:
       case IrRuntimeOp.ParseInt:
       case IrRuntimeOp.ParseFloat:
@@ -1476,14 +1510,14 @@ public static class IrVerifier {
         break;
 
       case IrRuntimeOp.RegexHasMatch:
-      case IrRuntimeOp.RegexMatchPrefix:
         ExpectRuntimeArgs(fn, types, bb, idx, call, label, [types.Regex, types.String], errors);
         VerifyCallReturn(fn, types, bb, idx, label, call.Dest, types.Bool, errors);
         break;
 
+      case IrRuntimeOp.RegexMatchPrefix:
       case IrRuntimeOp.RegexFind:
         ExpectRuntimeArgs(fn, types, bb, idx, call, label, [types.Regex, types.String], errors);
-        ExpectUnionDest(fn, types, bb, idx, call.Dest, label, errors);
+        VerifyCallReturn(fn, types, bb, idx, label, call.Dest, types.String, errors);
         break;
 
       case IrRuntimeOp.RegexFindAll:

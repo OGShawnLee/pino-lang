@@ -511,16 +511,64 @@ public sealed class IrTypeTable {
 
     ImmutableArray<(TypeParameterSymbol Param, IrTypeId Arg)> innerSubst =
         BuildSubst(structType.Definition.TypeParameters, normalizedArgs);
-    ImmutableArray<FieldSymbol> sourceFields = structType.Definition.AllFields.IsEmpty
-        ? structType.Definition.Fields
-        : structType.Definition.AllFields;
-    var irFields = ImmutableArray.CreateBuilder<IrStructField>(sourceFields.Length);
-    foreach (FieldSymbol field in sourceFields) {
-      irFields.Add(new IrStructField(field.Name, InternCore(field.Type, innerSubst), field.IsMutable));
+    var irFields = ImmutableArray.CreateBuilder<IrStructField>();
+    if (structType.Definition.EmbeddedStructs.IsEmpty) {
+      ImmutableArray<FieldSymbol> sourceFields = structType.Definition.AllFields.IsEmpty
+          ? structType.Definition.Fields
+          : structType.Definition.AllFields;
+      foreach (FieldSymbol field in sourceFields) {
+        irFields.Add(new IrStructField(field.Name, InternCore(field.Type, innerSubst), field.IsMutable));
+      }
+    } else {
+      foreach (FieldSymbol field in structType.Definition.Fields) {
+        irFields.Add(new IrStructField(field.Name, InternCore(field.Type, innerSubst), field.IsMutable));
+      }
+
+      foreach (StructSymbol embedded in structType.Definition.EmbeddedStructs) {
+        IrTypeId embeddedId = InternStructByDefinition(embedded, []);
+        irFields.Add(new IrStructField(embedded.Name, embeddedId, IsMutable: true));
+      }
     }
 
     var irStruct = (IrStructType) _types[id.Index];
-    irStruct.Fields = irFields.MoveToImmutable();
+    irStruct.Fields = irFields.ToImmutable();
+    irStruct.HasDefinedFields = true;
+    return id;
+  }
+
+  private IrTypeId InternStructByDefinition(StructSymbol definition, ImmutableArray<IrTypeId> normalizedArgs) {
+    var key = new NominalKey<StructSymbol>(definition, normalizedArgs);
+    if (_structsBySymbol.TryGetValue(key, out IrTypeId existing)) {
+      return existing;
+    }
+
+    string name = FormatNominalName(definition.Name, normalizedArgs);
+    IrTypeId id = DeclareStruct(name, definition, normalizedArgs);
+    _structsBySymbol[key] = id;
+
+    ImmutableArray<(TypeParameterSymbol Param, IrTypeId Arg)> innerSubst =
+        BuildSubst(definition.TypeParameters, normalizedArgs);
+    var irFields = ImmutableArray.CreateBuilder<IrStructField>();
+    if (definition.EmbeddedStructs.IsEmpty) {
+      ImmutableArray<FieldSymbol> sourceFields = definition.AllFields.IsEmpty
+          ? definition.Fields
+          : definition.AllFields;
+      foreach (FieldSymbol field in sourceFields) {
+        irFields.Add(new IrStructField(field.Name, InternCore(field.Type, innerSubst), field.IsMutable));
+      }
+    } else {
+      foreach (FieldSymbol field in definition.Fields) {
+        irFields.Add(new IrStructField(field.Name, InternCore(field.Type, innerSubst), field.IsMutable));
+      }
+
+      foreach (StructSymbol embedded in definition.EmbeddedStructs) {
+        IrTypeId embeddedId = InternStructByDefinition(embedded, []);
+        irFields.Add(new IrStructField(embedded.Name, embeddedId, IsMutable: true));
+      }
+    }
+
+    var irStruct = (IrStructType) _types[id.Index];
+    irStruct.Fields = irFields.ToImmutable();
     irStruct.HasDefinedFields = true;
     return id;
   }
@@ -554,10 +602,14 @@ public sealed class IrTypeTable {
     foreach (UnionVariantSymbol variant in unionType.Definition.Variants) {
       var fields = ImmutableArray.CreateBuilder<IrUnionVariantField>(variant.Fields.Length);
       foreach (UnionVariantField field in variant.Fields) {
-        fields.Add(new IrUnionVariantField(field.Name, InternCore(field.Type, innerSubst)));
+        IrTypeId fieldIrType = InternCore(field.Type, innerSubst);
+        // ERR-23 / D-162: Result[void, E]::Success carries zero payload fields.
+        if (fieldIrType != Void) {
+          fields.Add(new IrUnionVariantField(field.Name, fieldIrType));
+        }
       }
 
-      variants.Add(new IrUnionVariant(variant.Name, variant.TagOrdinal, fields.MoveToImmutable()));
+      variants.Add(new IrUnionVariant(variant.Name, variant.TagOrdinal, fields.ToImmutable()));
     }
 
     var irUnion = (IrUnionType) _types[id.Index];

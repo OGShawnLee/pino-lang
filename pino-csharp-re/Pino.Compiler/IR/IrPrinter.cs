@@ -425,6 +425,13 @@ public static class IrPrinter {
         sb.Append(" [region=").Append(v.Region).Append(']');
         break;
 
+      case VecWithCap v:
+        AppendDest(sb, fn, v.Dest);
+        sb.Append("vec.with_cap ").Append(FormatType(module.Types, GetTempType(fn, v.Dest)));
+        sb.Append('(').Append(FormatOperand(fn, v.Capacity)).Append(')');
+        sb.Append(" [region=").Append(v.Region).Append(']');
+        break;
+
       case VecLen v:
         AppendDest(sb, fn, v.Dest);
         sb.Append("vec.len ").Append(FormatOperand(fn, v.Vec));
@@ -661,6 +668,21 @@ public static class IrPrinter {
       case StrGetRune s:
         AppendDest(sb, fn, s.Dest);
         sb.Append("str.get_rune ").Append(FormatOperand(fn, s.Str)).Append(", ").Append(FormatOperand(fn, s.Index));
+        break;
+
+      case StrByteLen s:
+        AppendDest(sb, fn, s.Dest);
+        sb.Append("str.byte_len ").Append(FormatOperand(fn, s.Str));
+        break;
+
+      case StrDecodeRune s:
+        AppendDest(sb, fn, s.Dest);
+        sb.Append("str.decode_rune ").Append(FormatOperand(fn, s.Str)).Append(", ").Append(FormatOperand(fn, s.BytePos));
+        break;
+
+      case StrNextBytePos s:
+        AppendDest(sb, fn, s.Dest);
+        sb.Append("str.next_byte_pos ").Append(FormatOperand(fn, s.Str)).Append(", ").Append(FormatOperand(fn, s.BytePos));
         break;
 
       case StrEq s:
@@ -995,6 +1017,8 @@ public static class IrPrinter {
 
   private static string FormatRuntimeOp(IrRuntimeOp op) => op switch {
     IrRuntimeOp.PrintlnN => "pino_println_n",
+    IrRuntimeOp.Eprintln => "pino_eprintln",
+    IrRuntimeOp.Exit => "pino_exit",
     IrRuntimeOp.Readline => "pino_readline",
     IrRuntimeOp.ParseInt => "pino_parse_int",
     IrRuntimeOp.ParseFloat => "pino_parse_float",
