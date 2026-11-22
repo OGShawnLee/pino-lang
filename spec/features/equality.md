@@ -17,6 +17,7 @@ Grammar productions: see `spec/grammar.ebnf` section `eq`.
 - EQ-8: `==` on two `regex` values is `true` when their pattern strings are equal. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
 - EQ-9: The comparison of EQ-3 to EQ-6 recurses into nested elements and fields, so vectors of vectors and structs holding vectors are compared by content. [src: LANGUAGE_REFERENCE.md §3 "Structural Equality vs. Reference Identity Operators"]
 - EQ-13: Because structs, vectors, maps, sets, and unions have value semantics (D-177), `val b = a` produces a logically independent value equal to `a` under `==` (`a == b` is `true`). [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; spec/decisions/D-178-remove-identity-operators.md]
+- EQ-14: `==` on two pools of the same element type is `true` when they have the same live slots (index and generation) and equal values under `==` in each slot. [src: spec/decisions/D-185-pool-and-handle.md]
 
 ## Errors
 - EQ-E1: Using `===` or `!==` is rejected as a parse error because reference-identity operators are removed from the language (only `==` and `!=` remain). [src: spec/decisions/D-178-remove-identity-operators.md]

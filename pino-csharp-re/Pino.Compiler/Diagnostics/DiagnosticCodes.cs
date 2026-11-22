@@ -118,6 +118,7 @@ public static class DiagnosticCodes {
   public const string CannotCaptureMutParameter = "PN3228";
   public const string CannotReassignValMut = "PN3229";
   public const string ValMutRequiresMutableInterior = "PN3230";
+  public const string CannotConstructHandleDirectly = "PN3231";
 
   // Patterns, Match, Unions, Enums & Tuples (PN3301–PN3349)
   public const string MixedPatternBindings = "PN3301";

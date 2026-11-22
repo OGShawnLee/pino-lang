@@ -1,0 +1,35 @@
+# covers: POOL-8, POOLLIB-3, POOLLIB-4, POOLLIB-5
+var items = Pool[string]
+val h0 = items:add("a")
+val h1 = items:add("b")
+println(str(h0))
+println(str(h1))
+
+match items:remove(h0) {
+  when Option::Some(v) { println(v) }
+  when Option::None { println("none") }
+}
+match items:remove(h1) {
+  when Option::Some(v) { println(v) }
+  when Option::None { println("none") }
+}
+
+match items:get(h0) {
+  when Option::Some(v) { println(v) }
+  when Option::None { println("stale-get") }
+}
+match items:remove(h0) {
+  when Option::Some(v) { println(v) }
+  when Option::None { println("stale-remove") }
+}
+
+val r1 = items:add("c")
+val r0 = items:add("d")
+val n2 = items:add("e")
+println(str(r1))
+println(str(r0))
+println(str(n2))
+println(items:len)
+println(items[r1])
+println(items[r0])
+println(items[n2])

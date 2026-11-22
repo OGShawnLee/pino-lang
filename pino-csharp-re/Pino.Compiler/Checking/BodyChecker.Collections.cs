@@ -171,4 +171,24 @@ internal sealed partial class BodyChecker {
 
     return declared is not null ? setType : _types.Error;
   }
+
+  /// <summary>POOL-1 / D-185: <c>Pool[T]</c> creates an empty pool of element type <c>T</c>.</summary>
+  private TypeSymbol SynthesizePoolExpression(PoolExpressionSyntax pool) {
+    TypeSymbol poolType = _session.ResolveType(_state, pool.Type, _scope, TypePosition.VariableAnnotation);
+    return poolType is PoolType ? poolType : _types.Error;
+  }
+
+  /// <summary>POOL-E3 / D-185: <c>Handle[T]</c> cannot be constructed directly.</summary>
+  private TypeSymbol SynthesizeHandleExpression(HandleExpressionSyntax handle) {
+    TypeSymbol resolved = _session.ResolveType(_state, handle.Type, _scope, TypePosition.VariableAnnotation);
+    if (resolved is HandleType handleType) {
+      Report(
+          Diagnostics.DiagnosticCodes.CannotConstructHandleDirectly,
+          handle.Span,
+          $"A '{handleType.DisplayName}' can't be created directly.",
+          help: $"get one from 'add' on a 'Pool[{handleType.ElementType.DisplayName}]'");
+    }
+
+    return _types.Error;
+  }
 }

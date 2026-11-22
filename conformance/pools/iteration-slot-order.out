@@ -1,0 +1,6 @@
+reused-zero
+second
+third
+Handle(0, 1) reused-zero
+Handle(1, 0) second
+Handle(2, 0) third

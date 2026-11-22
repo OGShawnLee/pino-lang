@@ -33,6 +33,7 @@ public sealed class CheckerConformanceTests {
         ["errors/panic-nested.pino"] = "Explicit runtime `panic(...)` from nested call.",
         ["functions/err-mut-same-slot-runtime.pino"] = "Runtime D-184 exclusivity panic on aliased dynamic mut slots.",
         ["maps/err-missing-key.pino"] = "Runtime lookup of a missing map key.",
+        ["pools/err-stale-index.pino"] = "Runtime panic on indexing a Pool[T] with a stale Handle[T].",
         ["stdlib-regex/err-invalid-pattern.pino"] = "Runtime regex compilation failure on invalid pattern string.",
         ["stdlib-string/err-substring-out-of-range.pino"] = "Runtime substring bounds violation on non-constant indices.",
         ["stdlib-vector/err-swap-out-of-range.pino"] = "Runtime vector swap bounds check on out-of-range index.",

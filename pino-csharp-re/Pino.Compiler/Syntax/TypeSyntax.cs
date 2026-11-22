@@ -103,6 +103,28 @@ public sealed record SetTypeSyntax(
   }
 }
 
+public sealed record PoolTypeSyntax(
+    int Id,
+    SourceSpan Span,
+    Token PoolKeywordToken,
+    TypeArgumentListSyntax TypeArguments) : TypeSyntax(Id, Span) {
+  public override IEnumerable<SyntaxElement> GetChildren() {
+    yield return PoolKeywordToken;
+    yield return TypeArguments;
+  }
+}
+
+public sealed record HandleTypeSyntax(
+    int Id,
+    SourceSpan Span,
+    Token HandleKeywordToken,
+    TypeArgumentListSyntax TypeArguments) : TypeSyntax(Id, Span) {
+  public override IEnumerable<SyntaxElement> GetChildren() {
+    yield return HandleKeywordToken;
+    yield return TypeArguments;
+  }
+}
+
 public sealed record FunctionTypeParameterSyntax(
     int Id,
     SourceSpan Span,

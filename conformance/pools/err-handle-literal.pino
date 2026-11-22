@@ -1,0 +1,3 @@
+# covers: POOL-E3, POOL-2
+val x = Handle[int]
+println(x)

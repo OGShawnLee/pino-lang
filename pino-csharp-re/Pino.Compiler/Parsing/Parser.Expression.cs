@@ -247,6 +247,20 @@ public sealed partial class Parser {
       return ParseSetLiteral(context);
     }
 
+    if (IsIdentifierText(Current, "Pool")
+        && Peek(1).Kind == TokenKind.OpenBracket
+        && !HasLeadingNewline(Peek(1))) {
+      PoolTypeSyntax poolType = ParsePoolType();
+      return new PoolExpressionSyntax(NextId(), poolType.Span, poolType);
+    }
+
+    if (IsIdentifierText(Current, "Handle")
+        && Peek(1).Kind == TokenKind.OpenBracket
+        && !HasLeadingNewline(Peek(1))) {
+      HandleTypeSyntax handleType = ParseHandleType();
+      return new HandleExpressionSyntax(NextId(), handleType.Span, handleType);
+    }
+
     if (context.HasFlag(ExprContext.AllowBraceLiteral)) {
       if (Peek(1).Kind == TokenKind.OpenBrace) {
         Token nameToken = Consume();

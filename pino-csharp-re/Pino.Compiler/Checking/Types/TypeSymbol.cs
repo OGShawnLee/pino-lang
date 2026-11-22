@@ -139,6 +139,28 @@ public sealed class SetType : TypeSymbol {
   public override string DisplayName => $"set[{ElementType.DisplayName}]";
 }
 
+public sealed class PoolType : TypeSymbol {
+  internal PoolType(TypeSymbol elementType) {
+    ElementType = elementType;
+    ContainsError = elementType.ContainsError;
+  }
+
+  public TypeSymbol ElementType { get; }
+
+  public override string DisplayName => $"Pool[{ElementType.DisplayName}]";
+}
+
+public sealed class HandleType : TypeSymbol {
+  internal HandleType(TypeSymbol elementType) {
+    ElementType = elementType;
+    ContainsError = elementType.ContainsError;
+  }
+
+  public TypeSymbol ElementType { get; }
+
+  public override string DisplayName => $"Handle[{ElementType.DisplayName}]";
+}
+
 public readonly record struct TupleField(string Label, TypeSymbol Type);
 
 public sealed class TupleType : TypeSymbol {

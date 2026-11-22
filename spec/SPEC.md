@@ -32,6 +32,7 @@ Decisions live in [`decisions/`](decisions/README.md) and are made only by the p
 | Vectors | `features/vectors.md` | `VEC` | 007 | migrated |
 | Maps | `features/maps.md` | `MAP` | 007 | migrated |
 | Sets | `features/sets.md` | `SET` | 014 | migrated |
+| Pools and handles | `features/pools.md` | `POOL` | 054 | migrated |
 | Modules and imports | `features/modules.md` | `MOD` | 007 | migrated |
 | Structs and embedding | `features/structs.md` | `STRUCT` | 008 | migrated |
 | Interfaces | `features/interfaces.md` | `IFACE` | 008 | migrated |
@@ -52,12 +53,13 @@ Stdlib files have a `## Signatures` table (`Member | Signature | Returns`) follo
 | `stdlib/vector.md` | `VECLIB` | 007 | migrated |
 | `stdlib/map.md` | `MAPLIB` | 007 | migrated |
 | `stdlib/set.md` | `SETLIB` | 033 | migrated |
+| `stdlib/pool.md` | `POOLLIB` | 054 | migrated |
 
 ## Memory
 
 When the memory of a value is freed is not observable to a Pino program, and the spec defines no rule for it: the language has no destructors or finalizers. [src: owner decision of 2026-11-20, ticket 032; the memory model itself is architecture decision AD-002 and is not part of `spec/`] [no-case: freeing time is not observable]
 
-Structs, vectors, maps, sets, and unions have value semantics with copy-on-write (CoW), and `val` is deeply immutable; pure data graphs are acyclic, leaving closures capturing `var`s (`D-056`) as the only cycle-capable reference edges (`D-177`). [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; architecture decision AD-003]
+Structs, vectors, maps, sets, pools, and unions have value semantics with copy-on-write (CoW), and `val` is deeply immutable; pure data graphs are acyclic, leaving closures capturing `var`s (`D-056`) as the only cycle-capable reference edges (`D-177`, `D-185`). [src: spec/decisions/D-177-value-semantics-cow-and-mut.md; spec/decisions/D-185-pool-and-handle.md; architecture decision AD-003]
 
 ## Conventions
 

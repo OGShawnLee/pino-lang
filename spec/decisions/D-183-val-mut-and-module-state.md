@@ -55,3 +55,6 @@ Decided by the owner on 2026-11-21:
 - **Recommended idiom:** Idiomatic Pino code keeps mutable state in `main` (or a `Context` struct) and passes it explicitly with `mut`.
 - **IR & arena optimization:** Inferred `ReadsModuleState` and `WritesModuleState` let future IR and arena passes identify pure functions without adding user-facing effect syntax.
 - **Normative rules:** adds `VAR-12`, `VAR-13`, `VAR-E12`, `VAR-E13`; updates `VAR-1`, `VAR-2`, `MAIN-3`, `MAIN-E3`, `MOD-5`, `MOD-E9`, `FN-21`; extends `D-177` and `D-182`.
+
+## Extension (2026-11-21, `D-185`)
+When the built-in `Pool[T]` and `Handle[T]` types were approved (`D-185`), `VAR-E13` was extended to classify them explicitly: `Pool[T]` has mutable contents and is allowed with `val mut` alongside vectors, maps, and sets, whereas `Handle[T]` is a plain immutable value with no mutable interior and is rejected under `VAR-E13` (`PN3230`).

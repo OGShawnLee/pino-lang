@@ -84,6 +84,14 @@ public enum IntrinsicId : byte {
   SetAll,
   SetEach,
 
+  // Pool[T] properties & methods (POOLLIB-1..8, D-185)
+  PoolLen,
+  PoolAdd,
+  PoolRemove,
+  PoolGet,
+  PoolHandles,
+  PoolClear,
+
   // regex properties & methods (RGX-1..7)
   RegexPattern,
   RegexHasMatch,

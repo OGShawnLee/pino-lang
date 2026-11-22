@@ -128,12 +128,35 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
       v:swap(i, j)
     }
     """,
+    """
+    struct Weapon {
+      pub name string
+      pub mut durability int
+    }
+    fn duel(mut a Weapon, mut b Weapon) {
+      a:durability -= 1
+      b:durability -= 1
+    }
+    fn arena() {
+      var armory = Pool[Weapon]
+      val h = armory:add(Weapon { name: "Sword", durability: 3 })
+      val g = armory:add(Weapon { name: "Axe", durability: 5 })
+      if h in armory {
+        armory[h]:durability -= 1
+      }
+      duel(mut armory[h], mut armory[g])
+      for k, w in armory {
+        println("$k $(w:name)")
+      }
+      armory:clear()
+    }
+    """,
   ];
 
   private static readonly string[] s_tokens = [
     "fn", "val", "var", "mut", "pub", "match", "when", "else", "if", "for", "return", "yield",
     "break", "continue", "is", "not", "and", "or", "union", "enum", "struct", "interface",
-    "int", "float", "string", "bool", "rune", "void", "Option", "Result", "::", "->",
+    "int", "float", "string", "bool", "rune", "void", "Option", "Result", "Pool", "Handle", "::", "->",
     "(", ")", "{", "}", "[", "]", ":", ",", ".", "=", "/=", "//=", "/", "//", "%", "+", "-", "*",
     "x", "y", "a", "b", "T", "Some", "None", "Success", "Failure", "0", "1", "-1", "\"s\"", "'c'", "true", "false", "\n",
   ];

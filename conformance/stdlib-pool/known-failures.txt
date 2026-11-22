@@ -1,0 +1,8 @@
+# Known failures for conformance/stdlib-pool/.
+# Format: <Engine> <case-file-name.pino>  # <reason>
+# A listed case passes the test while it fails; once it passes, the test fails until the line is removed.
+
+# --- Built-in Pool[T] and Handle[T] types (ticket 054, D-185)
+TreeWalk members.pino  # D-185: legacy compiler has no Pool[T] or Handle[T] types
+VM members.pino  # D-185: legacy compiler has no Pool[T] or Handle[T] types
+C members.pino  # D-185: legacy compiler has no Pool[T] or Handle[T] types

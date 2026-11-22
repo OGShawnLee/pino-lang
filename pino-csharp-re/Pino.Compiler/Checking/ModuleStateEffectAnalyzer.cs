@@ -379,9 +379,9 @@ internal static class ModuleStateEffectAnalyzer {
 
     private void WalkIntrinsicCall(CallExpressionSyntax call, IntrinsicId? intrinsic) {
       if (call.Callee is MemberAccessExpressionSyntax memberCallee) {
-        if (intrinsic is IntrinsicId.VecPush or IntrinsicId.SetAdd) {
+        if (intrinsic is IntrinsicId.VecPush or IntrinsicId.SetAdd or IntrinsicId.PoolClear) {
           WalkWriteTargetPlace(memberCallee.Target, alsoReadsRoot: false);
-        } else if (intrinsic is IntrinsicId.VecPop or IntrinsicId.VecSwap or IntrinsicId.MapRemove or IntrinsicId.SetRemove) {
+        } else if (intrinsic is IntrinsicId.VecPop or IntrinsicId.VecSwap or IntrinsicId.MapRemove or IntrinsicId.SetRemove or IntrinsicId.PoolAdd or IntrinsicId.PoolRemove) {
           WalkWriteTargetPlace(memberCallee.Target, alsoReadsRoot: true);
         } else {
           WalkNode(memberCallee.Target);

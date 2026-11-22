@@ -381,6 +381,24 @@ public sealed record SetLiteralExpressionSyntax(
   }
 }
 
+public sealed record PoolExpressionSyntax(
+    int Id,
+    SourceSpan Span,
+    PoolTypeSyntax Type) : ExpressionSyntax(Id, Span) {
+  public override IEnumerable<SyntaxElement> GetChildren() {
+    yield return Type;
+  }
+}
+
+public sealed record HandleExpressionSyntax(
+    int Id,
+    SourceSpan Span,
+    HandleTypeSyntax Type) : ExpressionSyntax(Id, Span) {
+  public override IEnumerable<SyntaxElement> GetChildren() {
+    yield return Type;
+  }
+}
+
 public sealed record StructFieldInitSyntax(
     int Id,
     SourceSpan Span,

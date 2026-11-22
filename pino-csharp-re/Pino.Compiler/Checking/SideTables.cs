@@ -48,6 +48,7 @@ public enum LoopKind : byte {
   ForInString,
   ForInMap,
   ForInSet,
+  ForInPool,
   ForInRange,
 }
 

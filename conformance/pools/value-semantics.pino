@@ -1,0 +1,20 @@
+# covers: POOL-3, EQ-14
+struct Weapon {
+  pub name string
+  pub mut durability int
+}
+
+val mut armory = Pool[Weapon]
+val h = armory:add(Weapon { name: "Sword", durability: 3 })
+val snapshot = armory
+var copy = armory
+
+println(armory == snapshot)
+println(armory == copy)
+
+copy[h]:durability = 99
+println(armory[h]:durability)
+println(copy[h]:durability)
+println(armory == snapshot)
+println(armory == copy)
+println(armory != copy)

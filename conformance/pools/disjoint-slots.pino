@@ -1,0 +1,18 @@
+# covers: POOL-12
+struct Weapon {
+  pub name string
+  pub mut durability int
+}
+
+fn duel(mut a Weapon, mut b Weapon) {
+  a:durability -= 1
+  b:durability -= 2
+}
+
+var armory = Pool[Weapon]
+val h = armory:add(Weapon { name: "Sword", durability: 10 })
+val g = armory:add(Weapon { name: "Axe", durability: 10 })
+
+duel(mut armory[h], mut armory[g])
+println(armory[h]:durability)
+println(armory[g]:durability)

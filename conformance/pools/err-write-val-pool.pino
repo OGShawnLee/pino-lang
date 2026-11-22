@@ -1,0 +1,4 @@
+# covers: POOL-E4
+val armory = Pool[int]
+val h = armory:add(1)
+println(h)

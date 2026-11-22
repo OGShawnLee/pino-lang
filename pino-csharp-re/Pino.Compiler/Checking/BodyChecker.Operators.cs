@@ -251,7 +251,7 @@ internal sealed partial class BodyChecker {
     return _types.Bool;
   }
 
-  /// <summary><c>in</c> / <c>not in</c> over <c>[]T</c>, <c>map[K, V]</c>, <c>set[T]</c> and <c>string</c> (VEC-10, MAP-7, SETLIB-8, STRLIB-17).</summary>
+  /// <summary><c>in</c> / <c>not in</c> over <c>[]T</c>, <c>map[K, V]</c>, <c>set[T]</c>, <c>Pool[T]</c> and <c>string</c> (VEC-10, MAP-7, SETLIB-8, POOLLIB-8, STRLIB-17).</summary>
   private TypeSymbol CheckMembership(BinaryExpressionSyntax binary, TypeSymbol left, TypeSymbol right, bool negated) {
     if (IsSilent(right) || right is PendingReturnType) {
       return _types.Bool;
@@ -262,6 +262,7 @@ internal sealed partial class BodyChecker {
       VectorType vector => vector.ElementType,
       MapType map => map.KeyType,
       SetType set => set.ElementType,
+      PoolType pool => _types.GetHandle(pool.ElementType),
       PrimitiveType { Kind: PrimitiveKind.String } => _types.String,
       _ => null,
     };
@@ -270,7 +271,7 @@ internal sealed partial class BodyChecker {
       Report(
           DiagnosticCodes.InvalidOperatorOperands,
           binary.Right.Span,
-          $"Operator '{op}' requires a vector, map, set or string on its right, but got '{right.DisplayName}'.");
+          $"Operator '{op}' requires a vector, map, set, pool or string on its right, but got '{right.DisplayName}'.");
       return _types.Bool;
     }
 
@@ -682,6 +683,10 @@ internal sealed partial class BodyChecker {
         Check(index.Index, map.KeyType, "map key");
         return map.ValueType;
 
+      case PoolType pool:
+        CheckPoolIndex(index, pool);
+        return pool.ElementType;
+
       case TypeParameterType or InterfaceType:
         Synthesize(index.Index);
         return _types.Error;
@@ -693,6 +698,18 @@ internal sealed partial class BodyChecker {
             index.Span,
             $"Cannot index a value of type '{target.DisplayName}'.");
         return _types.Error;
+    }
+  }
+
+  private void CheckPoolIndex(IndexExpressionSyntax index, PoolType pool) {
+    TypeSymbol expectedHandle = _types.GetHandle(pool.ElementType);
+    TypeSymbol indexType = Synthesize(index.Index);
+    if (!IsSilent(indexType) && indexType is not PendingReturnType && !ReferenceEquals(indexType, expectedHandle)) {
+      Report(
+          DiagnosticCodes.InvalidIndexOperation,
+          index.Index.Span,
+          $"Pool index must have type '{expectedHandle.DisplayName}', but got '{indexType.DisplayName}'.",
+          help: $"use a handle returned by 'add' on a '{pool.DisplayName}'");
     }
   }
 

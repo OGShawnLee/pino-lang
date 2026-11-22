@@ -1,0 +1,42 @@
+# covers: POOL-1, POOL-2, POOL-4, POOL-5, POOL-6, POOL-7, POOLLIB-1, POOLLIB-3, POOLLIB-5, POOLLIB-8
+struct Weapon {
+  pub name string
+  pub mut durability int
+}
+
+var armory = Pool[Weapon]
+val h = armory:add(Weapon { name: "Sword", durability: 3 })
+val g = armory:add(Weapon { name: "Axe", durability: 5 })
+
+println(armory:len)
+println(str(h))
+println(str(g))
+println(h == h)
+println(h == g)
+println(h != g)
+println(h in armory)
+
+armory[h]:durability -= 1
+println(armory[h]:durability)
+
+armory[g] = Weapon { name: "Battleaxe", durability: 7 }
+println(armory[g]:name)
+
+var scores = Pool[int]
+val sh = scores:add(10)
+scores[sh] += 5
+println(scores[sh])
+
+val got = armory:get(h)
+match got {
+  when Option::Some(w) { println(w:name) }
+  when Option::None { println("none") }
+}
+
+var weights = map[Handle[Weapon], int] { h -> 4, g -> 9 }
+println(weights[h])
+println(weights[g])
+
+var featured = set[Handle[Weapon]] { h }
+println(h in featured)
+println(g in featured)

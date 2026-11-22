@@ -1162,6 +1162,7 @@ internal sealed partial class BodyChecker {
         VectorType vec => [vec.ElementType],
         MapType map => [map.KeyType, map.ValueType],
         SetType set => [set.ElementType],
+        PoolType pool => [pool.ElementType],
         _ => [],
       };
 }

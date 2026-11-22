@@ -80,7 +80,7 @@ internal sealed partial class BodyChecker {
           && sym is LocalSymbol or ParameterSymbol or FieldSymbol) {
         containerSymbol = sym;
         containerType = SymbolValueType(sym);
-        if (containerType is VectorType or MapType) {
+        if (containerType is VectorType or MapType or PoolType) {
           RecordCaptureIfOuter(sym, containerDeclScope, isMutation: false, id.Span);
           _state.SetReferencedSymbol(id, sym);
           _state.SetNodeType(id, containerType);
@@ -94,7 +94,7 @@ internal sealed partial class BodyChecker {
       string memberName = NameOf(member.MemberToken);
       if (receiver is StructType st && FindStructField(st.Definition, memberName) is { } field) {
         TypeSymbol fType = TypeSubstitution.Substitute(field.Type, st.Definition.TypeParameters, st.TypeArguments, _types);
-        if (fType is VectorType or MapType) {
+        if (fType is VectorType or MapType or PoolType) {
           if (!IsFieldVisibleInCurrentModule(field)) {
             ReportPrivateField(member.Span, st.Definition.Name, field);
           }
@@ -105,21 +105,21 @@ internal sealed partial class BodyChecker {
         }
       } else if (receiver is InterfaceType iface && FindInterfaceProperty(iface.Definition, memberName) is { } prop) {
         TypeSymbol pType = TypeSubstitution.Substitute(prop.Type, iface.Definition.TypeParameters, iface.TypeArguments, _types);
-        if (pType is VectorType or MapType) {
+        if (pType is VectorType or MapType or PoolType) {
           _state.SetNodeType(member, pType);
           containerType = pType;
         }
       } else if (receiver is TypeParameterType { Symbol.Constraint: { } boundIface }
           && FindInterfaceProperty(boundIface.Definition, memberName) is { } boundProp) {
         TypeSymbol pType = TypeSubstitution.Substitute(boundProp.Type, boundIface.Definition.TypeParameters, boundIface.TypeArguments, _types);
-        if (pType is VectorType or MapType) {
+        if (pType is VectorType or MapType or PoolType) {
           _state.SetNodeType(member, pType);
           containerType = pType;
         }
       }
     } else if (call.Callee is not StaticAccessExpressionSyntax) {
       TypeSymbol calleeVal = Synthesize(call.Callee);
-      if (calleeVal is VectorType or MapType) {
+      if (calleeVal is VectorType or MapType or PoolType) {
         containerType = calleeVal;
       }
     }
@@ -162,6 +162,16 @@ internal sealed partial class BodyChecker {
             $"Cannot assign type '{idxType.DisplayName}' to map key of type '{map.KeyType.DisplayName}'.");
       }
       elemType = map.ValueType;
+    } else if (containerType is PoolType pool) {
+      TypeSymbol expectedHandle = _types.GetHandle(pool.ElementType);
+      if (!IsSilent(idxType) && !ReferenceEquals(idxType, expectedHandle)) {
+        Report(
+            DiagnosticCodes.InvalidIndexOperation,
+            indexNameSyntax.Span,
+            $"Pool index must have type '{expectedHandle.DisplayName}', but got '{idxType.DisplayName}'.",
+            help: $"use a handle returned by 'add' on a '{pool.DisplayName}'");
+      }
+      elemType = pool.ElementType;
     }
 
     if (IsSilent(elemType)) {

@@ -107,6 +107,7 @@ postfix_expr    = primary_expr , { "[" , expression , "]" (* same line as operan
                                  } ;
 primary_expr    = INT | FLOAT | BOOL | STRING | RUNE | IDENT | "(" , expression , ")"
                 | vector_expression | map_expression | set_expression
+                | pool_expression | handle_expression
                 | struct_literal | tuple_literal | lambda_expression
                 | if_expression | match_expression | call_expr ;
 call_expr       = IDENT , arg_list ;                      (* includes the builtins type(v), int(v), float(v), rune(v), str(v) *)
@@ -285,6 +286,13 @@ set_type        = "set" , "[" , type , "]" ;
 
 set_expression  = set_type , [ "{" , [ expression , { [ "," ] , expression } ] , "}" ] ;
                                               (* D-147: in expression position `set[...]` is always a set form *)
+
+(* === section: pool (owner 054) === *)
+pool_type         = "Pool" , "[" , type , "]" ;
+handle_type       = "Handle" , "[" , type , "]" ;
+
+pool_expression   = pool_type ;               (* D-185, D-102, D-147: empty pool with no braces; in expression position `Pool[...]` is always a pool form *)
+handle_expression = handle_type ;             (* D-185, D-147: in expression position `Handle[...]` is always a handle form and is rejected by the checker (PN3231) *)
 
 (* === section: mod (owner 007) === *)
 module_declaration = "module" , IDENT ;       (* first statement of a module file *)

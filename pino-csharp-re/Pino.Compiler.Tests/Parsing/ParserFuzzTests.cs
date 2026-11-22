@@ -34,7 +34,7 @@ public sealed class ParserFuzzTests(ITestOutputHelper output) {
     "yield", "break", "continue", "assert", "then", "as", "true", "false",
     "\"a $x b\"", "\"$(x + 1)\"", "\"$if\"", "\"\"\"multi\nline $x\"\"\"",
     "@@Generic[T]", "@@Generic[T is Shape]", "@pub_testing", "@generic[T]",
-    "map[K, V]", "set[T]", "[]int", "@(a: 1, b)", "=>", "+=", "===", "!==",
+    "map[K, V]", "set[T]", "Pool[T]", "Handle[T]", "Pool[", "Handle[", "[]int", "@(a: 1, b)", "=>", "+=", "===", "!==",
     "~", "a-b", "a -b", "a- b", "@@Testable", "//", "//=", "val x int =", "@b: c", "mut",
     "val mut", "var mut", "mut val",
   ];

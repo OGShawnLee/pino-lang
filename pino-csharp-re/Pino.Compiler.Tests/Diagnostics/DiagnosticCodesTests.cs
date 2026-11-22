@@ -103,6 +103,7 @@ public sealed class DiagnosticCodesTests {
       (nameof(DiagnosticCodes.CannotCaptureMutParameter), "PN3228"),
       (nameof(DiagnosticCodes.CannotReassignValMut), "PN3229"),
       (nameof(DiagnosticCodes.ValMutRequiresMutableInterior), "PN3230"),
+      (nameof(DiagnosticCodes.CannotConstructHandleDirectly), "PN3231"),
       (nameof(DiagnosticCodes.MixedPatternBindings), "PN3301"),
       (nameof(DiagnosticCodes.TooManyPatternBindings), "PN3302"),
       (nameof(DiagnosticCodes.LabelPatternOnPositionalVariant), "PN3303"),
@@ -137,7 +138,7 @@ public sealed class DiagnosticCodesTests {
       (nameof(DiagnosticCodes.UnreachableMatchArm), "PN3551"),
     };
 
-    Assert.Equal(78, expected.Length);
+    Assert.Equal(79, expected.Length);
 
     Type type = typeof(DiagnosticCodes);
     foreach ((string name, string code) in expected) {

@@ -1,0 +1,4 @@
+# covers: POOL-E5
+struct Pool {
+  pub x int
+}

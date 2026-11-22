@@ -71,6 +71,7 @@ public sealed class VirtualStdlibStub {
     AppendSection(sb, entries, byId, byMember, "[]T", StdlibCatalog.VectorMembers.Values, ["T"]);
     AppendSection(sb, entries, byId, byMember, "map[K, V]", StdlibCatalog.MapMembers.Values, ["K", "V"]);
     AppendSection(sb, entries, byId, byMember, "set[T]", StdlibCatalog.SetMembers.Values, ["T"]);
+    AppendSection(sb, entries, byId, byMember, "Pool[T]", StdlibCatalog.PoolMembers.Values, ["T"]);
     AppendSection(sb, entries, byId, byMember, "regex", StdlibCatalog.RegexMembers.Values, []);
 
     var source = new SourceText(sb.ToString(), VirtualPath);

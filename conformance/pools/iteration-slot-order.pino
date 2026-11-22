@@ -1,0 +1,15 @@
+# covers: POOL-11, LOOP-19, LOOP-20
+var names = Pool[string]
+val h0 = names:add("first")
+val h1 = names:add("second")
+val h2 = names:add("third")
+val removed = names:remove(h0)
+val h3 = names:add("reused-zero")
+
+for x in names {
+  println(x)
+}
+
+for h, x in names {
+  println("$(str(h)) $x")
+}

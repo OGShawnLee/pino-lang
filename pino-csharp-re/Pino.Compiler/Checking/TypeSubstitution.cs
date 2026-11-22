@@ -38,6 +38,8 @@ internal static class TypeSubstitution {
           Substitute(map.KeyType, parameters, arguments, types),
           Substitute(map.ValueType, parameters, arguments, types)),
       SetType set => types.GetSet(Substitute(set.ElementType, parameters, arguments, types)),
+      PoolType pool => types.GetPool(Substitute(pool.ElementType, parameters, arguments, types)),
+      HandleType handle => types.GetHandle(Substitute(handle.ElementType, parameters, arguments, types)),
       TupleType tuple => types.GetTuple(
           [.. tuple.Fields.Select(f => new TupleField(f.Label, Substitute(f.Type, parameters, arguments, types)))]),
       FunctionType fn => types.GetFunction(

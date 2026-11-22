@@ -112,6 +112,12 @@ internal sealed class Unifier {
       case SetType ps when actual is SetType @as:
         return Unify(ps.ElementType, @as.ElementType, siteSpan, out conflict, allowIntToFloat: false);
 
+      case PoolType pp when actual is PoolType ap:
+        return Unify(pp.ElementType, ap.ElementType, siteSpan, out conflict, allowIntToFloat: false);
+
+      case HandleType ph when actual is HandleType ah:
+        return Unify(ph.ElementType, ah.ElementType, siteSpan, out conflict, allowIntToFloat: false);
+
       case TupleType pt when actual is TupleType at && pt.Fields.Length == at.Fields.Length:
         for (int i = 0; i < pt.Fields.Length; i++) {
           if (!string.Equals(pt.Fields[i].Label, at.Fields[i].Label, StringComparison.Ordinal)) {
@@ -211,6 +217,14 @@ internal sealed class Unifier {
         BindUnboundFromExpected(ps.ElementType, es.ElementType, siteSpan);
         break;
 
+      case PoolType pp when expected is PoolType ep:
+        BindUnboundFromExpected(pp.ElementType, ep.ElementType, siteSpan);
+        break;
+
+      case HandleType ph when expected is HandleType eh:
+        BindUnboundFromExpected(ph.ElementType, eh.ElementType, siteSpan);
+        break;
+
       case TupleType pt when expected is TupleType et && pt.Fields.Length == et.Fields.Length:
         for (int i = 0; i < pt.Fields.Length; i++) {
           if (string.Equals(pt.Fields[i].Label, et.Fields[i].Label, StringComparison.Ordinal)) {
@@ -275,6 +289,8 @@ internal sealed class Unifier {
     VectorType v => ContainsTypeVariable(v.ElementType),
     MapType m => ContainsTypeVariable(m.KeyType) || ContainsTypeVariable(m.ValueType),
     SetType s => ContainsTypeVariable(s.ElementType),
+    PoolType p => ContainsTypeVariable(p.ElementType),
+    HandleType h => ContainsTypeVariable(h.ElementType),
     TupleType t => t.Fields.Any(static f => ContainsTypeVariable(f.Type)),
     FunctionType f => ContainsTypeVariable(f.ReturnType) || f.Parameters.Any(static p => ContainsTypeVariable(p.Type)),
     StructType st => st.TypeArguments.Any(static a => ContainsTypeVariable(a)),
@@ -288,6 +304,8 @@ internal sealed class Unifier {
     VectorType v => IsConcreteType(v.ElementType),
     MapType m => IsConcreteType(m.KeyType) && IsConcreteType(m.ValueType),
     SetType s => IsConcreteType(s.ElementType),
+    PoolType p => IsConcreteType(p.ElementType),
+    HandleType h => IsConcreteType(h.ElementType),
     TupleType t => t.Fields.All(static f => IsConcreteType(f.Type)),
     FunctionType f => IsConcreteType(f.ReturnType) && f.Parameters.All(static p => IsConcreteType(p.Type)),
     StructType st => st.TypeArguments.All(static a => IsConcreteType(a)),
@@ -361,6 +379,8 @@ internal sealed class Unifier {
       VectorType v => OccursIn(needle, v.ElementType),
       MapType m => OccursIn(needle, m.KeyType) || OccursIn(needle, m.ValueType),
       SetType s => OccursIn(needle, s.ElementType),
+      PoolType p => OccursIn(needle, p.ElementType),
+      HandleType h => OccursIn(needle, h.ElementType),
       TupleType t => t.Fields.Any(f => OccursIn(needle, f.Type)),
       FunctionType f => OccursIn(needle, f.ReturnType) || f.Parameters.Any(p => OccursIn(needle, p.Type)),
       StructType st => st.TypeArguments.Any(a => OccursIn(needle, a)),
@@ -384,6 +404,8 @@ internal sealed class Unifier {
       VectorType v => _types.GetVector(ZonkCore(v.ElementType, unboundToError)),
       MapType m => _types.GetMap(ZonkCore(m.KeyType, unboundToError), ZonkCore(m.ValueType, unboundToError)),
       SetType s => _types.GetSet(ZonkCore(s.ElementType, unboundToError)),
+      PoolType p => _types.GetPool(ZonkCore(p.ElementType, unboundToError)),
+      HandleType h => _types.GetHandle(ZonkCore(h.ElementType, unboundToError)),
       TupleType t => _types.GetTuple([.. t.Fields.Select(f => new TupleField(f.Label, ZonkCore(f.Type, unboundToError)))]),
       FunctionType f => _types.GetFunction(
           [.. f.Parameters.Select(p => new FunctionParameter(ZonkCore(p.Type, unboundToError), p.IsMutable))],

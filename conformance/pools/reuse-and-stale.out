@@ -1,0 +1,13 @@
+Handle(0, 0)
+Handle(1, 0)
+a
+b
+stale-get
+stale-remove
+Handle(1, 1)
+Handle(0, 1)
+Handle(2, 0)
+3
+c
+d
+e

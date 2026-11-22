@@ -303,6 +303,14 @@ internal sealed partial class CheckerSession {
         RecordInstantiationsInType(s.ElementType);
         break;
 
+      case PoolType p:
+        RecordInstantiationsInType(p.ElementType);
+        break;
+
+      case HandleType h:
+        RecordInstantiationsInType(h.ElementType);
+        break;
+
       case TupleType t:
         foreach (TupleField f in t.Fields) {
           RecordInstantiationsInType(f.Type);

@@ -236,7 +236,9 @@ internal sealed partial class CheckerSession {
       tp.Owner = structSymbol;
     }
 
-    if (!enclosingScope.TryDeclareHoisted(structSymbol, out Symbol? existing)) {
+    if (IsReservedBuiltInTypeName(name)) {
+      ReportReservedBuiltInTypeName(state, name, decl.NameToken.Span);
+    } else if (!enclosingScope.TryDeclareHoisted(structSymbol, out Symbol? existing)) {
       ReportDuplicate(state, name, decl.NameToken.Span, existing!);
     } else if (isModuleTopLevel) {
       state.TopLevelDeclarations.Add(structSymbol);
@@ -281,7 +283,9 @@ internal sealed partial class CheckerSession {
       tp.Owner = ifaceSymbol;
     }
 
-    if (!enclosingScope.TryDeclareHoisted(ifaceSymbol, out Symbol? existing)) {
+    if (IsReservedBuiltInTypeName(name)) {
+      ReportReservedBuiltInTypeName(state, name, decl.NameToken.Span);
+    } else if (!enclosingScope.TryDeclareHoisted(ifaceSymbol, out Symbol? existing)) {
       ReportDuplicate(state, name, decl.NameToken.Span, existing!);
     } else if (isModuleTopLevel) {
       state.TopLevelDeclarations.Add(ifaceSymbol);
@@ -351,7 +355,9 @@ internal sealed partial class CheckerSession {
 
     enumSymbol.Members = members.ToImmutable();
 
-    if (!enclosingScope.TryDeclareHoisted(enumSymbol, out Symbol? existing)) {
+    if (IsReservedBuiltInTypeName(name)) {
+      ReportReservedBuiltInTypeName(state, name, decl.NameToken.Span);
+    } else if (!enclosingScope.TryDeclareHoisted(enumSymbol, out Symbol? existing)) {
       ReportDuplicate(state, name, decl.NameToken.Span, existing!);
     } else if (isModuleTopLevel) {
       state.TopLevelDeclarations.Add(enumSymbol);
@@ -438,7 +444,9 @@ internal sealed partial class CheckerSession {
     unionSymbol.UsesNamedFields = usesNamedFields;
     unionSymbol.Variants = variants.ToImmutable();
 
-    if (!enclosingScope.TryDeclareHoisted(unionSymbol, out Symbol? existing)) {
+    if (IsReservedBuiltInTypeName(name)) {
+      ReportReservedBuiltInTypeName(state, name, decl.NameToken.Span);
+    } else if (!enclosingScope.TryDeclareHoisted(unionSymbol, out Symbol? existing)) {
       ReportDuplicate(state, name, decl.NameToken.Span, existing!);
     } else if (isModuleTopLevel) {
       state.TopLevelDeclarations.Add(unionSymbol);
@@ -448,6 +456,17 @@ internal sealed partial class CheckerSession {
     var unionScope = new Scope(ScopeKind.Block, enclosingScope, unionSymbol);
     state.SetScope(decl, unionScope);
     state.Unions.Add((decl, unionSymbol, unionScope));
+  }
+
+  private static bool IsReservedBuiltInTypeName(string name) =>
+      name is "Pool" or "Handle";
+
+  private static void ReportReservedBuiltInTypeName(ModuleCheckState state, string name, Text.SourceSpan span) {
+    state.Diagnostics.ReportError(
+        DiagnosticCodes.DuplicateDeclaration,
+        span,
+        $"'{name}' is a built-in type and can't be declared again.",
+        help: "choose another name");
   }
 
   private ImmutableArray<TypeParameterSymbol> CollectGenericTypeParameters(

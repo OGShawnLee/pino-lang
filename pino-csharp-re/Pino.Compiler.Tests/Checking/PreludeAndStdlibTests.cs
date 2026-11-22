@@ -205,6 +205,41 @@ public sealed class PreludeAndStdlibTests {
     Assert.True(StdlibCatalog.TryGetMember(setType, "any", out IntrinsicDescriptor? setAny));
     Assert.Single(setAny!.Signatures);
 
+    // Pool[T] members (D-185 / POOLLIB-1..8)
+    PoolType poolType = types.GetPool(types.Int);
+    HandleType handleType = types.GetHandle(types.Int);
+    string[] expectedPool = ["len", "length", "add", "remove", "get", "handles", "clear"];
+    Assert.Equal(expectedPool.Length, StdlibCatalog.PoolMembers.Count);
+    foreach (string name in expectedPool) {
+      Assert.True(StdlibCatalog.TryGetMember(poolType, name, out _), $"Missing Pool:{name}");
+    }
+    Assert.True(StdlibCatalog.TryGetMember(poolType, "add", out IntrinsicDescriptor? poolAdd));
+    Assert.True(poolAdd!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.PoolAdd, poolAdd.Signatures[0].Id);
+    Assert.Same(handleType, poolAdd.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+    Assert.True(StdlibCatalog.TryGetMember(poolType, "remove", out IntrinsicDescriptor? poolRemove));
+    Assert.True(poolRemove!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.PoolRemove, poolRemove.Signatures[0].Id);
+    Assert.Same(
+        types.GetUnion(prelude.OptionUnion, [types.Int]),
+        poolRemove.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+    Assert.True(StdlibCatalog.TryGetMember(poolType, "get", out IntrinsicDescriptor? poolGet));
+    Assert.False(poolGet!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.PoolGet, poolGet.Signatures[0].Id);
+    Assert.Same(
+        types.GetUnion(prelude.OptionUnion, [types.Int]),
+        poolGet.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+    Assert.True(StdlibCatalog.TryGetMember(poolType, "handles", out IntrinsicDescriptor? poolHandles));
+    Assert.False(poolHandles!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.PoolHandles, poolHandles.Signatures[0].Id);
+    Assert.Same(
+        types.GetVector(handleType),
+        poolHandles.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+    Assert.True(StdlibCatalog.TryGetMember(poolType, "clear", out IntrinsicDescriptor? poolClear));
+    Assert.True(poolClear!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.PoolClear, poolClear.Signatures[0].Id);
+    Assert.Same(types.Void, poolClear.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+
     // regex members
     string[] expectedRegex = ["pattern", "has_match", "match_prefix", "find", "find_all", "replace"];
     Assert.Equal(expectedRegex.Length, StdlibCatalog.RegexMembers.Count);
@@ -248,6 +283,9 @@ public sealed class PreludeAndStdlibTests {
       IntrinsicId.MapRemove,
       IntrinsicId.SetAdd,
       IntrinsicId.SetRemove,
+      IntrinsicId.PoolAdd,
+      IntrinsicId.PoolRemove,
+      IntrinsicId.PoolClear,
     ];
     IntrinsicId[] actualMutatingIds = StdlibCatalog.AllDescriptors
         .Where(static d => d.MutatesReceiver)
@@ -269,5 +307,15 @@ public sealed class PreludeAndStdlibTests {
     Assert.Equal("mut fn add(item T) -> void", vecAddEntry!.SignatureText);
     Assert.True(stub.TryGetEntry(StdlibReceiverKind.Vector, "swap", out VirtualStdlibEntry? vecSwapEntry));
     Assert.Equal("mut fn swap(i int, j int) -> void", vecSwapEntry!.SignatureText);
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Pool, "add", out VirtualStdlibEntry? poolAddEntry));
+    Assert.Equal("mut fn add(value T) -> Handle[T]", poolAddEntry!.SignatureText);
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Pool, "remove", out VirtualStdlibEntry? poolRemoveEntry));
+    Assert.Equal("mut fn remove(handle Handle[T]) -> Option[T]", poolRemoveEntry!.SignatureText);
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Pool, "get", out VirtualStdlibEntry? poolGetEntry));
+    Assert.Equal("fn get(handle Handle[T]) -> Option[T]", poolGetEntry!.SignatureText);
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Pool, "handles", out VirtualStdlibEntry? poolHandlesEntry));
+    Assert.Equal("fn handles() -> []Handle[T]", poolHandlesEntry!.SignatureText);
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Pool, "clear", out VirtualStdlibEntry? poolClearEntry));
+    Assert.Equal("mut fn clear() -> void", poolClearEntry!.SignatureText);
   }
 }

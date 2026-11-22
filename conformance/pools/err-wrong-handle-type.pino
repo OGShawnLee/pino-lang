@@ -1,0 +1,5 @@
+# covers: POOL-E2
+var names = Pool[string]
+var nums = Pool[int]
+val h = nums:add(1)
+println(names[h])

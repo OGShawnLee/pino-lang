@@ -50,6 +50,12 @@ public sealed class CheckerReturnInferenceTests {
         case SetType set:
           CheckType(set.ElementType);
           break;
+        case PoolType pool:
+          CheckType(pool.ElementType);
+          break;
+        case HandleType handle:
+          CheckType(handle.ElementType);
+          break;
         case TupleType tuple:
           foreach (TupleField f in tuple.Fields) {
             CheckType(f.Type);

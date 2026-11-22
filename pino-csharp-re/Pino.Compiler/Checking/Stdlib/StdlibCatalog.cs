@@ -10,6 +10,7 @@ public enum StdlibReceiverKind : byte {
   Vector,
   Map,
   Set,
+  Pool,
   Regex,
 }
 
@@ -152,6 +153,20 @@ public abstract record StdlibTypeSpec {
         $"[]{Element.Format(receiverParamNames, methodParamNames)}";
   }
 
+  public sealed record Handle(StdlibTypeSpec Element) : StdlibTypeSpec {
+    public override TypeSymbol Resolve(
+        TypeInterner types,
+        PreludeSymbols prelude,
+        ReadOnlySpan<TypeSymbol> receiverArgs,
+        ReadOnlySpan<TypeSymbol> methodArgs) =>
+        types.GetHandle(Element.Resolve(types, prelude, receiverArgs, methodArgs));
+
+    public override string Format(
+        IReadOnlyList<string> receiverParamNames,
+        IReadOnlyList<string> methodParamNames) =>
+        $"Handle[{Element.Format(receiverParamNames, methodParamNames)}]";
+  }
+
   public sealed record Option(StdlibTypeSpec Element) : StdlibTypeSpec {
     public override TypeSymbol Resolve(
         TypeInterner types,
@@ -276,6 +291,7 @@ public static class StdlibCatalog {
   public static FrozenDictionary<string, IntrinsicDescriptor> VectorMembers { get; }
   public static FrozenDictionary<string, IntrinsicDescriptor> MapMembers { get; }
   public static FrozenDictionary<string, IntrinsicDescriptor> SetMembers { get; }
+  public static FrozenDictionary<string, IntrinsicDescriptor> PoolMembers { get; }
   public static FrozenDictionary<string, IntrinsicDescriptor> RegexMembers { get; }
   public static ImmutableArray<IntrinsicDescriptor> AllDescriptors { get; }
 
@@ -521,6 +537,18 @@ public static class StdlibCatalog {
           Method(StdlibReceiverKind.Set, "each", [Sig(IntrinsicId.SetEach, [Fixed("fn", new StdlibTypeSpec.Function([s_t0], s_void))], s_void)], "Calls fn once for each element.", ["SETLIB-7", "D-175"]),
         ]);
 
+    PoolMembers = BuildTable(
+        all,
+        [
+          Prop(StdlibReceiverKind.Pool, "len", IntrinsicId.PoolLen, s_int, "Number of live elements.", ["POOLLIB-1", "D-185"]),
+          Prop(StdlibReceiverKind.Pool, "length", IntrinsicId.PoolLen, s_int, "Alias of pool:len.", ["POOLLIB-2", "D-185"]),
+          Method(StdlibReceiverKind.Pool, "add", [Sig(IntrinsicId.PoolAdd, [Fixed("value", s_t0)], new StdlibTypeSpec.Handle(s_t0))], "Stores value in the pool and returns its handle.", ["POOLLIB-3", "D-185"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Pool, "remove", [Sig(IntrinsicId.PoolRemove, [Fixed("handle", new StdlibTypeSpec.Handle(s_t0))], new StdlibTypeSpec.Option(s_t0))], "Removes the value for handle and returns it as Option[T], or Option::None if stale.", ["POOLLIB-4", "D-185"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Pool, "get", [Sig(IntrinsicId.PoolGet, [Fixed("handle", new StdlibTypeSpec.Handle(s_t0))], new StdlibTypeSpec.Option(s_t0))], "Returns the value for handle as Option[T], or Option::None if stale.", ["POOLLIB-5", "D-185"]),
+          Method(StdlibReceiverKind.Pool, "handles", [Sig(IntrinsicId.PoolHandles, [], new StdlibTypeSpec.Vector(new StdlibTypeSpec.Handle(s_t0)))], "Returns all live handles in increasing slot order.", ["POOLLIB-6", "D-185"]),
+          Method(StdlibReceiverKind.Pool, "clear", [Sig(IntrinsicId.PoolClear, [], s_void)], "Removes all values from the pool, making existing handles stale.", ["POOLLIB-7", "D-185"], mutatesReceiver: true),
+        ]);
+
     RegexMembers = BuildTable(
         all,
         [
@@ -562,6 +590,7 @@ public static class StdlibCatalog {
       VectorType => VectorMembers.TryGetValue(memberName, out descriptor),
       MapType => MapMembers.TryGetValue(memberName, out descriptor),
       SetType => SetMembers.TryGetValue(memberName, out descriptor),
+      PoolType => PoolMembers.TryGetValue(memberName, out descriptor),
       _ => OutNull(out descriptor),
     };
   }

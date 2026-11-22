@@ -339,6 +339,12 @@ internal sealed partial class BodyChecker {
       case SetLiteralExpressionSyntax set:
         return SynthesizeSetLiteral(set);
 
+      case PoolExpressionSyntax pool:
+        return SynthesizePoolExpression(pool);
+
+      case HandleExpressionSyntax handle:
+        return SynthesizeHandleExpression(handle);
+
       case StructLiteralExpressionSyntax structLiteral:
         return SynthesizeStructLiteral(structLiteral, expectedType: null);
 

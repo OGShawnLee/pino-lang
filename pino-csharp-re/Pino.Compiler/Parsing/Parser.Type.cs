@@ -35,6 +35,18 @@ public sealed partial class Parser {
               return ParseSetType();
             }
 
+            if (IsIdentifierText(Current, "Pool")
+                && Peek(1).Kind == TokenKind.OpenBracket
+                && !HasLeadingNewline(Peek(1))) {
+              return ParsePoolType();
+            }
+
+            if (IsIdentifierText(Current, "Handle")
+                && Peek(1).Kind == TokenKind.OpenBracket
+                && !HasLeadingNewline(Peek(1))) {
+              return ParseHandleType();
+            }
+
             Token firstIdent = Consume();
             TypeSyntax baseType;
             if (Current.Kind == TokenKind.ColonColon) {
@@ -118,6 +130,26 @@ public sealed partial class Parser {
         openBracket,
         elementType,
         closeBracket);
+  }
+
+  private PoolTypeSyntax ParsePoolType() {
+    Token poolToken = Consume();
+    TypeArgumentListSyntax typeArgs = ParseTypeArgumentList();
+    return new PoolTypeSyntax(
+        NextId(),
+        SourceSpan.FromBounds(poolToken.Span.Start, typeArgs.Span.End),
+        poolToken,
+        typeArgs);
+  }
+
+  private HandleTypeSyntax ParseHandleType() {
+    Token handleToken = Consume();
+    TypeArgumentListSyntax typeArgs = ParseTypeArgumentList();
+    return new HandleTypeSyntax(
+        NextId(),
+        SourceSpan.FromBounds(handleToken.Span.Start, typeArgs.Span.End),
+        handleToken,
+        typeArgs);
   }
 
   private TypeArgumentListSyntax ParseTypeArgumentList() {

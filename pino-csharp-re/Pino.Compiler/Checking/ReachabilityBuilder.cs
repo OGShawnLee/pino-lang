@@ -160,6 +160,14 @@ internal static class ReachabilityBuilder {
           }
           break;
 
+        case PoolType poolType:
+          // AD-003 / D-177 / D-185: value semantics with CoW; pools cannot form reference cycles.
+          if (!poolType.ElementType.IsError) {
+            builder.AddEdge(poolType, poolType.ElementType, isMutableEdge: false);
+            worklist.Enqueue(poolType.ElementType);
+          }
+          break;
+
         case UnionType unionType: {
             // UNION-24 / D-182: union payloads are deeply immutable inductive values.
             ImmutableArray<TypeParameterSymbol> tParams = unionType.Definition.TypeParameters;

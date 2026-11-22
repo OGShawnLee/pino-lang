@@ -12,6 +12,8 @@ public sealed class TypeInterner {
   private readonly Dictionary<TypeSymbol, VectorType> _vectors = new(ReferenceEqualityComparer.Instance);
   private readonly Dictionary<(TypeSymbol Key, TypeSymbol Value), MapType> _maps = new(PairKeyComparer.Instance);
   private readonly Dictionary<TypeSymbol, SetType> _sets = new(ReferenceEqualityComparer.Instance);
+  private readonly Dictionary<TypeSymbol, PoolType> _pools = new(ReferenceEqualityComparer.Instance);
+  private readonly Dictionary<TypeSymbol, HandleType> _handles = new(ReferenceEqualityComparer.Instance);
   private readonly Dictionary<TupleKey, TupleType> _tuples = [];
   private readonly Dictionary<FunctionKey, FunctionType> _functions = [];
   private readonly Dictionary<NominalKey<StructSymbol>, StructType> _structs = [];
@@ -69,6 +71,28 @@ public sealed class TypeInterner {
       if (!_sets.TryGetValue(elementType, out SetType? existing)) {
         existing = new SetType(elementType);
         _sets[elementType] = existing;
+      }
+      return existing;
+    }
+  }
+
+  public PoolType GetPool(TypeSymbol elementType) {
+    ArgumentNullException.ThrowIfNull(elementType);
+    lock (_gate) {
+      if (!_pools.TryGetValue(elementType, out PoolType? existing)) {
+        existing = new PoolType(elementType);
+        _pools[elementType] = existing;
+      }
+      return existing;
+    }
+  }
+
+  public HandleType GetHandle(TypeSymbol elementType) {
+    ArgumentNullException.ThrowIfNull(elementType);
+    lock (_gate) {
+      if (!_handles.TryGetValue(elementType, out HandleType? existing)) {
+        existing = new HandleType(elementType);
+        _handles[elementType] = existing;
       }
       return existing;
     }

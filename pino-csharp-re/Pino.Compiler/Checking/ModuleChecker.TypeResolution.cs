@@ -89,6 +89,28 @@ internal sealed partial class CheckerSession {
           return elem.IsError ? Types.Error : Types.GetSet(elem);
         }
 
+      case PoolTypeSyntax pool:
+        return ResolvePoolOrHandleType(
+            state,
+            "Pool",
+            pool.TypeArguments,
+            scope,
+            TypePosition.CollectionElement,
+            staticMethodEnclosingStruct,
+            staticMethodName,
+            isPool: true);
+
+      case HandleTypeSyntax handle:
+        return ResolvePoolOrHandleType(
+            state,
+            "Handle",
+            handle.TypeArguments,
+            scope,
+            TypePosition.GenericTypeArgument,
+            staticMethodEnclosingStruct,
+            staticMethodName,
+            isPool: false);
+
       case FunctionTypeSyntax fnType:
         return ResolveFunctionType(state, fnType, scope, staticMethodEnclosingStruct, staticMethodName);
 
@@ -98,6 +120,51 @@ internal sealed partial class CheckerSession {
       default:
         return Types.Error;
     }
+  }
+
+  private TypeSymbol ResolvePoolOrHandleType(
+      ModuleCheckState state,
+      string typeName,
+      TypeArgumentListSyntax typeArgs,
+      Scope scope,
+      TypePosition elementPosition,
+      StructSymbol? staticMethodEnclosingStruct,
+      string? staticMethodName,
+      bool isPool) {
+    ImmutableArray<TypeSyntax> argSyntaxes = typeArgs.Arguments;
+    TypeSymbol? firstResolved = null;
+
+    for (int i = 0; i < argSyntaxes.Length; i++) {
+      TypeSymbol argType = ResolveType(
+          state,
+          argSyntaxes[i],
+          scope,
+          elementPosition,
+          staticMethodEnclosingStruct,
+          staticMethodName);
+      if (i == 0) {
+        firstResolved = argType;
+      }
+    }
+
+    if (argSyntaxes.Length == 0) {
+      // Parser already reported PN2004 ("Expected at least one type argument.").
+      return Types.Error;
+    }
+
+    if (argSyntaxes.Length != 1) {
+      state.Diagnostics.ReportError(
+          DiagnosticCodes.TypeMismatch,
+          typeArgs.Span,
+          $"Generic type '{typeName}' expects 1 type argument(s), but got {argSyntaxes.Length}.");
+      return Types.Error;
+    }
+
+    if (firstResolved is null || firstResolved.IsError) {
+      return Types.Error;
+    }
+
+    return isPool ? Types.GetPool(firstResolved) : Types.GetHandle(firstResolved);
   }
 
   private TypeSymbol ResolveNamedType(
@@ -134,6 +201,14 @@ internal sealed partial class CheckerSession {
             DiagnosticCodes.InvalidVoidTypePosition,
             named.Span,
             $"Type 'void' is not allowed as a {DescribePosition(position)}.");
+        return Types.Error;
+
+      case "Pool":
+      case "Handle":
+        state.Diagnostics.ReportError(
+            DiagnosticCodes.CannotInferGenericArguments,
+            named.Span,
+            $"Generic type '{name}' requires 1 type argument(s).");
         return Types.Error;
     }
 

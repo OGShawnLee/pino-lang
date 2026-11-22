@@ -193,6 +193,21 @@ public sealed class ParserExpressionTests {
     Assert.Equal(
         "(SetLiteralExpression (SetType set (NamedType int)) (LiteralExpression 1) (LiteralExpression 2) (LiteralExpression 3))",
         SyntaxPrinter.Print(setWithItems.Node, setWithItems.Lex.Source));
+
+    ParseResult<ExpressionSyntax> emptyPool = ParserTestHelpers.ParseExpression("Pool[Weapon]");
+    Assert.Equal(
+        "(PoolExpression (PoolType Pool (TypeArgumentList (NamedType Weapon))))",
+        SyntaxPrinter.Print(emptyPool.Node, emptyPool.Lex.Source));
+
+    ParseResult<ExpressionSyntax> fnPool = ParserTestHelpers.ParseExpression("Pool[fn (int) -> int]");
+    Assert.Equal(
+        "(PoolExpression (PoolType Pool (TypeArgumentList (FunctionType (FunctionTypeParameter (NamedType int)) -> (NamedType int)))))",
+        SyntaxPrinter.Print(fnPool.Node, fnPool.Lex.Source));
+
+    ParseResult<ExpressionSyntax> handleExpr = ParserTestHelpers.ParseExpression("Handle[Weapon]");
+    Assert.Equal(
+        "(HandleExpression (HandleType Handle (TypeArgumentList (NamedType Weapon))))",
+        SyntaxPrinter.Print(handleExpr.Node, handleExpr.Lex.Source));
   }
 
   [Fact]

@@ -1,0 +1,17 @@
+# covers: POOL-9, POOLLIB-7
+var nums = Pool[int]
+val h0 = nums:add(10)
+val h1 = nums:add(20)
+nums:clear()
+
+println(nums:len)
+println(h0 in nums)
+println(h1 in nums)
+
+val a = nums:add(100)
+val b = nums:add(200)
+val c = nums:add(300)
+println(str(a))
+println(str(b))
+println(str(c))
+println(nums:len)

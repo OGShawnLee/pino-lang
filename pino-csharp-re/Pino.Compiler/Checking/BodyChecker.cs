@@ -489,6 +489,13 @@ internal sealed partial class BodyChecker {
         firstType = set.ElementType;
         break;
 
+      case PoolType pool:
+        // LOOP-19 / LOOP-20 / D-185 / D-120: `x` is the value, `h, x` is (Handle[T], value).
+        kind = LoopKind.ForInPool;
+        firstType = hasSecond ? _types.GetHandle(pool.ElementType) : pool.ElementType;
+        secondType = hasSecond ? pool.ElementType : _types.Error;
+        break;
+
       case TypeParameterType or InterfaceType:
         // Constrained iteration over generic values is ticket 039.
         break;

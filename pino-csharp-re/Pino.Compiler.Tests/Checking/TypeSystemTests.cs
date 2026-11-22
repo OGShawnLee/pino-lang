@@ -58,6 +58,8 @@ public sealed class TypeSystemTests {
     Assert.True(types.GetVector(err).ContainsError);
     Assert.True(types.GetMap(types.String, err).ContainsError);
     Assert.True(types.GetSet(err).ContainsError);
+    Assert.True(types.GetPool(err).ContainsError);
+    Assert.True(types.GetHandle(err).ContainsError);
     Assert.True(types.GetTuple([new TupleField("a", err)]).ContainsError);
     Assert.True(types.GetFunction([new FunctionParameter(types.Int, false)], err).ContainsError);
     Assert.True(types.GetFunction([new FunctionParameter(err, false)], types.Bool).ContainsError);
@@ -82,6 +84,12 @@ public sealed class TypeSystemTests {
     Assert.NotSame(types.GetMap(types.String, types.Int), types.GetMap(types.Int, types.String));
 
     Assert.Same(types.GetSet(types.Rune), types.GetSet(types.Rune));
+    Assert.Same(types.GetPool(types.Int), types.GetPool(types.Int));
+    Assert.NotSame(types.GetPool(types.Int), types.GetPool(types.String));
+    Assert.Equal("Pool[int]", types.GetPool(types.Int).DisplayName);
+    Assert.Same(types.GetHandle(types.Int), types.GetHandle(types.Int));
+    Assert.NotSame(types.GetHandle(types.Int), types.GetHandle(types.String));
+    Assert.Equal("Handle[int]", types.GetHandle(types.Int).DisplayName);
     Assert.Same(
         types.GetFunction([new FunctionParameter(types.Int, false), new FunctionParameter(types.String, false)], types.Bool),
         types.GetFunction([new FunctionParameter(types.Int, false), new FunctionParameter(types.String, false)], types.Bool));

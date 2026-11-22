@@ -1,0 +1,20 @@
+# covers: POOLLIB-2, POOLLIB-6, POOLLIB-8
+struct Unit {
+  pub mut hp int
+}
+
+var units = Pool[Unit]
+val h0 = units:add(Unit { hp: 10 })
+val h1 = units:add(Unit { hp: 20 })
+val h2 = units:add(Unit { hp: 30 })
+val gone = units:remove(h1)
+val h3 = units:add(Unit { hp: 40 })
+
+println(units:length)
+println(h1 not in units)
+println(h3 not in units)
+
+for h in units:handles() {
+  units[h]:hp -= 1
+  println("$(str(h)) $(units[h]:hp)")
+}

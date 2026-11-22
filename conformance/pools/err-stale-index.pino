@@ -1,0 +1,5 @@
+# covers: POOL-E1
+var armory = Pool[int]
+val h = armory:add(10)
+val removed = armory:remove(h)
+println(armory[h])

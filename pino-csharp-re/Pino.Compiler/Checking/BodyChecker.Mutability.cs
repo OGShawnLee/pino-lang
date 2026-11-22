@@ -208,7 +208,7 @@ internal sealed partial class BodyChecker {
             return InvalidMutablePlace();
           }
 
-          if (containerType is not (VectorType or MapType)) {
+          if (containerType is not (VectorType or MapType or PoolType)) {
             return SilentMutablePlace();
           }
 
@@ -831,7 +831,7 @@ internal sealed partial class BodyChecker {
   }
 
   private static bool IsCoWType(TypeSymbol? type) =>
-      type is StructType or VectorType or MapType or SetType or InterfaceType or TypeParameterType;
+      type is StructType or VectorType or MapType or SetType or PoolType or InterfaceType or TypeParameterType;
 
   /// <summary>
   /// Returns <see langword="true"/> when <paramref name="type"/> has mutable interior contents
@@ -846,6 +846,7 @@ internal sealed partial class BodyChecker {
       case VectorType:
       case MapType:
       case SetType:
+      case PoolType:
       case TypeParameterType:
         return true;
 
