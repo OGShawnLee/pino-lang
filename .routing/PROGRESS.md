@@ -540,6 +540,21 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Router verification: `-re` 4416/4418 (only the 2 worktree-only lexer items); 0 warnings; format clean. The golden `sum_vec` reads cleanly.
     - Deferred to 060: UTF-8 string-loop helpers and `[]T { len, init }` helpers.
   - [ ] **060-re-ir-lowering-core** (Gemini 4 Neon High) and **064-re-c-runtime** (Claude Sonnet 5.5 High): dispatched in parallel.
+  - [x] **064-re-c-runtime** (`67dcd7c`, Claude Sonnet 5.5 High): `runtime-re/`, a C99 RC runtime with no GC:
+    - `pino_rt.h` 489 lines, `pino_alloc.c` 337, `pino_str.c` 710, `pino_io.c` 525, plus `tests/test_runtime.c` and `CRuntimeTests.cs`
+    - a debug mode that poisons freed blocks with `0xDD`, reports `LEAK:` and `CYCLE-LEAK:`, and catches use-after-free and double-free (exit 103)
+    - zero-copy `substring`, the spec's panic texts, and the `INT64_MIN // -1` panic (exit 101)
+    - TCC atomics through inline `lock xadd`; `time()` returns epoch milliseconds on Windows
+
+    Router verification: `-re` passes, and `CRuntimeTests` 4/4 pass **from PowerShell**. From Git Bash the GCC test fails silently (exit 1, no stderr): Git's `/usr/bin` comes before MSYS2's ucrt64 in `PATH`, so it's an environment issue, not a runtime bug. Verify C tests from PowerShell.
+    - Notes for the next tickets:
+      - (a) checked math takes a `PinoLoc` third argument (`pino_floordiv_i64(a, b, loc)`); 065 must emit it
+      - (b) **floats print C-style `1e+20` in ReC but .NET-style `1E+20` in ReVm.** IQ-12 requires identical output, so 063, 065 and 066 must pick one form (follow the legacy oracle and conformance `.out` files)
+      - (c) Windows output uses `
+`; the conformance runner must normalize it
+      - (d) `runtime/re.c:116` has an unused-variable warning, so it is compiled without `-Werror`; legacy `runtime/` stays frozen
+      - (e) ASan and UBSan haven't been run (no `libubsan` in MSYS2 GCC)
+      - (f) `pino_rt.h` includes `../runtime/re.h`, so the two folders must stay side by side
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
     - Note: Neon's thinking showed it failed to read the tickets at first. It had tried the worktree path, where the untracked `.tickets/` don't exist, then read them from the main checkout successfully. Future briefs should say plainly that `.tickets/` exists only in the main checkout.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
