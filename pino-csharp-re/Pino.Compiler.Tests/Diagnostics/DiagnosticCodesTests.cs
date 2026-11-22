@@ -81,6 +81,7 @@ public sealed class DiagnosticCodesTests {
       (nameof(DiagnosticCodes.StaticMethodUsesInstanceGeneric), "PN3111"),
       (nameof(DiagnosticCodes.InvalidConditionType), "PN3112"),
       (nameof(DiagnosticCodes.DefaultParameterNotSupported), "PN3113"),
+      (nameof(DiagnosticCodes.RecursiveStructValue), "PN3114"),
       (nameof(DiagnosticCodes.CannotAssignToImmutable), "PN3201"),
       (nameof(DiagnosticCodes.InvalidAssignmentTarget), "PN3202"),
       (nameof(DiagnosticCodes.InvalidOperatorOperands), "PN3203"),
@@ -138,7 +139,7 @@ public sealed class DiagnosticCodesTests {
       (nameof(DiagnosticCodes.UnreachableMatchArm), "PN3551"),
     };
 
-    Assert.Equal(79, expected.Length);
+    Assert.Equal(80, expected.Length);
 
     Type type = typeof(DiagnosticCodes);
     foreach ((string name, string code) in expected) {

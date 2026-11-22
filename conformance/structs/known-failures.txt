@@ -105,3 +105,8 @@ C err-bind-mut-method.pino  # D-179: legacy parser rejects 'mut' field/method in
 TreeWalk err-mut-modifier-placement.pino  # D-179: legacy fails with 'PARSER: Expected Typing, got Keyword: pub' instead of "'mut' must appear after 'pub'"
 VM err-mut-modifier-placement.pino  # D-179: legacy fails with 'PARSER: Expected Typing, got Keyword: pub' instead of "'mut' must appear after 'pub'"
 C err-mut-modifier-placement.pino  # D-179: legacy fails with 'PARSER: Expected Typing, got Keyword: pub' instead of "'mut' must appear after 'pub'"
+
+# --- D-186 print forms and IR prerequisites (ticket 058)
+TreeWalk err-direct-recursive-struct.pino  # D-186: legacy compiler accepts a struct that contains itself by value
+VM err-direct-recursive-struct.pino  # D-186: legacy compiler accepts a struct that contains itself by value
+C err-direct-recursive-struct.pino  # D-186: legacy compiler accepts a struct that contains itself by value

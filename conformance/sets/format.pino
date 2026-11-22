@@ -1,0 +1,9 @@
+# covers: SET-6
+var names = set[string] { "b", "a" }
+println(str(names))
+var nums = set[int] { 3, 1, 2 }
+nums:remove(1)
+nums:add(1)
+println(str(nums))
+val none = set[int]
+println(str(none))

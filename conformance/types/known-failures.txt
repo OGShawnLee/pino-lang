@@ -111,3 +111,8 @@ C float-widening-annotated.pino  # D-172: legacy fails: PARSER: Expected '=', go
 TreeWalk err-redeclare-option.pino  # D-185: legacy compiler accepts a user union named Option
 VM err-redeclare-option.pino  # D-185: legacy compiler accepts a user union named Option
 C err-redeclare-option.pino  # D-185: legacy compiler accepts a user union named Option
+
+# --- D-186 print forms and IR prerequisites (ticket 058)
+TreeWalk err-runtime-int-min-div-overflow.pino  # D-186: legacy parser fails: PARSER: Expected expression, got Illegal: 9223372036854775807 (it cannot read the integer literal 9223372036854775807)
+VM err-runtime-int-min-div-overflow.pino  # D-186: legacy parser fails: PARSER: Expected expression, got Illegal: 9223372036854775807 (it cannot read the integer literal 9223372036854775807)
+C err-runtime-int-min-div-overflow.pino  # D-186: legacy parser fails: PARSER: Expected expression, got Illegal: 9223372036854775807 (it cannot read the integer literal 9223372036854775807)

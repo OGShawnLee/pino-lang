@@ -1,0 +1,1 @@
+Struct 'Bad' cannot contain itself directly because it would have infinite size.

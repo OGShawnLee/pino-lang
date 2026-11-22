@@ -94,6 +94,7 @@ public static class DiagnosticCodes {
   public const string StaticMethodUsesInstanceGeneric = "PN3111";
   public const string InvalidConditionType = "PN3112";
   public const string DefaultParameterNotSupported = "PN3113";
+  public const string RecursiveStructValue = "PN3114";
 
   // Expressions, Operators, Calls, Structs & Collections (PN3201–PN3249)
   public const string CannotAssignToImmutable = "PN3201";

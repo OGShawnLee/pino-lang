@@ -1,0 +1,6 @@
+# covers: TYPE-E6
+var x = -9223372036854775807 - 1
+var d = -1
+println("before")
+println(x // d)
+println("after")

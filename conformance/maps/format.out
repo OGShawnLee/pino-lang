@@ -1,1 +1,1 @@
-map[string, int] { "a": 5 }
+map[string, int] { "a" -> 5 }

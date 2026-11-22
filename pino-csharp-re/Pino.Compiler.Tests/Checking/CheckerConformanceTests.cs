@@ -42,6 +42,7 @@ public sealed class CheckerConformanceTests {
         ["types/err-runtime-float-modulo-by-zero.pino"] = "Runtime float modulo by non-constant zero.",
         ["types/err-runtime-floor-division-by-zero.pino"] = "Runtime floor division by non-constant zero.",
         ["types/err-runtime-modulo-by-zero.pino"] = "Runtime modulo by non-constant zero.",
+        ["types/err-runtime-int-min-div-overflow.pino"] = "Runtime INT64_MIN // -1 overflow (TYPE-E6).",
         ["vectors/err-index-out-of-range.pino"] = "Runtime vector bounds check on out-of-range index.",
       };
 

@@ -14,7 +14,7 @@ A set holds unique elements of a single type. It is created with `set[T] { elem1
 - SET-4: In expression position, `set[...]` is always parsed as a set form rather than indexing a variable named `set`, while member calls such as `xs:map(f)` remain unaffected. [src: spec/decisions/D-147-set-map-expression-forms.md]
 
 - SET-5: A set literal `set[float] { ... }` whose elements mix `int` and `float` has the element type `float`, and the `int` elements widen to `float`. [src: spec/decisions/D-168-literal-widening.md]
-- SET-6: `str(s)` formats the elements of `s` in insertion order (removing an element and inserting it again puts it at the end). [src: spec/decisions/D-175-set-library-api.md] [no-case: exact str(s) formatting syntax is not yet specified]
+- SET-6: `str(s)` has the form `set[T] { e1, e2 }`, where `T` is the concrete element type, the elements are in insertion order (removing an element and inserting it again puts it at the end) separated by a comma and a space, string elements are shown in double quotes, and an empty set prints as `set[T] { }`. [src: spec/decisions/D-186-print-forms-and-ir-prereqs.md; spec/decisions/D-175-set-library-api.md]
 - SET-7: Sets have value semantics with copy-on-write (CoW): assignment and non-`mut` argument passing produce logically independent sets, and mutating a caller's set requires a `mut` parameter and call-site `mut`. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md]
 
 ## Errors

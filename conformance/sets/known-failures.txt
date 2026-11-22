@@ -26,3 +26,8 @@ C insertion-order.pino  # D-175: legacy fails: Map or custom index access is not
 TreeWalk value-semantics-cow.pino  # D-177: legacy compiler has no set[T] type or CoW value semantics
 VM value-semantics-cow.pino  # D-177: legacy compiler has no set[T] type or CoW value semantics
 C value-semantics-cow.pino  # D-177: legacy compiler has no set[T] type or CoW value semantics
+
+# --- D-186 print forms and IR prerequisites (ticket 058)
+TreeWalk format.pino  # D-186: legacy compiler has no set[T] type, so str(s) cannot print set[T] { e1, e2 }
+VM format.pino  # D-186: legacy compiler has no set[T] type, so str(s) cannot print set[T] { e1, e2 }
+C format.pino  # D-186: legacy compiler has no set[T] type, so str(s) cannot print set[T] { e1, e2 }

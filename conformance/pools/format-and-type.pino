@@ -1,0 +1,12 @@
+# covers: POOL-13, POOL-14
+var names = Pool[string]
+println(str(names))
+val a = names:add("Ann")
+val b = names:add("Bob")
+println(str(names))
+val removed = names:remove(a)
+println(str(names))
+val c = names:add("Cy")
+println(str(names))
+println(type(names))
+println(type(c))

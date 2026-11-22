@@ -31,6 +31,7 @@ Pino has no exceptions. Unrecoverable failures call the global `panic(message)`.
 
 - ERR-22: `or { ... }` is a postfix recovery operator binding at the same precedence level as `?`, so `a + b or { yield 0 }` recovers only `b`. [src: spec/decisions/D-140-or-recovery-precedence.md]
 - ERR-23: The success value of a `Result[void, E]` is written `Result::Success` (bare, with no parentheses, like `Option::None`), as in `return Result::Success` in a function declared `Result[void, E]`. [src: spec/decisions/D-162-void-as-a-writable-type.md]
+- ERR-24: When `main` ends the program with a failure (`ERR-18`, `ERR-19`), the runtime writes `Error: <str(e)>` to `stderr` for `Result::Failure(e)`, or `Error: Option::None` for `Option::None`, followed by a newline, and exits with code 1 (`ERR-20`). [src: spec/decisions/D-080-main-failure-handler-output.md; spec/decisions/D-186-print-forms-and-ir-prereqs.md] [no-case: the stderr text and exit code of the in-process engines are not observable by the conformance runner]
 
 ## Errors
 - ERR-E1: Using `?` outside a function body is rejected with a message containing "without a declared Result or Option return type". [src: LANGUAGE_REFERENCE.md §8 "The Bubble Operator (`?`)"; ErrorHandlingTests.TestCheckerEnforcesSafetyRules]
@@ -46,5 +47,4 @@ Pino has no exceptions. Unrecoverable failures call the global `panic(message)`.
 Conformance cases: `conformance/errors/`.
 
 ## Open questions
-- D-080: What exactly must the `main` failure handler print, and for `Option::None` too? Today the evaluator prints `Error: <payload>` and `Error: Option::None`, and the C backend leaves a garbage exit code.
 - D-081: What must the `panic` output look like, including the backtrace, and must the C backend print it?

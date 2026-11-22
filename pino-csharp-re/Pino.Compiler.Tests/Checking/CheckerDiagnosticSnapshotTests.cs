@@ -88,6 +88,21 @@ public sealed class CheckerDiagnosticSnapshotTests {
   }
 
   [Fact]
+  public void Snapshot_DirectRecursiveStruct_PN3114_IncludesRelatedAndHelp() {
+    const string Code = "struct Bad { x Bad }\n";
+    string rendered = RenderPlain(Code);
+    const string Expected =
+        "error[PN3114]: Struct 'Bad' cannot contain itself directly because it would have infinite size.\n" +
+        " --> sample.pino:1:8\n" +
+        "  |\n" +
+        "1 | struct Bad { x Bad }\n" +
+        "  |        ^^^\n" +
+        "  |              - field 'x' refers back to 'Bad' here\n" +
+        "  = help: wrap the field in 'Option[Bad]', store it in '[]Bad' or a recursive union, or use 'Handle[Bad]' with a 'Pool[Bad]'\n";
+    Assert.Equal(Expected, rendered);
+  }
+
+  [Fact]
   public void Snapshot_DeepValMutation_PN3220_IncludesRelatedAndHelp() {
     const string Code = "val xs = [1, 2]\nxs:push(3)\n";
     string rendered = RenderPlain(Code);

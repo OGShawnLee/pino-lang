@@ -378,4 +378,76 @@ public sealed class CheckerStructAndInterfaceTests {
       Assert.Empty(CheckerErrors(compilation));
     }
   }
+
+  [Fact]
+  public void RecursiveStructValue_DirectSelfField_ReportsPN3114WithReadableText() {
+    Compilation compilation = Compile("struct Bad { x Bad }\n");
+
+    Diagnostic error = Assert.Single(CheckerErrors(compilation));
+    Assert.Equal(DiagnosticCodes.RecursiveStructValue, error.Code);
+    Assert.Equal("Struct 'Bad' cannot contain itself directly because it would have infinite size.", error.Message);
+    Assert.Equal(
+        "wrap the field in 'Option[Bad]', store it in '[]Bad' or a recursive union, or use 'Handle[Bad]' with a 'Pool[Bad]'",
+        error.Help);
+    RelatedLocation related = Assert.Single(error.Related);
+    Assert.Equal("field 'x' refers back to 'Bad' here", related.Message);
+  }
+
+  [Fact]
+  public void RecursiveStructValue_MutualTwoStructs_ReportsOncePerStruct() {
+    Compilation compilation = Compile("struct A { b B }\nstruct B { a A }\n");
+
+    Diagnostic[] errors = CheckerErrors(compilation);
+    Assert.Equal(2, errors.Length);
+    Assert.All(errors, static e => Assert.Equal(DiagnosticCodes.RecursiveStructValue, e.Code));
+    Assert.Contains(errors, static e => e.Message == "Struct 'A' cannot contain itself, even through 'B', because it would have infinite size.");
+    Assert.Contains(errors, static e => e.Message == "Struct 'B' cannot contain itself, even through 'A', because it would have infinite size.");
+  }
+
+  [Fact]
+  public void RecursiveStructValue_MutualThreeStructs_ReportsOncePerStruct() {
+    Compilation compilation = Compile("struct A { b B }\nstruct B { c C }\nstruct C { a A }\n");
+
+    Diagnostic[] errors = CheckerErrors(compilation);
+    Assert.Equal(3, errors.Length);
+    Assert.All(errors, static e => Assert.Equal(DiagnosticCodes.RecursiveStructValue, e.Code));
+    Assert.Contains(errors, static e => e.Message == "Struct 'A' cannot contain itself, even through 'B', because it would have infinite size.");
+  }
+
+  [Fact]
+  public void RecursiveStructValue_GenericStructContainingItself_IsRejected() {
+    Compilation compilation = Compile("@@Generic[T]\nstruct Box { x Box[T] }\n");
+
+    Diagnostic error = Assert.Single(CheckerErrors(compilation));
+    Assert.Equal(DiagnosticCodes.RecursiveStructValue, error.Code);
+    Assert.Equal("Struct 'Box' cannot contain itself directly because it would have infinite size.", error.Message);
+  }
+
+  [Fact]
+  public void RecursiveStructValue_EmbeddedStructThroughField_IsRejected() {
+    Compilation compilation = Compile("struct Base { owner Child }\nstruct Child { Base }\n");
+
+    Assert.NotEmpty(CheckerErrors(compilation));
+    Assert.All(CheckerErrors(compilation), static e => Assert.Equal(DiagnosticCodes.RecursiveStructValue, e.Code));
+  }
+
+  [Fact]
+  public void RecursiveStructValue_BrokenThroughIndirection_IsValid() {
+    Compilation compilation = Compile("""
+      struct OptNode { next Option[OptNode] }
+      struct VecNode { kids []VecNode }
+      struct MapNode { kids map[string, MapNode] }
+      struct SetNode { seen set[SetNode] }
+      struct PoolNode { pool Pool[PoolNode] }
+      struct Item { parent Handle[Item] }
+      struct FnNode { visit fn (FnNode) -> int }
+      union List {
+        Cons(int, List)
+        Nil
+      }
+      struct Holder { list List }
+      """);
+
+    Assert.Empty(CheckerErrors(compilation));
+  }
 }

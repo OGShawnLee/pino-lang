@@ -32,4 +32,4 @@ Members are called on a `Pool[T]` with `:`, for example `p:len` for a property a
 Conformance cases: `conformance/stdlib-pool/`.
 
 ## Open questions
-None. (`str(p)`, `type(p)`, and `type(h)` are unspecified; see `spec/features/pools.md`.)
+None. (`str(p)`, `type(p)`, and `type(h)` are specified by `POOL-13` and `POOL-14` in `spec/features/pools.md`.)

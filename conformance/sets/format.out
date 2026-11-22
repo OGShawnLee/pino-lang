@@ -1,0 +1,3 @@
+set[string] { "b", "a" }
+set[int] { 3, 2, 1 }
+set[int] { }

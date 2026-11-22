@@ -1,0 +1,6 @@
+Pool[string] { }
+Pool[string] { Handle(0, 0) -> "Ann", Handle(1, 0) -> "Bob" }
+Pool[string] { Handle(1, 0) -> "Bob" }
+Pool[string] { Handle(0, 1) -> "Cy", Handle(1, 0) -> "Bob" }
+Pool
+Handle

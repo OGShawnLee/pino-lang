@@ -495,6 +495,138 @@ internal sealed partial class CheckerSession {
       FlattenStruct(state, sym, visitState, structBySym);
       BuildStructMemberScope(state, syntax, sym, typeParamScope);
     }
+
+    ReportRecursiveStructValues(state);
+  }
+
+  /// <summary>
+  /// STRUCT-E19 / D-186: a struct that contains itself by value, directly or through other structs, has infinite size.
+  /// Only direct struct-typed fields, embedded structs, and tuples are followed; collections, <c>Option</c>, unions,
+  /// interfaces, handles, and functions break the chain. Generic structs are checked on their own declaration only
+  /// (for example <c>struct Box[T] { x Box[T] }</c>); containment through another generic's type argument is not followed.
+  /// </summary>
+  private static void ReportRecursiveStructValues(ModuleCheckState state) {
+    var local = new HashSet<StructSymbol>(ReferenceEqualityComparer.Instance);
+    foreach ((_, StructSymbol sym, _, _) in state.Structs) {
+      local.Add(sym);
+    }
+
+    // Value-containment edges per struct, remembering which field (if any) holds the edge.
+    var edges = new Dictionary<StructSymbol, List<(StructSymbol Target, FieldSymbol? Field)>>(ReferenceEqualityComparer.Instance);
+    foreach ((_, StructSymbol sym, _, _) in state.Structs) {
+      var list = new List<(StructSymbol, FieldSymbol?)>();
+      foreach (FieldSymbol field in sym.Fields) {
+        foreach (StructSymbol target in ValueContainedStructs(field.Type)) {
+          if (local.Contains(target)) {
+            list.Add((target, field));
+          }
+        }
+      }
+      foreach (StructSymbol embedded in sym.EmbeddedStructs) {
+        if (local.Contains(embedded)) {
+          list.Add((embedded, null));
+        }
+      }
+      edges[sym] = list;
+    }
+
+    // Tarjan strongly connected components.
+    int index = 0;
+    var indices = new Dictionary<StructSymbol, int>(ReferenceEqualityComparer.Instance);
+    var lowLinks = new Dictionary<StructSymbol, int>(ReferenceEqualityComparer.Instance);
+    var onStack = new HashSet<StructSymbol>(ReferenceEqualityComparer.Instance);
+    var stack = new Stack<StructSymbol>();
+    var components = new List<List<StructSymbol>>();
+
+    void Visit(StructSymbol v) {
+      indices[v] = lowLinks[v] = index++;
+      stack.Push(v);
+      onStack.Add(v);
+      foreach ((StructSymbol w, _) in edges[v]) {
+        if (!indices.ContainsKey(w)) {
+          Visit(w);
+          lowLinks[v] = Math.Min(lowLinks[v], lowLinks[w]);
+        } else if (onStack.Contains(w)) {
+          lowLinks[v] = Math.Min(lowLinks[v], indices[w]);
+        }
+      }
+      if (lowLinks[v] == indices[v]) {
+        var component = new List<StructSymbol>();
+        StructSymbol w;
+        do {
+          w = stack.Pop();
+          onStack.Remove(w);
+          component.Add(w);
+        } while (!ReferenceEquals(w, v));
+        components.Add(component);
+      }
+    }
+
+    foreach ((_, StructSymbol sym, _, _) in state.Structs) {
+      if (!indices.ContainsKey(sym)) {
+        Visit(sym);
+      }
+    }
+
+    foreach (List<StructSymbol> component in components) {
+      var members = new HashSet<StructSymbol>(component, ReferenceEqualityComparer.Instance);
+      foreach (StructSymbol sym in component) {
+        bool selfLoop = edges[sym].Any(e => ReferenceEquals(e.Target, sym));
+        if (component.Count == 1 && !selfLoop) {
+          continue;
+        }
+
+        // Pure embedding cycles are already reported as cyclic embedding; only report cycles that use a field.
+        bool usesField = edges.Where(kv => members.Contains(kv.Key))
+            .SelectMany(static kv => kv.Value)
+            .Any(e => e.Field is not null && members.Contains(e.Target));
+        if (!usesField) {
+          continue;
+        }
+
+        // The struct this one is first reached through, and a field somewhere in the component that points back to it.
+        StructSymbol? through = null;
+        if (!selfLoop) {
+          through = edges[sym].First(e => members.Contains(e.Target) && !ReferenceEquals(e.Target, sym)).Target;
+        }
+
+        FieldSymbol? backField = null;
+        foreach (StructSymbol holder in component.OrderBy(static s => s.NameSpan.Start)) {
+          backField = edges[holder].FirstOrDefault(e => ReferenceEquals(e.Target, sym) && e.Field is not null).Field;
+          if (backField is not null) {
+            break;
+          }
+        }
+
+        string message = through is null
+            ? $"Struct '{sym.Name}' cannot contain itself directly because it would have infinite size."
+            : $"Struct '{sym.Name}' cannot contain itself, even through '{through.Name}', because it would have infinite size.";
+        ImmutableArray<RelatedLocation> related = backField is null
+            ? default
+            : [new RelatedLocation(backField.NameSpan, $"field '{backField.Name}' refers back to '{sym.Name}' here", backField.FilePath)];
+        state.Diagnostics.ReportError(
+            DiagnosticCodes.RecursiveStructValue,
+            sym.NameSpan,
+            message,
+            related,
+            help: $"wrap the field in 'Option[{sym.Name}]', store it in '[]{sym.Name}' or a recursive union, or use 'Handle[{sym.Name}]' with a 'Pool[{sym.Name}]'");
+      }
+    }
+  }
+
+  private static IEnumerable<StructSymbol> ValueContainedStructs(TypeSymbol type) {
+    switch (type) {
+      case StructType structType:
+        yield return structType.Definition;
+        break;
+      case TupleType tuple:
+        foreach (TupleField field in tuple.Fields) {
+          foreach (StructSymbol nested in ValueContainedStructs(field.Type)) {
+            yield return nested;
+          }
+        }
+        break;
+    }
   }
 
   private void FlattenStruct(

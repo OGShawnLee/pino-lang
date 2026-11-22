@@ -1,6 +1,6 @@
 # D-080: What the `main()` failure handler prints and returns
 
-Status: open
+Status: accepted
 Raised by: 008
 Feature: spec/features/errors.md
 
@@ -31,4 +31,4 @@ fn main() Result[int, string] {
 3. Drop the special `Option` handling: only `Result` failures end the program.
 
 ## Decision
-_Pending: owner decides._
+Option 1, decided by the owner on 2026-11-21 (approval of `056-re-ir-design`, `IQ-12`; recorded in `D-186`): when `main` returns `Result::Failure(e)` or `Option::None`, the runtime writes `Error: <str(e)>` or `Error: Option::None` to `stderr` and exits with code 1. Normative rule: `ERR-24`. The VM and the C backend are legacy engines and stay as they are (`pino-csharp/` is frozen).

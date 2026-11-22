@@ -36,3 +36,8 @@ C reuse-and-stale.pino  # D-185: legacy compiler has no Pool[T] or Handle[T] typ
 TreeWalk value-semantics.pino  # D-185: legacy compiler has no Pool[T] or Handle[T] types
 VM value-semantics.pino  # D-185: legacy compiler has no Pool[T] or Handle[T] types
 C value-semantics.pino  # D-185: legacy compiler has no Pool[T] or Handle[T] types
+
+# --- D-186 print forms and IR prerequisites (ticket 058)
+TreeWalk format-and-type.pino  # D-186: legacy compiler has no Pool[T] or Handle[T] types, so str(p) and type(p) cannot match Pool[T] { Handle(i, g) -> v }
+VM format-and-type.pino  # D-186: legacy compiler has no Pool[T] or Handle[T] types, so str(p) and type(p) cannot match Pool[T] { Handle(i, g) -> v }
+C format-and-type.pino  # D-186: legacy compiler has no Pool[T] or Handle[T] types, so str(p) and type(p) cannot match Pool[T] { Handle(i, g) -> v }

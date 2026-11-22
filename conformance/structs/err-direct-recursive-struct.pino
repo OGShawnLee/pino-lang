@@ -1,0 +1,6 @@
+# covers: STRUCT-E19
+struct Bad {
+  x Bad
+}
+
+println("unreachable")
