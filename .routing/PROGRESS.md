@@ -490,7 +490,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - PN3220 help to also suggest `val mut`
     - `Option` and `Result` shadowing guard
     - the 052 spec points (D-178 PN3229 text, `mut` parameter reassignment rule, the VEC-17 vs vector.md open question, PN3102 for a struct passed `mut` to an interface parameter)
-  - [ ] **055-checker-polish-messages-and-spec-gaps** (Claude Sonnet 5.5 Medium; the owner moved it to Claude to spare Gemini quota). Every message text is fixed in the ticket.
+  - [x] **055-checker-polish-messages-and-spec-gaps** (`87230af` rebased, Claude Sonnet 5.5 Medium; the owner moved it to Claude to spare Gemini quota). Items 1, 2, 3, 5 and 6 are done. Router verification: legacy 2246/2246; `-re` 4360/4362 (only the 2 worktree-only lexer items); 0 warnings; format clean; `main.pino` 0 errors. **Item 4 was skipped by its stop condition:** user `union Option` declarations exist in `conformance/unions/err-generic-mismatch`, `generic-decorator` and `generic-inferred-type`, and in the owner's `projects/pino-compiler/test/reference_equality_test.pino:49`. Owner question: reserve `Option`/`Result` (rename those) or allow shadowing. Every message text is fixed in the ticket.
     1. PN3226 split in two: "the same element of 'v'" vs "Cannot use 'x' twice as 'mut' in one call to 'swap'."
     2. The PN3220 help also suggests `val mut`.
     3. Indexing a variable named `Pool`, `Handle`, `set` or `map` gets a clear message.
