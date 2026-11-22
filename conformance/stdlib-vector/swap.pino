@@ -1,0 +1,6 @@
+# covers: VECLIB-26, VECLIB-27
+var v = [10, 20, 30]
+v:swap(0, 2)
+println(v)
+v:swap(1, 1)
+println(v)

@@ -24,6 +24,7 @@ public sealed class SemanticModel {
   private readonly SyntaxNode?[] _parentsByNodeId;
   private readonly Symbol?[] _shorthandValueSymbols;
   private readonly MutationPlaceInfo?[] _mutationPlaces;
+  private readonly ImmutableArray<RuntimeDisjointnessCheck>[] _runtimeDisjointnessChecks;
   private readonly FrozenDictionary<Symbol, ModuleStateEffects> _moduleStateEffects;
 
   internal SemanticModel(
@@ -45,6 +46,7 @@ public sealed class SemanticModel {
       SyntaxNode?[] parentsByNodeId,
       Symbol?[]? shorthandValueSymbols = null,
       MutationPlaceInfo?[]? mutationPlaces = null,
+      ImmutableArray<RuntimeDisjointnessCheck>[]? runtimeDisjointnessChecks = null,
       FrozenDictionary<Symbol, ModuleStateEffects>? moduleStateEffects = null) {
     Tree = tree;
     Module = module;
@@ -64,6 +66,7 @@ public sealed class SemanticModel {
     _parentsByNodeId = parentsByNodeId;
     _shorthandValueSymbols = shorthandValueSymbols ?? [];
     _mutationPlaces = mutationPlaces ?? [];
+    _runtimeDisjointnessChecks = runtimeDisjointnessChecks ?? [];
     _moduleStateEffects = moduleStateEffects ?? FrozenDictionary<Symbol, ModuleStateEffects>.Empty;
   }
 
@@ -140,6 +143,27 @@ public sealed class SemanticModel {
   public MutationPlaceInfo? GetMutationPlace(SyntaxNode node) {
     ArgumentNullException.ThrowIfNull(node);
     return Lookup(_mutationPlaces, node.Id);
+  }
+
+  /// <summary>
+  /// Returns the run-time slot-exclusivity checks required for <paramref name="call"/> under
+  /// D-184 (FN-34, FN-35), or an empty array when all <c>mut</c> accesses in the call are
+  /// statically proven disjoint (or do not share a root binding).
+  /// </summary>
+  /// <remarks>
+  /// IR obligation (D-184 / FN-34): for each returned <see cref="RuntimeDisjointnessCheck"/>,
+  /// compare the resolved slot addresses at each unknown index step in
+  /// <see cref="RuntimeDisjointnessCheck.UnknownSteps"/> (not index or key values). The two
+  /// places alias if and only if every pair resolves to the same slot address.
+  /// </remarks>
+  public ImmutableArray<RuntimeDisjointnessCheck> GetRuntimeDisjointnessChecks(CallExpressionSyntax call) {
+    ArgumentNullException.ThrowIfNull(call);
+    if ((uint) call.Id >= (uint) _runtimeDisjointnessChecks.Length) {
+      return [];
+    }
+
+    ImmutableArray<RuntimeDisjointnessCheck> checks = _runtimeDisjointnessChecks[call.Id];
+    return checks.IsDefault ? [] : checks;
   }
 
   /// <summary>

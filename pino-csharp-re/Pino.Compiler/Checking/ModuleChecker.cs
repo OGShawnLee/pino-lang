@@ -36,6 +36,7 @@ internal sealed class ModuleCheckState {
     ParentsByNodeId = parentsByNodeId;
     ShorthandValueSymbols = new Symbol?[nodeCount];
     MutationPlaces = new MutationPlaceInfo?[nodeCount];
+    RuntimeDisjointnessChecks = new ImmutableArray<RuntimeDisjointnessCheck>[nodeCount];
 
     if ((uint) tree.Root.Id < (uint) ScopesByBlockId.Length) {
       ScopesByBlockId[tree.Root.Id] = moduleScope;
@@ -152,6 +153,8 @@ internal sealed class ModuleCheckState {
 
   public MutationPlaceInfo?[] MutationPlaces { get; }
 
+  public ImmutableArray<RuntimeDisjointnessCheck>[] RuntimeDisjointnessChecks { get; }
+
   public void SetScope(SyntaxNode node, Scope scope) {
     AllScopes.Add(scope);
     if ((uint) node.Id < (uint) ScopesByBlockId.Length) {
@@ -189,6 +192,12 @@ internal sealed class ModuleCheckState {
     }
   }
 
+  public void SetRuntimeDisjointnessChecks(CallExpressionSyntax call, ImmutableArray<RuntimeDisjointnessCheck> checks) {
+    if ((uint) call.Id < (uint) RuntimeDisjointnessChecks.Length) {
+      RuntimeDisjointnessChecks[call.Id] = checks;
+    }
+  }
+
   public SemanticModel BuildSemanticModel(FrozenDictionary<Symbol, ModuleStateEffects>? moduleStateEffects = null) {
     foreach (Scope scope in AllScopes) {
       scope.Freeze();
@@ -214,6 +223,7 @@ internal sealed class ModuleCheckState {
         ParentsByNodeId,
         ShorthandValueSymbols,
         MutationPlaces,
+        RuntimeDisjointnessChecks,
         moduleStateEffects);
   }
 }

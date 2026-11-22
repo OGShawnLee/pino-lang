@@ -1,0 +1,8 @@
+# covers: FN-E16, FN-33
+fn f(mut a int, mut b int) {
+  a += 1
+  b += 1
+}
+
+var v = [1, 2]
+f(mut v[0], mut v[0])

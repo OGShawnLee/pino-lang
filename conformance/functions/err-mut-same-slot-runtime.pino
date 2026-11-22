@@ -1,0 +1,10 @@
+# covers: FN-34
+fn duel(mut a int, mut b int) {
+  a += 1
+  b += 1
+}
+
+var enemies = [10, 20]
+val i = 0
+val j = 0
+duel(mut enemies[i], mut enemies[j])

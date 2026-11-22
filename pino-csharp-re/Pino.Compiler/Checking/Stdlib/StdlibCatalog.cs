@@ -418,6 +418,7 @@ public static class StdlibCatalog {
           Method(StdlibReceiverKind.Vector, "push", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], s_void)], "Appends item in place.", ["VECLIB-5", "VECLIB-6"], mutatesReceiver: true),
           Method(StdlibReceiverKind.Vector, "add", [Sig(IntrinsicId.VecPush, [Fixed("item", s_t0)], s_void)], "Alias of vec:push(item).", ["VECLIB-7"], mutatesReceiver: true),
           Method(StdlibReceiverKind.Vector, "pop", [Sig(IntrinsicId.VecPop, [], new StdlibTypeSpec.Option(s_t0))], "Removes and returns the last element as Option[T].", ["VECLIB-8", "VECLIB-9"], mutatesReceiver: true),
+          Method(StdlibReceiverKind.Vector, "swap", [Sig(IntrinsicId.VecSwap, [Fixed("i", s_int), Fixed("j", s_int)], s_void)], "Exchanges the elements at indexes i and j in place.", ["VECLIB-26", "VECLIB-27", "VECLIB-E2", "D-184"], mutatesReceiver: true),
           Method(
               StdlibReceiverKind.Vector,
               "each",

@@ -46,11 +46,12 @@ public enum IntrinsicId : byte {
   StrReplace,
   StrSubstring,
 
-  // []T properties & methods (VECLIB-1..25)
+  // []T properties & methods (VECLIB-1..27)
   VecLen,
   VecCap,
   VecPush,
   VecPop,
+  VecSwap,
   VecEach1,
   VecEach2,
   VecMap1,

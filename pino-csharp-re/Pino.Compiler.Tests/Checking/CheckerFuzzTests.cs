@@ -110,6 +110,24 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
       return a + b
     }
     """,
+    """
+    struct Enemy {
+      mut hp int
+      mut fn hit(mut other Enemy) { other:hp -= 1 }
+    }
+    fn duel(mut a int, mut b int) { a += b }
+    fn battle(i int, j int) {
+      var v = [1, 2, 3]
+      var es = [Enemy { hp: 5 }, Enemy { hp: 6 }]
+      duel(mut v[0], mut v[1])
+      duel(mut v[i], mut v[j])
+      if i != j {
+        duel(mut v[i], mut v[j])
+      }
+      es[i]:hit(mut es[j])
+      v:swap(i, j)
+    }
+    """,
   ];
 
   private static readonly string[] s_tokens = [
@@ -288,6 +306,11 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
         _ = model.GetConversion(current);
         if (current is CallExpressionSyntax callNode) {
           _ = model.GetCallResolution(callNode);
+          var disjointChecks = model.GetRuntimeDisjointnessChecks(callNode);
+          Assert.False(disjointChecks.IsDefault, $"{label}: default RuntimeDisjointnessChecks array.");
+          foreach (RuntimeDisjointnessCheck check in disjointChecks) {
+            Assert.False(check.UnknownSteps.IsDefaultOrEmpty, $"{label}: empty UnknownSteps in RuntimeDisjointnessCheck.");
+          }
         }
         _ = model.GetCaptures(current);
         _ = model.GetLoopInfo(current);

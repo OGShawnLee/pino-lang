@@ -670,10 +670,10 @@ internal sealed partial class BodyChecker {
       ExpressionSyntax calleeNode,
       bool hasImplicitSelf,
       TypeSymbol? expectedType) {
-    (Symbol Root, SourceSpan Span)? mutatingReceiverRoot = null;
+    MutAccessPlace? mutatingReceiver = null;
     if (method.IsMutating) {
       if (hasImplicitSelf) {
-        mutatingReceiverRoot = CheckImplicitSelfMutation(call, calleeNode.Span);
+        mutatingReceiver = CheckImplicitSelfMutation(call, calleeNode.Span);
       } else if (calleeNode is MemberAccessExpressionSyntax memberCallee) {
         MutablePlaceResult receiverPlace = CheckMutablePlaceAndRecord(
             call,
@@ -681,7 +681,11 @@ internal sealed partial class BodyChecker {
             MutationKind.MutatingCall,
             call.Span);
         if (receiverPlace.IsValid && !receiverPlace.WasSilent && receiverPlace.RootSymbol is { } recvRoot) {
-          mutatingReceiverRoot = (recvRoot, memberCallee.Target.Span);
+          mutatingReceiver = new MutAccessPlace(
+              MutAccessTarget.Receiver,
+              recvRoot,
+              receiverPlace.Steps,
+              memberCallee.Target.Span);
         }
       }
     }
@@ -701,7 +705,7 @@ internal sealed partial class BodyChecker {
           () => EnsureCallableReturnType(method),
           hasImplicitSelf,
           expectedType,
-          mutatingReceiverRoot);
+          mutatingReceiver);
     }
 
     if (call.TypeArguments is not null) {
@@ -724,7 +728,7 @@ internal sealed partial class BodyChecker {
         "method",
         method.Name,
         parameterSymbols: method.Parameters,
-        mutatingReceiverRoot: mutatingReceiverRoot);
+        mutatingReceiver: mutatingReceiver);
     TypeSymbol rawRetType = EnsureCallableReturnType(method);
     TypeSymbol retType = TypeSubstitution.Substitute(rawRetType, ownerTypeParams, ownerTypeArgs, _types);
     _state.SetNodeType(calleeNode, _types.GetFunction(expectedParams.ToImmutable(), retType));
@@ -894,7 +898,7 @@ internal sealed partial class BodyChecker {
       string calleeKind,
       string calleeName,
       IReadOnlyList<ParameterSymbol>? parameterSymbols = null,
-      (Symbol Root, SourceSpan Span)? mutatingReceiverRoot = null) {
+      MutAccessPlace? mutatingReceiver = null) {
     string capitalizedKind = char.ToUpperInvariant(calleeKind[0]) + calleeKind[1..];
     if (!IsMissing(call.CloseParenToken) && call.Arguments.Length != expectedParameters.Count) {
       Report(
@@ -948,7 +952,7 @@ internal sealed partial class BodyChecker {
         parameterSymbols,
         calleeKind,
         calleeName,
-        mutatingReceiverRoot);
+        mutatingReceiver);
   }
 
   private void SynthesizeCallArguments(CallExpressionSyntax call) {

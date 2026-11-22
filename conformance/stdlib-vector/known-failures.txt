@@ -68,3 +68,11 @@ TreeWalk pop-empty.pino  # D-013: TreeWalk returns null instead of Option::None
 TreeWalk err-push-chain.pino  # D-181: legacy vec:push returns vector and allows chaining instead of failing with "Type 'void' does not have method 'push'."
 VM err-push-chain.pino  # D-181: legacy fails with 'Value is not callable' instead of "Type 'void' does not have method 'push'."
 C err-push-chain.pino  # D-181: legacy vec:push returns vector and allows chaining instead of failing with "Type 'void' does not have method 'push'."
+
+# --- Vector swap (ticket 053)
+TreeWalk swap.pino  # D-184: legacy vector has no method 'swap'
+VM swap.pino  # D-184: legacy VM cannot call vector methods ('Value is not callable')
+C swap.pino  # D-184: legacy C runtime has no Vector_int_swap
+TreeWalk err-swap-out-of-range.pino  # D-184: legacy vector has no method 'swap' instead of panicking with 'out of range'
+VM err-swap-out-of-range.pino  # D-184: legacy VM fails with 'Value is not callable' instead of panicking with 'out of range'
+C err-swap-out-of-range.pino  # D-184: legacy C runtime has no Vector_int_swap instead of panicking with 'out of range'

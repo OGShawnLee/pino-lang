@@ -505,7 +505,7 @@ public sealed class CheckerMutabilityTests {
 
     Assert.Empty(CheckerErrors(allowed));
 
-    // PN3226 / FN-E16: mut + mut on the same root (including mutating receiver) IS REJECTED.
+    // PN3226 / FN-E16 (refined by D-184): proven-overlapping mut + mut on the same root (including mutating receiver) IS REJECTED.
     Compilation rejected = Compile("""
       struct Pair {
         mut x int
@@ -518,7 +518,7 @@ public sealed class CheckerMutabilityTests {
         mut fn self_overlap() {
           merge(mut self)
           self:merge(mut self)
-          swap_ints(mut x, mut y)
+          swap_ints(mut x, mut self:x)
         }
       }
 
@@ -549,12 +549,12 @@ public sealed class CheckerMutabilityTests {
 
       var v = [1, 2, 3]
       val i = 0
-      val j = 1
-      swap_ints(mut v[i], mut v[j])
+      swap_ints(mut v[0], mut v[0])
+      swap_ints(mut v[i], mut v[i])
       """);
 
     Diagnostic[] errors = CheckerErrors(rejected);
-    Assert.Equal(8, errors.Length);
+    Assert.Equal(9, errors.Length);
     Assert.All(errors, static d => {
       Assert.Equal(DiagnosticCodes.OverlappingMutArguments, d.Code);
       Assert.Contains("overlapping 'mut' arguments", d.Message);
@@ -874,5 +874,424 @@ public sealed class CheckerMutabilityTests {
       Compilation comp = CompileTolerant(snippet);
       Assert.Empty(CheckerErrors(comp));
     }
+  }
+
+  [Fact]
+  public void DisjointMutSlots_D184_ProvenDisjointProvenOverlapAndRuntimeChecks() {
+    // 1. Proven disjoint: 0 errors, 0 run-time checks.
+    Compilation disjoint = Compile("""
+      struct Point {
+        mut x int
+        mut y int
+      }
+
+      struct Enemy {
+        mut hp int
+        mut mp int
+
+        mut fn hit(mut other Enemy) {
+          other:hp -= 1
+        }
+      }
+
+      struct Holder {
+        mut x int
+        mut y int
+        mut items []int
+
+        mut fn swap_fields() {
+          f(mut x, mut y)
+          f(mut x, mut self:y)
+          f(mut items[0], mut self:items[1])
+        }
+      }
+
+      fn f(mut a int, mut b int) {}
+      fn f3(mut a int, mut b int, mut c int) {}
+
+      fn check_disjoint(i int, j int) {
+        var p = Point { x: 1, y: 2 }
+        f(mut p:x, mut p:y)
+
+        var v = [1, 2, 3, 4]
+        f(mut v[0], mut v[1])
+        f(mut v[0], mut v[-1])
+        f(mut v[(0)], mut v[(1)])
+        f(mut v[i], mut v[i + 1])
+        f(mut v[i - 1], mut v[i + 1])
+        f3(mut v[0], mut v[1], mut v[2])
+
+        var pts = [Point { x: 1, y: 2 }]
+        f(mut pts[0]:x, mut pts[0]:y)
+
+        var enemies = [Enemy { hp: 10, mp: 5 }, Enemy { hp: 10, mp: 5 }]
+        f(mut enemies[i]:hp, mut enemies[j]:mp)
+        enemies[0]:hit(mut enemies[1])
+
+        var m = map[string, int] { "a" -> 1  "b" -> 2 }
+        f(mut m["a"], mut m["b"])
+
+        if i != j {
+          f(mut v[i], mut v[j])
+          enemies[i]:hit(mut enemies[j])
+        }
+
+        for k in 3 {
+          f(mut v[k], mut v[k + 1])
+        }
+
+        for 3 {
+          f(mut v[it], mut v[it + 1])
+        }
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(disjoint));
+    SemanticModel disjointModel = disjoint.RootModel;
+    foreach (CallExpressionSyntax call in All<CallExpressionSyntax>(disjoint)) {
+      Assert.Empty(disjointModel.GetRuntimeDisjointnessChecks(call));
+    }
+
+    // 2. Proven overlap: every call emits PN3226.
+    Compilation overlap = Compile("""
+      struct Point {
+        mut x int
+        mut y int
+
+        mut fn merge(mut other Point) {
+          x += other:x
+        }
+
+        mut fn bump_int(mut n int) {
+          x += n
+        }
+
+        mut fn bad_self() {
+          f(mut x, mut self:x)
+          merge(mut self)
+          bump_int(mut x)
+        }
+      }
+
+      struct Enemy {
+        mut hp int
+        mut fn hit(mut other Enemy) { other:hp -= 1 }
+      }
+
+      fn f(mut a int, mut b int) {}
+      fn f3(mut a int, mut b int, mut c int) {}
+      fn take_pt(mut p Point, mut x int) {}
+      fn take_vec(mut v []int, mut x int) {}
+
+      fn check_overlap(i int, k string) {
+        var a = 1
+        f(mut a, mut a)
+
+        var p = Point { x: 1, y: 2 }
+        take_pt(mut p, mut p:x)
+        p:merge(mut p)
+
+        var v = [1, 2, 3]
+        take_vec(mut v, mut v[i])
+        f(mut v[0], mut v[0])
+        f(mut v[-1], mut v[-1])
+        f(mut v[i], mut v[i])
+        f(mut v[i + 1], mut v[i + 1])
+        f(mut v[i], mut v[i + 0])
+        f3(mut v[0], mut v[1], mut v[0])
+
+        var es = [Enemy { hp: 10 }]
+        es[i]:hit(mut es[i])
+
+        var m = map[string, int] { "a" -> 1 }
+        f(mut m["a"], mut m["a"])
+        f(mut m[k], mut m[k])
+      }
+      """);
+
+    Diagnostic[] overlapErrors = CheckerErrors(overlap);
+    Assert.Equal(16, overlapErrors.Length);
+    Assert.All(overlapErrors, static d => Assert.Equal(DiagnosticCodes.OverlappingMutArguments, d.Code));
+
+    // 3. Needs run-time check: 0 errors, exact checks recorded in SemanticModel.
+    Compilation runtimeChecked = Compile("""
+      struct Enemy {
+        mut hp int
+        mut fn hit(mut other Enemy) { other:hp -= 1 }
+      }
+
+      struct IndexBox {
+        idx int
+        mut items []int
+
+        mut fn check_field_idx() {
+          f(mut items[idx], mut items[idx])
+        }
+      }
+
+      fn idx_fn() int { return 0 }
+      fn f(mut a int, mut b int) {}
+      fn f3(mut a int, mut b int, mut c int) {}
+      fn take_enemy_and_hp(mut e Enemy, mut hp int) {}
+
+      fn check_runtime(i int, j int, k int, l int, mut mut_idx int) {
+        var v = [1, 2, 3]
+        f(mut v[i], mut v[j])
+        f(mut v[idx_fn()], mut v[0])
+        f3(mut v[i], mut v[j], mut v[k])
+
+        var es = [Enemy { hp: 5 }, Enemy { hp: 6 }]
+        es[i]:hit(mut es[j])
+        take_enemy_and_hp(mut es[i], mut es[j]:hp)
+
+        var grid = [[1, 2], [3, 4]]
+        f(mut grid[i][j], mut grid[k][l])
+
+        # Constants are NOT folded (FN-33).
+        val c0 = 0
+        val c1 = 1
+        f(mut v[c0], mut v[c1])
+        f(mut v[c0], mut v[0])
+
+        # Mutable names (`var`, `mut` param) never count as immutable `n`.
+        var vi = 0
+        f(mut v[vi], mut v[vi])
+        f(mut v[vi], mut v[vi + 1])
+        f(mut v[mut_idx], mut v[mut_idx])
+
+        # Non-int/string literals (`bool`) are unknown.
+        var bm = map[bool, int] { true -> 1  false -> 2 }
+        f(mut bm[true], mut bm[true])
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(runtimeChecked));
+    SemanticModel rtModel = runtimeChecked.RootModel;
+    CallExpressionSyntax[] rtCalls = All<CallExpressionSyntax>(runtimeChecked)
+        .Where(c => !rtModel.GetRuntimeDisjointnessChecks(c).IsEmpty)
+        .ToArray();
+
+    // Expect 13 calls with runtime checks:
+    // 1. items[idx] vs items[idx] (field as index)
+    // 2. f(mut v[i], mut v[j])
+    // 3. f(mut v[idx_fn()], mut v[0])
+    // 4. f3(mut v[i], mut v[j], mut v[k]) -> 3 pairs
+    // 5. es[i]:hit(mut es[j]) -> Receiver vs Arg 0
+    // 6. take_enemy_and_hp(mut es[i], mut es[j]:hp) -> 1 step pair ([i] vs [j])
+    // 7. f(mut grid[i][j], mut grid[k][l]) -> 2 step pairs
+    // 8. f(mut v[c0], mut v[c1])
+    // 9. f(mut v[c0], mut v[0])
+    // 10. f(mut v[vi], mut v[vi])
+    // 11. f(mut v[vi], mut v[vi + 1])
+    // 12. f(mut v[mut_idx], mut v[mut_idx])
+    // 13. f(mut bm[true], mut bm[true])
+    Assert.Equal(13, rtCalls.Length);
+
+    CallExpressionSyntax CallMatching(string snippet) =>
+        rtCalls.Single(c => runtimeChecked.RootTree.Source.AsSpan(c.Span).ToString() == snippet);
+
+    // f(mut v[i], mut v[j]): 1 check, 1 unknown step pair.
+    RuntimeDisjointnessCheck vjCheck = Assert.Single(rtModel.GetRuntimeDisjointnessChecks(CallMatching("f(mut v[i], mut v[j])")));
+    Assert.Equal("v", vjCheck.RootSymbol.Name);
+    Assert.False(vjCheck.FirstAccess.IsReceiver);
+    Assert.Equal(0, vjCheck.FirstAccess.ArgumentIndex);
+    Assert.Equal(1, vjCheck.SecondAccess.ArgumentIndex);
+    RuntimeDisjointnessStepPair vjPair = Assert.Single(vjCheck.UnknownSteps);
+    Assert.Equal("v[i]", runtimeChecked.RootTree.Source.AsSpan(vjPair.First.Span).ToString());
+    Assert.Equal("v[j]", runtimeChecked.RootTree.Source.AsSpan(vjPair.Second.Span).ToString());
+
+    // f3(mut v[i], mut v[j], mut v[k]): 3 pairwise checks.
+    var f3Checks = rtModel.GetRuntimeDisjointnessChecks(CallMatching("f3(mut v[i], mut v[j], mut v[k])"));
+    Assert.Equal(3, f3Checks.Length);
+    Assert.Contains(f3Checks, static c => c.FirstAccess.ArgumentIndex == 0 && c.SecondAccess.ArgumentIndex == 1);
+    Assert.Contains(f3Checks, static c => c.FirstAccess.ArgumentIndex == 0 && c.SecondAccess.ArgumentIndex == 2);
+    Assert.Contains(f3Checks, static c => c.FirstAccess.ArgumentIndex == 1 && c.SecondAccess.ArgumentIndex == 2);
+
+    // es[i]:hit(mut es[j]): Receiver vs Arg 0.
+    RuntimeDisjointnessCheck hitCheck = Assert.Single(rtModel.GetRuntimeDisjointnessChecks(CallMatching("es[i]:hit(mut es[j])")));
+    Assert.True(hitCheck.FirstAccess.IsReceiver);
+    Assert.Equal(0, hitCheck.SecondAccess.ArgumentIndex);
+    RuntimeDisjointnessStepPair hitPair = Assert.Single(hitCheck.UnknownSteps);
+    Assert.Equal("es[i]", runtimeChecked.RootTree.Source.AsSpan(hitPair.First.Span).ToString());
+    Assert.Equal("es[j]", runtimeChecked.RootTree.Source.AsSpan(hitPair.Second.Span).ToString());
+
+    // take_enemy_and_hp(mut es[i], mut es[j]:hp): compares es[i] vs es[j] at prefix depth 0.
+    RuntimeDisjointnessCheck enemyHpCheck = Assert.Single(rtModel.GetRuntimeDisjointnessChecks(CallMatching("take_enemy_and_hp(mut es[i], mut es[j]:hp)")));
+    RuntimeDisjointnessStepPair enemyHpPair = Assert.Single(enemyHpCheck.UnknownSteps);
+    Assert.Equal("es[i]", runtimeChecked.RootTree.Source.AsSpan(enemyHpPair.First.Span).ToString());
+    Assert.Equal("es[j]", runtimeChecked.RootTree.Source.AsSpan(enemyHpPair.Second.Span).ToString());
+
+    // f(mut grid[i][j], mut grid[k][l]): 1 check with 2 unknown step pairs.
+    RuntimeDisjointnessCheck gridCheck = Assert.Single(rtModel.GetRuntimeDisjointnessChecks(CallMatching("f(mut grid[i][j], mut grid[k][l])")));
+    Assert.Equal(2, gridCheck.UnknownSteps.Length);
+    Assert.Equal("grid[i]", runtimeChecked.RootTree.Source.AsSpan(gridCheck.UnknownSteps[0].First.Span).ToString());
+    Assert.Equal("grid[k]", runtimeChecked.RootTree.Source.AsSpan(gridCheck.UnknownSteps[0].Second.Span).ToString());
+    Assert.Equal("grid[i][j]", runtimeChecked.RootTree.Source.AsSpan(gridCheck.UnknownSteps[1].First.Span).ToString());
+    Assert.Equal("grid[k][l]", runtimeChecked.RootTree.Source.AsSpan(gridCheck.UnknownSteps[1].Second.Span).ToString());
+  }
+
+  [Fact]
+  public void DisjointMutSlots_D184_BranchFactScopingAndShadowing() {
+    Compilation comp = Compile("""
+      fn f(mut a int, mut b int) int { return a + b }
+
+      fn branch_tests(i int, j int, flag bool) {
+        var v = [1, 2, 3]
+
+        # Proven disjoint: nested inside then-branch (nested if, loop, block), reversed, parenthesized.
+        if i != j {
+          f(mut v[i], mut v[j])
+          if flag {
+            for 2 {
+              {
+                f(mut v[i], mut v[j])
+              }
+            }
+          }
+        } else {
+          # Else branch: NOT proven disjoint -> 1 runtime check.
+          f(mut v[i], mut v[j])
+        }
+
+        # After if: NOT proven disjoint -> 1 runtime check.
+        f(mut v[i], mut v[j])
+
+        # Reversed and parenthesized condition: proven disjoint.
+        if (j != i) {
+          f(mut v[i], mut v[j])
+        }
+
+        # If-expression: then-branch proven disjoint, else-branch needs runtime check.
+        val res = if i != j then f(mut v[i], mut v[j]) else f(mut v[i], mut v[j])
+        val res_typed int = if i != j then f(mut v[i], mut v[j]) else f(mut v[i], mut v[j])
+
+        # Joined with `and` or `or`: does NOT count -> 1 runtime check each.
+        if i != j and flag {
+          f(mut v[i], mut v[j])
+        }
+        if i != j or flag {
+          f(mut v[i], mut v[j])
+        }
+
+        # `var` bindings do NOT count -> 1 runtime check.
+        var a = 0
+        var b = 1
+        if a != b {
+          f(mut v[a], mut v[b])
+        }
+
+        # Lambda body inside then-branch does NOT inherit branch fact -> 1 runtime check.
+        if i != j {
+          val cb = fn () {
+            f(mut v[i], mut v[j])
+          }
+          cb()
+        }
+
+        # Shadowing inner `i` creates a new symbol -> 1 runtime check.
+        if i != j {
+          val i = j
+          f(mut v[i], mut v[j])
+        }
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(comp));
+    SemanticModel model = comp.RootModel;
+    CallExpressionSyntax[] fCalls = All<CallExpressionSyntax>(comp)
+        .Where(c => c.Callee is IdentifierExpressionSyntax id && TextOf(comp, id.IdentifierToken) == "f")
+        .ToArray();
+
+    // Order of `f(...)` calls in source:
+    // 0: then-branch direct             -> 0 checks
+    // 1: then-branch nested if/for/{}   -> 0 checks
+    // 2: else-branch                    -> 1 check
+    // 3: after if                       -> 1 check
+    // 4: (j != i) then-branch           -> 0 checks
+    // 5: if-expr (synth) then-branch    -> 0 checks
+    // 6: if-expr (synth) else-branch    -> 1 check
+    // 7: if-expr (check) then-branch    -> 0 checks
+    // 8: if-expr (check) else-branch    -> 1 check
+    // 9: `and` condition                -> 1 check
+    // 10: `or` condition                -> 1 check
+    // 11: `var a != b`                  -> 1 check
+    // 12: lambda body inside then       -> 1 check
+    // 13: shadowed `val i = j`          -> 1 check
+    Assert.Equal(14, fCalls.Length);
+    Assert.Empty(model.GetRuntimeDisjointnessChecks(fCalls[0]));
+    Assert.Empty(model.GetRuntimeDisjointnessChecks(fCalls[1]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[2]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[3]));
+    Assert.Empty(model.GetRuntimeDisjointnessChecks(fCalls[4]));
+    Assert.Empty(model.GetRuntimeDisjointnessChecks(fCalls[5]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[6]));
+    Assert.Empty(model.GetRuntimeDisjointnessChecks(fCalls[7]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[8]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[9]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[10]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[11]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[12]));
+    Assert.Single(model.GetRuntimeDisjointnessChecks(fCalls[13]));
+  }
+
+  [Fact]
+  public void VectorSwap_VECLIB26ToE2_ChecksMutabilityVoidReturnAndEffects() {
+    Compilation ok = Compile("""
+      val mut mod_vec = [1, 2, 3]
+
+      fn swap_module_vec() {
+        mod_vec:swap(0, 2)
+      }
+
+      fn swap_local() {
+        var v = [10, 20, 30]
+        v:swap(0, 2)
+        v:swap(1, 1)
+
+        val mut vm = [4, 5]
+        vm:swap(0, 1)
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(ok));
+    SemanticModel okModel = ok.RootModel;
+    CallExpressionSyntax[] swapCalls = All<CallExpressionSyntax>(ok)
+        .Where(c => okModel.GetCallResolution(c) is { Kind: CallKind.Intrinsic, Intrinsic: IntrinsicId.VecSwap })
+        .ToArray();
+    Assert.Equal(4, swapCalls.Length);
+    foreach (CallExpressionSyntax swapCall in swapCalls) {
+      Assert.True(okModel.GetType(swapCall)!.IsVoid);
+      MutationPlaceInfo? place = okModel.GetMutationPlace(swapCall);
+      Assert.NotNull(place);
+      Assert.Equal(MutationKind.MutatingCall, place.Kind);
+      Assert.True(place.PassByInOut);
+    }
+
+    FunctionSymbol swapModFn = All<FunctionDeclarationSyntax>(ok)
+        .Select(f => (FunctionSymbol) okModel.GetDeclaredSymbol(f)!)
+        .Single(f => f.Name == "swap_module_vec");
+    ModuleStateEffects effects = okModel.GetModuleStateEffects(swapModFn);
+    Assert.True(effects.ReadsModuleState);
+    Assert.True(effects.WritesModuleState);
+
+    Compilation bad = Compile("""
+      val imm = [1, 2]
+      imm:swap(0, 1)
+
+      [1, 2]:swap(0, 1)
+
+      var v = [1, 2]
+      val r = v:swap(0, 1)
+      v:swap("a", 0)
+      v:swap(0)
+      """);
+
+    Diagnostic[] badErrors = CheckerErrors(bad);
+    Assert.Contains(badErrors, static d => d.Code == DiagnosticCodes.CannotMutateImmutableValue && d.Message.Contains("'imm'"));
+    Assert.Contains(badErrors, static d => d.Code == DiagnosticCodes.InvalidMutArgument);
+    Assert.Contains(badErrors, static d => d.Code == DiagnosticCodes.InvalidVoidTypePosition && d.Message.Contains("'r'"));
+    Assert.Contains(badErrors, static d => d.Code == DiagnosticCodes.TypeMismatch);
+    Assert.Contains(badErrors, static d => d.Code == DiagnosticCodes.WrongArgumentCount);
+    Assert.Equal(5, badErrors.Length);
   }
 }

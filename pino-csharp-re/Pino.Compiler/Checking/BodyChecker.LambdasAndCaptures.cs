@@ -240,7 +240,9 @@ internal sealed partial class BodyChecker {
         ? PushCaptureFrame(lambda, lambdaScope)
         : null;
     int prevLoopDepth = _loopDepth;
+    int prevFactBase = _inequalityFactBase;
     _loopDepth = 0;
+    _inequalityFactBase = _inequalityFacts.Count;
     try {
       using (EnterScope(lambdaScope)) {
         if (lambda.BodyExpression is { } bodyExpr) {
@@ -304,6 +306,7 @@ internal sealed partial class BodyChecker {
         }
       }
     } finally {
+      _inequalityFactBase = prevFactBase;
       _loopDepth = prevLoopDepth;
       if (captureFrame is not null) {
         PopCaptureFrame(captureFrame);
@@ -390,8 +393,10 @@ internal sealed partial class BodyChecker {
         : null;
     YieldContext? prevYield = _activeYieldContext;
     int prevLoopDepth = _loopDepth;
+    int prevFactBase = _inequalityFactBase;
     _activeYieldContext = null;
     _loopDepth = 0;
+    _inequalityFactBase = _inequalityFacts.Count;
     try {
       using (EnterScope(itScope)) {
         if (expectedReturn is not null && !expectedReturn.IsVoid && !expectedReturn.IsError) {
@@ -429,6 +434,7 @@ internal sealed partial class BodyChecker {
         }
       }
     } finally {
+      _inequalityFactBase = prevFactBase;
       _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       if (captureFrame is not null) {

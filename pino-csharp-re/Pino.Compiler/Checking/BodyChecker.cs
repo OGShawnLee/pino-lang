@@ -195,16 +195,19 @@ internal sealed partial class BodyChecker {
     ReturnCollector? prevCollector = _activeReturnCollector;
     YieldContext? prevYield = _activeYieldContext;
     int prevLoopDepth = _loopDepth;
+    int prevFactBase = _inequalityFactBase;
     _currentCallable = null;
     _currentStruct = null;
     _isStaticMethod = false;
     _activeReturnCollector = null;
     _activeYieldContext = null;
     _loopDepth = 0;
+    _inequalityFactBase = _inequalityFacts.Count;
     try {
       using ScopeRestore _ = EnterScope(testScope);
       CheckBlock(test.Body);
     } finally {
+      _inequalityFactBase = prevFactBase;
       _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
@@ -231,7 +234,8 @@ internal sealed partial class BodyChecker {
       }
     }
 
-    using (EnterScope(ifScope)) {
+    using (EnterScope(ifScope))
+    using (EnterBranchInequalityScope(ifStatement.Condition)) {
       CheckBlock(ifStatement.ThenBranch);
     }
 

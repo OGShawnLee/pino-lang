@@ -1,0 +1,44 @@
+# covers: FN-32, FN-33, FN-35
+struct Pair {
+  mut x int
+  mut y int
+}
+
+fn add_pair(mut a int, mut b int) {
+  a += 10
+  b += 20
+}
+
+fn bump_three(mut a int, mut b int, mut c int) {
+  a += 1
+  b += 2
+  c += 3
+}
+
+var v = [1, 2, 3, 4]
+add_pair(mut v[0], mut v[1])
+println(v[0])
+println(v[1])
+
+var p = Pair { x: 5, y: 6 }
+add_pair(mut p:x, mut p:y)
+println(p:x)
+println(p:y)
+
+val i = 1
+add_pair(mut v[i], mut v[i + 1])
+println(v[1])
+println(v[2])
+
+val a = 0
+val b = 3
+if a != b {
+  add_pair(mut v[a], mut v[b])
+}
+println(v[0])
+println(v[3])
+
+bump_three(mut v[0], mut v[1], mut v[2])
+println(v[0])
+println(v[1])
+println(v[2])

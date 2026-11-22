@@ -381,7 +381,7 @@ internal static class ModuleStateEffectAnalyzer {
       if (call.Callee is MemberAccessExpressionSyntax memberCallee) {
         if (intrinsic is IntrinsicId.VecPush or IntrinsicId.SetAdd) {
           WalkWriteTargetPlace(memberCallee.Target, alsoReadsRoot: false);
-        } else if (intrinsic is IntrinsicId.VecPop or IntrinsicId.MapRemove or IntrinsicId.SetRemove) {
+        } else if (intrinsic is IntrinsicId.VecPop or IntrinsicId.VecSwap or IntrinsicId.MapRemove or IntrinsicId.SetRemove) {
           WalkWriteTargetPlace(memberCallee.Target, alsoReadsRoot: true);
         } else {
           WalkNode(memberCallee.Target);

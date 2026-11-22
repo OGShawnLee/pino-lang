@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 
+using Pino.Compiler.Syntax;
+
 namespace Pino.Compiler.Checking;
 
 public enum ConversionKind : byte {
@@ -129,3 +131,48 @@ public sealed record MutationPlaceInfo(
     MutationRootKind RootKind,
     bool RequiresCoWCheck,
     bool PassByInOut);
+
+/// <summary>
+/// Identifies one <c>mut</c> access in a call expression: either the mutating method receiver
+/// (<see cref="IsReceiver"/> is <see langword="true"/>, <see cref="ArgumentIndex"/> is <c>-1</c>)
+/// or a zero-based <c>mut</c> call argument.
+/// </summary>
+public readonly record struct MutAccessTarget(int ArgumentIndex) {
+  public static MutAccessTarget Receiver => new(-1);
+
+  public bool IsReceiver => ArgumentIndex < 0;
+
+  public static MutAccessTarget Argument(int index) => new(index);
+}
+
+/// <summary>
+/// A pair of index steps at the same depth of a shared place-path prefix whose equality could not
+/// be proven statically under D-184 (FN-34).
+/// </summary>
+/// <remarks>
+/// IR obligation (D-184 / FN-34): at run time, compare the resolved slot addresses selected by
+/// <see cref="First"/> and <see cref="Second"/> at this prefix depth, not index or key values,
+/// and not only final leaf addresses (for example, in <c>f(mut enemies[i], mut enemies[j]:hp)</c>,
+/// compare <c>&amp;enemies[i]</c> with <c>&amp;enemies[j]</c>).
+/// </remarks>
+public readonly record struct RuntimeDisjointnessStepPair(
+    IndexExpressionSyntax First,
+    IndexExpressionSyntax Second);
+
+/// <summary>
+/// Records a pair of <c>mut</c> accesses in one call that share a root binding and require a
+/// run-time slot-exclusivity check (D-184 / FN-34, FN-35).
+/// </summary>
+/// <remarks>
+/// IR obligation (D-184 / FN-34): after all call arguments are evaluated and their slots resolved
+/// (with any absent map key in <c>mut m[k]</c> panicking first per MAP-E1), and before entering
+/// the callee, compare the resolved slot addresses for every pair in <see cref="UnknownSteps"/>
+/// (always comparing resolved slot addresses at each unknown step, never index or key values).
+/// The two places alias if and only if every pair in <see cref="UnknownSteps"/> resolves to the
+/// same slot address; if they alias, panic (ERR-3, exit code 101 per ERR-5) with the FN-34 message.
+/// </remarks>
+public sealed record RuntimeDisjointnessCheck(
+    Symbol RootSymbol,
+    MutAccessTarget FirstAccess,
+    MutAccessTarget SecondAccess,
+    ImmutableArray<RuntimeDisjointnessStepPair> UnknownSteps);

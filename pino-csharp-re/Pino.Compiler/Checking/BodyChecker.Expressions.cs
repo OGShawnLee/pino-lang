@@ -52,7 +52,8 @@ internal sealed partial class BodyChecker {
               CheckerSession.ReportDuplicate(_state, binding.Name, binding.NameSpan, existing!);
             }
           }
-          using (EnterScope(thenScope)) {
+          using (EnterScope(thenScope))
+          using (EnterBranchInequalityScope(ifExpression.Condition)) {
             Check(ifExpression.ThenBranch, expected, targetDescription, targetSuffix);
           }
           Check(ifExpression.ElseBranch, expected, targetDescription, targetSuffix);
@@ -105,7 +106,8 @@ internal sealed partial class BodyChecker {
             }
           }
           TypeSymbol thenType;
-          using (EnterScope(thenScope)) {
+          using (EnterScope(thenScope))
+          using (EnterBranchInequalityScope(ifExpression.Condition)) {
             thenType = CheckWithContextualExpectation(ifExpression.ThenBranch, expected);
           }
           TypeSymbol elseType = CheckWithContextualExpectation(ifExpression.ElseBranch, expected);
@@ -526,7 +528,8 @@ internal sealed partial class BodyChecker {
       }
     }
     TypeSymbol thenType;
-    using (EnterScope(thenScope)) {
+    using (EnterScope(thenScope))
+    using (EnterBranchInequalityScope(ifExpression.Condition)) {
       thenType = Synthesize(ifExpression.ThenBranch);
     }
     TypeSymbol elseType = Synthesize(ifExpression.ElseBranch);

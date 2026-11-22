@@ -1,0 +1,3 @@
+# covers: VECLIB-E2
+var v = [1, 2, 3]
+v:swap(99, 99)

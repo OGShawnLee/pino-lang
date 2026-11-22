@@ -1,0 +1,26 @@
+# covers: FN-34, FN-35
+struct Unit {
+  mut hp int
+
+  mut fn hit(mut other Unit) {
+    self:hp -= 1
+    other:hp -= 3
+  }
+}
+
+fn trade(mut a int, mut b int) {
+  a += 5
+  b += 7
+}
+
+var v = [10, 20]
+val i = 0
+val j = 1
+trade(mut v[i], mut v[j])
+println(v[0])
+println(v[1])
+
+var units = [Unit { hp: 10 }, Unit { hp: 10 }]
+units[i]:hit(mut units[j])
+println(units[0]:hp)
+println(units[1]:hp)

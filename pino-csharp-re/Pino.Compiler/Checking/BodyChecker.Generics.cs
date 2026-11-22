@@ -480,7 +480,7 @@ internal sealed partial class BodyChecker {
       Func<TypeSymbol> getRawReturnType,
       bool hasImplicitSelf,
       TypeSymbol? expectedReturnType,
-      (Symbol Root, SourceSpan Span)? mutatingReceiverRoot = null) {
+      MutAccessPlace? mutatingReceiver = null) {
     string capitalizedKind = char.ToUpperInvariant(calleeKind[0]) + calleeKind[1..];
     bool hasExplicitTypeArgs = call.TypeArguments is not null;
 
@@ -512,7 +512,7 @@ internal sealed partial class BodyChecker {
           calleeKind,
           calleeName,
           parameterSymbols: parameters,
-          mutatingReceiverRoot: mutatingReceiverRoot);
+          mutatingReceiver: mutatingReceiver);
       TypeSymbol rawRet = getRawReturnType();
       TypeSymbol retType = TypeSubstitution.Substitute(rawRet, combinedParams, combinedArgs, _types);
       _state.SetNodeType(calleeNode, _types.GetFunction(expectedParamTypes.ToImmutable(), retType));
@@ -712,7 +712,7 @@ internal sealed partial class BodyChecker {
         parameters,
         calleeKind,
         calleeName,
-        mutatingReceiverRoot);
+        mutatingReceiver);
 
     TypeSymbol finalRetType = TypeSubstitution.Substitute(rawReturn, allParams, finalAllArgs, _types);
     finalRetType = unifier.Zonk(finalRetType);

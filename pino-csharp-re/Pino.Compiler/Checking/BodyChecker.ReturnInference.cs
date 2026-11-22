@@ -492,12 +492,14 @@ internal sealed partial class BodyChecker {
     ReturnCollector? prevCollector = _activeReturnCollector;
     YieldContext? prevYield = _activeYieldContext;
     int prevLoopDepth = _loopDepth;
+    int prevFactBase = _inequalityFactBase;
     _currentCallable = entry.Symbol;
     _currentStruct = entry.EnclosingStruct;
     _isStaticMethod = entry.IsStaticMethod;
     _activeReturnCollector = null;
     _activeYieldContext = null;
     _loopDepth = 0;
+    _inequalityFactBase = _inequalityFacts.Count;
 
     CaptureFrame? captureFrame = entry.IsNestedFunction
         ? PushCaptureFrame(entry.DeclarationSyntax, entry.CallableScope)
@@ -510,6 +512,7 @@ internal sealed partial class BodyChecker {
         PopCaptureFrame(captureFrame);
       }
 
+      _inequalityFactBase = prevFactBase;
       _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
@@ -529,12 +532,14 @@ internal sealed partial class BodyChecker {
     ReturnCollector? prevCollector = _activeReturnCollector;
     YieldContext? prevYield = _activeYieldContext;
     int prevLoopDepth = _loopDepth;
+    int prevFactBase = _inequalityFactBase;
     _currentCallable = entry.Symbol;
     _currentStruct = entry.EnclosingStruct;
     _isStaticMethod = entry.IsStaticMethod;
     _activeReturnCollector = collector;
     _activeYieldContext = null;
     _loopDepth = 0;
+    _inequalityFactBase = _inequalityFacts.Count;
 
     CaptureFrame? captureFrame = entry.IsNestedFunction && _inPhase3a == 0
         ? PushCaptureFrame(entry.DeclarationSyntax, entry.CallableScope)
@@ -547,6 +552,7 @@ internal sealed partial class BodyChecker {
         PopCaptureFrame(captureFrame);
       }
 
+      _inequalityFactBase = prevFactBase;
       _loopDepth = prevLoopDepth;
       _activeYieldContext = prevYield;
       _activeReturnCollector = prevCollector;
@@ -753,6 +759,7 @@ internal sealed partial class BodyChecker {
         _state.ConstantValues[node.Id] = null;
         _state.PatternBindings[node.Id] = null;
         _state.MutationPlaces[node.Id] = null;
+        _state.RuntimeDisjointnessChecks[node.Id] = default;
 
         if (node is VariableDeclarationSyntax or DestructureFieldSyntax
             || (node is ParameterSyntax && _state.ParentsByNodeId[node.Id] is LambdaExpressionSyntax)) {

@@ -142,7 +142,7 @@ public sealed class PreludeAndStdlibTests {
     // []T members
     VectorType intVec = types.GetVector(types.Int);
     string[] expectedVec = [
-      "len", "length", "cap", "capacity", "push", "add", "pop",
+      "len", "length", "cap", "capacity", "push", "add", "pop", "swap",
       "each", "map", "filter", "find", "find_index", "any", "all", "count", "join",
     ];
     Assert.Equal(expectedVec.Length, StdlibCatalog.VectorMembers.Count);
@@ -159,6 +159,12 @@ public sealed class PreludeAndStdlibTests {
     Assert.True(vecAdd!.MutatesReceiver);
     Assert.Equal(IntrinsicId.VecPush, vecAdd.Signatures[0].Id);
     Assert.Same(types.Void, vecAdd.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
+
+    Assert.True(StdlibCatalog.TryGetMember(intVec, "swap", out IntrinsicDescriptor? vecSwap));
+    Assert.True(vecSwap!.MutatesReceiver);
+    Assert.Equal(IntrinsicId.VecSwap, vecSwap.Signatures[0].Id);
+    Assert.Equal(2, vecSwap.Signatures[0].Parameters.Length);
+    Assert.Same(types.Void, vecSwap.Signatures[0].ReturnType.Resolve(types, prelude, [types.Int], []));
 
     Assert.True(StdlibCatalog.TryGetMember(intVec, "map", out IntrinsicDescriptor? vecMap));
     Assert.Equal(2, vecMap!.Signatures.Length);
@@ -238,6 +244,7 @@ public sealed class PreludeAndStdlibTests {
     IntrinsicId[] expectedMutatingIds = [
       IntrinsicId.VecPush,
       IntrinsicId.VecPop,
+      IntrinsicId.VecSwap,
       IntrinsicId.MapRemove,
       IntrinsicId.SetAdd,
       IntrinsicId.SetRemove,
@@ -260,5 +267,7 @@ public sealed class PreludeAndStdlibTests {
     Assert.Equal("mut fn push(item T) -> void", vecPushEntry!.SignatureText);
     Assert.True(stub.TryGetEntry(StdlibReceiverKind.Vector, "add", out VirtualStdlibEntry? vecAddEntry));
     Assert.Equal("mut fn add(item T) -> void", vecAddEntry!.SignatureText);
+    Assert.True(stub.TryGetEntry(StdlibReceiverKind.Vector, "swap", out VirtualStdlibEntry? vecSwapEntry));
+    Assert.Equal("mut fn swap(i int, j int) -> void", vecSwapEntry!.SignatureText);
   }
 }

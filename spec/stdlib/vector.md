@@ -12,6 +12,7 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 | `cap` / `capacity` | property | `int`, the allocated capacity |
 | `push(item)` / `add(item)` | `mut fn (T)` | `void` |
 | `pop()` | `mut fn ()` | `Option[T]` (`Option::Some(last)` or `Option::None` when empty) |
+| `swap(i, j)` | `mut fn (int, int)` | `void` |
 | `each(fn)` | `fn (fn (T))` or `fn (fn (T, int))` | `void` |
 | `map(fn)` | `fn (fn (T) -> R)` or `fn (fn (T, int) -> R)` | a new vector of the results |
 | `filter(fn)` | `fn (fn (T) -> bool)` or `fn (fn (T, int) -> bool)` | a new vector of the matching elements |
@@ -48,9 +49,12 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 - VECLIB-23: The callbacks of `find`, `find_index`, `any`, `all` and `count` may take the index as a second parameter, `fn(item, index)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-24: The callback of `count` may be written with the implicit `it`, as in `v:count(it % 2 == 0)`. [src: LANGUAGE_REFERENCE.md §10 "Vector Methods"]
 - VECLIB-25: `v:join(sep)` returns the elements converted to strings and joined with `sep`, and returns the empty string for an empty vector. [src: DataStructureTests.TestVectorJoinMethod]
+- VECLIB-26: `v:swap(i, j)` requires `v` to be a mutable place, exchanges the elements at zero-based indexes `i` and `j`, and returns `void`. [src: spec/decisions/D-184-disjoint-mut-slots.md]
+- VECLIB-27: `v:swap(i, i)` is a no-op when `i` is in range (`0 <= i < v:len`). [src: spec/decisions/D-184-disjoint-mut-slots.md]
 
 ## Errors
 - VECLIB-E1: Chaining `v:push(a):push(b)` or using the result of `v:push(x)` or `v:add(x)` as a value is rejected by the checker because both return `void`. [src: spec/decisions/D-181-vector-push-void-and-stdlib-mutation.md]
+- VECLIB-E2: `v:swap(i, j)` bounds-checks both `i` and `j` first and panics at run time per VEC-E4 if either index is out of range, even when `i == j` (such as `v:swap(99, 99)`). [src: spec/decisions/D-184-disjoint-mut-slots.md]
 
 ## Examples
 Conformance cases: `conformance/stdlib-vector/`.
