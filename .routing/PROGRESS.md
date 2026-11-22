@@ -519,6 +519,18 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 
       These are recorded in `056/design.md` "Owner answers".
     - **Ticket drafting:** the same 056 Neon thread (warm context, per the owner) drafts 058 (T0: D-186 print forms, the recursive-struct checker error, overflow and `time()` spec text) and 059 to 070 (T1 to T12). Then the router reviews them and starts the chain.
+  - **Drafts 058 to 070 delivered** by the 056 Neon thread.
+    - Router review:
+      - 058: four fixes (the mutual-recursion message wording, pool string quoting, the generic `Box[T]` case, the attribution line)
+      - 059: matches the design
+      - models match the owner's split
+      - attribution lines normalized across all tickets
+    - Notes for later:
+      - 066 edits `pino-csharp.tests/` to add the `ReVm` and `ReC` engines (expected, IQ-10)
+      - **070 wants a narrow edit to the frozen `pino-csharp/WASMBridge.cs`.** Ask the owner before 070: that, or a separate `pino-csharp-re/Pino.Wasm/` project
+      - 063 and 065 both touch `Pino.Cli/CliApp.cs`, and 068 and 069 both touch `IrPassPipeline.cs` (rebase touchpoints)
+    - The chain: 058, then 059, then 060 to 062 alongside 064, then 063 alongside 065, then 066, then 067 to 070.
+  - [ ] **058-spec-and-checker-ir-prereqs** (Claude Sonnet 5.5 Medium): dispatched.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
