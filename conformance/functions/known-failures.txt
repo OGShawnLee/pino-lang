@@ -135,9 +135,9 @@ C err-unexpected-call-site-mut.pino  # D-180: legacy fails with argument count m
 TreeWalk err-mut-arg-on-val.pino  # D-177/D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot mutate immutable variable'
 VM err-mut-arg-on-val.pino  # D-177/D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot mutate immutable variable'
 C err-mut-arg-on-val.pino  # D-177/D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot mutate immutable variable'
-TreeWalk err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'overlapping 'mut' arguments'
-VM err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'overlapping 'mut' arguments'
-C err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'overlapping 'mut' arguments'
+TreeWalk err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with the FN-E16 'mut' overlap message
+VM err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with the FN-E16 'mut' overlap message
+C err-overlapping-mut-args.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with the FN-E16 'mut' overlap message
 TreeWalk err-capture-mut-param.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot capture 'mut' parameter'
 VM err-capture-mut-param.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot capture 'mut' parameter'
 C err-capture-mut-param.pino  # D-180: legacy parser rejects 'mut' field/param instead of failing with 'Cannot capture 'mut' parameter'
@@ -152,6 +152,14 @@ C mut-runtime-checked-slots.pino  # D-184: legacy parser rejects 'mut' field, 'm
 TreeWalk err-mut-same-slot-runtime.pino  # D-184: legacy parser rejects 'mut' parameter instead of panicking with FN-34 message
 VM err-mut-same-slot-runtime.pino  # D-184: legacy parser rejects 'mut' parameter instead of panicking with FN-34 message
 C err-mut-same-slot-runtime.pino  # D-184: legacy parser rejects 'mut' parameter instead of panicking with FN-34 message
-TreeWalk err-mut-same-constant-slot.pino  # D-184: legacy parser rejects 'mut' parameter instead of failing with 'overlapping 'mut' arguments'
-VM err-mut-same-constant-slot.pino  # D-184: legacy parser rejects 'mut' parameter instead of failing with 'overlapping 'mut' arguments'
-C err-mut-same-constant-slot.pino  # D-184: legacy parser rejects 'mut' parameter instead of failing with 'overlapping 'mut' arguments'
+TreeWalk err-mut-same-constant-slot.pino  # D-184: legacy parser rejects 'mut' parameter instead of failing with the FN-E16 'mut' overlap message
+VM err-mut-same-constant-slot.pino  # D-184: legacy parser rejects 'mut' parameter instead of failing with the FN-E16 'mut' overlap message
+C err-mut-same-constant-slot.pino  # D-184: legacy parser rejects 'mut' parameter instead of failing with the FN-E16 'mut' overlap message
+
+# --- Mut parameter rules and message polish (ticket 055)
+TreeWalk mut-param-reassign.pino  # D-180: legacy parser rejects 'mut' parameter
+VM mut-param-reassign.pino  # D-180: legacy parser rejects 'mut' parameter
+C mut-param-reassign.pino  # D-180: legacy parser rejects 'mut' parameter
+TreeWalk err-mut-arg-exact-type.pino  # D-180: legacy parser rejects 'mut' parameter instead of failing with the FN-37 message
+VM err-mut-arg-exact-type.pino  # D-180: legacy parser rejects 'mut' parameter instead of failing with the FN-37 message
+C err-mut-arg-exact-type.pino  # D-180: legacy parser rejects 'mut' parameter instead of failing with the FN-37 message

@@ -13,7 +13,7 @@ What happens to the reference-identity operators `===` and `!==` (`EQ-10`, `EQ-1
 - Design `043` (§2, `MQ-4`): under CoW value semantics, physical pointer identity leaks whether an internal buffer copy has occurred; Roc forbids identity comparison entirely, and keeping `===` only on scalars offers little value once heap identity is gone.
 
 ## Options
-1. Reject `===` / `!==` on value-semantic aggregates (`struct`, `[]T`, `map`, `set`, `union`) with a checker error (`PN3229`), keeping `===` on primitives and enums (`EQ-10`, `D-026`).
+1. Reject `===` / `!==` on value-semantic aggregates (`struct`, `[]T`, `map`, `set`, `union`) with a checker error (a checker error), keeping `===` on primitives and enums (`EQ-10`, `D-026`).
 2. **Retire `===` and `!==` from the language entirely** (keep only structural `==` and `!=`).
 3. Keep `===` as an alias for `==` on value types.
 

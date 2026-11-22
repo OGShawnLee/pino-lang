@@ -446,6 +446,7 @@ internal sealed partial class BodyChecker {
 
       bool hasProvenOverlap = false;
       SourceSpan firstOverlapSpan = default;
+      MutAccessPlace overlapEarlier = default;
       List<RuntimeDisjointnessCheck>? pendingChecks = null;
 
       if (seenAccesses is not null) {
@@ -461,6 +462,7 @@ internal sealed partial class BodyChecker {
           if (overlap == PathOverlapKind.ProvenOverlap) {
             hasProvenOverlap = true;
             firstOverlapSpan = earlier.Span;
+            overlapEarlier = earlier;
             break;
           }
 
@@ -472,7 +474,7 @@ internal sealed partial class BodyChecker {
       }
 
       if (hasProvenOverlap) {
-        ReportOverlappingMutArguments(argSpan, rootSym.Name, firstOverlapSpan);
+        ReportOverlappingMutArguments(argSpan, rootSym.Name, firstOverlapSpan, overlapEarlier.Steps, current.Steps, calleeKind, calleeName, call);
         continue;
       }
 
@@ -960,7 +962,7 @@ internal sealed partial class BodyChecker {
         ? [new RelatedLocation(local.NameSpan, $"'{local.Name}' is declared immutable here", local.FilePath)]
         : [];
     string help = local.Kind == LocalKind.Variable
-        ? $"declare '{local.Name}' with 'var'"
+        ? $"declare '{local.Name}' with 'val mut' to change its contents, or with 'var' to also reassign it"
         : $"copy '{local.Name}' into a local 'var' if you need to mutate it";
     Report(
         DiagnosticCodes.CannotMutateImmutableValue,
@@ -1078,16 +1080,69 @@ internal sealed partial class BodyChecker {
     }
   }
 
-  private void ReportOverlappingMutArguments(SourceSpan span, string rootName, SourceSpan earlierSpan) {
+  private void ReportMutArgumentNeedsExactType(ExpressionSyntax argExpr, TypeSymbol paramType, TypeSymbol argType) {
+    string name = argExpr is IdentifierExpressionSyntax { IdentifierToken: { } idTok } && !IsMissing(idTok)
+        ? NameOf(idTok)
+        : FormatShortExpressionSnippet(argExpr.Span);
+    Report(
+        DiagnosticCodes.TypeMismatch,
+        argExpr.Span,
+        $"A 'mut' argument must have exactly the parameter's type '{paramType.DisplayName}', but '{name}' is '{argType.DisplayName}'.",
+        help: $"declare '{name}' with type '{paramType.DisplayName}', for example 'var {name} {paramType.DisplayName} = ...'");
+  }
+
+  private void ReportOverlappingMutArguments(
+      SourceSpan span,
+      string rootName,
+      SourceSpan earlierSpan,
+      ImmutableArray<PlaceStep> earlierSteps,
+      ImmutableArray<PlaceStep> currentSteps,
+      string calleeKind,
+      string calleeName,
+      CallExpressionSyntax call) {
     ImmutableArray<RelatedLocation> related = earlierSpan.Length > 0
         ? [new RelatedLocation(earlierSpan, $"'{rootName}' is already mutably borrowed here", _state.FilePath)]
         : [];
+    ImmutableArray<PlaceStep> first = earlierSteps.IsDefault ? [] : earlierSteps;
+    ImmutableArray<PlaceStep> second = currentSteps.IsDefault ? [] : currentSteps;
+    bool throughFunctionValue = calleeKind is "value" or "callable field"
+        || (call.Callee is IdentifierExpressionSyntax calleeId
+            && GetRecordedReferencedSymbol(calleeId) is LocalSymbol or ParameterSymbol or FieldSymbol);
+    string target = throughFunctionValue ? "this function" : $"'{calleeName}'";
+
+    int sharedLen = Math.Min(first.Length, second.Length);
+    bool sharesIndexStep = false;
+    for (int stepIdx = 0; stepIdx < sharedLen; stepIdx++) {
+      if (!first[stepIdx].IsField) {
+        sharesIndexStep = true;
+        break;
+      }
+    }
+
+    if (sharesIndexStep) {
+      Report(
+          DiagnosticCodes.OverlappingMutArguments,
+          span,
+          $"Cannot pass the same element of '{rootName}' as two 'mut' arguments to {target}.",
+          related,
+          help: "use two different elements, or make one argument a plain read");
+      return;
+    }
+
+    ImmutableArray<PlaceStep> shorter = first.Length <= second.Length ? first : second;
+    string shortName = rootName;
+    foreach (PlaceStep step in shorter) {
+      if (step.IsField) {
+        shortName += ":" + step.FieldName;
+      }
+    }
+
     Report(
         DiagnosticCodes.OverlappingMutArguments,
         span,
-        $"Cannot pass '{rootName}' as overlapping 'mut' arguments in the same call.",
+        $"Cannot use '{shortName}' twice as 'mut' in one call to {target}.",
         related,
-        help: "pass distinct variables or mutate through a single 'mut' container");
+        help: "pass it once as 'mut', or pass a copy for the other argument");
   }
 
   private void ReportCannotBindMutatingMethod(

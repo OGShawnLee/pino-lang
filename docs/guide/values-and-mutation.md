@@ -175,7 +175,7 @@ fn swap(mut a int, mut b int) {
 
 fn main() {
   var x = 1
-  swap(mut x, mut x)   # PN3226: overlapping 'mut' arguments
+  swap(mut x, mut x)   # PN3226: Cannot use 'x' twice as 'mut' in one call to 'swap'.
 }
 ```
 

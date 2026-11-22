@@ -936,6 +936,11 @@ internal sealed partial class BodyChecker {
           ? TryMatchMutArgumentType(actualType, expectedParam)
           : TryConvert(arg.Expression, actualType, expectedParam);
       if (!typeOk) {
+        if (expectedInfo.IsMutable) {
+          ReportMutArgumentNeedsExactType(arg.Expression, expectedParam, actualType);
+          continue;
+        }
+
         string code = !expectedInfo.IsMutable && expectedParam is InterfaceType
             ? DiagnosticCodes.InterfaceNotSatisfied
             : DiagnosticCodes.TypeMismatch;

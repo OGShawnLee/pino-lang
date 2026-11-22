@@ -60,4 +60,4 @@ Members are called on a vector with `:`, for example `v:len` for a property and 
 Conformance cases: `conformance/stdlib-vector/`.
 
 ## Open questions
-- D-058: A statement that starts with a vector literal after an expression statement is parsed as an index access.
+None. (A line break before `[` ends the expression, so a statement may start with a vector literal; see `VEC-17` and `D-058`.)

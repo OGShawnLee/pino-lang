@@ -327,6 +327,12 @@ public sealed partial class Parser {
       && !HasLeadingSpace(Peek(1))
       && Current.Span.End == Peek(1).Span.Start;
 
+  /// <summary>
+  /// Set while parsing <c>Pool[</c>, <c>Handle[</c>, <c>set[</c> or <c>map[</c> in expression position: the token index
+  /// right after the <c>[</c>, the built-in name, and its kind word, for the friendlier message when no type follows.
+  /// </summary>
+  private (int TokenIndex, string Name, string Kind)? _builtinIndexProbe;
+
   private void ReportError(
       string code,
       SourceSpan span,

@@ -99,7 +99,7 @@ public sealed class CheckerDiagnosticSnapshotTests {
         "  |     -- 'xs' is declared immutable here\n" +
         "2 | xs:push(3)\n" +
         "  | ^^^^^^^^^^\n" +
-        "  = help: declare 'xs' with 'var'\n";
+        "  = help: declare 'xs' with 'val mut' to change its contents, or with 'var' to also reassign it\n";
     Assert.Equal(Expected, rendered);
   }
 
@@ -155,13 +155,13 @@ public sealed class CheckerDiagnosticSnapshotTests {
     const string OverlapCode = "fn swap(mut a int, mut b int) {\n  val t = a\n  a = b\n  b = t\n}\nvar x = 1\nswap(mut x, mut x)\n";
     string renderedOverlap = RenderPlain(OverlapCode);
     const string ExpectedOverlap =
-        "error[PN3226]: Cannot pass 'x' as overlapping 'mut' arguments in the same call.\n" +
+        "error[PN3226]: Cannot use 'x' twice as 'mut' in one call to 'swap'.\n" +
         " --> sample.pino:7:13\n" +
         "  |\n" +
         "7 | swap(mut x, mut x)\n" +
         "  |             ^^^^^\n" +
         "  |      ----- 'x' is already mutably borrowed here\n" +
-        "  = help: pass distinct variables or mutate through a single 'mut' container\n";
+        "  = help: pass it once as 'mut', or pass a copy for the other argument\n";
     Assert.Equal(ExpectedOverlap, renderedOverlap);
   }
 

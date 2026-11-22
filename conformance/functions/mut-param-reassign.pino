@@ -1,0 +1,20 @@
+# covers: FN-36
+fn swap(mut a int, mut b int) {
+  val t = a
+  a = b
+  b = t
+}
+
+fn reset(mut s string) {
+  s = "fresh"
+}
+
+var x = 1
+var y = 2
+swap(mut x, mut y)
+println(x)
+println(y)
+
+var word = "old"
+reset(mut word)
+println(word)

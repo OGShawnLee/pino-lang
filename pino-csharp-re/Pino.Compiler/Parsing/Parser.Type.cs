@@ -76,10 +76,19 @@ public sealed partial class Parser {
           }
 
         default: {
-            ReportError(
-                DiagnosticCodes.ExpectedType,
-                Current.Span,
-                $"Expected type, found {DescribeToken(Current)}.");
+            if (_builtinIndexProbe is { } probe && probe.TokenIndex == _pos) {
+              ReportError(
+                  DiagnosticCodes.ExpectedType,
+                  Current.Span,
+                  $"'{probe.Name}[...]' always means the built-in {probe.Kind} type, so it can't index a variable named '{probe.Name}'.",
+                  help: "rename the variable");
+            } else {
+              ReportError(
+                  DiagnosticCodes.ExpectedType,
+                  Current.Span,
+                  $"Expected type, found {DescribeToken(Current)}.");
+            }
+
             return new MissingTypeSyntax(NextId(), new SourceSpan(CurrentMissingOffset(), 0));
           }
       }

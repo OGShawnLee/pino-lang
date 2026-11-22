@@ -41,6 +41,19 @@ public sealed class ParserPoolTests {
     Assert.Contains(handleIndex.Diagnostics, d => d.Code == DiagnosticCodes.ExpectedType);
   }
 
+  [Theory]
+  [InlineData("Pool", "pool")]
+  [InlineData("Handle", "handle")]
+  [InlineData("set", "set")]
+  [InlineData("map", "map")]
+  public void IndexingVariableNamedBuiltinTypeWord_ReportsPlainMessageWithHelp(string name, string kind) {
+    ParseResult result = ParserTestHelpers.ParseFile($"var {name} = [1, 2]\nprintln({name}[0])", expectNoDiagnostics: false);
+    Diagnostic diag = result.Diagnostics[0];
+    Assert.Equal(DiagnosticCodes.ExpectedType, diag.Code);
+    Assert.Equal($"'{name}[...]' always means the built-in {kind} type, so it can't index a variable named '{name}'.", diag.Message);
+    Assert.Equal("rename the variable", diag.Help);
+  }
+
   [Fact]
   public void BarePoolOrHandleFollowedByNewlineBracket_DoesNotParseAsPoolForm() {
     ParseResult result = ParserTestHelpers.ParseFile("val x = Pool\n[1, 2]", expectNoDiagnostics: true);

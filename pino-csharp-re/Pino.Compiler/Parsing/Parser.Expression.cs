@@ -238,27 +238,47 @@ public sealed partial class Parser {
     if (IsIdentifierText(Current, "map")
         && Peek(1).Kind == TokenKind.OpenBracket
         && !HasLeadingNewline(Peek(1))) {
-      return ParseMapLiteral(context);
+      _builtinIndexProbe = (_pos + 2, "map", "map");
+      try {
+        return ParseMapLiteral(context);
+      } finally {
+        _builtinIndexProbe = null;
+      }
     }
 
     if (IsIdentifierText(Current, "set")
         && Peek(1).Kind == TokenKind.OpenBracket
         && !HasLeadingNewline(Peek(1))) {
-      return ParseSetLiteral(context);
+      _builtinIndexProbe = (_pos + 2, "set", "set");
+      try {
+        return ParseSetLiteral(context);
+      } finally {
+        _builtinIndexProbe = null;
+      }
     }
 
     if (IsIdentifierText(Current, "Pool")
         && Peek(1).Kind == TokenKind.OpenBracket
         && !HasLeadingNewline(Peek(1))) {
-      PoolTypeSyntax poolType = ParsePoolType();
-      return new PoolExpressionSyntax(NextId(), poolType.Span, poolType);
+      _builtinIndexProbe = (_pos + 2, "Pool", "pool");
+      try {
+        PoolTypeSyntax poolType = ParsePoolType();
+        return new PoolExpressionSyntax(NextId(), poolType.Span, poolType);
+      } finally {
+        _builtinIndexProbe = null;
+      }
     }
 
     if (IsIdentifierText(Current, "Handle")
         && Peek(1).Kind == TokenKind.OpenBracket
         && !HasLeadingNewline(Peek(1))) {
-      HandleTypeSyntax handleType = ParseHandleType();
-      return new HandleExpressionSyntax(NextId(), handleType.Span, handleType);
+      _builtinIndexProbe = (_pos + 2, "Handle", "handle");
+      try {
+        HandleTypeSyntax handleType = ParseHandleType();
+        return new HandleExpressionSyntax(NextId(), handleType.Span, handleType);
+      } finally {
+        _builtinIndexProbe = null;
+      }
     }
 
     if (context.HasFlag(ExprContext.AllowBraceLiteral)) {

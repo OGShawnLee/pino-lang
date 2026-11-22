@@ -33,3 +33,6 @@ Option 1 for both `MQ-10` and `MQ-11`, decided by the owner on 2026-11-21:
 
 ## Extension (2026-11-21, `D-184`)
 On 2026-11-21 (`D-184`) the owner refined call-site exclusivity (`FN-E16`) so that only *proven* overlapping `mut` accesses sharing a root binding are rejected at compile time (`PN3226`). Places proven disjoint by distinct field steps, distinct index literals, distinct constant offsets from the same immutable binding, or an `if a != b` branch fact are allowed with no run-time check (`FN-32`, `FN-33`); pairs whose disjointness depends on dynamic index steps are allowed at compile time and checked by comparing resolved slot addresses at run time before the callee runs, panicking on overlap (`FN-34`, `FN-35`).
+
+## Extension (2026-11-21, ticket 055)
+On 2026-11-21 the owner wrote down two `mut` parameter rules that `pino-csharp-re` already followed. A `mut` parameter can be reassigned inside the function and the caller's variable then holds the new value, since the parameter is the caller's own variable (`FN-36`). A `mut` argument must have exactly the parameter's type, with no widening and no interface conversion, because the callee may assign any value of the parameter's type into the caller's variable (`FN-37`). The owner also set plain-English wording for the `PN3226` messages (`FN-E16`).

@@ -1,0 +1,7 @@
+# covers: FN-37
+fn grow(mut x float) {
+  x += 1.5
+}
+
+var n = 1
+grow(mut n)

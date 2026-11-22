@@ -52,7 +52,7 @@ public sealed class CheckerMutabilityTests {
     Assert.All(errors, d => {
       Assert.Equal(DiagnosticCodes.CannotMutateImmutableValue, d.Code);
       Assert.Contains("Cannot mutate immutable variable 'g' of type 'Game'.", d.Message);
-      Assert.Equal("declare 'g' with 'var'", d.Help);
+      Assert.Equal("declare 'g' with 'val mut' to change its contents, or with 'var' to also reassign it", d.Help);
       Assert.Single(d.Related);
     });
 
@@ -470,7 +470,53 @@ public sealed class CheckerMutabilityTests {
     Assert.Equal(3, errors.Count(static d => d.Code == DiagnosticCodes.UnexpectedMutAtCallSite));
     Assert.Contains(errors, static d => d.Code == DiagnosticCodes.CannotMutateImmutableValue && d.Message.Contains("immutable variable 'ro'"));
     // Invariance: `int` variable cannot widen to `mut float`.
-    Assert.Contains(errors, static d => d.Code == DiagnosticCodes.TypeMismatch && d.Message.Contains("expected type 'float', but got 'int'"));
+    Assert.Contains(errors, static d => d.Code == DiagnosticCodes.TypeMismatch && d.Message == "A 'mut' argument must have exactly the parameter's type 'float', but 'n' is 'int'.");
+  }
+
+  [Fact]
+  public void PN3226Messages_FN_E16_NameElementOrValueAndTarget() {
+    Compilation bad = Compile("""
+      struct P {
+        mut x int
+      }
+
+      fn f(mut a int, mut b int) {}
+      fn g(mut a P, mut b int) {}
+
+      var v = [1, 2]
+      var p = P { x: 1 }
+      f(mut v[0], mut v[0])
+      g(mut p, mut p:x)
+      f(mut p:x, mut p:x)
+      val h = fn (mut a int, mut b int) {}
+      h(mut p:x, mut p:x)
+      """);
+
+    Diagnostic[] errors = CheckerErrors(bad);
+    Assert.Equal(
+        [
+          "Cannot pass the same element of 'v' as two 'mut' arguments to 'f'.",
+          "Cannot use 'p' twice as 'mut' in one call to 'g'.",
+          "Cannot use 'p:x' twice as 'mut' in one call to 'f'.",
+          "Cannot use 'p:x' twice as 'mut' in one call to this function.",
+        ],
+        errors.Select(static d => d.Message).ToArray());
+    Assert.Equal("use two different elements, or make one argument a plain read", errors[0].Help);
+    Assert.All(errors.Skip(1), static d => Assert.Equal("pass it once as 'mut', or pass a copy for the other argument", d.Help));
+  }
+
+  [Fact]
+  public void MutArgumentExactType_FN_37_ReportsPN3102WithPlainMessage() {
+    Compilation bad = Compile("""
+      fn grow(mut x float) {}
+      var n = 1
+      grow(mut n)
+      """);
+
+    Diagnostic d = Assert.Single(CheckerErrors(bad));
+    Assert.Equal(DiagnosticCodes.TypeMismatch, d.Code);
+    Assert.Equal("A 'mut' argument must have exactly the parameter's type 'float', but 'n' is 'int'.", d.Message);
+    Assert.Equal("declare 'n' with type 'float', for example 'var n float = ...'", d.Help);
   }
 
   [Fact]
@@ -557,7 +603,11 @@ public sealed class CheckerMutabilityTests {
     Assert.Equal(9, errors.Length);
     Assert.All(errors, static d => {
       Assert.Equal(DiagnosticCodes.OverlappingMutArguments, d.Code);
-      Assert.Contains("overlapping 'mut' arguments", d.Message);
+      Assert.True(
+          d.Message.StartsWith("Cannot pass the same element of '", StringComparison.Ordinal)
+          || d.Message.StartsWith("Cannot use '", StringComparison.Ordinal),
+          d.Message);
+      Assert.Contains("'mut'", d.Message);
       Assert.Single(d.Related);
       Assert.Contains("already mutably borrowed here", d.Related[0].Message);
     });
