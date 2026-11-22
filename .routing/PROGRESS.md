@@ -511,10 +511,14 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - a new `runtime-re/`
 
       It proposes 12 tickets, T1 to T12 (T13, a cycle collector, is deferred). Router spot-check: the IQ-11 bug is real (`MemoryFacts.IsPointerFree` checks only one level via `IsInlineScalar`).
-    - **Awaiting owner:**
-      - IQ-1 to IQ-11 (the router agrees with every recommendation)
-      - IQ-12, the print forms: maps with `->`? sets, pools, and a Pino-style panic text instead of Rust's `thread 'main' panicked`
-      - the router's proposal to move T5, T6, T8 and T12 to Claude Sonnet
+    - **Owner answers (2026-11-21):** every recommendation accepted (IQ-1 to IQ-12), including the print forms:
+      - **maps print with `->`**, which settles the old `str(m)` question; sets and pools as IQ-12
+      - the Pino-style panic text is **deferred** (use IQ-12's format for now)
+      - the open points are decided: a generic `val mut` with a scalar stays silent; `struct Bad { x Bad }` becomes a checker error (the alternatives are `Option[Bad]`, `[]Bad`, a recursive union, or a `Pool`/`Handle`); `INT64_MIN // -1` panics clearly; `time()` returns epoch milliseconds; regex stays open
+      - models: T5 and T6 on Sonnet High, T8 and T12 on Sonnet Medium, T1 on Hydrogen High, the rest on Neon High
+
+      These are recorded in `056/design.md` "Owner answers".
+    - **Ticket drafting:** the same 056 Neon thread (warm context, per the owner) drafts 058 (T0: D-186 print forms, the recursive-struct checker error, overflow and `time()` spec text) and 059 to 070 (T1 to T12). Then the router reviews them and starts the chain.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
