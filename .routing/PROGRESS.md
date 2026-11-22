@@ -477,8 +477,17 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - the `Pool[0]` parse message
     - PN3220 help to also suggest `val mut`
     - `Option` and `Result` shadowing guard
-    - the 052 spec points (D-178 PN3229 text, `mut` parameter reassignment rule, the VEC-17 vs vector.md open question, PN3102 for a struct passed `mut` to an interface parameter) Running them needs the IR and VM, so the IR design comes after these.
-  - Then: the IR design.
+    - the 052 spec points (D-178 PN3229 text, `mut` parameter reassignment rule, the VEC-17 vs vector.md open question, PN3102 for a struct passed `mut` to an interface parameter)
+  - [ ] **055-checker-polish-messages-and-spec-gaps** (Claude Sonnet 5.5 Medium; the owner moved it to Claude to spare Gemini quota). Every message text is fixed in the ticket.
+    1. PN3226 split in two: "the same element of 'v'" vs "Cannot use 'x' twice as 'mut' in one call to 'swap'."
+    2. The PN3220 help also suggests `val mut`.
+    3. Indexing a variable named `Pool`, `Handle`, `set` or `map` gets a clear message.
+    4. `Option` and `Result` can't be redeclared (PN3002).
+    5. Documents current `-re` behavior: FN-36 (a `mut` parameter may be reassigned; it is `inout`, D-180) and FN-37 (a `mut` argument must have exactly the parameter's type, because the callee may store any value of that type into the caller's variable), with a readable PN3102 message.
+    6. Spec text fixes: D-178 no longer cites PN3229, and the stale open question in `vector.md` is removed.
+  - [ ] **056-re-ir-design** (draft, Gemini 4 Neon High; **not handed out**, per the owner): a read-only design doc like 043.
+    - It answers: the IR shape (TACKY vs SSA vs ANF/λRC vs bytecode, with three worked functions), data layout (inline vs boxed structs, generics strategy, interfaces), value semantics and `mut` lowering, memory phases (tracing GC first, then RC with VM shadow counts, arenas, the atomic-RC bit), lowering of every construct and every `IntrinsicId`, the C# VM, the C emitter, testing (printer, verifier, new conformance engines), a performance budget, a ticket plan, and IQ owner questions.
+    - Settled items (AD-001, AD-002, AD-003, D-177 to D-185, owner direction) are not reopened.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
