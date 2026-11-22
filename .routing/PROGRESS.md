@@ -530,7 +530,11 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - **070 wants a narrow edit to the frozen `pino-csharp/WASMBridge.cs`.** Ask the owner before 070: that, or a separate `pino-csharp-re/Pino.Wasm/` project
       - 063 and 065 both touch `Pino.Cli/CliApp.cs`, and 068 and 069 both touch `IrPassPipeline.cs` (rebase touchpoints)
     - The chain: 058, then 059, then 060 to 062 alongside 064, then 063 alongside 065, then 066, then 067 to 070.
-  - [ ] **058-spec-and-checker-ir-prereqs** (Claude Sonnet 5.5 Medium): dispatched.
+  - [x] **058-spec-and-checker-ir-prereqs** (`7959638` rebased, Claude Sonnet 5.5 Medium): D-186 (print forms: maps `->`, sets, pools, `type(p)`/`type(h)`), D-080 accepted, MAP-9, SET-6 and BUILTIN-7 reworded, POOL-13, POOL-14, ERR-24 (`[no-case]`), STRUCT-E19 (PN3114 for a struct that contains itself), and TYPE-E6 (the `INT64_MIN // -1` panic).
+    - 4 new cases. The legacy engines fail them all (the int-min case fails at the legacy parse of the big literal); D-186 lines added.
+    - Router verification: legacy 2261/2261; `-re` 4397/4399 (only the 2 worktree-only lexer items); 0 warnings; format clean; `main.pino` 0 errors. The printed forms look right (`Pool[string] { Handle(0, 1) -> "Cy", ... }`).
+    - Not covered: a struct that recurses through another generic's type argument (`struct W { b Box2[W] }`). The ticket allowed skipping it.
+  - [ ] **059-re-ir-core-printer-verifier** (Gemini 4 Hydrogen High): dispatched.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
