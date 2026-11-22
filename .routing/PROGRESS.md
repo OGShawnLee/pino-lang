@@ -492,7 +492,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - the 052 spec points (D-178 PN3229 text, `mut` parameter reassignment rule, the VEC-17 vs vector.md open question, PN3102 for a struct passed `mut` to an interface parameter)
   - [x] **055-checker-polish-messages-and-spec-gaps** (`87230af` rebased, Claude Sonnet 5.5 Medium; the owner moved it to Claude to spare Gemini quota). Items 1, 2, 3, 5 and 6 are done. Router verification: legacy 2246/2246; `-re` 4360/4362 (only the 2 worktree-only lexer items); 0 warnings; format clean; `main.pino` 0 errors. **Item 4 was skipped by its stop condition:** user `union Option` declarations exist in `conformance/unions/err-generic-mismatch`, `generic-decorator` and `generic-inferred-type`, and in the owner's `projects/pino-compiler/test/reference_equality_test.pino:49`. Owner question: reserve `Option`/`Result` (rename those) or allow shadowing.
     - **Owner answer (2026-11-21): reserve them** (option 1); the files that declare their own `Option` are outdated.
-  - [ ] **057-reserve-option-and-result** (Claude Sonnet 5.5 Medium): PN3002 `'Option' is a built-in type and can't be declared again.`, a new `TYPE-E` rule, a D-185 extension, and the 3 `unions/` cases renamed to `Maybe`. The owner's self-host test file is left alone: the owner migrates it by hand (it also tests the removed `===`). Every message text is fixed in the ticket.
+  - [x] **057-reserve-option-and-result** (`7b861b5` rebased, Claude Sonnet 5.5 Medium; resumed once after a Claude API error): TYPE-E5 in `types.md`, D-185 extended, the 3 `unions/` cases renamed to `Maybe`, and `types/err-redeclare-option` added. Router verification: legacy 2249/2249; `-re` 4370/4372 (only the 2 worktree-only lexer items); 0 warnings; format clean; `main.pino` 0 errors. Original plan: PN3002 `'Option' is a built-in type and can't be declared again.`, a new `TYPE-E` rule, a D-185 extension, and the 3 `unions/` cases renamed to `Maybe`. The owner's self-host test file is left alone: the owner migrates it by hand (it also tests the removed `===`). Every message text is fixed in the ticket.
     1. PN3226 split in two: "the same element of 'v'" vs "Cannot use 'x' twice as 'mut' in one call to 'swap'."
     2. The PN3220 help also suggests `val mut`.
     3. Indexing a variable named `Pool`, `Handle`, `set` or `map` gets a clear message.
@@ -502,6 +502,19 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
   - [ ] **056-re-ir-design** (Gemini 4 Neon High, dispatched 2026-11-21 after the AD-002 amendment, RC directly): a read-only design doc like 043. Section 4 is rewritten for RC from the start.
     - It answers: the IR shape (TACKY vs SSA vs ANF/λRC vs bytecode, with three worked functions), data layout (inline vs boxed structs, generics strategy, interfaces), value semantics and `mut` lowering, memory phases (tracing GC first, then RC with VM shadow counts, arenas, the atomic-RC bit), lowering of every construct and every `IntrinsicId`, the C# VM, the C emitter, testing (printer, verifier, new conformance engines), a performance budget, a ticket plan, and IQ owner questions.
     - Settled items (AD-001, AD-002, AD-003, D-177 to D-185, owner direction) are not reopened.
+    - **Design delivered** (`design.md`, 1,346 lines; Neon touched only its two files). It recommends:
+      - a typed TACKY-style IR with basic blocks
+      - inline structs; 8-byte RC+CoW collection handles; 24-byte string slices; `Option` with no allocation
+      - full monomorphization; `mut` passed as an address (a `PlaceRef` in the VM)
+      - RC from day one, with a Lean-style signed header (0 means arena, negative is reserved for atomic) and VM shadow counts
+      - callback intrinsics inlined as loops
+      - a new `runtime-re/`
+
+      It proposes 12 tickets, T1 to T12 (T13, a cycle collector, is deferred). Router spot-check: the IQ-11 bug is real (`MemoryFacts.IsPointerFree` checks only one level via `IsInlineScalar`).
+    - **Awaiting owner:**
+      - IQ-1 to IQ-11 (the router agrees with every recommendation)
+      - IQ-12, the print forms: maps with `->`? sets, pools, and a Pino-style panic text instead of Rust's `thread 'main' panicked`
+      - the router's proposal to move T5, T6, T8 and T12 to Claude Sonnet
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
