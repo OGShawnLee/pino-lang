@@ -465,7 +465,19 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Router verification: legacy 2204/2204; `-re` 4251/4253 (only the 2 worktree-only lexer items); 0 warnings; format clean.
     - Every spec.md probe matches. Extra probes also pass: a `var` index gives a run-time check; `es[i]` vs `es[j]:hp` gives a run-time check; `es[i]` vs `es[i]:hp` gives PN3226; different fields and `v[-1]` vs `v[1]` are proven disjoint.
     - Follow-up nit (readability): PN3226, from 049, still says `Cannot pass 'v' as overlapping 'mut' arguments in the same call.` Align it with the run-time wording, `Cannot pass the same element of 'v' as two 'mut' arguments to 'f'.`, with a separate wording for a whole value (`f(mut a, mut a)`). Batch it with the next checker ticket.
-  - [ ] **054-pool-and-handle-types** (Gemini 4 Neon High): dispatched after 053 integrated. Running them needs the IR and VM, so the IR design comes after these.
+  - [x] **054-pool-and-handle-types** (`ec238c5`, Gemini 4 Neon High): D-185, `spec/features/pools.md` (POOL-1 to POOL-12, POOL-E1 to POOL-E5), `spec/stdlib/pool.md`, EQ-14, LOOP-19 and LOOP-20, VAR-E13 and D-183 extended, grammar, and the SPEC `## Memory` list.
+    - `-re`: the `PoolType`/`HandleType` symbols, the `Pool[...]`/`Handle[...]` parse forms (D-147 precedent), `StdlibReceiverKind.Pool`, and every integration point.
+    - Diagnostics: PN3231, PN3002 for a redefined `Pool`, and a new message `PN3211: Pool index must have type 'Handle[Weapon]', but got 'int'.` (the worker wrote it; it reads fine).
+    - 12 cases. The slot-order case shows a reused slot 0 printing first.
+    - Router verification: legacy 2240/2240; `-re` 4344/4346 (only the 2 worktree-only lexer items); 0 warnings; format clean.
+    - Every spec.md probe matches. Router extra probe, 0 errors: a `World` with `mut enemies Pool[Enemy]`, `Option[Handle[Enemy]]`, a generic `first_or(p Pool[T], ...)`, a `mut` pool parameter, a handle used as a map key and a set element, `Pool[fn (int) -> int]` called through an index, and a `handles()` loop. `Pool[void]` gives PN3101, `Pool[int, string]` gives PN3102.
+    - Nit (readability): `var Pool = [1, 2]; Pool[0]` gives `PN2004: Expected type, found '0'.`, which is correct by POOL-2 but terse. It could say `'Pool[...]' always names the pool type; rename the variable`.
+  - **Checker polish batch (candidate ticket):**
+    - PN3226 wording to match D-184
+    - the `Pool[0]` parse message
+    - PN3220 help to also suggest `val mut`
+    - `Option` and `Result` shadowing guard
+    - the 052 spec points (D-178 PN3229 text, `mut` parameter reassignment rule, the VEC-17 vs vector.md open question, PN3102 for a struct passed `mut` to an interface parameter) Running them needs the IR and VM, so the IR design comes after these.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
