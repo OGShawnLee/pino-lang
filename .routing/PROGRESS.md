@@ -540,6 +540,8 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Router verification: `-re` 4416/4418 (only the 2 worktree-only lexer items); 0 warnings; format clean. The golden `sum_vec` reads cleanly.
     - Deferred to 060: UTF-8 string-loop helpers and `[]T { len, init }` helpers.
   - [ ] **060-re-ir-lowering-core** (Gemini 4 Neon High) and **064-re-c-runtime** (Claude Sonnet 5.5 High): dispatched in parallel.
+  - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
+    - Note: Neon's thinking showed it failed to read the tickets at first. It had tried the worktree path, where the untracked `.tickets/` don't exist, then read them from the main checkout successfully. Future briefs should say plainly that `.tickets/` exists only in the main checkout.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
