@@ -120,88 +120,127 @@ public sealed class TypeReachabilityGraph {
 
   /// <summary>
   /// The type's values hold no references the memory manager must trace or count.
-  /// Under AD-003 value semantics (D-177), structs and unions of inline scalars are pointer-free.
+  /// Under AD-003 value semantics (D-177), structs, non-recursive unions, and tuples whose
+  /// transitive fields are all pointer-free are themselves pointer-free (IQ-11).
   /// </summary>
   public bool IsPointerFree(TypeSymbol type) {
     ArgumentNullException.ThrowIfNull(type);
+    var visiting = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
+    var memo = new Dictionary<TypeSymbol, bool>(ReferenceEqualityComparer.Instance);
+    return IsPointerFreeCore(type, visiting, memo);
+  }
 
-    return type switch {
+  private bool IsPointerFreeCore(
+      TypeSymbol type,
+      HashSet<TypeSymbol> visiting,
+      Dictionary<TypeSymbol, bool> memo) {
+    if (memo.TryGetValue(type, out bool cached)) {
+      return cached;
+    }
+
+    bool result = type switch {
       PrimitiveType p => IsScalarPrimitive(p.Kind),
       EnumType => true,
       HandleType => true,
       VoidType => true,
       NeverType => true,
-      TupleType tuple => AllTupleFieldsInlineScalar(tuple),
-      StructType structType => IsStructPointerFree(structType),
-      UnionType unionType => IsUnionPointerFree(unionType),
+      TupleType tuple => AllTupleFieldsPointerFree(tuple, visiting, memo),
+      StructType structType => IsStructPointerFree(structType, visiting, memo),
+      UnionType unionType => IsUnionPointerFree(unionType, visiting, memo),
       _ => false,
     };
+
+    memo[type] = result;
+    return result;
   }
 
-  private bool IsStructPointerFree(StructType structType) {
-    if (_adjacency.TryGetValue(structType, out ImmutableArray<TypeReachabilityEdge> edges)) {
-      foreach (TypeReachabilityEdge edge in edges) {
-        if (!IsInlineScalar(edge.Target)) {
+  private bool IsStructPointerFree(
+      StructType structType,
+      HashSet<TypeSymbol> visiting,
+      Dictionary<TypeSymbol, bool> memo) {
+    if (!visiting.Add(structType)) {
+      return false;
+    }
+
+    try {
+      if (_adjacency.TryGetValue(structType, out ImmutableArray<TypeReachabilityEdge> edges)) {
+        foreach (TypeReachabilityEdge edge in edges) {
+          if (!IsPointerFreeCore(edge.Target, visiting, memo)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      ImmutableArray<FieldSymbol> fields = structType.Definition.AllFields.IsEmpty
+          ? structType.Definition.Fields
+          : structType.Definition.AllFields;
+      foreach (FieldSymbol field in fields) {
+        TypeSymbol resolved = Substitute(field.Type, structType.Definition.TypeParameters, structType.TypeArguments);
+        if (!IsPointerFreeCore(resolved, visiting, memo)) {
           return false;
         }
       }
       return true;
+    } finally {
+      visiting.Remove(structType);
     }
-
-    ImmutableArray<FieldSymbol> fields = structType.Definition.AllFields.IsEmpty
-        ? structType.Definition.Fields
-        : structType.Definition.AllFields;
-    foreach (FieldSymbol field in fields) {
-      TypeSymbol resolved = Substitute(field.Type, structType.Definition.TypeParameters, structType.TypeArguments);
-      if (!IsInlineScalar(resolved)) {
-        return false;
-      }
-    }
-    return true;
   }
 
-  private bool IsUnionPointerFree(UnionType unionType) {
-    if (_adjacency.TryGetValue(unionType, out ImmutableArray<TypeReachabilityEdge> edges)) {
-      foreach (TypeReachabilityEdge edge in edges) {
-        if (!IsInlineScalar(edge.Target)) {
+  private bool IsUnionPointerFree(
+      UnionType unionType,
+      HashSet<TypeSymbol> visiting,
+      Dictionary<TypeSymbol, bool> memo) {
+    if (!visiting.Add(unionType)) {
+      return false;
+    }
+
+    try {
+      if (_adjacency.TryGetValue(unionType, out ImmutableArray<TypeReachabilityEdge> edges)) {
+        foreach (TypeReachabilityEdge edge in edges) {
+          if (!IsPointerFreeCore(edge.Target, visiting, memo)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      foreach (UnionVariantSymbol variant in unionType.Definition.Variants) {
+        foreach (UnionVariantField field in variant.Fields) {
+          TypeSymbol resolved = Substitute(field.Type, unionType.Definition.TypeParameters, unionType.TypeArguments);
+          if (!IsPointerFreeCore(resolved, visiting, memo)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    } finally {
+      visiting.Remove(unionType);
+    }
+  }
+
+  private bool AllTupleFieldsPointerFree(
+      TupleType tuple,
+      HashSet<TypeSymbol> visiting,
+      Dictionary<TypeSymbol, bool> memo) {
+    if (!visiting.Add(tuple)) {
+      return false;
+    }
+
+    try {
+      foreach (TupleField field in tuple.Fields) {
+        if (!IsPointerFreeCore(field.Type, visiting, memo)) {
           return false;
         }
       }
       return true;
+    } finally {
+      visiting.Remove(tuple);
     }
-
-    foreach (UnionVariantSymbol variant in unionType.Definition.Variants) {
-      foreach (UnionVariantField field in variant.Fields) {
-        TypeSymbol resolved = Substitute(field.Type, unionType.Definition.TypeParameters, unionType.TypeArguments);
-        if (!IsInlineScalar(resolved)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  private static bool AllTupleFieldsInlineScalar(TupleType tuple) {
-    foreach (TupleField field in tuple.Fields) {
-      if (!IsInlineScalar(field.Type)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   private static bool IsScalarPrimitive(PrimitiveKind kind) =>
       kind is PrimitiveKind.Bool or PrimitiveKind.Int or PrimitiveKind.Float or PrimitiveKind.Rune;
-
-  private static bool IsInlineScalar(TypeSymbol type) =>
-      type switch {
-        PrimitiveType p => IsScalarPrimitive(p.Kind),
-        EnumType => true,
-        HandleType => true,
-        VoidType => true,
-        TupleType tuple => AllTupleFieldsInlineScalar(tuple),
-        _ => false,
-      };
 
   private static TypeSymbol Substitute(
       TypeSymbol type,

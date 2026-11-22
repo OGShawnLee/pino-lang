@@ -77,7 +77,7 @@ public sealed class CheckerReachabilityTests {
     Assert.False(graph.IsPointerFree(types.String));
     Assert.False(graph.IsPointerFree(types.Regex));
     Assert.False(graph.IsPointerFree(namedType));
-    Assert.False(graph.IsPointerFree(wrapperType));
+    Assert.True(graph.IsPointerFree(wrapperType));
     Assert.False(graph.IsPointerFree(types.GetVector(types.Int)));
     Assert.False(graph.IsPointerFree(types.GetMap(types.String, types.Int)));
     Assert.False(graph.IsPointerFree(types.GetSet(types.Int)));
@@ -173,5 +173,79 @@ public sealed class CheckerReachabilityTests {
     Assert.False(graph.IsCycleCapable(vecDeclType));
     Assert.False(graph.IsCycleCapable(exprUnion));
     Assert.False(graph.IsCycleCapable(nodeLikeIface));
+  }
+
+  [Fact]
+  public void ReachabilityGraph_TransitiveIsPointerFree_HandlesNestedStructsUnionsTuplesAndCycles() {
+    const string Code = """
+      struct Point {
+        x float
+        y float
+      }
+
+      struct Rect {
+        a Point
+        b Point
+      }
+
+      struct Entity {
+        hp int
+        target Handle[Entity]
+      }
+
+      struct Log {
+        mut entries []string
+      }
+
+      union List {
+        Cons(int, List)
+        Nil
+      }
+
+      fn pair_points(p Point) @(a Point, b Point) {
+        return @(a: p, b: p)
+      }
+
+      fn use_types(
+        r Rect,
+        e Entity,
+        opt Option[Point],
+        log Log,
+        xs List,
+        pool Pool[Point]
+      ) {}
+      """;
+
+    ParseResult parsed = Parser.Parse(new SourceText(Code, "transitive.pino"));
+    Assert.Empty(parsed.Diagnostics);
+
+    Compilation compilation = Compilation.Create(parsed);
+    Assert.Empty(compilation.Diagnostics);
+
+    TypeReachabilityGraph graph = compilation.Reachability;
+    TypeInterner types = compilation.Types;
+    Scope modScope = compilation.RootModel.GetScope(parsed.Root)!;
+
+    StructType pointType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["Point"]);
+    StructType rectType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["Rect"]);
+    StructType entityType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["Entity"]);
+    StructType logType = types.GetStruct((StructSymbol) modScope.DeclaredSymbols["Log"]);
+    UnionType listType = types.GetUnion((UnionSymbol) modScope.DeclaredSymbols["List"]);
+    UnionType optPointType = types.GetUnion(compilation.Prelude.OptionUnion, [pointType]);
+    PoolType poolPointType = types.GetPool(pointType);
+    TupleType pairTupleType = types.GetTuple([
+      new TupleField("a", pointType),
+      new TupleField("b", pointType),
+    ]);
+
+    Assert.True(graph.IsPointerFree(pointType));
+    Assert.True(graph.IsPointerFree(rectType));
+    Assert.True(graph.IsPointerFree(entityType));
+    Assert.True(graph.IsPointerFree(optPointType));
+    Assert.True(graph.IsPointerFree(pairTupleType));
+
+    Assert.False(graph.IsPointerFree(logType));
+    Assert.False(graph.IsPointerFree(listType));
+    Assert.False(graph.IsPointerFree(poolPointType));
   }
 }

@@ -268,7 +268,7 @@ public sealed class TypeSystemTests {
     Assert.False(graph.IsPointerFree(types.Error));
     Assert.False(graph.IsPointerFree(namedType));
     Assert.False(graph.IsPointerFree(bagType));
-    Assert.False(graph.IsPointerFree(outerType));
+    Assert.True(graph.IsPointerFree(outerType));
 
     // Cycle-capable checks (builder level: edges with isMutableEdge: true form a mutable cycle; false edges do not)
     Assert.True(graph.IsCycleCapable(nodeType));
