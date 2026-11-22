@@ -34,6 +34,7 @@ The primitive types are `bool`, `int`, `float`, `rune` and `string`. Values of t
 - TYPE-E2: `void` written as the type of a parameter, a variable, a field or a collection element is rejected by the checker with a message containing "void". [src: spec/decisions/D-162-void-as-a-writable-type.md]
 - TYPE-E3: A `float` is never implicitly narrowed to `int`: a `float` initializer for an annotated `int` variable (`val n int = 1.5`), a `float` argument for an `int` parameter and a `float` returned from a function declared to return `int` are rejected by the checker with a message containing "float". [src: spec/decisions/D-172-int-to-float-widening-positions.md]
 - TYPE-E4: Division or modulo by zero at run time (`/`, `//` or `%`, on `int` or `float` operands) panics: it ends the program with exit code 101 and a message containing "divide by zero". [src: spec/decisions/D-170-runtime-division-by-zero.md; ERR-3; ERR-5]
+- TYPE-E5: Declaring a user `struct`, `enum`, `union` or `interface` named `Option` or `Result` is rejected by the checker with `PN3002` (`'Option' is a built-in type and can't be declared again.`, help `choose another name`), and using either name as a `@@Generic` type parameter name is rejected per `GEN-E4`; they are reserved exactly like `Pool` and `Handle` (`POOL-E5`). [src: spec/decisions/D-185-pool-and-handle.md]
 
 ## Examples
 Conformance cases: `conformance/types/`.

@@ -1,18 +1,18 @@
 # covers: UNION-6, UNION-8
 @@Generic[T]
-union Option {
+union Maybe {
   Some(T)
   None
 }
 
-val o1 = Option::Some(42)
-var o2 Option[int] = Option::None
+val o1 = Maybe::Some(42)
+var o2 Maybe[int] = Maybe::None
 
 match o1 {
-  when Option::Some(v) { println("Some:" + str(v)) }
+  when Maybe::Some(v) { println("Some:" + str(v)) }
   else { println("none") }
 }
 match o2 {
-  when Option::Some(v) { println("Some:" + str(v)) }
-  when Option::None { println("None") }
+  when Maybe::Some(v) { println("Some:" + str(v)) }
+  when Maybe::None { println("None") }
 }

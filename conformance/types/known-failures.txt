@@ -106,3 +106,8 @@ C float-modulo.pino  # D-171: legacy fails: PARSER: Expected expression, got Ope
 TreeWalk float-widening-annotated.pino  # D-172: legacy fails: PARSER: Expected '=', got Identifier: float
 VM float-widening-annotated.pino  # D-172: legacy fails: PARSER: Expected '=', got Identifier: float
 C float-widening-annotated.pino  # D-172: legacy fails: PARSER: Expected '=', got Identifier: float
+
+# --- Reserved built-in names (ticket 057)
+TreeWalk err-redeclare-option.pino  # D-185: legacy compiler accepts a user union named Option
+VM err-redeclare-option.pino  # D-185: legacy compiler accepts a user union named Option
+C err-redeclare-option.pino  # D-185: legacy compiler accepts a user union named Option

@@ -459,7 +459,7 @@ internal sealed partial class CheckerSession {
   }
 
   private static bool IsReservedBuiltInTypeName(string name) =>
-      name is "Pool" or "Handle";
+      name is "Pool" or "Handle" or "Option" or "Result";
 
   private static void ReportReservedBuiltInTypeName(ModuleCheckState state, string name, Text.SourceSpan span) {
     state.Diagnostics.ReportError(

@@ -1,1 +1,1 @@
-Argument 1 for function 'expect_int' expected type 'Option[int]', but got 'Option_string'
+Argument 1 for function 'expect_int' expected type 'Maybe[int]', but got 'Maybe_string'

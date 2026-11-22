@@ -106,7 +106,7 @@ internal sealed partial class CheckerSession {
   }
 
   private static bool IsExistingDefinedType(string name, Scope? scope) {
-    if (name is "bool" or "int" or "float" or "rune" or "string" or "regex" or "void" or "Pool" or "Handle") {
+    if (name is "bool" or "int" or "float" or "rune" or "string" or "regex" or "void" or "Pool" or "Handle" or "Option" or "Result") {
       return true;
     }
 

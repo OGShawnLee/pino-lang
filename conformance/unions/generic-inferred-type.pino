@@ -1,19 +1,19 @@
 # covers: UNION-8
 @@Generic[T]
-union Option {
+union Maybe {
   Some(T)
   None
 }
 
-fn expect_int(opt Option[int]) {
+fn expect_int(opt Maybe[int]) {
   println("int option")
 }
 
-fn expect_str(opt Option[string]) {
+fn expect_str(opt Maybe[string]) {
   println("string option")
 }
 
-val x = Option::Some(42)
-val y = Option::Some("hello")
+val x = Maybe::Some(42)
+val y = Maybe::Some("hello")
 expect_int(x)
 expect_str(y)

@@ -67,3 +67,7 @@ Option 1, decided by the owner on 2026-11-21:
   - **Cross-pool handles:** handles are tied to the element type `T`, not to a specific pool instance. Passing a handle obtained from one `Pool[T]` to a different `Pool[T]` is not detected beyond what the slot index and generation check happens to catch.
   - **Thread safety:** out of scope; concurrent access to pools waits for the concurrency design.
 - **Normative rules:** adds `spec/features/pools.md` (`POOL-1`–`POOL-12`, `POOL-E1`–`POOL-E5`), `spec/stdlib/pool.md` (`POOLLIB-1`–`POOLLIB-8`), `EQ-14`, `LOOP-19`, `LOOP-20`; rewords `VAR-E13`; extends `D-183`; updates `spec/grammar.ebnf` and `spec/SPEC.md`.
+
+## Extension (2026-11-21, owner, ticket 057)
+
+The built-in type names `Option` and `Result` are reserved exactly like `Pool` and `Handle`. A user `struct`, `enum`, `union` or `interface` with either name is rejected with `PN3002` (`'Option' is a built-in type and can't be declared again.`, help `choose another name`), and either name as a `@@Generic` parameter is rejected per `GEN-E4`. `?` and `or` are tied to the built-in types, so a lookalike would be confusing. Normative rule: `TYPE-E5`. Conformance cases that declared their own `union Option` now use `Maybe`.

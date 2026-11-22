@@ -86,8 +86,8 @@ public sealed class CheckerConformanceTests {
             "Legacy .err uses mangled 'Container_string'; pino-re uses canonical 'Container[string]'."),
         ["unions/err-generic-mismatch.pino"] = (
             DiagnosticCodes.TypeMismatch,
-            "Option[string]",
-            "Legacy .err uses mangled 'Option_string'; pino-re uses canonical 'Option[string]'."),
+            "Maybe[string]",
+            "Legacy .err uses mangled 'Maybe_string'; pino-re uses canonical 'Maybe[string]'."),
         ["unions/err-is-generic-mismatch.pino"] = (
             DiagnosticCodes.InvalidIsPattern,
             "Option[int]",

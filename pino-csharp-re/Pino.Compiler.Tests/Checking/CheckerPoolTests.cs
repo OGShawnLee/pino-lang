@@ -270,6 +270,37 @@ interface Handle { fn id() int }
     Assert.Equal("choose another name", errors[1].Help);
   }
 
+  [Theory]
+  [InlineData("struct {0} {{ x int }}")]
+  [InlineData("enum {0} {{ A }}")]
+  [InlineData("union {0} {{ A  B }}")]
+  [InlineData("interface {0} {{ fn id() int }}")]
+  public void OptionAndResult_ReservedNames_EmitPN3002(string template) {
+    foreach (string name in new[] { "Option", "Result" }) {
+      Compilation compilation = Compile(string.Format(template, name));
+      Diagnostic err = Assert.Single(CheckerErrors(compilation));
+      Assert.Equal(DiagnosticCodes.DuplicateDeclaration, err.Code);
+      Assert.Equal($"'{name}' is a built-in type and can't be declared again.", err.Message);
+      Assert.Equal("choose another name", err.Help);
+    }
+  }
+
+  [Fact]
+  public void OptionAndResult_AsGenericParameterName_IsRejected() {
+    const string code = """
+@@Generic[Option]
+fn a(x Option) Option { return x }
+@@Generic[Result]
+fn b(x Result) Result { return x }
+""";
+
+    Diagnostic[] errors = CheckerErrors(Compile(code));
+    Assert.Contains(errors, d => d.Code == DiagnosticCodes.GenericParameterNameConflict
+        && d.Message.Contains("'Option'", StringComparison.Ordinal));
+    Assert.Contains(errors, d => d.Code == DiagnosticCodes.GenericParameterNameConflict
+        && d.Message.Contains("'Result'", StringComparison.Ordinal));
+  }
+
   [Fact]
   public void ValMut_VARE13_AllowsPoolAndRejectsHandle() {
     const string code = """

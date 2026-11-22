@@ -1,0 +1,5 @@
+# covers: TYPE-E5
+union Option {
+  Some(int)
+  None
+}

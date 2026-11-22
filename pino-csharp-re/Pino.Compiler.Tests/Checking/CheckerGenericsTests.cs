@@ -452,7 +452,7 @@ public sealed class CheckerGenericsTests {
     // verify modern Pino phrasing matches the spec rule requirements (GEN-E2, UNION-E3, UNION-E4).
     (string Path, string RequiredPhrase)[] modernCases = [
       ("conformance/generics/err-incompatible-init.pino", "Cannot assign type 'string' to field 'value' of type 'int'"),
-      ("conformance/unions/err-generic-mismatch.pino", "expected type 'Option[int]', but got 'Option[string]'"),
+      ("conformance/unions/err-generic-mismatch.pino", "expected type 'Maybe[int]', but got 'Maybe[string]'"),
       ("conformance/unions/err-generic-arg-mismatch.pino", "expected type 'Container[int]', but got 'Container[string]'"),
     ];
 
