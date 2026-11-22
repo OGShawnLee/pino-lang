@@ -459,7 +459,13 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - Stale handle: `This handle no longer points to a value in 'armory'; it was removed.`
     - PN3231: `A 'Handle[Weapon]' can't be created directly.`
     - PN3002: `'Pool' is a built-in type and can't be declared again.`
-  - 053 is dispatched (Neon High). 054 follows after 053 integrates. Running them needs the IR and VM, so the IR design comes after these.
+  - [x] **053-disjoint-mut-slots** (`69637c7`, Gemini 4 Neon High): D-184, FN-E16 reworded, FN-32 to FN-35, VECLIB-26, VECLIB-27 and VECLIB-E2, D-180 extended.
+    - Checker: the overlap algorithm, `RuntimeDisjointnessCheck` records with their unknown step pairs on `SemanticModel`, and `IntrinsicId.VecSwap`.
+    - 6 cases; the two run-time `.err` cases are in `RuntimeErrCases`.
+    - Router verification: legacy 2204/2204; `-re` 4251/4253 (only the 2 worktree-only lexer items); 0 warnings; format clean.
+    - Every spec.md probe matches. Extra probes also pass: a `var` index gives a run-time check; `es[i]` vs `es[j]:hp` gives a run-time check; `es[i]` vs `es[i]:hp` gives PN3226; different fields and `v[-1]` vs `v[1]` are proven disjoint.
+    - Follow-up nit (readability): PN3226, from 049, still says `Cannot pass 'v' as overlapping 'mut' arguments in the same call.` Align it with the run-time wording, `Cannot pass the same element of 'v' as two 'mut' arguments to 'f'.`, with a separate wording for a whole value (`f(mut a, mut a)`). Batch it with the next checker ticket.
+  - [ ] **054-pool-and-handle-types** (Gemini 4 Neon High): dispatched after 053 integrated. Running them needs the IR and VM, so the IR design comes after these.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
