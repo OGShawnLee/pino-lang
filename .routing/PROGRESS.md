@@ -454,7 +454,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - the generation-limit rule is `[no-case]`
     - The review also listed the `-re` integration points (`Mutability.cs:168`, `IsPointerFree`, `Unifier`, and so on), now in 054's Inputs.
     - Nit for later: `Option` and `Result` can be silently shadowed by a user `struct Option` (no redefinition guard in `-re`).
-  - Awaiting owner approval of the revised 053 and 054. Running them needs the IR and VM, so the IR design comes after these.
+  - **Owner approved 053 and 054 (2026-11-21),** with one requirement: messages must be human-readable. Both tickets now give exact plain-sentence texts and a "Messages people can read" section.
+    - D-184 panic: `Cannot pass the same element of 'enemies' as two 'mut' arguments to 'duel'.`
+    - Stale handle: `This handle no longer points to a value in 'armory'; it was removed.`
+    - PN3231: `A 'Handle[Weapon]' can't be created directly.`
+    - PN3002: `'Pool' is a built-in type and can't be declared again.`
+  - 053 is dispatched (Neon High). 054 follows after 053 integrates. Running them needs the IR and VM, so the IR design comes after these.
   - Then: the IR design.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
