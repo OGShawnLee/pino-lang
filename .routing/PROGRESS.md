@@ -91,6 +91,18 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
 
 ## Architecture decisions
 - **AD-001 — Single IR, two consumers (accepted by owner, 2026-11-19).** `pino-csharp-re` lowers the checked AST once into a Pino IR (TACKY-style, like `projects/pino-compiler/`). Two consumers read that IR: an IR interpreter/VM (dev loop, REPL, WASM playground, platforms without TCC) and a C emitter (TCC for dev builds, GCC/Clang for release). No engine re-implements semantics from the AST. Legacy `pino-csharp/` (Tree-Walk, VM, `TranspilerC`) stays as the reference oracle and is retired once `-re` matches Tree-Walk on the conformance suite. Legacy VM is frozen: no new investment.
+- **AD-002 amendment (owner, 2026-11-21): RC directly, no GC phase.** AD-003 changed the trade-off:
+  - CoW needs uniqueness counts, so a GC would force defensive copies.
+  - Plain data is acyclic.
+  - RC gives deterministic freeing, which suits games and services.
+
+  The model is unchanged: Perceus-style RC with borrowing and reuse, plus a cycle collector limited to closures that capture a `var`, plus arenas (escape points) and `Pool[T]`. **No garbage collector.** The path:
+  1. Simple, correct RC: an increment on every copy and a decrement at scope end. The IR VM keeps shadow counts that validate every `inc` and `dec`. The C runtime has a debug mode with a leak report at exit and freed-memory poisoning (plus ASan with Clang).
+  2. The Perceus optimizations (borrowed parameters, removing increments and decrements that cancel, drop specialization, reset/reuse), one pass at a time, each validated by step 1's checks.
+  3. Arenas: allocations that provably don't escape go into a region freed at once, with no RC inside it.
+  4. Closure cycles leak at first and are reported by the debug mode. A small cycle collector comes later, only if needed.
+
+  A tracing GC stays only as a documented fallback if experiments E1–E4 fail. The legacy `TranspilerC` on Boehm is the GC baseline for E1. Atomic RC for values that cross threads comes with the concurrency design.
 - **AD-002 — Memory model (accepted by owner, 2026-11-20, from ticket 032).** The target is Perceus-style compiler-inserted reference counting (borrow inference, reuse) plus a cycle collector restricted to cycle-capable types (Nim ORC style); cycles are collected automatically. Users write no ownership or lifetime annotations. The IR is designed RC-ready but neutral. The first `-re` C emitter uses a tracing GC; the RC pass comes later behind a flag, validated by the IR VM, and becomes the default only if experiments E1–E4 (032 §7) pass, with a precise tracing GC as the fallback. Native resource release timing is best-effort and unspecified. Future concurrency has no shared mutable heap. The checker stays neutral and records capture sets, assigned-anywhere, the type reachability graph and pointer-free types.
 - **AD-003 — Value semantics, deep immutability and `mut` (accepted by owner, 2026-11-21, from ticket 043).**
   - Structs, vectors, maps, sets and unions are values with copy-on-write. This reverses D-070.
@@ -485,7 +497,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     4. `Option` and `Result` can't be redeclared (PN3002).
     5. Documents current `-re` behavior: FN-36 (a `mut` parameter may be reassigned; it is `inout`, D-180) and FN-37 (a `mut` argument must have exactly the parameter's type, because the callee may store any value of that type into the caller's variable), with a readable PN3102 message.
     6. Spec text fixes: D-178 no longer cites PN3229, and the stale open question in `vector.md` is removed.
-  - [ ] **056-re-ir-design** (draft, Gemini 4 Neon High; **not handed out**, per the owner): a read-only design doc like 043.
+  - [ ] **056-re-ir-design** (Gemini 4 Neon High, dispatched 2026-11-21 after the AD-002 amendment, RC directly): a read-only design doc like 043. Section 4 is rewritten for RC from the start.
     - It answers: the IR shape (TACKY vs SSA vs ANF/λRC vs bytecode, with three worked functions), data layout (inline vs boxed structs, generics strategy, interfaces), value semantics and `mut` lowering, memory phases (tracing GC first, then RC with VM shadow counts, arenas, the atomic-RC bit), lowering of every construct and every `IntrinsicId`, the C# VM, the C emitter, testing (printer, verifier, new conformance engines), a performance budget, a ticket plan, and IQ owner questions.
     - Settled items (AD-001, AD-002, AD-003, D-177 to D-185, owner direction) are not reopened.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
