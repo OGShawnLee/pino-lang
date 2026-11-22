@@ -534,7 +534,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - 4 new cases. The legacy engines fail them all (the int-min case fails at the legacy parse of the big literal); D-186 lines added.
     - Router verification: legacy 2261/2261; `-re` 4397/4399 (only the 2 worktree-only lexer items); 0 warnings; format clean; `main.pino` 0 errors. The printed forms look right (`Pool[string] { Handle(0, 1) -> "Cy", ... }`).
     - Not covered: a struct that recurses through another generic's type argument (`struct W { b Box2[W] }`). The ticket allowed skipping it.
-  - [ ] **059-re-ir-core-printer-verifier** (Gemini 4 Hydrogen High): dispatched.
+  - [x] **059-re-ir-core-printer-verifier** (`5607024`, Gemini 4 Hydrogen High; nudged once after ending its turn early):
+    - `Pino.Compiler/IR/`: 22 type kinds, 110 instructions plus 7 terminators, `IrTypeTable` (transitive pointer-free, recursive unions, cycle-capable, pass-by-const-pointer), `IrPrinter`, and `IrVerifier` (IR-MOD, IR-TYPE, IR-CFG, IR-SSA with dominators, IR-RC, IR-MUT, IR-REG).
+    - IQ-11 fixed: `IsPointerFree` is transitive (`TypeSystemTests:271` flipped to `True` accordingly).
+    - Router verification: `-re` 4416/4418 (only the 2 worktree-only lexer items); 0 warnings; format clean. The golden `sum_vec` reads cleanly.
+    - Deferred to 060: UTF-8 string-loop helpers and `[]T { len, init }` helpers.
+  - [ ] **060-re-ir-lowering-core** (Gemini 4 Neon High) and **064-re-c-runtime** (Claude Sonnet 5.5 High): dispatched in parallel.
   - **Owner revision (2026-11-21): add `val mut`**, a binding that can be mutated but not reassigned. This is MQ-1's option 2, which the owner had meant to choose. Example: a module-level `val mut error_list = []`.
     - `val` stays fully frozen. `var` stays: it can be both reassigned and mutated.
     - Placement is the same as `var`: allowed in imported modules (private) and scripts, rejected at the top level of a Program Mode root file (MAIN-E3).
