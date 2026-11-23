@@ -572,6 +572,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - the guide's stale "Pool is planned" paragraph is fixed
 
     It's independent of the IR chain and can run any time.
+  - **PENDING (owner, 2026-11-23): update `pino-site-next/`, the project's presentation site.**
+    - Bring it in line with the rewritten README: pitch, memory model, fit, strengths and weaknesses, roadmap, and AI usage.
+    - Remove the "AI-slop" feel left by Gemini Flash / Argon.
+    - The router has deliberately not read the site yet; read it when drafting the ticket.
+    - `pino-site-next/**` has owner uncommitted changes (e.g. `CoreTruths.astro`). Ask the owner to commit them, or get approval to build on them, before any worker touches it.
+    - Likely a design-plus-copy ticket. Ask the owner which model and how much design freedom.
   - **071 integrated (2026-11-23): `5e77d03`** (Sonnet Medium; two router review rounds).
     - `;` is ignored with `hint[PN1018]` (D-187, LEX-23). `pino-re explain PN1018` carries the owner's story.
     - The PN3411 messages say the type once.
