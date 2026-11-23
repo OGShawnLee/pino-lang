@@ -605,6 +605,23 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - only the two named worktree-only failures are allowed
 
     Next: 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
+    - [x] **061-re-ir-lowering-closures-interfaces-generics** (`8ca812d`, Gemini 4 Neon High; done in one pass, no nudges):
+      - new files: `IrLowerer.Closures.cs`, `IrLowerer.Interfaces.cs`, `IrLowerer.Generics.cs` and `IrLowerer.Callbacks.cs`
+      - D-056 cells with cycle tagging, `PinoEnv` captures, `ClosureMake(fn, null)`, STRUCT-14 bound-method snapshots, D-055 `CallClosure`
+      - vtables (methods, properties, drop/clone/eq/to_str/type_name), `EnsureUnique` before `mut` calls and property writes, IFACE-5 map coercion
+      - a transitive monomorphization worklist, and bounded generics with zero `CallIface`
+      - the 19 callback intrinsics become inline loops with no closure for inline lambdas or `it`; `each(println)` is resolved in lowering
+      - `IrVTable` gained property getters/setters and a type name; the verifier only got stricter
+      - **The sweep has no skips:** 421/421 `.out`, 21/21 runtime `.err`, and `main.pino` lower and verify.
+      - Router verification (PowerShell):
+        - worktree: `-re` 4908/4909 (the allowed corpus item only)
+        - main: `-re` 4911/4912; legacy 2264/2264; 0 warnings; format clean
+        - The one main failure was `ParserRecoveryTests.TenThousandNestedConstructs_EmitOnePN2020WithoutStackOverflow(match…)`, a 1-second timer that took 3 s under full-suite load. It passed 3/3 on its own, so it's a flaky test that predates 061. Candidate for a small fix: a looser timer or a non-parallel collection.
+    - 062 dispatched (Neon High) with router notes:
+      - RC must balance 061's cells, envs, closures, iface boxes and vtable helpers, plus monomorphized bodies and inline callback loops
+      - the post-RC sweep covers 100% of cases, with no skip list
+      - the verifier is never loosened
+      - the flaky parser timer is noted
     - Overlap: 061 already inlines lambda callbacks into IR loops, so planned performance ticket 1 shrinks to function-value callbacks and C-level tuning.
   - **CHAIN STOPPED (2026-11-22): 060 and 064 integrated.** Waiting for the owner to resume. Next: 061 (Neon High), then 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
