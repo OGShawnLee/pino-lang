@@ -572,6 +572,7 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - the guide's stale "Pool is planned" paragraph is fixed
 
     It's independent of the IR chain and can run any time.
+  - **README committed and pushed (2026-11-23, `eee5915`, owner's request; story option B).** `README.md` is no longer an owner-uncommitted file. `origin/main` is now up to date through `eee5915`.
   - **PENDING (owner, 2026-11-23): update `pino-site-next/`, the project's presentation site.**
     - Bring it in line with the rewritten README: pitch, memory model, fit, strengths and weaknesses, roadmap, and AI usage.
     - Remove the "AI-slop" feel left by Gemini Flash / Argon.
