@@ -68,7 +68,7 @@ public sealed class CheckerCallAndStdlibTests {
     Assert.Equal(5, diags.Length);
     Assert.Contains(diags, static d => d.Code == DiagnosticCodes.WrongArgumentCount && d.Message.Contains("expected 2 arguments"));
     Assert.Contains(diags, static d => d.Code == DiagnosticCodes.TypeMismatch && d.Message.Contains("float"));
-    Assert.Contains(diags, static d => d.Code == DiagnosticCodes.ReturnTypeMismatch && d.Message.Contains("float") && d.Message.Contains("declared return type"));
+    Assert.Contains(diags, static d => d.Code == DiagnosticCodes.ReturnTypeMismatch && d.Message.Contains("float") && d.Message.Contains("should return"));
     Assert.Contains(diags, static d => d.Code == DiagnosticCodes.BareReturnInNonVoidFunction && d.Message.Contains("must return a value"));
     Assert.Contains(diags, static d => d.Code == DiagnosticCodes.ReturnTypeMismatch && d.Message.Contains("declared return type"));
   }

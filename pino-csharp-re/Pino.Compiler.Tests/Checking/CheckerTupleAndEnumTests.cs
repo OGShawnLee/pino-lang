@@ -128,7 +128,7 @@ public sealed class CheckerTupleAndEnumTests {
       """);
     Diagnostic d7 = Assert.Single(CheckerErrors(e7));
     Assert.Equal(DiagnosticCodes.ReturnTypeMismatch, d7.Code);
-    Assert.Contains("declared return type", d7.Message);
+    Assert.Contains("should return", d7.Message);
   }
 
   [Fact]

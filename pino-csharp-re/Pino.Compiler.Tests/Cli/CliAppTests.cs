@@ -363,6 +363,62 @@ public sealed class CliAppTests : IDisposable {
     AssertUsage(Run(args));
   }
 
+  private const string SemicolonExplanation = """
+      PN1018: Pino doesn't use semicolons
+
+      Pino ends a statement at the end of a line, or where the next statement
+      begins, so it never needs a semicolon. If you type one out of habit, Pino
+      ignores it and shows this hint, and your program still runs.
+
+          val a = 1;   # the ';' is ignored, with this hint
+          val a = 1    # the same program, without the hint
+
+      Why: Pino was designed so that a semicolon can never be the reason your
+      program fails. It was made for someone who once failed a university course
+      over one.
+      """;
+
+  [Theory]
+  [InlineData("PN1018")]
+  [InlineData("pn1018")]
+  public void ExplainPrintsTheExactTextAndSucceeds(string code) {
+    RunResult result = Run(["explain", code]);
+
+    Assert.Equal(0, result.ExitCode);
+    Assert.Equal(SemicolonExplanation.ReplaceLineEndings("\n") + "\n", result.Stdout);
+    Assert.Equal("", result.Stderr);
+  }
+
+  [Fact]
+  public void ExplainWithAnUnknownCodeSaysSoAndExitsOne() {
+    RunResult result = Run(["explain", "PN9999"]);
+
+    Assert.Equal(1, result.ExitCode);
+    Assert.Equal("There's no explanation for 'PN9999' yet.\n", result.Stderr);
+    Assert.Equal("", result.Stdout);
+  }
+
+  [Fact]
+  public void ExplainWithoutACodePrintsTheUsageLineAndExitsOne() {
+    RunResult result = Run(["explain"]);
+
+    Assert.Equal(1, result.ExitCode);
+    Assert.Equal("Usage: pino-re explain <code>, for example 'pino-re explain PN1018'.\n", result.Stderr);
+    Assert.Equal("", result.Stdout);
+  }
+
+  [Fact]
+  public void CheckOnAFileWithOnlySemicolonHintsStillSucceeds() {
+    string file = WriteFile("semi.pino", "val a = 1;\nprintln(a);\n");
+
+    RunResult result = Run(["check", file, "--color", "never"]);
+
+    Assert.Equal(0, result.ExitCode);
+    Assert.Equal(2, Regex.Matches(result.Stdout, @"hint\[PN1018\]: Pino doesn't use semicolons, so this one was ignored\.").Count);
+    Assert.Equal(2, Regex.Matches(result.Stdout, Regex.Escape("= help: you can delete it; run 'pino-re explain PN1018' to see why")).Count);
+    Assert.EndsWith("checked 1 file(s): 0 error(s), 0 warning(s)\n", result.Stdout, StringComparison.Ordinal);
+  }
+
   [Fact]
   public void NoArgumentsPrintsUsageAndSucceeds() {
     AssertUsage(Run([]));

@@ -22,6 +22,7 @@ public static class CliApp {
         pino-re check <path>...   Lex, parse, and check .pino files (or directories,
                                   searched recursively) and print their diagnostics.
         pino-re tree <file>       Print the syntax tree of one file, then its diagnostics.
+        pino-re explain <code>    Explain a diagnostic code, for example 'pino-re explain PN1018'.
         pino-re --help            Show this help (also -h, or no arguments).
 
       Options (before or after the paths):
@@ -97,6 +98,7 @@ public static class CliApp {
     return command switch {
       "check" => RunCheck(paths, options, stdout),
       "tree" => RunTree(paths, options, stdout),
+      "explain" => RunExplain(paths, stdout, stderr),
       _ => throw new CliUsageException($"unknown command '{command}'"),
     };
   }
@@ -126,6 +128,22 @@ public static class CliApp {
             && environment.SupportsAnsi
             && string.IsNullOrEmpty(environment.GetEnvironmentVariable("NO_COLOR"));
     }
+  }
+
+  private static int RunExplain(List<string> codes, TextWriter stdout, TextWriter stderr) {
+    if (codes.Count == 0) {
+      stderr.Write("Usage: pino-re explain <code>, for example 'pino-re explain PN1018'.\n");
+      return 1;
+    }
+
+    string code = codes[0];
+    if (!DiagnosticExplanations.TryGet(code, out string? explanation)) {
+      stderr.Write($"There's no explanation for '{code.ToUpperInvariant()}' yet.\n");
+      return 1;
+    }
+
+    stdout.Write(explanation.ReplaceLineEndings("\n") + "\n");
+    return 0;
   }
 
   private static int RunCheck(List<string> paths, DiagnosticRenderOptions options, TextWriter stdout) {

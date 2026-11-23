@@ -86,3 +86,8 @@ VM naming-free-forms.pino  # D-014: legacy fails: RUNTIME ERROR: Value is not ca
 TreeWalk err-mut-as-identifier.pino  # D-177: legacy treats 'mut' as an identifier and accepts the program
 VM err-mut-as-identifier.pino  # D-177: legacy treats 'mut' as an identifier and accepts the program
 C err-mut-as-identifier.pino  # D-177: legacy treats 'mut' as an identifier and accepts the program
+
+# --- Semicolons are ignored (ticket 071)
+TreeWalk semicolons-ignored.pino  # D-187: legacy lexer rejects ';' (PARSER: Expected expression, got Illegal: 1;)
+VM semicolons-ignored.pino  # D-187: legacy lexer rejects ';' (PARSER: Expected expression, got Illegal: 1;)
+C semicolons-ignored.pino  # D-187: legacy lexer rejects ';' (PARSER: Expected expression, got Illegal: 1;)

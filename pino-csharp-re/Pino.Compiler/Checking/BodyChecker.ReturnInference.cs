@@ -893,12 +893,12 @@ internal sealed partial class BodyChecker {
         Report(
             DiagnosticCodes.InterfaceNotSatisfied,
             returnValue.Span,
-            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type; expected type '{declaredReturnType.DisplayName}', but got '{actual.DisplayName}'{detail}.");
+            $"'{callableName}' should return '{declaredReturnType.DisplayName}', but this returns '{actual.DisplayName}'{detail}.");
       } else {
         Report(
             DiagnosticCodes.ReturnTypeMismatch,
             returnValue.Span,
-            $"Cannot return type '{actual.DisplayName}' from '{callableName}' with declared return type '{declaredReturnType.DisplayName}', but returned '{actual.DisplayName}'.");
+            $"'{callableName}' should return '{declaredReturnType.DisplayName}', but this returns '{actual.DisplayName}'.");
       }
     }
   }

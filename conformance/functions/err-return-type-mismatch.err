@@ -1,1 +1,1 @@
-declared return type
+'ret_str' should return 'string', but this returns 'int'.

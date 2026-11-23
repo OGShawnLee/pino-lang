@@ -313,6 +313,9 @@ public static class Lexer {
         case '=':
           WithOptionalEquals(TokenKind.Assign, TokenKind.EqualEqual);
           return;
+        case ';':
+          ScanIgnoredSemicolon();
+          return;
         case '!':
           if (Peek(1) == '=') {
             Multi(2, TokenKind.BangEqual);
@@ -620,6 +623,17 @@ public static class Lexer {
     // ---------------------------------------------------------------------------------------
     // Other tokens
     // ---------------------------------------------------------------------------------------
+
+    private void ScanIgnoredSemicolon() {
+      int start = _pos;
+      _pos++;
+      Diagnostics.ReportHint(
+        DiagnosticCodes.SemicolonIgnored,
+        new SourceSpan(start, 1),
+        "Pino doesn't use semicolons, so this one was ignored.",
+        help: "you can delete it; run 'pino-re explain PN1018' to see why");
+      AddTrivia(TriviaKind.Whitespace, start);
+    }
 
     private void ScanUnexpected() {
       int start = _pos;

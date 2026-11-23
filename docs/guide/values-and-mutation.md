@@ -401,7 +401,23 @@ fn main() {
 
 There is one goblin, in `world:enemies`, and everything else says "enemy number 0". This is the same pattern used in many fast game engines, and it works well with Pino's value model.
 
-A standard-library `Pool[T]` with checked IDs is **planned** (so a stale ID is caught instead of pointing at the wrong enemy). It doesn't exist yet. Until then, a plain vector and an index do the job. There is no shared-reference type today.
+`Pool[T]` and `Handle[T]` are built in. A pool hands out a checked ID (a handle) for each value you add, so a stale ID is caught instead of pointing at the wrong enemy:
+
+<!-- check: ok -->
+```pino
+struct Enemy {
+  pub mut hp int
+}
+
+fn main() {
+  var enemies = Pool[Enemy]
+  val goblin = enemies:add(Enemy { hp: 10 })
+  enemies[goblin]:hp -= 4
+  println(enemies[goblin]:hp)   # 6
+}
+```
+
+See `spec/features/pools.md` for the full rules: [pools](../../spec/features/pools.md). There is no other shared-reference type.
 
 *Spec: D-177 ("Linked-data caveat"), STRUCT-16.*
 

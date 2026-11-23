@@ -163,3 +163,8 @@ C mut-param-reassign.pino  # D-180: legacy parser rejects 'mut' parameter
 TreeWalk err-mut-arg-exact-type.pino  # D-180: legacy parser rejects 'mut' parameter instead of failing with the FN-37 message
 VM err-mut-arg-exact-type.pino  # D-180: legacy parser rejects 'mut' parameter instead of failing with the FN-37 message
 C err-mut-arg-exact-type.pino  # D-180: legacy parser rejects 'mut' parameter instead of failing with the FN-37 message
+
+# --- Return message (ticket 071)
+TreeWalk err-return-type-mismatch.pino  # 071, FN-E10: legacy says 'declared return type ... but returned' instead of 'should return'
+VM err-return-type-mismatch.pino  # 071, FN-E10: legacy says 'declared return type ... but returned' instead of 'should return'
+C err-return-type-mismatch.pino  # 071, FN-E10: legacy says 'declared return type ... but returned' instead of 'should return'

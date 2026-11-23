@@ -183,7 +183,7 @@ public sealed class LexerCorpusTests {
     (_, LexResult result) = LexFile(relativePath);
 
     Assert.True(
-      result.Diagnostics.IsEmpty,
+      result.Diagnostics.All(static d => d.Severity == DiagnosticSeverity.Hint),
       $"{relativePath}: {string.Join("; ", result.Diagnostics.Select(d => $"{d.Code}@{d.Span.Start}+{d.Span.Length}: {d.Message}"))}");
   }
 

@@ -34,6 +34,7 @@ public static class DiagnosticCodes {
   public const string MultilineStringInSingleLineInterpolation = "PN1015";
   public const string ControlCharacterInLiteral = "PN1016";
   public const string KeywordInSimpleInterpolation = "PN1017";
+  public const string SemicolonIgnored = "PN1018";
 
   // -------------------------------------------------------------------------
   // PN2xxx — Parser

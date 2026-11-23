@@ -29,8 +29,7 @@ public sealed class ParserCorpusTests(ITestOutputHelper output) {
             DiagnosticCodes.InvalidStringEscape,
             DiagnosticCodes.ExpectedType),
         ["projects/c-compiler/modules/parser.pino"] = Allow(
-            "Uses legacy map ':' entries (MAP-E4) and '=>' arms (D-100); worktree copy also has unquoted ';'.",
-            DiagnosticCodes.UnexpectedCharacter,
+            "Uses legacy map ':' entries (MAP-E4) and '=>' arms (D-100).",
             DiagnosticCodes.ExpectedToken,
             DiagnosticCodes.ExpectedIdentifier,
             DiagnosticCodes.DeprecatedFatArrow),
@@ -131,7 +130,7 @@ public sealed class ParserCorpusTests(ITestOutputHelper output) {
     }
 
     Assert.True(
-        result.Diagnostics.IsEmpty,
+        result.Diagnostics.All(static d => d.Severity == DiagnosticSeverity.Hint),
         $"{relativePath} produced unexpected diagnostics: {FormatDiagnostics(result)}");
   }
 
@@ -157,10 +156,11 @@ public sealed class ParserCorpusTests(ITestOutputHelper output) {
   }
 
   private static void AssertAllowlistEntryMatches(string relativePath, AllowedDiagnostics allowed, ParseResult result) {
+    Diagnostic[] reported = [.. result.Diagnostics.Where(static d => d.Severity != DiagnosticSeverity.Hint)];
     Assert.True(
-        result.Diagnostics.Length > 0,
+        reported.Length > 0,
         $"Stale allowlist entry '{relativePath}' ({allowed.Reason}): file now parses with zero diagnostics.");
-    string[] unexpected = [.. result.Diagnostics
+    string[] unexpected = [.. reported
         .Select(static d => d.Code)
         .Where(code => !allowed.Codes.Contains(code))
         .Distinct(StringComparer.Ordinal)];

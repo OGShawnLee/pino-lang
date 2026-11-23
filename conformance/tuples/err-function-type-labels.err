@@ -1,1 +1,1 @@
-declared return type 'fn() @(x:int,y:int)', but returned 'fn() @(a:int,b:int)'
+should return 'fn () -> @(x int, y int)', but this returns 'fn () -> @(a int, b int)'

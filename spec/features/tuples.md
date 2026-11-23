@@ -25,7 +25,7 @@ Labeled tuples exist only to return several named values from a function. A func
 - TUP-E4: Repeating a label in one tuple literal is rejected with the message "Duplicate label 'x' in tuple literal." (with the repeated label). [src: CheckerTests.TestTypeCheckerTupleDuplicateLabelsReturn]
 - TUP-E5: Destructuring a label that the tuple type does not have is rejected with a message containing "Field 'z' does not exist in tuple type" (with the unknown label). [src: CheckerTests.TestTypeCheckerTupleDestructuringMismatch]
 - TUP-E6: Binding the same variable name twice in one destructuring pattern is rejected with the message "Duplicate variable name 'a' in destructuring." (with the repeated name). [src: CheckerTests.TestTypeCheckerTupleDestructuringDuplicateVariables]
-- TUP-E7: Returning a function whose tuple labels differ from the declared function type is rejected with a message containing "declared return type 'fn() @(x:int,y:int)', but returned 'fn() @(a:int,b:int)'". [src: CheckerTests.TestTypeCheckerTupleReturningFunctionInvalid]
+- TUP-E7: Returning a function whose tuple labels differ from the declared function type is rejected with `PN3411`: "'get_factory_invalid' should return 'fn () -> @(x int, y int)', but this returns 'fn () -> @(a int, b int)'." [src: CheckerTests.TestTypeCheckerTupleReturningFunctionInvalid]
 
 ## Examples
 Conformance cases: `conformance/tuples/`.

@@ -77,10 +77,6 @@ public sealed class CheckerConformanceTests {
             DiagnosticCodes.TypeMismatch,
             "field 'increment' of type 'fn (int) -> int'",
             "Legacy .err omits '->' in 'fn(string) string'; pino-re uses canonical 'fn (int) -> int'."),
-        ["tuples/err-function-type-labels.pino"] = (
-            DiagnosticCodes.ReturnTypeMismatch,
-            "@(x int, y int)",
-            "Legacy .err uses colon syntax '@(x:int,y:int)'; pino-re emits PN3411 with canonical '@(x int, y int)'."),
         ["unions/err-generic-arg-mismatch.pino"] = (
             DiagnosticCodes.TypeMismatch,
             "Container[string]",
@@ -128,7 +124,7 @@ public sealed class CheckerConformanceTests {
     string content = File.ReadAllText(fullPath);
 
     ParseResult parsed = Parser.Parse(new SourceText(content, fullPath));
-    Assert.Empty(parsed.Diagnostics);
+    Assert.Empty(parsed.Diagnostics.Where(static d => d.Severity != DiagnosticSeverity.Hint));
 
     Compilation compilation = Compilation.Create(parsed, FileSystemModuleSource.Instance);
     Diagnostic[] errors = compilation.Diagnostics

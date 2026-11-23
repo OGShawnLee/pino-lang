@@ -7,13 +7,13 @@ C function-type-tuple-order.pino  # C: TCC error: cannot cast 'extern struct tup
 C function-type-tuple.pino  # C: TCC error: cannot cast 'extern struct tuplex_int_y_int()' to 'struct <anonymous>'
 
 # --- Syntax decisions (ticket 014)
-C err-function-type-labels.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
+C err-function-type-labels.pino  # D-101, TUP-E7, 071: legacy parser uses fn() R instead of fn () -> R, and says 'declared return type ... but returned' instead of 'should return'
 C generic-substitution.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
-TreeWalk err-function-type-labels.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
+TreeWalk err-function-type-labels.pino  # D-101, TUP-E7, 071: legacy parser uses fn() R instead of fn () -> R, and says 'declared return type ... but returned' instead of 'should return'
 TreeWalk function-type-tuple.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
 TreeWalk function-type-tuple-order.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
 TreeWalk generic-substitution.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]
-VM err-function-type-labels.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
+VM err-function-type-labels.pino  # D-101, TUP-E7, 071: legacy parser uses fn() R instead of fn () -> R, and says 'declared return type ... but returned' instead of 'should return'
 VM function-type-tuple.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
 VM function-type-tuple-order.pino  # D-101: legacy parser uses fn() R instead of fn () -> R
 VM generic-substitution.pino  # D-072: legacy parser uses @generic[...] instead of @@Generic[...]

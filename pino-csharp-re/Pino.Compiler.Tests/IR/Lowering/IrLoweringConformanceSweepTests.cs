@@ -117,7 +117,7 @@ public sealed class IrLoweringConformanceSweepTests {
     string fullPath = Path.Combine(s_conformanceRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
     string content = File.ReadAllText(fullPath);
     var parsed = Parser.Parse(new SourceText(content, fullPath));
-    Assert.Empty(parsed.Diagnostics);
+    Assert.Empty(parsed.Diagnostics.Where(static d => d.Severity != DiagnosticSeverity.Hint));
     Compilation compilation = Compilation.Create(parsed, FileSystemModuleSource.Instance);
     Assert.Empty(compilation.Diagnostics.Where(static d => d.Severity == DiagnosticSeverity.Error));
     return compilation;

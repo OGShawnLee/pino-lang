@@ -40,6 +40,55 @@ public sealed class LexerRecoveryTests {
     AssertSingleError(result, DiagnosticCodes.InvalidNumberSuffix, new SourceSpan(0, 6));
   }
 
+  private static void AssertSemicolonHint(Diagnostic diagnostic, int start) {
+    Assert.Equal(DiagnosticCodes.SemicolonIgnored, diagnostic.Code);
+    Assert.Equal(DiagnosticSeverity.Hint, diagnostic.Severity);
+    Assert.Equal(new SourceSpan(start, 1), diagnostic.Span);
+    Assert.Equal("Pino doesn't use semicolons, so this one was ignored.", diagnostic.Message);
+    Assert.Equal("you can delete it; run 'pino-re explain PN1018' to see why", diagnostic.Help);
+  }
+
+  [Fact]
+  public void TrailingSemicolonIsIgnoredWithAHint() {
+    LexResult result = Lex("val a = 1;");
+
+    Assert.Equal(
+        [TokenKind.ValKeyword, TokenKind.Identifier, TokenKind.Assign, TokenKind.IntLiteral, TokenKind.EOF],
+        result.Tokens.Select(static t => t.Kind));
+    AssertSemicolonHint(Assert.Single(result.Diagnostics), 9);
+  }
+
+  [Fact]
+  public void SemicolonBetweenTwoStatementsOnOneLineIsIgnored() {
+    LexResult result = Lex("val a = 1; val b = 2");
+
+    Assert.Equal(
+        [TokenKind.ValKeyword, TokenKind.Identifier, TokenKind.Assign, TokenKind.IntLiteral,
+         TokenKind.ValKeyword, TokenKind.Identifier, TokenKind.Assign, TokenKind.IntLiteral, TokenKind.EOF],
+        result.Tokens.Select(static t => t.Kind));
+    AssertSemicolonHint(Assert.Single(result.Diagnostics), 9);
+  }
+
+  [Fact]
+  public void DoubleSemicolonReportsOneHintForEach() {
+    LexResult result = Lex("a;;");
+
+    Assert.Equal([TokenKind.Identifier, TokenKind.EOF], result.Tokens.Select(static t => t.Kind));
+    Assert.Equal(2, result.Diagnostics.Length);
+    AssertSemicolonHint(result.Diagnostics[0], 1);
+    AssertSemicolonHint(result.Diagnostics[1], 2);
+  }
+
+  [Theory]
+  [InlineData("\"a;b\"")]
+  [InlineData("';'")]
+  [InlineData("# a; comment")]
+  public void SemicolonInsideStringRuneOrCommentIsUnchanged(string text) {
+    LexResult result = Lex(text);
+
+    Assert.Empty(result.Diagnostics);
+  }
+
   [Fact]
   public void EmptyRuneReportsDiagnostic() {
     LexResult result = Lex("''");
