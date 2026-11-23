@@ -8,17 +8,15 @@ namespace Pino.Compiler.IR;
 
 public sealed partial class IrLowerer {
   /// <summary>
-  /// Lowers all 62 non-callback <see cref="IntrinsicId"/>s (<c>056-re-ir-design</c> §5.9).
-  /// The 19 higher-order callback intrinsics are deferred to ticket 061.
+  /// Lowers all 81 <see cref="IntrinsicId"/>s (<c>056-re-ir-design</c> §5.9), routing the 19
+  /// higher-order callback intrinsics directly into inline IR loops.
   /// </summary>
   private IrOperand? LowerIntrinsicCall(
       FunctionBuilder fb,
       CallExpressionSyntax call,
       IntrinsicId intrinsic) {
-    // Reject the 19 callback intrinsics deferred to ticket 061 up front.
     if (IsCallbackIntrinsic(intrinsic)) {
-      throw new IrLoweringUnsupportedException(
-          $"Callback intrinsic '{intrinsic}' is deferred to ticket 061.");
+      return LowerCallbackIntrinsic(fb, call, intrinsic);
     }
 
     SourceSpan span = call.Span;
@@ -51,6 +49,22 @@ public sealed partial class IrLowerer {
       }
     }
 
+    TypeSymbol callRetType = fb.Model.GetType(call) is { } rawRet ? fb.ResolveType(rawRet) : _compilation.Types.Void;
+    TypeSymbol? firstArgSymType = call.Arguments.Length > 0 && fb.Model.GetType(call.Arguments[0].Expression) is { } rawArg0
+        ? fb.ResolveType(rawArg0)
+        : null;
+
+    return EmitNonCallbackIntrinsicCore(fb, intrinsic, receiver, evaluatedArgs, callRetType, span, firstArgSymType);
+  }
+
+  private IrOperand? EmitNonCallbackIntrinsicCore(
+      FunctionBuilder fb,
+      IntrinsicId intrinsic,
+      IrOperand? receiver,
+      IrOperand[] evaluatedArgs,
+      TypeSymbol callReturnType,
+      SourceSpan span,
+      TypeSymbol? firstArgSymType = null) {
     switch (intrinsic) {
       // -----------------------------------------------------------------------
       // Global built-ins (#1..#21)
@@ -75,11 +89,11 @@ public sealed partial class IrLowerer {
 
       case IntrinsicId.ReadlineNoPrompt: {
           IrTempId empty = fb.EmitConstString(string.Empty, span);
-          return EmitRuntimeCallWithResult(fb, call, IrRuntimeOp.Readline, [empty], AllocRegion.Heap);
+          return EmitRuntimeCallWithResult(fb, callReturnType, IrRuntimeOp.Readline, [empty], AllocRegion.Heap, span);
         }
 
       case IntrinsicId.ReadlineWithPrompt:
-        return EmitRuntimeCallWithResult(fb, call, IrRuntimeOp.Readline, [evaluatedArgs[0]], AllocRegion.Heap);
+        return EmitRuntimeCallWithResult(fb, callReturnType, IrRuntimeOp.Readline, [evaluatedArgs[0]], AllocRegion.Heap, span);
 
       case IntrinsicId.IntFromNumber: {
           IrOperand arg = evaluatedArgs[0];
@@ -93,7 +107,7 @@ public sealed partial class IrLowerer {
         }
 
       case IntrinsicId.IntFromString:
-        return EmitRuntimeCallWithResult(fb, call, IrRuntimeOp.ParseInt, [evaluatedArgs[0]], AllocRegion.Heap);
+        return EmitRuntimeCallWithResult(fb, callReturnType, IrRuntimeOp.ParseInt, [evaluatedArgs[0]], AllocRegion.Heap, span);
 
       case IntrinsicId.FloatFromNumber: {
           IrOperand arg = evaluatedArgs[0];
@@ -107,7 +121,7 @@ public sealed partial class IrLowerer {
         }
 
       case IntrinsicId.FloatFromString:
-        return EmitRuntimeCallWithResult(fb, call, IrRuntimeOp.ParseFloat, [evaluatedArgs[0]], AllocRegion.Heap);
+        return EmitRuntimeCallWithResult(fb, callReturnType, IrRuntimeOp.ParseFloat, [evaluatedArgs[0]], AllocRegion.Heap, span);
 
       case IntrinsicId.RuneFromInt: {
           IrTempId d = fb.AddTemp(_types.Rune);
@@ -133,10 +147,12 @@ public sealed partial class IrLowerer {
         }
 
       case IntrinsicId.Type: {
-          TypeSymbol argSymType = fb.Model.GetType(call.Arguments[0].Expression)
+          TypeSymbol argSymType = firstArgSymType
               ?? throw new InvalidOperationException("Missing argument type for 'type(...)'.");
           if (argSymType is InterfaceType) {
-            throw new IrLoweringUnsupportedException("Interface 'type(...)' is deferred to ticket 061.");
+            IrTempId d = fb.AddTemp(_types.String);
+            fb.Emit(new CallRuntime(d, IrRuntimeOp.IfaceTypeName, [evaluatedArgs[0]], AllocRegion.Stack, span));
+            return d;
           }
 
           return fb.EmitConstString(GetStaticTypeName(argSymType), span);
@@ -179,15 +195,16 @@ public sealed partial class IrLowerer {
         }
 
       case IntrinsicId.ReadFile:
-        return EmitRuntimeCallWithResult(fb, call, IrRuntimeOp.ReadFile, [evaluatedArgs[0]], AllocRegion.Heap);
+        return EmitRuntimeCallWithResult(fb, callReturnType, IrRuntimeOp.ReadFile, [evaluatedArgs[0]], AllocRegion.Heap, span);
 
       case IntrinsicId.WriteFile:
         return EmitRuntimeCallWithResult(
             fb,
-            call,
+            callReturnType,
             IrRuntimeOp.WriteFile,
             [evaluatedArgs[0], evaluatedArgs[1]],
-            AllocRegion.Heap);
+            AllocRegion.Heap,
+            span);
 
       case IntrinsicId.FileExists: {
           IrTempId d = fb.AddTemp(_types.Bool);
@@ -289,7 +306,7 @@ public sealed partial class IrLowerer {
         return null;
 
       case IntrinsicId.VecPop: {
-          IrTypeId retIr = InternType(fb.Model.GetType(call)!);
+          IrTypeId retIr = InternType(fb, callReturnType);
           IrTempId d = fb.AddTemp(retIr);
           fb.Emit(new VecPop(d, receiver!.Value, span));
           return d;
@@ -327,7 +344,7 @@ public sealed partial class IrLowerer {
         }
 
       case IntrinsicId.MapRemove: {
-          IrTypeId retIr = InternType(fb.Model.GetType(call)!);
+          IrTypeId retIr = InternType(fb, callReturnType);
           IrTempId d = fb.AddTemp(retIr);
           fb.Emit(new MapRemove(d, receiver!.Value, evaluatedArgs[0], span));
           return d;
@@ -370,14 +387,14 @@ public sealed partial class IrLowerer {
         }
 
       case IntrinsicId.PoolRemove: {
-          IrTypeId retIr = InternType(fb.Model.GetType(call)!);
+          IrTypeId retIr = InternType(fb, callReturnType);
           IrTempId d = fb.AddTemp(retIr);
           fb.Emit(new PoolRemove(d, receiver!.Value, evaluatedArgs[0], span));
           return d;
         }
 
       case IntrinsicId.PoolGet: {
-          IrTypeId retIr = InternType(fb.Model.GetType(call)!);
+          IrTypeId retIr = InternType(fb, callReturnType);
           IrTempId d = fb.AddTemp(retIr);
           fb.Emit(new PoolGet(d, receiver!.Value, evaluatedArgs[0], span));
           return d;
@@ -408,7 +425,7 @@ public sealed partial class IrLowerer {
         return EmitRuntimeOp2(fb, _types.String, IrRuntimeOp.RegexMatchPrefix, receiver!.Value, evaluatedArgs[0], AllocRegion.Heap, span);
 
       case IntrinsicId.RegexFind:
-        return EmitRuntimeCallWithResult(fb, call, IrRuntimeOp.RegexFind, [receiver!.Value, evaluatedArgs[0]], AllocRegion.Heap);
+        return EmitRuntimeCallWithResult(fb, callReturnType, IrRuntimeOp.RegexFind, [receiver!.Value, evaluatedArgs[0]], AllocRegion.Heap, span);
 
       case IntrinsicId.RegexFindAll: {
           IrTypeId vecStr = _types.GetVector(_types.String);
@@ -502,13 +519,14 @@ public sealed partial class IrLowerer {
 
   private IrOperand EmitRuntimeCallWithResult(
       FunctionBuilder fb,
-      CallExpressionSyntax call,
+      TypeSymbol callReturnType,
       IrRuntimeOp op,
       ImmutableArray<IrOperand> args,
-      AllocRegion region) {
-    IrTypeId retIr = InternType(fb.Model.GetType(call)!);
+      AllocRegion region,
+      SourceSpan span) {
+    IrTypeId retIr = InternType(fb, callReturnType);
     IrTempId d = fb.AddTemp(retIr);
-    fb.Emit(new CallRuntime(d, op, args, region, call.Span));
+    fb.Emit(new CallRuntime(d, op, args, region, span));
     return d;
   }
 

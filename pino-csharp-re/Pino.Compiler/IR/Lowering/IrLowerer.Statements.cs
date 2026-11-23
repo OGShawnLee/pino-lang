@@ -126,36 +126,75 @@ public sealed partial class IrLowerer {
   private void BindLocalSymbol(FunctionBuilder fb, LocalSymbol localSym, IrOperand initVal, SourceSpan span) {
     if (_globalIds.TryGetValue(localSym, out IrGlobalId globalId)) {
       IrTypeId gType = _module.Globals[globalId.Index].Type;
+      IrOperand coercedGlobal = CoerceOperandToTargetType(fb, initVal, gType, span);
       IrTempId ptrTmp = fb.AddTemp(_types.GetPtr(gType));
       fb.Emit(new AddrGlobal(ptrTmp, globalId, span));
-      fb.Emit(new StorePtr(ptrTmp, initVal, span));
+      fb.Emit(new StorePtr(ptrTmp, coercedGlobal, span));
       return;
     }
+
+    if (fb.BoxedCellSymbols.Contains(localSym)) {
+      // D-056 / FN-21: mutable local captured by a closure lives in a heap PinoCell[T].
+      TypeSymbol concreteType = fb.ResolveType(localSym.Type);
+      IrTypeId elemIrType = InternType(concreteType);
+      IrOperand coercedCellInit = CoerceOperandToTargetType(fb, initVal, elemIrType, span);
+      bool isCycleCapable = _compilation.Reachability.IsCycleCapable(concreteType);
+      IrTypeId cellIrType = _types.GetCell(elemIrType, isCycleCapable);
+      IrTempId cellTmp = fb.AddTemp(cellIrType, $"{localSym.Name}_cell");
+      fb.Emit(new CellNew(cellTmp, coercedCellInit, AllocRegion.Heap, span));
+      IrSlotId slot = fb.AddSlot(localSym.Name, cellIrType, isMutSlot: false, isBoxedCell: true);
+      fb.CellSlots[localSym] = slot;
+      fb.Emit(new StoreSlot(slot, cellTmp, span));
+      return;
+    }
+
+    IrTypeId targetLocalIrType = InternType(fb, localSym.Type);
+    IrOperand coercedInit = CoerceOperandToTargetType(fb, initVal, targetLocalIrType, span);
 
     if (localSym.IsMutable) {
-      IrTypeId irType = InternType(localSym.Type);
-      IrSlotId slot = fb.AddSlot(localSym.Name, irType, isMutSlot: true);
+      IrSlotId slot = fb.AddSlot(localSym.Name, targetLocalIrType, isMutSlot: true);
       fb.LocalSlots[localSym] = slot;
-      fb.Emit(new StoreSlot(slot, initVal, span));
+      fb.Emit(new StoreSlot(slot, coercedInit, span));
       return;
     }
 
-    fb.LocalTemps[localSym] = initVal;
+    fb.LocalTemps[localSym] = coercedInit;
   }
 
   private void LowerReturn(FunctionBuilder fb, ReturnStatementSyntax retStmt) {
+    if (fb.InlineReturnStack.Count > 0) {
+      InlineReturnTarget target = fb.InlineReturnStack.Peek();
+      if (retStmt.Expression is { } expr) {
+        IrOperand? valOpt = LowerExpression(fb, expr);
+        if (fb.IsTerminated) {
+          return;
+        }
+
+        if (target.ResultSlot is { } slot && valOpt is { } val) {
+          IrOperand coerced = target.ExpectedReturnType is { } expRet
+              ? CoerceValueToExpectedType(fb, val, fb.GetNodeType(expr), expRet, expr.Span)
+              : val;
+          fb.Emit(new StoreSlot(slot, coerced, retStmt.Span));
+        }
+      }
+
+      fb.Terminate(new Br(target.ExitBlock, retStmt.Span));
+      return;
+    }
+
     if (retStmt.Expression is null) {
       fb.Terminate(new RetVoid(retStmt.Span));
       return;
     }
 
-    IrOperand? valOpt = LowerExpression(fb, retStmt.Expression);
+    IrOperand? retValOpt = LowerExpression(fb, retStmt.Expression);
     if (fb.IsTerminated) {
       return;
     }
 
-    if (valOpt is { } val) {
-      fb.Terminate(new Ret(val, retStmt.Span));
+    if (retValOpt is { } retVal) {
+      IrOperand coercedRet = CoerceOperandToTargetType(fb, retVal, fb.Function.ReturnType, retStmt.Span);
+      fb.Terminate(new Ret(coercedRet, retStmt.Span));
     } else {
       fb.Terminate(new RetVoid(retStmt.Span));
     }
@@ -173,7 +212,8 @@ public sealed partial class IrLowerer {
     }
 
     if (target.ResultSlot is { } slot && valOpt is { } val) {
-      fb.Emit(new StoreSlot(slot, val, yieldStmt.Span));
+      IrOperand coerced = CoerceOperandToTargetType(fb, val, fb.Function.Slots[slot.Index].Type, yieldStmt.Span);
+      fb.Emit(new StoreSlot(slot, coerced, yieldStmt.Span));
     }
 
     fb.Terminate(new Br(target.MergeBlock, yieldStmt.Span));
@@ -227,6 +267,33 @@ public sealed partial class IrLowerer {
     TokenKind op = assign.OperatorToken.Kind;
     ExpressionSyntax target = UnwrapParens(assign.Target);
 
+    // Boxed-cell captured `var` direct assignment (D-056): route through CellGet / CellSet.
+    if (target is IdentifierExpressionSyntax cellId
+        && fb.Model.GetReferencedSymbol(cellId) is LocalSymbol cellLocal
+        && !IsSelfLocal(cellLocal)
+        && !_globalIds.ContainsKey(cellLocal)
+        && IsSymbolBoxedCell(fb, cellLocal)) {
+      if (op == TokenKind.Assign) {
+        IrOperand? rhsOpt = LowerExpression(fb, assign.Value);
+        if (fb.IsTerminated || rhsOpt is not { } rhs) {
+          return null;
+        }
+
+        EmitCellWrite(fb, cellLocal, rhs, assign.Span);
+        return rhs;
+      } else {
+        IrOperand oldVal = EmitCellRead(fb, cellLocal, assign.Span);
+        IrOperand? rhsOpt = LowerExpression(fb, assign.Value);
+        if (fb.IsTerminated || rhsOpt is not { } rhs) {
+          return null;
+        }
+
+        IrOperand updated = EmitArithmeticOp(fb, op, oldVal, rhs, assign.Span);
+        EmitCellWrite(fb, cellLocal, updated, assign.Span);
+        return updated;
+      }
+    }
+
     // Direct local `var` fast path: avoids redundant addr_local/store_ptr for clean TACKY IR.
     if (target is IdentifierExpressionSyntax id
         && fb.Model.GetReferencedSymbol(id) is LocalSymbol localSym
@@ -258,7 +325,7 @@ public sealed partial class IrLowerer {
     // Map direct index assignment `m[k] = v` (MAP-5: inserts if key is absent, unlike MapElemAddr!).
     if (op == TokenKind.Assign
         && target is IndexExpressionSyntax mapIndex
-        && fb.Model.GetType(mapIndex.Target) is MapType) {
+        && fb.GetNodeType(mapIndex.Target) is MapType) {
       IrOperand? mapPtrOpt = ResolvePlaceAddr(fb, mapIndex.Target, ensureUniqueLeaf: true);
       if (fb.IsTerminated || mapPtrOpt is not { } mapPtr) {
         return null;
@@ -291,8 +358,10 @@ public sealed partial class IrLowerer {
         return null;
       }
 
-      fb.Emit(new StorePtr(placePtr, rhs, assign.Span));
-      return rhs;
+      var dstPtrType = (IrPtrType) _types.GetType(fb.GetOperandType(placePtr));
+      IrOperand coercedRhs = CoerceOperandToTargetType(fb, rhs, dstPtrType.TargetType, assign.Span);
+      fb.Emit(new StorePtr(placePtr, coercedRhs, assign.Span));
+      return coercedRhs;
     }
 
     var ptrType = (IrPtrType) _types.GetType(fb.GetOperandType(placePtr));

@@ -78,27 +78,34 @@ public sealed partial class IrLowerer {
   public static string FormatPoolStaleHandlePanic(string poolName) =>
       $"This handle no longer points to a value in '{poolName}'; it was removed.";
 
-  private IrTypeId InternType(TypeSymbol type) {
-    if (type is InterfaceType) {
-      throw new IrLoweringUnsupportedException($"Interface type '{type.DisplayName}' is deferred to ticket 061.");
+  private IrTypeId InternType(TypeSymbol type) => _types.Intern(type);
+
+  private IrTypeId InternType(FunctionBuilder fb, TypeSymbol type) =>
+      _types.Intern(fb.ResolveType(type));
+
+  private IrOperand CoerceValueToExpectedType(
+      FunctionBuilder fb,
+      IrOperand val,
+      TypeSymbol actualConcreteType,
+      TypeSymbol expectedConcreteType,
+      SourceSpan span) {
+    IrTypeId actualIr = fb.GetOperandType(val);
+    IrTypeId expectedIr = InternType(expectedConcreteType);
+    if (actualIr == expectedIr) {
+      return val;
     }
 
-    if (type is FunctionType) {
-      throw new IrLoweringUnsupportedException($"Function/closure type '{type.DisplayName}' is deferred to ticket 061.");
+    if (actualIr == _types.Int && expectedIr == _types.Float) {
+      IrTempId widened = fb.AddTemp(_types.Float);
+      fb.Emit(new CastI64ToF64(widened, val, span));
+      return widened;
     }
 
-    if (type is StructType st && !st.TypeArguments.IsEmpty) {
-      throw new IrLoweringUnsupportedException($"Generic struct '{type.DisplayName}' is deferred to ticket 061.");
+    if (expectedConcreteType is InterfaceType targetIface) {
+      return EmitStructToInterface(fb, val, actualConcreteType, targetIface, span);
     }
 
-    if (type is UnionType ut
-        && !ut.TypeArguments.IsEmpty
-        && !ReferenceEquals(ut.Definition, _compilation.Prelude.OptionUnion)
-        && !ReferenceEquals(ut.Definition, _compilation.Prelude.ResultUnion)) {
-      throw new IrLoweringUnsupportedException($"User generic union '{type.DisplayName}' is deferred to ticket 061.");
-    }
-
-    return _types.Intern(type);
+    return val;
   }
 
   private AllocRegion UnionAllocRegion(IrTypeId unionTypeId) =>
@@ -280,6 +287,11 @@ public sealed partial class IrLowerer {
 
   private readonly record struct YieldTarget(IrSlotId? ResultSlot, IrBlockId MergeBlock, TypeSymbol? ExpectedType);
 
+  private readonly record struct InlineReturnTarget(
+      IrSlotId? ResultSlot,
+      IrBlockId ExitBlock,
+      TypeSymbol? ExpectedReturnType);
+
   private sealed class FunctionBuilder {
     private readonly Dictionary<string, int> _usedSlotNames = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _usedTempNames = new(StringComparer.Ordinal);
@@ -290,13 +302,17 @@ public sealed partial class IrLowerer {
         SemanticModel model,
         StructSymbol? enclosingStruct = null,
         bool isMutatingMethod = false,
-        TypeSymbol? declaredReturnType = null) {
+        TypeSymbol? declaredReturnType = null,
+        ImmutableArray<TypeParameterSymbol> typeParams = default,
+        ImmutableArray<TypeSymbol> typeArgs = default) {
       Owner = owner;
       Function = function;
       Model = model;
       EnclosingStruct = enclosingStruct;
       IsMutatingMethod = isMutatingMethod;
       DeclaredReturnType = declaredReturnType;
+      TypeParams = typeParams.IsDefault ? [] : typeParams;
+      TypeArgs = typeArgs.IsDefault ? [] : typeArgs;
       CurrentBlock = function.AddBlock();
     }
 
@@ -312,6 +328,10 @@ public sealed partial class IrLowerer {
 
     public TypeSymbol? DeclaredReturnType { get; }
 
+    public ImmutableArray<TypeParameterSymbol> TypeParams { get; }
+
+    public ImmutableArray<TypeSymbol> TypeArgs { get; }
+
     public IrBasicBlock CurrentBlock { get; set; }
 
     public bool IsTerminated => CurrentBlock.Terminator is not null;
@@ -322,17 +342,40 @@ public sealed partial class IrLowerer {
 
     public Dictionary<Symbol, int> ParamIndices { get; } = new(ReferenceEqualityComparer.Instance);
 
+    public HashSet<LocalSymbol> BoxedCellSymbols { get; } = new(ReferenceEqualityComparer.Instance);
+
+    public Dictionary<LocalSymbol, IrSlotId> CellSlots { get; } = new(ReferenceEqualityComparer.Instance);
+
+    public Dictionary<LocalSymbol, IrOperand> CellOperands { get; } = new(ReferenceEqualityComparer.Instance);
+
+    public IrOperand? CapturedSelf { get; set; }
+
+    public Dictionary<FunctionSymbol, IrFuncId> LocalFuncIds { get; } = new(ReferenceEqualityComparer.Instance);
+
+    public Dictionary<FunctionSymbol, CapturingLocalInfo> CapturingLocals { get; } = new(ReferenceEqualityComparer.Instance);
+
     public Stack<LoopTarget> LoopStack { get; } = new();
 
     public Stack<YieldTarget> YieldStack { get; } = new();
+
+    public Stack<InlineReturnTarget> InlineReturnStack { get; } = new();
+
+    public TypeSymbol ResolveType(TypeSymbol type) =>
+        TypeParams.IsEmpty
+            ? type
+            : TypeSubstitution.Substitute(type, TypeParams, TypeArgs, Owner._compilation.Types);
+
+    public TypeSymbol GetNodeType(SyntaxNode node) =>
+        ResolveType(Model.GetType(node)
+            ?? throw new InvalidOperationException($"Missing semantic type on '{node.GetType().Name}'."));
 
     public IrBasicBlock NewBlock() => Function.AddBlock();
 
     public void SwitchTo(IrBasicBlock block) => CurrentBlock = block;
 
-    public IrSlotId AddSlot(string preferredName, IrTypeId type, bool isMutSlot = false) {
+    public IrSlotId AddSlot(string preferredName, IrTypeId type, bool isMutSlot = false, bool isBoxedCell = false) {
       string unique = ReserveUnique(_usedSlotNames, preferredName);
-      return Function.AddSlot(unique, type, isMutSlot);
+      return Function.AddSlot(unique, type, isMutSlot, isBoxedCell);
     }
 
     public IrTempId AddTemp(IrTypeId type, string? preferredName = null) {

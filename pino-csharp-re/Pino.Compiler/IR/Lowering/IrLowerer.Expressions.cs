@@ -14,6 +14,12 @@ public sealed partial class IrLowerer {
       return null;
     }
 
+    // FN-16 / ConversionKind.ImplicitItLambda: do NOT eagerly evaluate `expr` in the caller;
+    // desugar directly into a 1-arg closure (non-inlined call sites).
+    if (fb.Model.GetConversion(expr) is { Kind: ConversionKind.ImplicitItLambda } itConv) {
+      return LowerImplicitItAsClosure(fb, expr, itConv);
+    }
+
     IrOperand? result = LowerExpressionCore(fb, expr);
     if (fb.IsTerminated || result is not { } val) {
       return null;
@@ -31,6 +37,7 @@ public sealed partial class IrLowerer {
     switch (conv.Kind) {
       case ConversionKind.None:
       case ConversionKind.StringInterpolationFormat:
+      case ConversionKind.ImplicitItLambda:
         return val;
 
       case ConversionKind.IntToFloat:
@@ -44,18 +51,82 @@ public sealed partial class IrLowerer {
       case ConversionKind.NeverToTarget:
         return null;
 
-      case ConversionKind.StructToInterface:
-        throw new IrLoweringUnsupportedException(
-            $"Struct-to-interface coercion to '{conv.TargetType.DisplayName}' is deferred to ticket 061.");
-
-      case ConversionKind.ImplicitItLambda:
-        throw new IrLoweringUnsupportedException(
-            "Implicit 'it' lambda conversion is deferred to ticket 061.");
+      case ConversionKind.StructToInterface: {
+          var targetIface = (InterfaceType) fb.ResolveType(conv.TargetInterface ?? conv.TargetType);
+          TypeSymbol srcType = fb.Model.GetType(node) is { } rawSrc
+              ? fb.ResolveType(rawSrc)
+              : InferSourceTypeFromOperand(fb, val);
+          return EmitStructToInterface(fb, val, srcType, targetIface, span);
+        }
 
       default:
         return val;
     }
   }
+
+  private TypeSymbol InferSourceTypeFromOperand(FunctionBuilder fb, IrOperand val) {
+    IrType irType = _types.GetType(fb.GetOperandType(val));
+    if (irType is IrStructType st && st.Definition is not null) {
+      ImmutableArray<TypeSymbol> tArgs = ResolveStructTypeArgsFromIr(st);
+      return _compilation.Types.GetStruct(st.Definition, tArgs);
+    }
+
+    if (irType is IrInterfaceType it && it.Definition is not null) {
+      return _compilation.Types.GetInterface(it.Definition);
+    }
+
+    throw new InvalidOperationException($"Cannot infer concrete TypeSymbol from IR type '{irType.Name}'.");
+  }
+
+  private ImmutableArray<TypeSymbol> ResolveStructTypeArgsFromIr(IrStructType st) {
+    if (st.TypeArguments.IsEmpty) {
+      return [];
+    }
+
+    // Reconstruct TypeSymbols from IrTypeTable entries when shorthand nodes don't record GetType.
+    var builder = ImmutableArray.CreateBuilder<TypeSymbol>(st.TypeArguments.Length);
+    foreach (IrTypeId argId in st.TypeArguments) {
+      builder.Add(ReconstructTypeSymbol(argId));
+    }
+
+    return builder.MoveToImmutable();
+  }
+
+  private TypeSymbol ReconstructTypeSymbol(IrTypeId id) => _types.GetType(id) switch {
+    IrPrimitiveType { Kind: IrTypeKind.Bool } => _compilation.Types.Bool,
+    IrPrimitiveType { Kind: IrTypeKind.Int } => _compilation.Types.Int,
+    IrPrimitiveType { Kind: IrTypeKind.Float } => _compilation.Types.Float,
+    IrPrimitiveType { Kind: IrTypeKind.Rune } => _compilation.Types.Rune,
+    IrPrimitiveType { Kind: IrTypeKind.String } => _compilation.Types.String,
+    IrPrimitiveType { Kind: IrTypeKind.Regex } => _compilation.Types.Regex,
+    IrPrimitiveType { Kind: IrTypeKind.Void } => _compilation.Types.Void,
+    IrPrimitiveType { Kind: IrTypeKind.Never } => _compilation.Types.Never,
+    IrEnumType e when e.Definition is not null => _compilation.Types.GetEnum(e.Definition),
+    IrVectorType v => _compilation.Types.GetVector(ReconstructTypeSymbol(v.ElementType)),
+    IrMapType m => _compilation.Types.GetMap(ReconstructTypeSymbol(m.KeyType), ReconstructTypeSymbol(m.ValueType)),
+    IrSetType s => _compilation.Types.GetSet(ReconstructTypeSymbol(s.ElementType)),
+    IrPoolType p => _compilation.Types.GetPool(ReconstructTypeSymbol(p.ElementType)),
+    IrHandleType h => _compilation.Types.GetHandle(ReconstructTypeSymbol(h.ElementType)),
+    IrStructType s when s.Definition is not null => _compilation.Types.GetStruct(
+        s.Definition,
+        [.. s.TypeArguments.Select(ReconstructTypeSymbol)]),
+    IrUnionType u when u.Definition is not null => _compilation.Types.GetUnion(
+        u.Definition,
+        [.. u.TypeArguments.Select(ReconstructTypeSymbol)]),
+    IrInterfaceType i when i.Definition is not null => _compilation.Types.GetInterface(
+        i.Definition,
+        [.. i.TypeArguments.Select(ReconstructTypeSymbol)]),
+    IrTupleType t => _compilation.Types.GetTuple(
+        [.. t.Fields.Select(f => new Checking.TupleField(f.Label, ReconstructTypeSymbol(f.Type)))]),
+    IrClosureType c => _compilation.Types.GetFunction(
+        [.. c.Parameters.Select(p => new FunctionParameter(
+            p.Ownership == IrParamOwnership.Mut
+                ? ReconstructTypeSymbol(((IrPtrType) _types.GetType(p.Type)).TargetType)
+                : ReconstructTypeSymbol(p.Type),
+            p.Ownership == IrParamOwnership.Mut))],
+        ReconstructTypeSymbol(c.ReturnType)),
+    var other => throw new InvalidOperationException($"Cannot reconstruct TypeSymbol for '{other.Name}'."),
+  };
 
   private IrOperand? LowerExpressionCore(FunctionBuilder fb, ExpressionSyntax expr) {
     switch (expr) {
@@ -128,8 +199,8 @@ public sealed partial class IrLowerer {
       case PoolExpressionSyntax poolExpr:
         return LowerPoolExpression(fb, poolExpr);
 
-      case LambdaExpressionSyntax:
-        throw new IrLoweringUnsupportedException("Lambda expressions are deferred to ticket 061.");
+      case LambdaExpressionSyntax lambda:
+        return LowerLambdaExpression(fb, lambda);
 
       default:
         throw new InvalidOperationException($"Unsupported expression node '{expr.GetType().Name}'.");
@@ -226,6 +297,10 @@ public sealed partial class IrLowerer {
           return valTmp;
         }
 
+        if (IsSymbolBoxedCell(fb, local)) {
+          return EmitCellRead(fb, local, span);
+        }
+
         if (fb.LocalSlots.TryGetValue(local, out IrSlotId slotId)) {
           IrTypeId sType = fb.Function.Slots[slotId.Index].Type;
           IrTempId valTmp = fb.AddTemp(sType);
@@ -237,13 +312,15 @@ public sealed partial class IrLowerer {
           return tempOp;
         }
 
-        throw new IrLoweringUnsupportedException(
-            $"Local '{local.Name}' is captured from an enclosing scope (deferred to ticket 061).");
+        throw new InvalidOperationException($"Local '{local.Name}' was not bound in '{fb.Function.Name}'.");
 
       case ParameterSymbol param: {
+          if (fb.LocalTemps.TryGetValue(param, out IrOperand capturedOrInlined)) {
+            return capturedOrInlined;
+          }
+
           if (!fb.ParamIndices.TryGetValue(param, out int paramIdx)) {
-            throw new IrLoweringUnsupportedException(
-                $"Parameter '{param.Name}' is captured from an enclosing scope (deferred to ticket 061).");
+            throw new InvalidOperationException($"Parameter '{param.Name}' was not bound in '{fb.Function.Name}'.");
           }
 
           IrOperand paramOp = IrOperand.FromParam(paramIdx);
@@ -265,9 +342,26 @@ public sealed partial class IrLowerer {
           return EmitStructFieldGet(fb, selfVal, owner, field, span);
         }
 
-      case FunctionSymbol or MethodSymbol:
-        throw new IrLoweringUnsupportedException(
-            $"First-class function/method value '{sym.Name}' is deferred to ticket 061.");
+      case FunctionSymbol fnSym:
+        return LowerFunctionAsValue(fb, fnSym, span);
+
+      case MethodSymbol methodSym: {
+          // Bare non-mutating instance method used as a bound method value inside a struct method (STRUCT-14/19).
+          StructSymbol owner = fb.EnclosingStruct
+              ?? throw new InvalidOperationException($"Bare method '{methodSym.Name}' read outside a struct method.");
+          IrOperand selfVal = EmitSelfValueRead(fb, span);
+          ImmutableArray<TypeSymbol> ownerArgs = [.. owner.TypeParameters.Select(tp => fb.ResolveType(tp.Type))];
+          StructType concreteOwner = _compilation.Types.GetStruct(owner, ownerArgs);
+          var fnParams = ImmutableArray.CreateBuilder<FunctionParameter>(methodSym.Parameters.Length);
+          foreach (ParameterSymbol p in methodSym.Parameters) {
+            fnParams.Add(new FunctionParameter(fb.ResolveType(p.Type), p.IsMutable));
+          }
+
+          FunctionType concreteFnType = _compilation.Types.GetFunction(
+              fnParams.MoveToImmutable(),
+              fb.ResolveType(methodSym.ReturnType));
+          return LowerBoundMethodValue(fb, selfVal, concreteOwner, methodSym, concreteFnType, span);
+        }
 
       default:
         throw new InvalidOperationException($"Cannot read value of symbol '{sym.Name}' ({sym.GetType().Name}).");
@@ -275,6 +369,10 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand EmitSelfValueRead(FunctionBuilder fb, SourceSpan span) {
+    if (fb.CapturedSelf is { } capturedSelf) {
+      return capturedSelf;
+    }
+
     IrOperand selfParam = IrOperand.FromParam(0);
     if (fb.IsMutatingMethod) {
       var ptrType = (IrPtrType) _types.GetType(fb.Function.Parameters[0].Type);
@@ -613,8 +711,30 @@ public sealed partial class IrLowerer {
       IrOperand right,
       bool negated,
       SourceSpan span) {
-    IrTypeId typeId = fb.GetOperandType(left);
-    IrType irType = _types.GetType(typeId);
+    IrTypeId leftTypeId = fb.GetOperandType(left);
+    IrTypeId rightTypeId = fb.GetOperandType(right);
+    IrType leftIrType = _types.GetType(leftTypeId);
+    IrType rightIrType = _types.GetType(rightTypeId);
+
+    // Struct == Interface or Interface == Struct: box concrete struct into the interface first.
+    if (leftTypeId != rightTypeId) {
+      if (leftIrType is IrStructType leftSt && rightIrType is IrInterfaceType rightIt) {
+        var concreteSt = (StructType) ReconstructTypeSymbol(leftTypeId);
+        var concreteIt = (InterfaceType) ReconstructTypeSymbol(rightTypeId);
+        left = EmitStructToInterface(fb, left, concreteSt, concreteIt, span);
+        leftTypeId = rightTypeId;
+        leftIrType = rightIrType;
+      } else if (rightIrType is IrStructType rightSt && leftIrType is IrInterfaceType leftIt) {
+        var concreteSt = (StructType) ReconstructTypeSymbol(rightTypeId);
+        var concreteIt = (InterfaceType) ReconstructTypeSymbol(leftTypeId);
+        right = EmitStructToInterface(fb, right, concreteSt, concreteIt, span);
+        rightTypeId = leftTypeId;
+        rightIrType = leftIrType;
+      }
+    }
+
+    IrTypeId typeId = leftTypeId;
+    IrType irType = leftIrType;
 
     switch (irType.Kind) {
       case IrTypeKind.Bool:
@@ -675,9 +795,21 @@ public sealed partial class IrLowerer {
           return ne;
         }
 
+      case IrTypeKind.Interface:
+      case IrTypeKind.Closure: {
+          IrTempId eq = fb.AddTemp(_types.Bool);
+          fb.Emit(new StructEq(eq, left, right, span));
+          if (!negated) {
+            return eq;
+          }
+
+          IrTempId ne = fb.AddTemp(_types.Bool);
+          fb.Emit(new Not(ne, eq, span));
+          return ne;
+        }
+
       default:
-        throw new IrLoweringUnsupportedException(
-            $"Equality on type '{irType.Name}' is deferred to ticket 061.");
+        throw new InvalidOperationException($"Unsupported equality on type '{irType.Name}'.");
     }
   }
 
@@ -1162,17 +1294,18 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerMemberRead(FunctionBuilder fb, MemberAccessExpressionSyntax member) {
-    TypeSymbol targetSymType = fb.Model.GetType(member.Target)
-        ?? throw new InvalidOperationException("Missing target type on member access.");
-
-    if (targetSymType is InterfaceType) {
-      throw new IrLoweringUnsupportedException("Interface member access is deferred to ticket 061.");
-    }
+    TypeSymbol targetSymType = fb.GetNodeType(member.Target);
 
     IrOperand? targetOpt = LowerExpression(fb, member.Target);
     if (fb.IsTerminated || targetOpt is not { } target) {
       return null;
     }
+
+    if (targetSymType is InterfaceType ifaceType) {
+      return LowerInterfaceMemberRead(fb, member, ifaceType, target);
+    }
+
+    string memberName = NameOf(fb.Model, member.MemberToken);
 
     if (targetSymType is StructType structType) {
       Symbol? memberSym = fb.Model.GetReferencedSymbol(member);
@@ -1180,14 +1313,35 @@ public sealed partial class IrLowerer {
         return EmitStructFieldGet(fb, target, structType.Definition, field, member.Span);
       }
 
-      if (memberSym is MethodSymbol) {
-        throw new IrLoweringUnsupportedException(
-            $"Bound method value '{structType.Definition.Name}:{memberSym.Name}' is deferred to ticket 061.");
+      if (memberSym is MethodSymbol boundMethod) {
+        // For @@Generic[T is Bound], memberSym may be the interface's MethodSymbol; resolve to concrete struct member!
+        if (boundMethod.ContainingType is InterfaceSymbol) {
+          if (FindStructMethodByName(structType.Definition, memberName) is { } concreteMethod) {
+            var fnType = (FunctionType) fb.GetNodeType(member);
+            return LowerBoundMethodValue(fb, target, structType, concreteMethod, fnType, member.Span);
+          }
+
+          if (FindStructFieldByName(structType.Definition, memberName) is { } callableField) {
+            return EmitStructFieldGet(fb, target, structType.Definition, callableField, member.Span);
+          }
+        } else {
+          var fnType = (FunctionType) fb.GetNodeType(member);
+          return LowerBoundMethodValue(fb, target, structType, boundMethod, fnType, member.Span);
+        }
+      }
+
+      // GEN-8 / GEN-9: bounded generic property access (`x:prop` where `T is Bound`) has no referenced FieldSymbol.
+      if (FindStructFieldByName(structType.Definition, memberName) is { } resolvedField) {
+        return EmitStructFieldGet(fb, target, structType.Definition, resolvedField, member.Span);
+      }
+
+      if (FindStructMethodByName(structType.Definition, memberName) is { } resolvedMethod) {
+        var fnType = (FunctionType) fb.GetNodeType(member);
+        return LowerBoundMethodValue(fb, target, structType, resolvedMethod, fnType, member.Span);
       }
     }
 
     // Stdlib read-only properties (`len`, `length`, `cap`, `pattern`).
-    string memberName = NameOf(fb.Model, member.MemberToken);
     IrType targetIrType = _types.GetType(fb.GetOperandType(target));
     switch (targetIrType.Kind) {
       case IrTypeKind.Vector when memberName is "len" or "length": {
@@ -1233,8 +1387,14 @@ public sealed partial class IrLowerer {
         }
 
       default:
-        throw new IrLoweringUnsupportedException(
-            $"Unbound member access '{memberName}' on '{targetIrType.Name}' is deferred to ticket 061.");
+        if (fb.Model.GetType(member) is { } rawMemType
+            && fb.ResolveType(rawMemType) is FunctionType stdlibFnType
+            && TryLowerBoundStdlibMethodValue(fb, target, targetSymType, memberName, stdlibFnType, member.Span) is { } boundStdlib) {
+          return boundStdlib;
+        }
+
+        throw new InvalidOperationException(
+            $"Unsupported member access '{memberName}' on '{targetIrType.Name}'.");
     }
   }
 
@@ -1244,8 +1404,9 @@ public sealed partial class IrLowerer {
 
     switch (sym) {
       case EnumMemberSymbol enumMember: {
-          TypeSymbol enumType = fb.Model.GetType(access)
-              ?? _compilation.Types.GetEnum(enumMember.ContainingEnum);
+          TypeSymbol enumType = fb.Model.GetType(access) is { } rawEnum
+              ? fb.ResolveType(rawEnum)
+              : _compilation.Types.GetEnum(enumMember.ContainingEnum);
           IrTypeId enumIrType = InternType(enumType);
           IrTempId dest = fb.AddTemp(enumIrType);
           fb.Emit(new ConstEnum(dest, enumIrType, enumMember.Ordinal, access.Span));
@@ -1254,8 +1415,7 @@ public sealed partial class IrLowerer {
 
       case UnionVariantSymbol variant: {
           // Payload-less variant (e.g., Option::None, Result::Success on Result[void, E], List::Nil).
-          TypeSymbol unionType = fb.Model.GetType(access)
-              ?? throw new InvalidOperationException($"Missing union type on '{variant.Name}'.");
+          TypeSymbol unionType = fb.GetNodeType(access);
           IrTypeId unionIrType = InternType(unionType);
           IrTempId dest = fb.AddTemp(unionIrType);
           fb.Emit(new UnionNew(dest, variant.TagOrdinal, [], UnionAllocRegion(unionIrType), access.Span));
@@ -1265,9 +1425,11 @@ public sealed partial class IrLowerer {
       case LocalSymbol modVal:
         return EmitSymbolValueRead(fb, modVal, access.Span);
 
-      case FunctionSymbol or MethodSymbol:
-        throw new IrLoweringUnsupportedException(
-            $"Static function/method reference '{sym.Name}' as a value is deferred to ticket 061.");
+      case FunctionSymbol fnSym:
+        return LowerFunctionAsValue(fb, fnSym, access.Span);
+
+      case MethodSymbol methodSym:
+        return LowerStaticMethodAsValue(fb, access, methodSym);
 
       default:
         throw new InvalidOperationException($"Unsupported static access symbol '{sym.GetType().Name}'.");
@@ -1275,8 +1437,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerStructLiteral(FunctionBuilder fb, StructLiteralExpressionSyntax literal) {
-    var structType = (StructType) (fb.Model.GetType(literal)
-        ?? throw new InvalidOperationException("Missing struct literal type."));
+    var structType = (StructType) fb.GetNodeType(literal);
     IrTypeId irStructId = InternType(structType);
 
     // Evaluate all field initializers in source textual order first.
@@ -1315,11 +1476,12 @@ public sealed partial class IrLowerer {
 
     if (structSym.EmbeddedStructs.IsEmpty) {
       foreach (IrStructField f in irStruct.Fields) {
-        args.Add(fieldValues[f.Name]);
+        args.Add(CoerceOperandToTargetType(fb, fieldValues[f.Name], f.Type, span));
       }
     } else {
-      foreach (FieldSymbol directField in structSym.Fields) {
-        args.Add(fieldValues[directField.Name]);
+      for (int i = 0; i < structSym.Fields.Length; i++) {
+        FieldSymbol directField = structSym.Fields[i];
+        args.Add(CoerceOperandToTargetType(fb, fieldValues[directField.Name], irStruct.Fields[i].Type, span));
       }
 
       for (int i = 0; i < structSym.EmbeddedStructs.Length; i++) {
@@ -1335,8 +1497,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerTupleLiteral(FunctionBuilder fb, TupleLiteralExpressionSyntax tupleLit) {
-    var tupleType = (TupleType) (fb.Model.GetType(tupleLit)
-        ?? throw new InvalidOperationException("Missing tuple literal type."));
+    var tupleType = (TupleType) fb.GetNodeType(tupleLit);
     IrTypeId irTupleId = InternType(tupleType);
     var irTuple = (IrTupleType) _types.GetType(irTupleId);
 
@@ -1372,8 +1533,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerVectorLiteral(FunctionBuilder fb, VectorLiteralExpressionSyntax vecLit) {
-    TypeSymbol vecType = fb.Model.GetType(vecLit)
-        ?? throw new InvalidOperationException("Missing vector literal type.");
+    TypeSymbol vecType = fb.GetNodeType(vecLit);
     IrTypeId irVecId = InternType(vecType);
 
     var elements = ImmutableArray.CreateBuilder<IrOperand>(vecLit.Elements.Length);
@@ -1392,8 +1552,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerVectorInitializer(FunctionBuilder fb, VectorInitializerExpressionSyntax vecInit) {
-    TypeSymbol vecType = fb.Model.GetType(vecInit)
-        ?? throw new InvalidOperationException("Missing vector initializer type.");
+    TypeSymbol vecType = fb.GetNodeType(vecInit);
     IrTypeId irVecId = InternType(vecType);
 
     if (vecInit.Properties.IsEmpty) {
@@ -1557,18 +1716,24 @@ public sealed partial class IrLowerer {
     }
 
     IrOperand? elemVal;
-    if (fb.Model.GetType(initProp.Value) is FunctionType) {
+    TypeSymbol? initValType = fb.Model.GetType(initProp.Value) is { } rawInitT ? fb.ResolveType(rawInitT) : null;
+    if (initValType is FunctionType) {
       // Optional function reference `init: make_item` (BodyChecker.Collections.cs:117-134).
       if (initProp.Value is IdentifierExpressionSyntax fnId
           && fb.Model.GetReferencedSymbol(fnId) is FunctionSymbol fnSym
-          && _funcIds.TryGetValue(fnSym, out IrFuncId fnIdRef)) {
+          && !fb.CapturingLocals.ContainsKey(fnSym)
+          && (fb.LocalFuncIds.TryGetValue(fnSym, out IrFuncId fnIdRef) || _funcIds.TryGetValue(fnSym, out fnIdRef))) {
         var irVec = (IrVectorType) _types.GetType(irVecId);
         IrTempId called = fb.AddTemp(irVec.ElementType);
         fb.Emit(new CallDirect(called, fnIdRef, [curIt], initProp.Value.Span));
         elemVal = called;
       } else {
-        throw new IrLoweringUnsupportedException(
-            "Closure value as vector 'init:' callback is deferred to ticket 061.");
+        IrOperand? closOpt = LowerExpression(fb, initProp.Value);
+        if (fb.IsTerminated || closOpt is not { } clos) {
+          elemVal = null;
+        } else {
+          elemVal = EmitClosureCall(fb, clos, [curIt], initProp.Value.Span);
+        }
       }
     } else {
       elemVal = LowerExpression(fb, initProp.Value);
@@ -1595,8 +1760,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerMapLiteral(FunctionBuilder fb, MapLiteralExpressionSyntax mapLit) {
-    TypeSymbol mapType = fb.Model.GetType(mapLit)
-        ?? throw new InvalidOperationException("Missing map literal type.");
+    TypeSymbol mapType = fb.GetNodeType(mapLit);
     IrTypeId irMapId = InternType(mapType);
 
     var entries = ImmutableArray.CreateBuilder<(IrOperand Key, IrOperand Value)>(mapLit.Entries.Length);
@@ -1620,8 +1784,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerSetLiteral(FunctionBuilder fb, SetLiteralExpressionSyntax setLit) {
-    TypeSymbol setType = fb.Model.GetType(setLit)
-        ?? throw new InvalidOperationException("Missing set literal type.");
+    TypeSymbol setType = fb.GetNodeType(setLit);
     IrTypeId irSetId = InternType(setType);
 
     var elems = ImmutableArray.CreateBuilder<IrOperand>(setLit.Elements.Length);
@@ -1640,8 +1803,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand LowerPoolExpression(FunctionBuilder fb, PoolExpressionSyntax poolExpr) {
-    TypeSymbol poolType = fb.Model.GetType(poolExpr)
-        ?? throw new InvalidOperationException("Missing pool expression type.");
+    TypeSymbol poolType = fb.GetNodeType(poolExpr);
     IrTypeId irPoolId = InternType(poolType);
     IrTempId dest = fb.AddTemp(irPoolId);
     fb.Emit(new PoolNew(dest, AllocRegion.Heap, poolExpr.Span));
@@ -1655,8 +1817,7 @@ public sealed partial class IrLowerer {
       return null;
     }
 
-    var operandUnionType = (UnionType) (fb.Model.GetType(bubble.Expression)
-        ?? throw new InvalidOperationException("Missing operand type on '?' bubble."));
+    var operandUnionType = (UnionType) fb.GetNodeType(bubble.Expression);
     bool isResult = ReferenceEquals(operandUnionType.Definition, _compilation.Prelude.ResultUnion);
 
     IrTempId tag = fb.AddTemp(_types.Int, "tag");
@@ -1667,19 +1828,33 @@ public sealed partial class IrLowerer {
     fb.Terminate(new Switch(tag, [(0, bbOk.Id), (1, bbErr.Id)], null, bubble.Span));
 
     fb.SwitchTo(bbErr);
-    IrTypeId enclosingRetIr = fb.Function.ReturnType;
+    bool inInlinedLambda = fb.InlineReturnStack.Count > 0;
+    InlineReturnTarget? inlineTarget = inInlinedLambda ? fb.InlineReturnStack.Peek() : null;
+    IrTypeId enclosingRetIr = inlineTarget?.ResultSlot is { } inSlot
+        ? fb.Function.Slots[inSlot.Index].Type
+        : fb.Function.ReturnType;
+
+    IrTempId errReturnVal;
     if (isResult) {
       IrTypeId errType = InternType(operandUnionType.TypeArguments[1]);
       IrTempId errVal = fb.AddTemp(errType, "err");
       fb.Emit(new UnionField(errVal, unionVal, VariantIndex: 1, FieldIndex: 0, bubble.Span));
 
-      IrTempId retUnion = fb.AddTemp(enclosingRetIr);
-      fb.Emit(new UnionNew(retUnion, VariantIndex: 1, [errVal], UnionAllocRegion(enclosingRetIr), bubble.Span));
-      fb.Terminate(new Ret(retUnion, bubble.Span));
+      errReturnVal = fb.AddTemp(enclosingRetIr);
+      fb.Emit(new UnionNew(errReturnVal, VariantIndex: 1, [errVal], UnionAllocRegion(enclosingRetIr), bubble.Span));
     } else {
-      IrTempId retNone = fb.AddTemp(enclosingRetIr);
-      fb.Emit(new UnionNew(retNone, VariantIndex: 1, [], UnionAllocRegion(enclosingRetIr), bubble.Span));
-      fb.Terminate(new Ret(retNone, bubble.Span));
+      errReturnVal = fb.AddTemp(enclosingRetIr);
+      fb.Emit(new UnionNew(errReturnVal, VariantIndex: 1, [], UnionAllocRegion(enclosingRetIr), bubble.Span));
+    }
+
+    if (inlineTarget is { } target) {
+      if (target.ResultSlot is { } slot) {
+        fb.Emit(new StoreSlot(slot, errReturnVal, bubble.Span));
+      }
+
+      fb.Terminate(new Br(target.ExitBlock, bubble.Span));
+    } else {
+      fb.Terminate(new Ret(errReturnVal, bubble.Span));
     }
 
     fb.SwitchTo(bbOk);
@@ -1706,10 +1881,11 @@ public sealed partial class IrLowerer {
       return null;
     }
 
-    var operandUnionType = (UnionType) (fb.Model.GetType(recovery.Expression)
-        ?? throw new InvalidOperationException("Missing operand type on 'or' recovery."));
+    var operandUnionType = (UnionType) fb.GetNodeType(recovery.Expression);
     bool isResult = ReferenceEquals(operandUnionType.Definition, _compilation.Prelude.ResultUnion);
-    TypeSymbol resType = fb.Model.GetType(recovery) ?? operandUnionType.TypeArguments[0];
+    TypeSymbol resType = fb.Model.GetType(recovery) is { } rawRec
+        ? fb.ResolveType(rawRec)
+        : operandUnionType.TypeArguments[0];
 
     bool hasValue = !resType.IsVoid && !resType.IsNever;
     IrTypeId? resIrType = hasValue ? InternType(resType) : null;

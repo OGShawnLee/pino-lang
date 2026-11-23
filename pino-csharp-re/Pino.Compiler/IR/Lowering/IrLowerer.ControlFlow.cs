@@ -154,8 +154,7 @@ public sealed partial class IrLowerer {
   }
 
   private IrOperand? LowerIfExpression(FunctionBuilder fb, IfExpressionSyntax ifExpr) {
-    TypeSymbol resType = fb.Model.GetType(ifExpr)
-        ?? throw new InvalidOperationException("Missing type on 'if' expression.");
+    TypeSymbol resType = fb.GetNodeType(ifExpr);
     bool hasValue = !resType.IsVoid && !resType.IsNever;
     IrTypeId? resIrType = hasValue ? InternType(resType) : null;
     IrSlotId? resSlot = hasValue ? fb.AddSlot("if_res", resIrType!.Value, isMutSlot: true) : null;
@@ -213,8 +212,7 @@ public sealed partial class IrLowerer {
       _ = LowerMatchCore(fb, matchStmt.Subject, matchStmt.Arms, resultType: null, matchStmt.Span);
 
   private IrOperand? LowerMatchExpression(FunctionBuilder fb, MatchExpressionSyntax matchExpr) {
-    TypeSymbol resType = fb.Model.GetType(matchExpr)
-        ?? throw new InvalidOperationException("Missing type on 'match' expression.");
+    TypeSymbol resType = fb.GetNodeType(matchExpr);
     return LowerMatchCore(fb, matchExpr.Subject, matchExpr.Arms, resType, matchExpr.Span);
   }
 
@@ -234,8 +232,7 @@ public sealed partial class IrLowerer {
     IrTypeId? resIrType = hasValue ? InternType(resultType!) : null;
     IrSlotId? resSlot = hasValue ? fb.AddSlot("res", resIrType!.Value, isMutSlot: true) : null;
 
-    TypeSymbol subjectSymType = fb.Model.GetType(subjectExpr)
-        ?? throw new InvalidOperationException("Missing subject type on 'match'.");
+    TypeSymbol subjectSymType = fb.GetNodeType(subjectExpr);
 
     // Fast path: flat enum or union switch with unique variants and no nested sub-patterns.
     if (CanUseDirectTagSwitch(fb.Model, subjectSymType, arms)) {

@@ -13,13 +13,16 @@ public sealed partial class IrLowerer {
 
     List<SemanticModel> orderedModules = TopologicalSortModules();
 
-    // Phase 1: Pre-register all globals, top-level functions, struct methods, and non-capturing nested functions.
+    // Phase 1: Pre-register all globals, top-level functions, struct methods, and generic templates.
     foreach (SemanticModel model in orderedModules) {
       bool isRoot = ReferenceEquals(model, _compilation.RootModel);
       RegisterModuleDeclarations(model, isRoot);
     }
 
-    // Phase 2: Lower all registered function and method bodies.
+    // Seed concrete generic instantiations from Compilation.GenericInstantiations (GEN-1..11, IQ-6).
+    SeedGenericInstantiations();
+
+    // Phase 2: Lower all registered non-generic function and method bodies.
     foreach ((SemanticModel model, FunctionDeclarationSyntax decl, FunctionSymbol symbol, IrFuncId funcId) in _pendingFunctions) {
       LowerFunctionBody(model, decl, symbol, funcId);
     }
@@ -27,6 +30,9 @@ public sealed partial class IrLowerer {
     foreach ((SemanticModel model, StructSymbol owner, MethodDeclarationSyntax decl, MethodSymbol symbol, IrFuncId funcId) in _pendingMethods) {
       LowerMethodBody(model, owner, decl, symbol, funcId);
     }
+
+    // Drain monomorphization worklist discovered so far.
+    DrainMonomorphizationWorklist();
 
     // Phase 3: Lower imported module top-level initializers in dependency topological order (D-165).
     foreach (SemanticModel model in orderedModules) {
@@ -44,6 +50,9 @@ public sealed partial class IrLowerer {
 
     IrFuncId entryId = BuildEntryFunction(_compilation.RootModel, shutdownId);
     _module.EntryFuncId = entryId;
+
+    // Drain any remaining transitive generic instantiations discovered in initializers, entry, or vtables.
+    DrainMonomorphizationWorklist();
   }
 
   private List<SemanticModel> TopologicalSortModules() {
@@ -92,7 +101,7 @@ public sealed partial class IrLowerer {
           break;
 
         default:
-          RegisterNestedFunctions(model, item, $"{modPrefix}__top$");
+          RegisterNestedStructs(model, item, $"{modPrefix}__top$");
           break;
       }
     }
@@ -131,7 +140,8 @@ public sealed partial class IrLowerer {
     }
 
     if (!fnSym.TypeParameters.IsEmpty) {
-      // Generic functions are monomorphized in ticket 061; skip uninstantiated generic templates here.
+      // Record generic function template for monomorphization worklist (GEN-5..11).
+      _genericFunctionDecls[fnSym] = (model, fnDecl, prefix);
       return;
     }
 
@@ -152,7 +162,7 @@ public sealed partial class IrLowerer {
     _funcIds[fnSym] = irFn.Id;
     _pendingFunctions.Add((model, fnDecl, fnSym, irFn.Id));
 
-    RegisterNestedFunctions(model, fnDecl.Body, fnName);
+    RegisterNestedStructs(model, fnDecl.Body, fnName);
   }
 
   private void RegisterStructMethods(SemanticModel model, StructDeclarationSyntax structDecl, string prefix) {
@@ -161,6 +171,13 @@ public sealed partial class IrLowerer {
     }
 
     if (!structSym.TypeParameters.IsEmpty) {
+      foreach (SyntaxNode member in structDecl.Members) {
+        if (member is MethodDeclarationSyntax methodDecl
+            && model.GetDeclaredSymbol(methodDecl) is MethodSymbol methodSym) {
+          _genericMethodDecls[methodSym] = (model, structSym, methodDecl, prefix);
+        }
+      }
+
       return;
     }
 
@@ -174,6 +191,7 @@ public sealed partial class IrLowerer {
       }
 
       if (!methodSym.TypeParameters.IsEmpty) {
+        _genericMethodDecls[methodSym] = (model, structSym, methodDecl, prefix);
         continue;
       }
 
@@ -203,11 +221,11 @@ public sealed partial class IrLowerer {
       _methodIds[methodSym] = irFn.Id;
       _pendingMethods.Add((model, structSym, methodDecl, methodSym, irFn.Id));
 
-      RegisterNestedFunctions(model, methodDecl.Body, methodName);
+      RegisterNestedStructs(model, methodDecl.Body, methodName);
     }
   }
 
-  private void RegisterNestedFunctions(SemanticModel model, SyntaxNode container, string ownerPrefix) {
+  private void RegisterNestedStructs(SemanticModel model, SyntaxNode container, string ownerPrefix) {
     var stack = new Stack<SyntaxNode>();
     foreach (SyntaxElement child in container.GetChildren()) {
       if (child.IsNode) {
@@ -217,17 +235,6 @@ public sealed partial class IrLowerer {
 
     while (stack.Count > 0) {
       SyntaxNode current = stack.Pop();
-      if (current is FunctionDeclarationSyntax nestedDecl) {
-        CaptureList? captures = model.GetCaptures(nestedDecl);
-        if (captures is not null && !captures.IsEmpty) {
-          throw new IrLoweringUnsupportedException(
-              $"Capturing nested function '{NameOf(model, nestedDecl.NameToken)}' is deferred to ticket 061.");
-        }
-
-        RegisterFunction(model, nestedDecl, $"{ownerPrefix}$");
-        continue;
-      }
-
       if (current is StructDeclarationSyntax nestedStruct) {
         RegisterStructMethods(model, nestedStruct, $"{ownerPrefix}$");
         continue;
@@ -252,6 +259,7 @@ public sealed partial class IrLowerer {
       fb.ParamIndices[fnSym.Parameters[i]] = i;
     }
 
+    PrepareCallableScope(fb, decl.Body);
     LowerBlockItems(fb, decl.Body.Items);
     FinalizeFunctionBody(fb, decl.Body.Span);
   }
@@ -276,6 +284,7 @@ public sealed partial class IrLowerer {
       fb.ParamIndices[methodSym.Parameters[i]] = i + paramOffset;
     }
 
+    PrepareCallableScope(fb, decl.Body);
     LowerBlockItems(fb, decl.Body.Items);
     FinalizeFunctionBody(fb, decl.Body.Span);
   }
@@ -303,6 +312,12 @@ public sealed partial class IrLowerer {
         _types.Void,
         ModuleStateEffects.WriteOnly);
     var fb = new FunctionBuilder(this, initFn, model);
+
+    foreach (SyntaxNode item in model.Tree.Root.Items) {
+      if (item is VariableDeclarationSyntax or TupleDestructuringStatementSyntax) {
+        PrepareCallableScope(fb, item);
+      }
+    }
 
     foreach (SyntaxNode item in model.Tree.Root.Items) {
       if (fb.IsTerminated) {
@@ -346,6 +361,21 @@ public sealed partial class IrLowerer {
 
     if (!rootModel.IsProgramMode) {
       // Script mode (MAIN-1): execute all top-level statements in strict textual order.
+      // Scan for any block-local variables captured by closures and register block-local functions.
+      foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
+        if (item is not (FunctionDeclarationSyntax
+            or StructDeclarationSyntax
+            or InterfaceDeclarationSyntax
+            or EnumDeclarationSyntax
+            or UnionDeclarationSyntax
+            or ModuleDeclarationSyntax
+            or ImportStatementSyntax
+            or FromImportStatementSyntax
+            or TestDeclarationSyntax)) {
+          PrepareCallableScope(fb, item);
+        }
+      }
+
       foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
         if (fb.IsTerminated) {
           break;
@@ -376,6 +406,12 @@ public sealed partial class IrLowerer {
     }
 
     // Program mode (MAIN-2): evaluate top-level val initializers in strict textual order, then call main().
+    foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
+      if (item is VariableDeclarationSyntax or TupleDestructuringStatementSyntax) {
+        PrepareCallableScope(fb, item);
+      }
+    }
+
     FunctionSymbol? mainSymbol = null;
     foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
       if (item is VariableDeclarationSyntax or TupleDestructuringStatementSyntax) {

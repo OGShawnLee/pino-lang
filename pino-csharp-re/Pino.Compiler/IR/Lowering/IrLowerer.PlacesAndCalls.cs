@@ -28,10 +28,13 @@ public sealed partial class IrLowerer {
         }
 
       case MemberAccessExpressionSyntax member: {
-          TypeSymbol targetType = fb.Model.GetType(member.Target)
-              ?? throw new InvalidOperationException("Missing target type on mutable member place.");
-          if (targetType is InterfaceType) {
-            throw new IrLoweringUnsupportedException("Interface mutable property write is deferred to ticket 061.");
+          TypeSymbol targetType = fb.GetNodeType(member.Target);
+          if (targetType is InterfaceType ifaceType) {
+            resolved = LowerInterfacePropertyAddr(fb, member, ifaceType, recordedIndexSlots);
+            if (fb.IsTerminated || resolved is null) {
+              return null;
+            }
+            break;
           }
 
           IrOperand? basePtrOpt = ResolvePlaceAddr(fb, member.Target, ensureUniqueLeaf: false, recordedIndexSlots);
@@ -40,8 +43,9 @@ public sealed partial class IrLowerer {
           }
 
           var structType = (StructType) targetType;
-          var field = (FieldSymbol) (fb.Model.GetReferencedSymbol(member)
-              ?? throw new InvalidOperationException($"Unresolved field '{NameOf(fb.Model, member.MemberToken)}'."));
+          FieldSymbol field = fb.Model.GetReferencedSymbol(member) as FieldSymbol
+              ?? FindStructFieldByName(structType.Definition, NameOf(fb.Model, member.MemberToken))
+              ?? throw new InvalidOperationException($"Unresolved field '{NameOf(fb.Model, member.MemberToken)}'.");
           resolved = EmitStructFieldAddr(fb, basePtr, structType.Definition, field, member.Span);
           break;
         }
@@ -125,6 +129,10 @@ public sealed partial class IrLowerer {
           return ptrTmp;
         }
 
+        if (IsSymbolBoxedCell(fb, local)) {
+          return EmitCellAddr(fb, local, span);
+        }
+
         if (fb.LocalSlots.TryGetValue(local, out IrSlotId slotId)) {
           IrTypeId sType = fb.Function.Slots[slotId.Index].Type;
           IrTempId ptrTmp = fb.AddTemp(_types.GetPtr(sType));
@@ -132,13 +140,11 @@ public sealed partial class IrLowerer {
           return ptrTmp;
         }
 
-        throw new IrLoweringUnsupportedException(
-            $"Captured mutable local '{local.Name}' cell address is deferred to ticket 061.");
+        throw new InvalidOperationException($"Mutable local '{local.Name}' was not bound in '{fb.Function.Name}'.");
 
       case ParameterSymbol param: {
           if (!fb.ParamIndices.TryGetValue(param, out int paramIdx)) {
-            throw new IrLoweringUnsupportedException(
-                $"Captured parameter '{param.Name}' is deferred to ticket 061.");
+            throw new InvalidOperationException($"Mutable parameter '{param.Name}' was not bound in '{fb.Function.Name}'.");
           }
 
           return IrOperand.FromParam(paramIdx);
@@ -191,8 +197,14 @@ public sealed partial class IrLowerer {
   // ---------------------------------------------------------------------------
 
   private IrOperand? LowerCall(FunctionBuilder fb, CallExpressionSyntax call) {
-    CallResolution res = fb.Model.GetCallResolution(call)
-        ?? throw new InvalidOperationException("Missing CallResolution on call expression.");
+    CallResolution? res = fb.Model.GetCallResolution(call);
+    if (res is null) {
+      if (TryResolveUnrecordedBuiltinCallback(fb, call, out IntrinsicId builtinCbIntrinsic)) {
+        return LowerCallbackIntrinsic(fb, call, builtinCbIntrinsic);
+      }
+
+      throw new InvalidOperationException("Missing CallResolution on call expression.");
+    }
 
     switch (res.Kind) {
       case CallKind.Intrinsic:
@@ -213,9 +225,10 @@ public sealed partial class IrLowerer {
       case CallKind.IndirectFunctionValue:
       case CallKind.CallableField:
       case CallKind.BoundMethodValue:
+        return LowerIndirectClosureCall(fb, call);
+
       case CallKind.IndexedElementCall:
-        throw new IrLoweringUnsupportedException(
-            $"Indirect/closure call kind '{res.Kind}' is deferred to ticket 061.");
+        return LowerIndexedElementCall(fb, call, res);
 
       default:
         throw new InvalidOperationException($"Unsupported CallKind '{res.Kind}'.");
@@ -227,19 +240,22 @@ public sealed partial class IrLowerer {
       CallExpressionSyntax call,
       CallResolution res) {
     var variant = (UnionVariantSymbol) res.TargetSymbol!;
-    UnionType unionType = res.ConstructedUnionType
-        ?? (UnionType) (fb.Model.GetType(call)
-            ?? throw new InvalidOperationException("Missing constructed union type."));
+    UnionType unionType = res.ConstructedUnionType is { } constructed
+        ? (UnionType) fb.ResolveType(constructed)
+        : (UnionType) fb.GetNodeType(call);
     IrTypeId unionIrId = InternType(unionType);
 
+    var irUnion = (IrUnionType) _types.GetType(unionIrId);
+    IrUnionVariant irVariant = irUnion.Variants[variant.TagOrdinal];
     var payloads = ImmutableArray.CreateBuilder<IrOperand>(call.Arguments.Length);
-    foreach (ArgumentSyntax arg in call.Arguments) {
+    for (int i = 0; i < call.Arguments.Length; i++) {
+      ArgumentSyntax arg = call.Arguments[i];
       IrOperand? val = LowerExpression(fb, arg.Expression);
       if (fb.IsTerminated || val is not { } v) {
         return null;
       }
 
-      payloads.Add(v);
+      payloads.Add(CoerceOperandToTargetType(fb, v, irVariant.Fields[i].Type, arg.Span));
     }
 
     IrTempId dest = fb.AddTemp(unionIrId);
@@ -251,12 +267,19 @@ public sealed partial class IrLowerer {
       FunctionBuilder fb,
       CallExpressionSyntax call,
       FunctionSymbol fnSym) {
-    if (!fnSym.TypeParameters.IsEmpty) {
-      throw new IrLoweringUnsupportedException(
-          $"Generic function call '{fnSym.Name}' is deferred to ticket 061.");
-    }
+    IrFuncId calleeId;
+    CapturingLocalInfo? capInfo = null;
 
-    if (!_funcIds.TryGetValue(fnSym, out IrFuncId calleeId)) {
+    if (!fnSym.TypeParameters.IsEmpty) {
+      ImmutableArray<TypeSymbol> typeArgs = ResolveGenericFunctionTypeArgs(fb, call, fnSym);
+      calleeId = GetOrRequestMonoFunction(fnSym, typeArgs);
+    } else if (fb.CapturingLocals.TryGetValue(fnSym, out capInfo)) {
+      calleeId = capInfo.FuncId;
+    } else if (fb.LocalFuncIds.TryGetValue(fnSym, out IrFuncId localId)) {
+      calleeId = localId;
+    } else if (_funcIds.TryGetValue(fnSym, out IrFuncId topId)) {
+      calleeId = topId;
+    } else {
       throw new InvalidOperationException($"Function '{fnSym.Name}' was not registered.");
     }
 
@@ -270,6 +293,16 @@ public sealed partial class IrLowerer {
       return null;
     }
 
+    if (capInfo is not null) {
+      IrOperand envOp = fb.Function.Id == capInfo.FuncId
+          ? IrOperand.FromParam(0)
+          : EmitEnvNew(fb, capInfo.EnvTypeId, capInfo.Captures, call.Span);
+      var withEnv = ImmutableArray.CreateBuilder<IrOperand>(argOps.Length + 1);
+      withEnv.Add(envOp);
+      withEnv.AddRange(argOps);
+      return EmitDirectCall(fb, calleeId, withEnv.MoveToImmutable(), call.Span);
+    }
+
     return EmitDirectCall(fb, calleeId, argOps, call.Span);
   }
 
@@ -277,13 +310,15 @@ public sealed partial class IrLowerer {
       FunctionBuilder fb,
       CallExpressionSyntax call,
       MethodSymbol methodSym) {
-    if (!methodSym.TypeParameters.IsEmpty
-        || (methodSym.ContainingType is StructSymbol st && !st.TypeParameters.IsEmpty)) {
-      throw new IrLoweringUnsupportedException(
-          $"Generic static method call '{methodSym.Name}' is deferred to ticket 061.");
-    }
+    IrFuncId calleeId;
+    bool isGeneric = !methodSym.TypeParameters.IsEmpty
+        || (methodSym.ContainingType is StructSymbol st && !st.TypeParameters.IsEmpty);
 
-    if (!_methodIds.TryGetValue(methodSym, out IrFuncId calleeId)) {
+    if (isGeneric) {
+      (ImmutableArray<TypeSymbol> ownerArgs, ImmutableArray<TypeSymbol> methodArgs) =
+          ResolveStaticMethodTypeArgs(fb, call, methodSym);
+      calleeId = GetOrRequestMonoMethod(methodSym, ownerArgs, methodArgs);
+    } else if (!_methodIds.TryGetValue(methodSym, out calleeId)) {
       throw new InvalidOperationException($"Static method '{methodSym.Name}' was not registered.");
     }
 
@@ -305,25 +340,68 @@ public sealed partial class IrLowerer {
       CallExpressionSyntax call,
       MethodSymbol methodSym,
       bool hasImplicitSelf) {
-    if (methodSym.ContainingType is InterfaceSymbol) {
-      throw new IrLoweringUnsupportedException(
-          $"Interface method call '{methodSym.Name}' is deferred to ticket 061.");
-    }
-
-    if (!methodSym.TypeParameters.IsEmpty
-        || (methodSym.ContainingType is StructSymbol ownerSt && !ownerSt.TypeParameters.IsEmpty)) {
-      throw new IrLoweringUnsupportedException(
-          $"Generic instance method call '{methodSym.Name}' is deferred to ticket 061.");
-    }
-
-    MethodSymbol canonicalMethod = methodSym.PromotedFrom ?? methodSym;
-    if (!_methodIds.TryGetValue(canonicalMethod, out IrFuncId calleeId)) {
-      throw new InvalidOperationException($"Instance method '{canonicalMethod.Name}' was not registered.");
-    }
-
     ExpressionSyntax? receiverExpr = hasImplicitSelf
         ? null
         : ((MemberAccessExpressionSyntax) call.Callee).Target;
+
+    TypeSymbol concreteRecvType;
+    if (hasImplicitSelf) {
+      StructSymbol owner = fb.EnclosingStruct
+          ?? throw new InvalidOperationException($"Implicit-self call to '{methodSym.Name}' outside a struct method.");
+      ImmutableArray<TypeSymbol> ownerArgs = [.. owner.TypeParameters.Select(tp => fb.ResolveType(tp.Type))];
+      concreteRecvType = _compilation.Types.GetStruct(owner, ownerArgs);
+    } else {
+      concreteRecvType = fb.GetNodeType(receiverExpr!);
+    }
+
+    if (concreteRecvType is InterfaceType concreteIface) {
+      return LowerInterfaceMethodCall(fb, call, concreteIface, methodSym, receiverExpr!);
+    }
+
+    var concreteStruct = (StructType) concreteRecvType;
+
+    // GEN-8 / GEN-9: @@Generic[T is Bound] method call resolves directly to the concrete struct
+    // method (or callable field per STRUCT-12) with ZERO vtable / CallIface dispatch!
+    if (methodSym.ContainingType is InterfaceSymbol) {
+      if (FindStructMethodByName(concreteStruct.Definition, methodSym.Name) is { } concreteMethod) {
+        methodSym = concreteMethod;
+      } else if (FindStructFieldByName(concreteStruct.Definition, methodSym.Name) is { } callableField) {
+        IrOperand? recvOpt = LowerExpression(fb, receiverExpr!);
+        if (fb.IsTerminated || recvOpt is not { } recvVal) {
+          return null;
+        }
+
+        IrOperand clos = EmitStructFieldGet(fb, recvVal, concreteStruct.Definition, callableField, call.Callee.Span);
+        ImmutableArray<IrOperand>? closArgs = LowerCallArgsWithExclusivity(
+            fb,
+            call,
+            mutatingReceiverExpr: null,
+            hasImplicitMutSelf: false,
+            out _);
+        if (fb.IsTerminated || closArgs is not { } ca) {
+          return null;
+        }
+
+        return EmitClosureCall(fb, clos, ca, call.Span);
+      } else {
+        throw new InvalidOperationException(
+            $"Concrete struct '{concreteStruct.DisplayName}' has no method or callable field '{methodSym.Name}'.");
+      }
+    }
+
+    MethodSymbol canonicalMethod = methodSym.PromotedFrom ?? methodSym;
+    ImmutableArray<TypeSymbol> methodTypeArgs = !canonicalMethod.TypeParameters.IsEmpty
+        ? ResolveCallableTypeArguments(
+            fb,
+            call,
+            ownerParams: methodSym.IsPromotedFromEmbedded ? [] : concreteStruct.Definition.TypeParameters,
+            knownOwnerArgs: methodSym.IsPromotedFromEmbedded ? [] : concreteStruct.TypeArguments,
+            methodParams: canonicalMethod.TypeParameters,
+            rawParams: canonicalMethod.Parameters,
+            rawReturn: canonicalMethod.ReturnType,
+            explicitTypeArgs: call.TypeArguments)
+        : [];
+    IrFuncId calleeId = ResolveConcreteStructMethodId(concreteStruct, methodSym, methodTypeArgs);
 
     IrOperand selfArg;
     ImmutableArray<IrOperand> argOps;
@@ -567,14 +645,24 @@ public sealed partial class IrLowerer {
       IrFuncId calleeId,
       ImmutableArray<IrOperand> args,
       SourceSpan span) {
-    IrTypeId retType = _module.Functions[calleeId.Index].ReturnType;
+    IrFunction callee = _module.Functions[calleeId.Index];
+    var coercedArgs = ImmutableArray.CreateBuilder<IrOperand>(args.Length);
+    for (int i = 0; i < args.Length; i++) {
+      IrParam p = callee.Parameters[i];
+      coercedArgs.Add(p.Ownership == IrParamOwnership.Mut
+          ? args[i]
+          : CoerceOperandToTargetType(fb, args[i], p.Type, span));
+    }
+
+    ImmutableArray<IrOperand> finalArgs = coercedArgs.MoveToImmutable();
+    IrTypeId retType = callee.ReturnType;
     if (retType == _types.Void) {
-      fb.Emit(new CallDirect(null, calleeId, args, span));
+      fb.Emit(new CallDirect(null, calleeId, finalArgs, span));
       return null;
     }
 
     IrTempId dest = fb.AddTemp(retType);
-    fb.Emit(new CallDirect(dest, calleeId, args, span));
+    fb.Emit(new CallDirect(dest, calleeId, finalArgs, span));
     return dest;
   }
 }

@@ -75,6 +75,20 @@ public static class IrVerifier {
         }
       }
 
+      if (!vt.PropertyGetterFuncIds.IsDefault) {
+        foreach (IrFuncId gId in vt.PropertyGetterFuncIds) {
+          if ((uint) gId.Index >= (uint) module.Functions.Count) {
+            errors.Add(new IrVerificationError("IR-MOD-01", "<module>", null, null, $"VTable vt{i} property getter references out-of-range function {gId}."));
+          }
+        }
+      }
+
+      if (!vt.PropertySetterFuncIds.IsDefault) {
+        foreach (IrFuncId? sId in vt.PropertySetterFuncIds) {
+          CheckOptionalFuncRef(module, sId, $"VTable vt{i} property setter", errors);
+        }
+      }
+
       CheckOptionalFuncRef(module, vt.DropFuncId, $"VTable vt{i} drop", errors);
       CheckOptionalFuncRef(module, vt.CloneFuncId, $"VTable vt{i} clone", errors);
       CheckOptionalFuncRef(module, vt.EqFuncId, $"VTable vt{i} eq", errors);

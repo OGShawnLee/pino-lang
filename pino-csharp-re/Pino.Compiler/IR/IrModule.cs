@@ -85,7 +85,10 @@ public sealed record IrVTable(
     IrFuncId? DropFuncId = null,
     IrFuncId? CloneFuncId = null,
     IrFuncId? EqFuncId = null,
-    IrFuncId? ToStrFuncId = null);
+    IrFuncId? ToStrFuncId = null,
+    ImmutableArray<IrFuncId> PropertyGetterFuncIds = default,
+    ImmutableArray<IrFuncId?> PropertySetterFuncIds = default,
+    string? TypeName = null);
 
 public sealed class IrModule {
   private readonly Dictionary<string, int> _stringInterner = new(StringComparer.Ordinal);
@@ -137,7 +140,10 @@ public sealed class IrModule {
       IrFuncId? dropFuncId = null,
       IrFuncId? cloneFuncId = null,
       IrFuncId? eqFuncId = null,
-      IrFuncId? toStrFuncId = null) {
+      IrFuncId? toStrFuncId = null,
+      ImmutableArray<IrFuncId> propertyGetterFuncIds = default,
+      ImmutableArray<IrFuncId?> propertySetterFuncIds = default,
+      string? typeName = null) {
     var id = new IrVTableId(VTables.Count);
     VTables.Add(new IrVTable(
         id,
@@ -148,7 +154,10 @@ public sealed class IrModule {
         dropFuncId,
         cloneFuncId,
         eqFuncId,
-        toStrFuncId));
+        toStrFuncId,
+        propertyGetterFuncIds.IsDefault ? [] : propertyGetterFuncIds,
+        propertySetterFuncIds.IsDefault ? [] : propertySetterFuncIds,
+        typeName));
     return id;
   }
 
