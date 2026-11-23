@@ -564,6 +564,23 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - (d) `runtime/re.c:116` has an unused-variable warning, so it is compiled without `-Werror`; legacy `runtime/` stays frozen
       - (e) ASan and UBSan haven't been run (no `libubsan` in MSYS2 GCC)
       - (f) `pino_rt.h` includes `../runtime/re.h`, so the two folders must stay side by side
+  - **Owner (2026-11-23): README rewritten in the owner's working copy, not committed (it's the owner's file).** It adds the pitch (people and AI), memory without a GC, fit, strengths and weaknesses, performance targets, status and roadmap, and "How Pino is made" (AI usage). All 14 `pino` blocks pass `pino-re check`. Gemini `Co-Authored-By` trailers stay as they are (owner, 2026-11-23).
+  - **071 drafted (Sonnet Medium), not dispatched:**
+    - `;` is ignored, with hint PN1018 (D-187, LEX-23)
+    - a new `pino-re explain` command, whose PN1018 text carries the owner's story
+    - PN3411 says the type once: `'<fn>' should return '<declared>', but this returns '<actual>'.`
+    - the guide's stale "Pool is planned" paragraph is fixed
+
+    It's independent of the IR chain and can run any time.
+  - **Planned performance tickets (draft after 065/067 land, since they need the emitter):**
+    1. inline closures in `map`/`filter`/`each` and other callback intrinsics, so they become plain loops in C
+    2. bounds-check elimination
+    3. `restrict` on non-aliasing pointers in the emitted C (values guarantee no aliasing)
+    4. layout control: fixed-size stack arrays `[N]T`, small structs in registers, later SIMD types (needs owner decisions on syntax)
+    5. a "hidden copy" diagnostic for CoW copies of large values
+    6. a benchmark ticket comparing Pino with C, Rust and Go (binary trees, n-body, JSON, an HTTP handler), seeded by the owner's `benchmarks/lexing/`
+
+    Owner target: Rust-class speed for normal code. Concurrency must keep RC non-atomic by moving values between tasks.
   - **CHAIN STOPPED (2026-11-22): 060 and 064 integrated.** Waiting for the owner to resume. Next: 061 (Neon High), then 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
     - Note: Neon's thinking showed it failed to read the tickets at first. It had tried the worktree path, where the untracked `.tickets/` don't exist, then read them from the main checkout successfully. Future briefs should say plainly that `.tickets/` exists only in the main checkout.
