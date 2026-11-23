@@ -572,6 +572,15 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     - the guide's stale "Pool is planned" paragraph is fixed
 
     It's independent of the IR chain and can run any time.
+  - **071 integrated (2026-11-23): `5e77d03`** (Sonnet Medium; two router review rounds).
+    - `;` is ignored with `hint[PN1018]` (D-187, LEX-23). `pino-re explain PN1018` carries the owner's story.
+    - The PN3411 messages say the type once.
+    - Shared `.err` files moved to the new wording, with legacy known-failure lines (FN-E10, TUP-E7).
+    - Parser allowlist checks ignore hints; `PN1001` was dropped from the `projects/c-compiler/modules/parser.pino` entry.
+    - Verified by the router:
+      - legacy 2264/2264
+      - `-re` 4901/4902 in the worktree (allowed corpus item only) and 4905/4905 in the main checkout
+      - 0 warnings, format clean, `main.pino` 0 errors
   - **Planned performance tickets (draft after 065/067 land, since they need the emitter):**
     1. inline closures in `map`/`filter`/`each` and other callback intrinsics, so they become plain loops in C
     2. bounds-check elimination
