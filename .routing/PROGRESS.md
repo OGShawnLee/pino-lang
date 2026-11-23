@@ -597,6 +597,15 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
     6. a benchmark ticket comparing Pino with C, Rust and Go (binary trees, n-body, JSON, an HTTP handler), seeded by the owner's `benchmarks/lexing/`
 
     Owner target: Rust-class speed for normal code. Concurrency must keep RC non-atomic by moving values between tasks.
+  - **CHAIN RESUMED (owner, 2026-11-23, after the Gemini quota reset).** 061 was dispatched to Gemini 4 Neon (thought level high, worktree). Router notes added to the ticket at dispatch:
+    - `.tickets/` lives only in the main checkout
+    - `[3, 4]:each(println)` is lowered as a direct built-in call in the inline loop, without touching `Checking/`
+    - the sweep drops `UsesTicket061Features`, with no new skip list
+    - PN1018 hints don't count as failures
+    - only the two named worktree-only failures are allowed
+
+    Next: 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
+    - Overlap: 061 already inlines lambda callbacks into IR loops, so planned performance ticket 1 shrinks to function-value callbacks and C-level tuning.
   - **CHAIN STOPPED (2026-11-22): 060 and 064 integrated.** Waiting for the owner to resume. Next: 061 (Neon High), then 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
     - Note: Neon's thinking showed it failed to read the tickets at first. It had tried the worktree path, where the untracked `.tickets/` don't exist, then read them from the main checkout successfully. Future briefs should say plainly that `.tickets/` exists only in the main checkout.
