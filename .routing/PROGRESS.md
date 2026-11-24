@@ -97,6 +97,12 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 
 - **082 assert value lines and help polish** (`c8d882d`, Hydrogen Medium, fresh thread; one pass): value lines align with "was false" (owner caught the two-space indent that the router's 080 format introduced); TEST-6 and a D-188 note; distinct `--verify-rc`/`--debug-rc` help; dead `panicOnly` parameter removed. Router verification: 5623/5623 (2 min 13 s while 075 was building); output checked.
 
+- **075 release 0.4** (`1bb7a56`, Neon High, fresh thread; stopped once to ask about the missing `LICENSE`, correctly):
+  - `release.yml`: win-x64, linux-x64, osx-x64 (`macos-15-intel`) and osx-arm64; trimmed single-file `pino`; TinyCC pinned on Windows and built from the pinned source on Linux (SHA256 `de23af78…ceb9c`); `SHA256SUMS`; a smoke test per archive; publishes only on `v*` tags (`workflow_dispatch` builds and tests)
+  - `ci.yml`: Linux and macOS jobs with the system compiler; `CCompilerDriver` looks next to the executable first, falls back to `cc`/`clang`/`gcc`, and prints an install hint per OS; installers install the whole `~/.pino/`; MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`
+  - Router verification: 5636/5636 after rebasing onto 082; worker's local Windows install and smoke test from outside the repo (8 MB zip, 17 MB `pino.exe`)
+  - **Not yet checked: Linux and macOS** (needs the owner's push, CI, and a manual release-workflow run). **Before tagging:** `runtime/re.c` is SLRE-derived with its licence header stripped; some SLRE versions are GPL-2.0. Owner to confirm the origin, or replace it.
+
 ## In progress
 
 - **083 spec runtime texts** (Hydrogen Medium, fresh thread, in parallel with 075): an inventory of runtime panics and payloads; both engines print them identically (plain-sentence wording wins); the differential compares runtime-panic stderr; D-189. **Owner, 2026-11-24: floats keep the .NET form (`1E+17`, `1E-05`, `.0`).**
