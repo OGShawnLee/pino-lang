@@ -57,18 +57,26 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
   - OQ-42 is settled: 24 `.err` files moved to the `-re` wording, `match/err-union` and `types/err-void-collection-element` were fixed per the spec, and `CheckerConformanceTests` now matches lex/parse `.err` text
   - Router verification of the rebased branch (PowerShell): `-re` 6350/6350, conformance 3576/3576, 0 warnings
 
+- **076 method `else` scope** (`68a4e88`, Neon Medium, **the first warm reuse**, on the 066 thread):
+  - Root cause: Phase 2 cloned the method body scope and re-parented only the `if` chain, so `else` bodies stayed on the discarded scope. The fix re-parents the body scope in place, deleting about 35 lines of cloning code.
+  - It also fixed orphaned `or { }` blocks and `for` headers inside methods.
+  - 6 regression tests, plus `conformance/structs/method-else-scope`; `show_status` is restored in `jade_temple`.
+  - Router verification: `-re` 6365/6365, the `bug3` probe prints `3`, and no story literal was lost.
+  - **Warm-rule verdict (one data point):** 22 minutes in total, about 6 of them to find the root cause and fix it; the rest was the test suites. No fix rounds, and a deeper root cause than asked. It was good.
+
 ## In progress
 
-- **076 checker bug** (Neon Medium, **reusing the warm 066 thread**, branch `t3/checker-else-scope-076`): inside a struct method, an `else`/`else if` body can't see fields, `self` or earlier locals (PN3001). It also restores `show_status` in `games/jade_temple.pino`.
+- **077 retire legacy testing** (Neon Medium, **fresh thread**: the 066 thread already did two tickets, the rule's limit):
+  - a single ReVm/ReC conformance runner and spec lint in `Pino.Compiler.Tests/Conformance/`, each case running once per engine
+  - drop about 1,745 legacy known-failure lines, and delete `pino-csharp.tests/`
+  - CI drops the legacy suite and the `tooling/gc` step
+  - docs updated
+  - the router updated the ticket skill's quality gate
 
 ## Next (in order)
 
-1. *(076 is in progress, above.)*
-2. **077 retire legacy testing** (to draft; Neon Medium, reuse the same thread):
-   - move the conformance runner and spec lint into `pino-csharp-re` tests, keeping only ReVm and ReC
-   - drop the legacy known-failure lines and the legacy `STATUS.md` columns
-   - remove the legacy suite and the embedded `tooling/gc` from `ci.yml`
-   - CONTEXT's quality gate changes with it
+1. *(077 is in progress, above.)*
+2. *(CONTEXT's quality gate drops the `pino-csharp.tests` line once 077 lands.)*
 3. **070 REPL and a separate `Pino.Wasm`** (Neon Medium).
 4. **074 CLI parity and the rename `pino-re` → `pino`** (Neon Medium): `init`; `run` defaulting to `main.pino`; `watch`, `test`, `compile`; `play` from `games/`, pinned to the release tag; `version`, `update`. Panics inside imported modules must name the right file (063 open point).
 5. **075 release** (Neon High):

@@ -45,10 +45,13 @@ Use this exact structure:
 
 - Deterministic yes/no checklist with exact commands and expected outputs.
 - Include the applicable gate(s) from [CONTEXT.md](../../../.routing/CONTEXT.md):
-  - **C# compiler/runtime:** `dotnet test` in `pino-csharp.tests/` exits with `0` (289+ passed, 0 failed) and adds no new build warnings.
-  - **Conformance & `known-failures.txt`:** Behavior changes add or update conformance cases covering the cited rule IDs, and remove the matching `known-failures.txt` lines when a fix makes them pass.
-  - **C transpiler/runtime:** `dotnet run --project pino-csharp run <test.pino> --c` exits with `0` and matches expected stdout under TCC.
-  - **Self-host (`projects/pino-compiler/`):** `dotnet run --project pino-csharp run projects/pino-compiler/main.pino` exits with `0`.
+  - **Compiler (`pino-csharp-re/`):**
+    - `dotnet build pino-csharp-re/Pino.sln -warnaserror` exits `0`
+    - `dotnet test pino-csharp-re/Pino.sln --no-build` has `0` failures (run from PowerShell with stdin closed)
+    - `dotnet format pino-csharp-re/Pino.sln --verify-no-changes` exits `0`
+  - **Conformance & `known-failures.txt`:** behavior changes add or update conformance cases covering the cited rule IDs. ReVm and ReC keep 0 known failures, and `conformance/STATUS.md` is regenerated.
+  - **Running a program:** `dotnet run --no-build --project pino-csharp-re/Pino.Cli -- run [--vm | --c] <file.pino>` exits `0` with the expected stdout. With `--c`, the emitted C must compile under TCC 0.9.27.
+  - **The legacy compiler (`pino-csharp/`) is not tested any more** (owner, 2026-11-23). Never add checks against it.
 - Include a scope check (`git status` / `git diff --name-only` shows only files listed in `May create or edit`).
 - Include commit check when applicable: English Conventional Commit with detailed body.
 
