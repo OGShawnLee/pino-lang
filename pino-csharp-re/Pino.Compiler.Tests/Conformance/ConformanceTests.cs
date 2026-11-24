@@ -74,8 +74,8 @@ public abstract class ConformanceShardBase {
       }
 
       if (vmRun.ExitCode != 0 || cRun.ExitCode != 0) {
-        string vmErr = NormalizeRuntimeStderr(caseRelativePath, vmRun.Stderr);
-        string cErr = NormalizeRuntimeStderr(caseRelativePath, cRun.Stderr);
+        string vmErr = NormalizeRuntimeStderr(vmRun.Stderr);
+        string cErr = NormalizeRuntimeStderr(cRun.Stderr);
         if (!string.Equals(vmErr, cErr, StringComparison.Ordinal)) {
           failures.Add(
               $"[Differential] {caseRelativePath}: stderr mismatch between ReVm and ReC.\n--- ReVm ---\n{vmErr}\n--- ReC ---\n{cErr}");
@@ -88,10 +88,9 @@ public abstract class ConformanceShardBase {
 
   /// <summary>
   /// Normalizes runtime panic/failure stderr for cross-engine comparison: unifies line endings and
-  /// file-path separators, strips the engine-specific backtrace section (open <c>D-081</c>), and
-  /// masks the engine-specific regex error detail (<c>D-029</c>).
+  /// file-path separators, and strips the engine-specific backtrace section (open <c>D-081</c>).
   /// </summary>
-  private static string NormalizeRuntimeStderr(string caseRelativePath, string stderr) {
+  private static string NormalizeRuntimeStderr(string stderr) {
     string normalized = ConformanceRunner.Normalize(stderr).Replace('\\', '/');
     int btIndex = normalized.IndexOf("\nstack backtrace:", StringComparison.Ordinal);
     if (btIndex >= 0) {
@@ -100,14 +99,6 @@ public abstract class ConformanceShardBase {
       int frameIndex = normalized.IndexOf("\n  0:", StringComparison.Ordinal);
       if (frameIndex >= 0) {
         normalized = normalized[..frameIndex];
-      }
-    }
-
-    if (string.Equals(caseRelativePath, "stdlib-regex/err-invalid-pattern.pino", StringComparison.OrdinalIgnoreCase)) {
-      int prefixEnd = normalized.IndexOf("': ", StringComparison.Ordinal);
-      int lineEnd = prefixEnd >= 0 ? normalized.IndexOf("'\n", prefixEnd, StringComparison.Ordinal) : -1;
-      if (prefixEnd >= 0 && lineEnd > prefixEnd) {
-        normalized = string.Concat(normalized.AsSpan(0, prefixEnd + 3), "<D-029>.", normalized.AsSpan(lineEnd));
       }
     }
 

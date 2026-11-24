@@ -1,0 +1,3 @@
+# covers: RGX-E6
+val r = regex("\\q")
+println(r:has_match("q"))

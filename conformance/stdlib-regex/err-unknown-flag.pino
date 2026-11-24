@@ -1,0 +1,3 @@
+# covers: RGX-E12
+val r = regex("(?x)a")
+println(r:has_match("a"))

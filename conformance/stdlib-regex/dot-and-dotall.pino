@@ -1,0 +1,6 @@
+# covers: RGX-11
+println(regex("a.b"):has_match("a\nb"))
+println(regex("a.b"):has_match("axb"))
+println(regex("(?s)a.b"):has_match("a\nb"))
+println(regex("(?s:a.b).c"):has_match("a\nb\nc"))
+println(regex("(?s:a.b).c"):has_match("a\nbxc"))

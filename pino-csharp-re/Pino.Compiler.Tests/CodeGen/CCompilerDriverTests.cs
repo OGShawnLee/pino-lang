@@ -225,9 +225,8 @@ public sealed class CCompilerDriverTests : IDisposable {
   private string CreateFakeRuntimeTree(string name, bool includeTcc) {
     string dir = Path.Combine(_root, name);
     Directory.CreateDirectory(Path.Combine(dir, "runtime-re"));
-    Directory.CreateDirectory(Path.Combine(dir, "runtime"));
     File.WriteAllText(Path.Combine(dir, "runtime-re", "pino_rt.h"), "/* fake */\n");
-    File.WriteAllText(Path.Combine(dir, "runtime", "re.c"), "/* fake */\n");
+    File.WriteAllText(Path.Combine(dir, "runtime-re", "pino_regex.c"), "/* fake */\n");
     if (includeTcc) {
       string tccDir = Path.Combine(dir, "tooling", "tcc");
       Directory.CreateDirectory(tccDir);
@@ -239,17 +238,12 @@ public sealed class CCompilerDriverTests : IDisposable {
 
   private static void CopyRealRuntimeFiles(string sourceRoot, string destRoot) {
     string destRuntimeRe = Path.Combine(destRoot, "runtime-re");
-    string destRuntime = Path.Combine(destRoot, "runtime");
     Directory.CreateDirectory(destRuntimeRe);
-    Directory.CreateDirectory(destRuntime);
 
     foreach (string file in Directory.EnumerateFiles(Path.Combine(sourceRoot, "runtime-re"))) {
       if (file.EndsWith(".c", StringComparison.Ordinal) || file.EndsWith(".h", StringComparison.Ordinal)) {
         File.Copy(file, Path.Combine(destRuntimeRe, Path.GetFileName(file)), overwrite: true);
       }
     }
-
-    File.Copy(Path.Combine(sourceRoot, "runtime", "re.c"), Path.Combine(destRuntime, "re.c"), overwrite: true);
-    File.Copy(Path.Combine(sourceRoot, "runtime", "re.h"), Path.Combine(destRuntime, "re.h"), overwrite: true);
   }
 }

@@ -1,0 +1,9 @@
+# covers: RGX-16
+println(regex("a+"):find("aaaa"))
+println(regex("a+?"):find("aaaa"))
+println(regex("a*?b"):find("aaab"))
+println(regex("a{2,4}"):find("aaaaaa"))
+println(regex("a{2,4}?"):find("aaaaaa"))
+println(regex("a{3}"):find("aaaaa"))
+println(regex("a{2,}"):find("aaaaa"))
+println(regex("a??b"):find("ab"))

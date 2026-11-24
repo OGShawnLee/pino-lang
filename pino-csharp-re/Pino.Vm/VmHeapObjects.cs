@@ -148,14 +148,14 @@ public sealed class PinoVmString : PinoVmHeapObject {
 }
 
 public sealed class PinoVmRegex : PinoVmHeapObject {
-  public PinoVmRegex(PinoVmString pattern, System.Text.RegularExpressions.Regex regex) {
+  public PinoVmRegex(PinoVmString pattern, Regex.PinoRegex regex) {
     Pattern = pattern;
     Regex = regex;
   }
 
   public PinoVmString Pattern { get; }
 
-  public System.Text.RegularExpressions.Regex Regex { get; }
+  public Regex.PinoRegex Regex { get; }
 
   public override string KindName => "regex";
 

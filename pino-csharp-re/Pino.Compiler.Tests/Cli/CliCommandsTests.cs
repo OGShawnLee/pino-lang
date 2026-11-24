@@ -420,8 +420,9 @@ public sealed class CliCommandsTests : IDisposable {
         ("pino-windows-x64/runtime-re/pino_alloc.c", "new-alloc-c"),
         ("pino-windows-x64/runtime-re/pino_str.c", "new-str-c"),
         ("pino-windows-x64/runtime-re/pino_io.c", "new-io-c"),
-        ("pino-windows-x64/runtime/re.c", "new-re-c"),
-        ("pino-windows-x64/runtime/re.h", "new-re-h"),
+        ("pino-windows-x64/runtime-re/pino_regex.c", "new-regex-c"),
+        ("pino-windows-x64/runtime-re/pino_regex.h", "new-regex-h"),
+        ("pino-windows-x64/runtime-re/pino_casefold.h", "new-casefold-h"),
         ("pino-windows-x64/tooling/tcc/tcc.exe", "new-tcc-exe"),
         ("pino-windows-x64/games/star_pino.pino", "println(\"star\")\n"),
         ("pino-windows-x64/games/jade_temple.pino", "println(\"jade\")\n"),
@@ -447,8 +448,8 @@ public sealed class CliCommandsTests : IDisposable {
     Assert.Equal("new-0.5-binary", File.ReadAllText(exePath));
     Assert.Equal("old-0.4-binary", File.ReadAllText(exePath + ".old"));
     Assert.Equal("new-rt-h", File.ReadAllText(Path.Combine(installDir, "runtime-re", "pino_rt.h")));
-    Assert.Equal("new-re-c", File.ReadAllText(Path.Combine(installDir, "runtime", "re.c")));
-    Assert.Equal("new-re-h", File.ReadAllText(Path.Combine(installDir, "runtime", "re.h")));
+    Assert.Equal("new-regex-c", File.ReadAllText(Path.Combine(installDir, "runtime-re", "pino_regex.c")));
+    Assert.Equal("new-regex-h", File.ReadAllText(Path.Combine(installDir, "runtime-re", "pino_regex.h")));
     Assert.Equal("new-tcc-exe", File.ReadAllText(Path.Combine(installDir, "tooling", "tcc", "tcc.exe")));
     Assert.Equal("println(\"star\")\n", File.ReadAllText(Path.Combine(installDir, "games", "star_pino.pino")));
     Assert.Equal("MIT License", File.ReadAllText(Path.Combine(installDir, "LICENSE")));

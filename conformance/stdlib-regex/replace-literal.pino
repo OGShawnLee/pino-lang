@@ -1,0 +1,3 @@
+# covers: RGX-21
+println(regex("(a)(b)"):replace("ab", "\$1-\$2-\$0"))
+println(regex("x"):replace("xyx", "\$\$"))

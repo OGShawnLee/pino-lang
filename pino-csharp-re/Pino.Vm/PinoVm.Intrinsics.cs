@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 
 using Pino.Compiler.IR;
+using Pino.Vm.Regex;
 
 namespace Pino.Vm;
 
@@ -94,15 +94,16 @@ public sealed partial class PinoVm {
         return default;
 
       case IrRuntimeOp.RegexCompile: {
-          string pattern = StrArg(0).ToString();
-          Regex regex;
+          PinoVmString patternStr = StrArg(0);
+          PinoRegex regex;
           try {
-            regex = new Regex(pattern, RegexOptions.CultureInvariant);
-          } catch (ArgumentException ex) {
-            throw new PinoVmPanic($"Invalid pattern '{pattern}': {RegexDetail(ex)}.");
+            regex = PinoRegex.Compile(patternStr.Span);
+          } catch (PinoRegexParseException ex) {
+            throw new PinoVmPanic(ex.Message);
           }
 
-          var rx = new PinoVmRegex(NewString(pattern), regex);
+          PinoVmString ownedPattern = Alloc(new PinoVmString(patternStr.Span.ToArray(), 0, patternStr.ByteLength), _types.String);
+          var rx = new PinoVmRegex(ownedPattern, regex);
           Alloc(rx, destType);
           return PinoValue.FromObject(rx);
         }
@@ -196,31 +197,40 @@ public sealed partial class PinoVm {
         }
 
       case IrRuntimeOp.RegexHasMatch:
-        return PinoValue.FromBool(RegexArg(Arg(0)).Regex.IsMatch(StrArg(1).ToString()));
+        return PinoValue.FromBool(RegexArg(Arg(0)).Regex.HasMatch(StrArg(1).Span));
 
       case IrRuntimeOp.RegexMatchPrefix: {
-          Match m = RegexArg(Arg(0)).Regex.Match(StrArg(1).ToString());
-          return NewStringValue(m.Success && m.Index == 0 ? m.Value : string.Empty);
+          PinoVmString text = StrArg(1);
+          return RegexArg(Arg(0)).Regex.MatchPrefix(text.Span, out int end)
+              ? PinoValue.FromObject(Alloc(text.Slice(0, end), _types.String))
+              : NewStringValue(string.Empty);
         }
 
       case IrRuntimeOp.RegexFind: {
-          Match m = RegexArg(Arg(0)).Regex.Match(StrArg(1).ToString());
-          return NewStringValue(m.Success ? m.Value : string.Empty);
+          PinoVmString text = StrArg(1);
+          return RegexArg(Arg(0)).Regex.Find(text.Span, out int start, out int end)
+              ? PinoValue.FromObject(Alloc(text.Slice(start, end - start), _types.String))
+              : NewStringValue(string.Empty);
         }
 
       case IrRuntimeOp.RegexFindAll: {
-          MatchCollection matches = RegexArg(Arg(0)).Regex.Matches(StrArg(1).ToString());
+          PinoVmString text = StrArg(1);
+          List<(int Start, int End)> matches = RegexArg(Arg(0)).Regex.FindAll(text.Span);
           var vec = new PinoVmVec(matches.Count);
-          foreach (Match m in matches) {
-            vec.Add(NewStringValue(m.Value));
+          foreach ((int start, int end) in matches) {
+            vec.Add(PinoValue.FromObject(Alloc(text.Slice(start, end - start), _types.String)));
           }
 
           Alloc(vec, destType);
           return PinoValue.FromObject(vec);
         }
 
-      case IrRuntimeOp.RegexReplace:
-        return NewStringValue(RegexArg(Arg(0)).Regex.Replace(StrArg(1).ToString(), StrArg(2).ToString()));
+      case IrRuntimeOp.RegexReplace: {
+          PinoVmString text = StrArg(1);
+          PinoVmString repl = StrArg(2);
+          byte[] replaced = RegexArg(Arg(0)).Regex.Replace(text.Span, repl.Span);
+          return PinoValue.FromObject(Alloc(new PinoVmString(replaced, 0, replaced.Length), _types.String));
+        }
 
       default:
         throw new PinoVmInternalException($"The VM has no implementation for the runtime operation '{call.Op}'.");
@@ -230,13 +240,6 @@ public sealed partial class PinoVm {
   private PinoValue NewStringValue(string text) => PinoValue.FromObject(NewString(text));
 
   private PinoVmRegex RegexArg(PinoValue value) => UseObject((PinoVmRegex) value.Obj!, "regex access");
-
-  private static string RegexDetail(ArgumentException ex) {
-    string message = ex.Message;
-    int colon = message.LastIndexOf(" - ", StringComparison.Ordinal);
-    string detail = colon >= 0 ? message[(colon + 3)..] : message;
-    return detail.TrimEnd('.');
-  }
 
   private static int RunesBefore(PinoVmString s, int bytePos) {
     int count = 0;

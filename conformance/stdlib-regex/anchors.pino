@@ -1,0 +1,8 @@
+# covers: RGX-14
+println(regex("^abc$"):has_match("abc"))
+println(regex("^abc$"):has_match("abc\n"))
+println(regex("(?m)^abc$"):find_all("x\nabc\ny"))
+println(regex("(?m)\\Aabc\\z"):has_match("x\nabc\ny"))
+println(regex("\\Aabc\\z"):has_match("abc"))
+println(regex("\\bcat\\b"):find_all("cat scatter bobcat cat"))
+println(regex("\\Bcat\\B"):find_all("cat scatter bobcat"))

@@ -1,0 +1,6 @@
+# covers: RGX-15, RGX-18
+println(regex("(ab)+"):find("xxababab"))
+println(regex("(?:ab|cd)+"):find("xxcdab"))
+println(regex("a|ab"):find("ab"))
+println(regex("foo|foobar"):find("foobar"))
+println(regex("(ab)?(abc)?"):find("abc"))

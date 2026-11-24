@@ -1,0 +1,1 @@
+Invalid pattern '(?=a)': lookaround like '(?=' isn't supported; Pino's regex always runs in linear time.

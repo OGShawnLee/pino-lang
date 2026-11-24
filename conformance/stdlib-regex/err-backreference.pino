@@ -1,0 +1,3 @@
+# covers: RGX-E10
+val r = regex("(a)\\1")
+println(r:has_match("aa"))

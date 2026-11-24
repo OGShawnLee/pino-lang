@@ -85,10 +85,6 @@ chmod +x "$STAGE_ROOT/pino"
 mkdir -p "$STAGE_ROOT/runtime-re"
 cp "$REPO_ROOT"/runtime-re/*.c "$REPO_ROOT"/runtime-re/*.h "$STAGE_ROOT/runtime-re/"
 
-# runtime/re.c and runtime/re.h only
-mkdir -p "$STAGE_ROOT/runtime"
-cp "$REPO_ROOT/runtime/re.c" "$REPO_ROOT/runtime/re.h" "$STAGE_ROOT/runtime/"
-
 # Optional tooling/tcc/ (omitted on Linux and macOS)
 if [ -n "$TCC_DIR" ]; then
   if [ ! -f "$TCC_DIR/tcc" ]; then

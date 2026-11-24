@@ -4,7 +4,7 @@ Packages the Windows x64 release archive (pino-windows-x64.zip) for Pino Lang.
 
 .DESCRIPTION
 Publishes Pino.Cli as a self-contained trimmed single-file binary, assembles the
-release folder layout (pino.exe, runtime-re/*.c|*.h, runtime/re.c|re.h,
+release folder layout (pino.exe, runtime-re/*.c|*.h,
 tooling/tcc/, games/*.pino, LICENSE, THIRD_PARTY_NOTICES.md),
 and compresses it into pino-windows-x64.zip.
 #>
@@ -81,17 +81,6 @@ try {
     }
     foreach ($File in $RuntimeReFiles) {
         Copy-Item -Path $File.FullName -Destination (Join-Path $StageRuntimeRe $File.Name)
-    }
-
-    # runtime/re.c and runtime/re.h only
-    $StageRuntime = Join-Path $StageRoot "runtime"
-    New-Item -ItemType Directory -Force -Path $StageRuntime | Out-Null
-    foreach ($Name in @("re.c", "re.h")) {
-        $Src = Join-Path $RepoRoot "runtime\$Name"
-        if (-not (Test-Path $Src)) {
-            throw "Required runtime file '$Src' is missing."
-        }
-        Copy-Item -Path $Src -Destination (Join-Path $StageRuntime $Name)
     }
 
     # tooling/tcc/

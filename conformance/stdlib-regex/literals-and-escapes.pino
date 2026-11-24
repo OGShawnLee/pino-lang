@@ -1,0 +1,7 @@
+# covers: RGX-9, RGX-10
+val meta = regex("\\\\\\.\\+\\*\\?\\(\\)\\[\\]\\{\\}\\^\\$\\|")
+println(meta:has_match("\\.+*?()[]{}^$|"))
+println(regex("\\x41\\x{00F1}\\x{1F332}"):has_match("Añ🌲"))
+println(regex("\\t\\n\\r"):has_match("\t\n\r"))
+println(regex("a\\f\\v\\0b"):has_match("ab"))
+

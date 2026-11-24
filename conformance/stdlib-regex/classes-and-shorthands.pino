@@ -1,0 +1,12 @@
+# covers: RGX-12, RGX-13
+println(regex("[abc]+"):find("zzbacyy"))
+println(regex("[^a-z]+"):find("abc123def"))
+println(regex("[]a]+"):find("x]a]y"))
+println(regex("[-a-]+"):find("x-a-y"))
+println(regex("[a\\-z]+"):find("a-z-b"))
+println(regex("[\\d_]+"):find("ab12_34cd"))
+println(regex("\\w+@\\w+\\.com"):find_all("a@b.com x c@d.com"))
+println(regex("\\s+"):replace("a \t\n b", "_"))
+println(regex("\\D+"):find("123abc456"))
+println(regex("\\W+"):find("abc---def"))
+println(regex("\\S+"):find("  hi  "))

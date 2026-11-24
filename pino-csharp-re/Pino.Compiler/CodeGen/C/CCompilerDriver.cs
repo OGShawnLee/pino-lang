@@ -33,7 +33,7 @@ public sealed record CExecResult(
     bool TimedOut = false);
 
 /// <summary>
-/// Compiles generated C99 + <c>runtime-re/*.c</c> + <c>runtime/re.c</c> via bundled TCC (dev),
+/// Compiles generated C99 + <c>runtime-re/*.c</c> via bundled TCC (dev),
 /// falling back to the system C compiler (<c>cc</c>, <c>clang</c>, <c>gcc</c>) when no bundled TCC
 /// exists, or GCC/Clang (<c>--release</c>), and runs compiled binaries.
 /// </summary>
@@ -42,12 +42,13 @@ public static class CCompilerDriver {
     "pino_alloc.c",
     "pino_str.c",
     "pino_io.c",
+    "pino_regex.c",
   ];
 
   public static bool HasRuntimeLayout(string? directory) =>
       !string.IsNullOrWhiteSpace(directory)
       && File.Exists(Path.Combine(directory, "runtime-re", "pino_rt.h"))
-      && File.Exists(Path.Combine(directory, "runtime", "re.c"));
+      && File.Exists(Path.Combine(directory, "runtime-re", "pino_regex.c"));
 
   public static string? GetDefaultExecutableDirectory() {
     string? processPath = Environment.ProcessPath;
@@ -63,7 +64,7 @@ public static class CCompilerDriver {
 
   public static string FindRepositoryRoot(string? startDirectory = null, string? executableDirectory = null) {
     // 1. Installed layout: the folder of the running pino executable wins whenever it holds
-    //    runtime-re/pino_rt.h and runtime/re.c, regardless of the current working directory.
+    //    runtime-re/pino_rt.h and runtime-re/pino_regex.c, regardless of the current working directory.
     string? exeDir = executableDirectory ?? GetDefaultExecutableDirectory();
     if (!string.IsNullOrWhiteSpace(exeDir)) {
       string fullExeDir = Path.GetFullPath(exeDir);
@@ -91,7 +92,7 @@ public static class CCompilerDriver {
     }
 
     throw new DirectoryNotFoundException(
-        "Could not locate the Pino runtime directory (runtime-re/pino_rt.h and runtime/re.c).");
+        "Could not locate the Pino runtime directory (runtime-re/pino_rt.h and runtime-re/pino_regex.c).");
   }
 
   public static string? FindBundledTcc(string repoRoot, OSPlatform? platform = null) {
@@ -176,7 +177,6 @@ public static class CCompilerDriver {
     OSPlatform targetPlatform = options.TargetPlatform ?? CurrentPlatform();
     string repoRoot = options.RepoRoot ?? FindRepositoryRoot(options.WorkingDirectory, options.ExecutableDirectory);
     string runtimeReDir = Path.Combine(repoRoot, "runtime-re");
-    string runtimeDir = Path.Combine(repoRoot, "runtime");
 
     string? tempDir = null;
     string cFilePath;
@@ -221,7 +221,6 @@ public static class CCompilerDriver {
         List<string> args = BuildSystemCompilerArgs(
             cFilePath,
             runtimeReDir,
-            runtimeDir,
             outExe,
             optimize: true,
             debugRc: options.DebugRc);
@@ -237,7 +236,6 @@ public static class CCompilerDriver {
               isBundled: true,
               cFilePath,
               runtimeReDir,
-              runtimeDir,
               outExe,
               options.DebugRc,
               targetPlatform);
@@ -252,7 +250,6 @@ public static class CCompilerDriver {
           List<string> args = BuildSystemCompilerArgs(
               cFilePath,
               runtimeReDir,
-              runtimeDir,
               outExe,
               optimize: false,
               debugRc: options.DebugRc);
@@ -269,7 +266,6 @@ public static class CCompilerDriver {
               isBundled: false,
               cFilePath,
               runtimeReDir,
-              runtimeDir,
               outExe,
               options.DebugRc,
               targetPlatform);
@@ -304,7 +300,6 @@ public static class CCompilerDriver {
   private static List<string> BuildSystemCompilerArgs(
       string cFilePath,
       string runtimeReDir,
-      string runtimeDir,
       string outExe,
       bool optimize,
       bool debugRc) {
@@ -319,13 +314,11 @@ public static class CCompilerDriver {
     }
 
     args.Add($"-I{runtimeReDir}");
-    args.Add($"-I{runtimeDir}");
     args.Add(cFilePath);
     foreach (string src in s_runtimeReSources) {
       args.Add(Path.Combine(runtimeReDir, src));
     }
 
-    args.Add(Path.Combine(runtimeDir, "re.c"));
     args.Add("-lm");
     args.Add("-o");
     args.Add(outExe);
@@ -337,7 +330,6 @@ public static class CCompilerDriver {
       bool isBundled,
       string cFilePath,
       string runtimeReDir,
-      string runtimeDir,
       string outExe,
       bool debugRc,
       OSPlatform targetPlatform) {
@@ -354,13 +346,11 @@ public static class CCompilerDriver {
     }
 
     args.Add($"-I{runtimeReDir}");
-    args.Add($"-I{runtimeDir}");
     args.Add(cFilePath);
     foreach (string src in s_runtimeReSources) {
       args.Add(Path.Combine(runtimeReDir, src));
     }
 
-    args.Add(Path.Combine(runtimeDir, "re.c"));
     if (targetPlatform != OSPlatform.Windows) {
       args.Add("-lm");
     }

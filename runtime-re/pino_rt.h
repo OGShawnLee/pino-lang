@@ -21,8 +21,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../runtime/re.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -474,10 +472,12 @@ int64_t pino_rand_int(int64_t limit);  /* [0, limit), 0 when limit <= 0 */
 void pino_sleep(int64_t ms);
 void pino_clear(void);
 
+typedef struct PinoReProg PinoReProg;
+
 typedef struct PinoRegex {
   PinoRcHeader hdr;
   PinoString pattern; /* owned copy */
-  struct slre compiled;
+  PinoReProg* prog;
 } PinoRegex;
 
 /* Panics with RGX-E1 "Invalid pattern '<pattern>': <detail>." on a bad pattern. */

@@ -1,0 +1,1 @@
+Invalid pattern '(a)\1': backreferences like '\1' aren't supported; Pino's regex always runs in linear time.

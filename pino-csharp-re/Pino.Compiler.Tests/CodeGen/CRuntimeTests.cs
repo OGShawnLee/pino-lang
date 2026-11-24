@@ -16,6 +16,7 @@ public sealed class CRuntimeTests : IDisposable {
     "runtime-re/pino_alloc.c",
     "runtime-re/pino_str.c",
     "runtime-re/pino_io.c",
+    "runtime-re/pino_regex.c",
   ];
 
   private readonly string _work = Path.Combine(Path.GetTempPath(), "pino-re-cruntime-" + Guid.NewGuid().ToString("N"));
@@ -64,18 +65,12 @@ public sealed class CRuntimeTests : IDisposable {
       string tag = debug ? "gcc-debug" : "gcc-normal";
       string exe = ExePath(tag);
 
-      // runtime/re.c is the shared legacy regex engine, which must stay untouched and has one
-      // unused-variable warning of its own, so it is compiled to its own object without -Werror.
-      string reObject = Path.Combine(_work, tag + "-re.o");
-      ProcessResult re = Run(cc, ["-O2", "-Wall", "-Wextra", "-c", "runtime/re.c", "-o", reObject], root, failOnLeak: false);
-      Assert.True(re.ExitCode == 0, Describe("cc runtime/re.c", re));
-
       List<string> args = ["-O2", "-Wall", "-Wextra", "-Werror"];
       if (debug) {
         args.Add("-DPINO_DEBUG_RC");
       }
 
-      args.AddRange(["-Iruntime-re", "-Iruntime", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, reObject, "-lm", "-o", exe]);
+      args.AddRange(["-Iruntime-re", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, "-lm", "-o", exe]);
       ProcessResult build = Run(cc, args, root, failOnLeak: false);
       Assert.True(build.ExitCode == 0, Describe("cc build " + tag, build));
 
@@ -119,7 +114,7 @@ public sealed class CRuntimeTests : IDisposable {
         args.Add("-DPINO_DEBUG_RC");
       }
 
-      args.AddRange(["-Iruntime-re", "-Iruntime", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, "runtime/re.c"]);
+      args.AddRange(["-Iruntime-re", "runtime-re/tests/test_runtime.c", .. s_runtimeSources]);
       if (!OperatingSystem.IsWindows()) {
         args.Add("-lm");
       }
@@ -138,7 +133,7 @@ public sealed class CRuntimeTests : IDisposable {
       ccArgs.Add("-DPINO_DEBUG_RC");
     }
 
-    ccArgs.AddRange(["-Iruntime-re", "-Iruntime", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, "runtime/re.c", "-lm", "-o", exe]);
+    ccArgs.AddRange(["-Iruntime-re", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, "-lm", "-o", exe]);
 
     ProcessResult ccBuild = Run(cc!, ccArgs, root, failOnLeak: false);
     Assert.True(ccBuild.ExitCode == 0, Describe("cc build " + tag, ccBuild));
@@ -180,13 +175,13 @@ public sealed class CRuntimeTests : IDisposable {
   private static string FindRepositoryRoot() {
     for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
       if (File.Exists(Path.Combine(directory.FullName, "runtime-re", "pino_rt.h"))
-          && File.Exists(Path.Combine(directory.FullName, "runtime", "re.c"))) {
+          && File.Exists(Path.Combine(directory.FullName, "runtime-re", "pino_regex.c"))) {
         return directory.FullName;
       }
     }
 
     throw new DirectoryNotFoundException(
-        $"Could not locate the repository root (runtime-re/pino_rt.h + runtime/re.c) above '{AppContext.BaseDirectory}'.");
+        $"Could not locate the repository root (runtime-re/pino_rt.h + runtime-re/pino_regex.c) above '{AppContext.BaseDirectory}'.");
   }
 
   private sealed record ProcessResult(int ExitCode, string Stdout, string Stderr);

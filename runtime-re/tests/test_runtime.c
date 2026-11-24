@@ -3,7 +3,7 @@
  *
  * Build (from the repository root), for example:
  *   tooling/tcc/tcc.exe -Iruntime-re -Iruntime runtime-re/tests/test_runtime.c \
- *       runtime-re/pino_alloc.c runtime-re/pino_str.c runtime-re/pino_io.c runtime/re.c -o test_runtime.exe
+ *       runtime-re/pino_alloc.c runtime-re/pino_str.c runtime-re/pino_io.c runtime-re/pino_regex.c -o test_runtime.exe
  * Add -DPINO_DEBUG_RC for the debug mode checks (poisoning, leak reports, use after free).
  *
  * Panic and leak behaviour is verified in child processes: the test program runs itself
@@ -587,6 +587,16 @@ static void test_regex(void) {
   CHECK(pino_regex_has_match(anchored, LIT("abc")));
   CHECK(!pino_regex_has_match(anchored, LIT("cab")));
   pino_regex_release(anchored);
+
+  PinoRegex* fold = pino_regex_compile(LIT("(?i)\xC3\xB1" "and\xC3\xBA"), PINO_HERE);
+  CHECK(pino_regex_has_match(fold, LIT("\xC3\x91" "AND\xC3\x9A")));
+  pino_regex_release(fold);
+
+  PinoRegex* empty_rep = pino_regex_compile(LIT("a*"), PINO_HERE);
+  PinoString rep_empty = pino_regex_replace(empty_rep, LIT("baaac"), LIT("-"));
+  CHECK(str_is(rep_empty, "-b-c-"));
+  pino_str_release(rep_empty);
+  pino_regex_release(empty_rep);
 }
 
 static void test_math(void) {
@@ -688,7 +698,7 @@ static void test_panics(void) {
   expect_panic("alias", "Cannot pass the same element of 'enemies' as two 'mut' arguments to 'duel'.");
   expect_panic("alias_fn", "Cannot pass the same element of 'enemies' as two 'mut' arguments to this function.");
   expect_panic("stale", "This handle no longer points to a value in 'world'; it was removed.");
-  expect_panic("regex_bad", "Invalid pattern '[': No closing bracket.");
+  expect_panic("regex_bad", "Invalid pattern '[': missing ].");
   expect_panic("user_panic", "boom");
 
   char err[4096];

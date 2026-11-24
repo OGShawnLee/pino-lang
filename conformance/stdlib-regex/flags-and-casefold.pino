@@ -1,0 +1,9 @@
+# covers: RGX-17, RGX-19
+println(regex("(?i)ñandú"):has_match("ÑANDÚ"))
+println(regex("(?i)á"):has_match("Á"))
+println(regex("(?i)[ñá]+"):find("xxÑÁyy"))
+println(regex("(?i:abc)def"):has_match("ABCdef"))
+println(regex("(?i:abc)def"):has_match("ABCDEF"))
+println(regex("(?i)a(?-i)b"):has_match("Ab"))
+println(regex("(?i)a(?-i)b"):has_match("AB"))
+println(regex("(?is)a.b"):has_match("A\nB"))

@@ -1,0 +1,5 @@
+# covers: RGX-8
+val r = regex(".")
+println(r:find_all("añ🌲"))
+println(regex("ñ."):find("xñá!"))
+println(regex("🌲"):replace("a🌲b🌲c", "*"))

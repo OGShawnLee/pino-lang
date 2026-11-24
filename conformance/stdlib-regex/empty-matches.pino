@@ -1,0 +1,6 @@
+# covers: RGX-20
+println(regex("a*"):replace("baaac", "-"))
+println(regex("a*"):find_all("baaac"))
+println(regex(""):replace("ñá", "-"))
+println(regex("a*"):replace("", "-"))
+println(regex("a*"):find_all(""))

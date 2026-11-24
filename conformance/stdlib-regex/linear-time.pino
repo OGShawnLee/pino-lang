@@ -1,0 +1,10 @@
+# covers: RGX-22
+var s = "aaaaaaaaaa"
+var i = 0
+for i < 8 {
+  s = s + s
+  i = i + 1
+}
+println(regex("(a*)*b"):has_match(s))
+println(regex("(a|a)*b"):has_match(s))
+println(regex("(a+a+)+b"):has_match(s))
