@@ -117,7 +117,7 @@ After the release-critical path, or alongside it:
 
 - **Push:** 19+ commits are local. The first push runs CI on GitHub.
 - `projects/c-compiler/`: the owner commits it after all tickets (they're finishing that chapter).
-- **The `pino-site-next/` refresh:** align it with the README and remove the "AI-slop" feel. The owner must commit their site changes first and choose the model and how much design freedom. The router hasn't read the site.
+- **The site** now has its own router (`site-router` skill, `.routing/SITE.md`). Before its first session: the owner commits their site changes, chooses the design freedom and the models, and decides who owns README. Old note on the `pino-site-next/` refresh: align it with the README and remove the "AI-slop" feel. The owner must commit their site changes first and choose the model and how much design freedom. The router hasn't read the site.
 - A Proyecto Guiado proposal (Spanish, one page), once the owner shares the course details.
 
 ## Tech debt
