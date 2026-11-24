@@ -68,8 +68,7 @@ Central routing directory for all agents. Read this first.
 ## Agent roles
 - **Two routers, separate files.** They talk through [HANDOFF.md](HANDOFF.md).
   - **The compiler router** owns the compiler, `runtime-re/`, `spec/`, `conformance/`, `games/` and the **content** of `docs/guide/`. It tracks work in PROGRESS.md and numbers tickets `NNN`.
-  - **The site router** ([skill](../.claude/skills/site-router/SKILL.md)) owns `pino-site-next/**`. It tracks work in [SITE.md](SITE.md) and numbers tickets `S<NN>`. The site renders `docs/guide/` at build time and never copies it.
-  - The owner decides who owns `README.md`; until then, the compiler router edits it on request.
+  - **The site router** ([skill](../.claude/skills/site-router/SKILL.md)) owns `pino-site-next/**` and `README.md`. Its workers are Opus for UI and Neon Low for side tasks. It tracks work in [SITE.md](SITE.md) and numbers tickets `S<NN>`. The site renders `docs/guide/` at build time and never copies it.
   - Neither router edits the other's files.
 - **Compiler router:** Claude Opus 5.5 (or Gemini Neon). Keeps [PROGRESS.md](PROGRESS.md), answers architecture questions, writes tickets in `.tickets/` (untracked: they exist only in the main checkout, so say so in every brief), verifies every deliverable by running the tests itself, and integrates. Never writes compiler code. Instructions: [router skill](../.claude/skills/router/SKILL.md).
 - **Workers** (owner, 2026-11-23):

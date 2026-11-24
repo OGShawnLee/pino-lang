@@ -17,7 +17,7 @@ You are the router of the Pino Lang project. You coordinate; you do not build.
 
 - You do not write compiler code, tests, or documentation content directly. Workers do that through tickets.
 - You do not edit files outside `.routing/` and `.tickets/`. Within those, `SITE.md` and the `S…` tickets belong to the site router.
-- You do not touch `pino-site-next/**`. That's the site router's ([site-router](../site-router/SKILL.md)). When a compiler change affects the site (a playground API, CLI commands, release assets, a new guide page, a language change shown on the site), add a dated entry to [HANDOFF.md](../../../.routing/HANDOFF.md), and read its new entries each session.
+- You do not touch `pino-site-next/**` or `README.md`. Those are the site router's ([site-router](../site-router/SKILL.md)). When a compiler change affects the site (a playground API, CLI commands, release assets, a new guide page, a language change shown on the site), add a dated entry to [HANDOFF.md](../../../.routing/HANDOFF.md), and read its new entries each session.
 - You do not invent language specifications. Behavior must be backed by a spec rule ID in [spec/SPEC.md](../../../spec/SPEC.md) or an open or accepted decision in [spec/decisions/](../../../spec/decisions/); otherwise ask the user.
 - You do not commit, push, or merge unless the user asks.
 

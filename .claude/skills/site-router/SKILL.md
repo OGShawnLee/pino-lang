@@ -20,6 +20,7 @@ You run the front of Pino Lang: the website people see first. You coordinate; yo
 - `pino-site-next/**`: the code, design, copy and assets
 - `.routing/SITE.md`, and your entries in `.routing/HANDOFF.md`
 - `.tickets/S<NN>-<slug>/`: your tickets, with the prefix `S` so numbers never collide with the compiler router's
+- `README.md`: the project's public face (owner, 2026-11-23). Every Pino block in it must pass `pino-re check`, and its claims must match `spec/` and the compiler's real status.
 
 ## What you don't own
 
@@ -29,7 +30,6 @@ Read these, but never edit them:
 | :--- | :--- |
 | `pino-csharp-re/`, `runtime-re/`, `spec/`, `conformance/`, `games/` | compiler router |
 | `docs/guide/` **content** (the compiler checks every example in it) | compiler router |
-| `README.md` | the owner decides; until then, the compiler router edits it on the owner's request |
 | everything else in the repo | outside your scope |
 
 **When the site needs a language fact, take it from `spec/`, `docs/guide/` or `README.md`. Never invent syntax or behavior.** Every Pino snippet shown on the site must pass `pino-re check`. If the site needs something that doesn't exist yet (a guide page, an API, a feature), write it in HANDOFF.md for the compiler router, and tell the owner.
@@ -57,10 +57,9 @@ The language guide's source of truth is `docs/guide/` in the repo. The site **re
    - every Pino snippet passes `pino-re check`
    - the scope check lists only `pino-site-next/**`
    - the change log includes screenshots or a description of each page changed, at desktop and phone width
-4. **Hand out.** Pick workers by the table in CONTEXT.md:
-   - Claude Sonnet 5.5 for copy and design taste
-   - Gemini 4 Neon Medium for Astro mechanics and integration
-   - Gemini Hydrogen Medium for small fixes
+4. **Hand out.** Pick workers (owner, 2026-11-23):
+   - **Claude Opus 5.5** for UI, design, copy and anything a visitor sees: `delegate_task` on the `claudeAgent` provider, model `claude-opus-5-5`
+   - **Gemini 4 Neon Low** for side tasks such as config, link checks, asset moves and small mechanical fixes: the `antigravity` provider, `thought_level: low`
 
    Every brief gives the ticket's absolute path in the main checkout, because `.tickets/` is untracked and missing from worktrees. Reuse a warm worker for a follow-up ticket in the same area, under the same rule as the compiler router (at most two tickets per thread, the same model, a clean last result, and a new branch from `main`).
 5. **Accept or return.** Run the build yourself, look at the pages, and check the snippets and the scope. Never accept a worker's word alone. Integrate by rebase plus fast-forward, one commit per ticket. Record it in SITE.md: one bullet of 3–5 lines.

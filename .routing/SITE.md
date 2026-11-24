@@ -9,12 +9,12 @@ The tracker for the site router ([skill](../.claude/skills/site-router/SKILL.md)
 - Serve the language guide from `docs/guide/` (rendered at build time, never copied).
 - For the 0.4 release: download and install instructions for the new `pino`, an "upgrading from 0.3" page, and the browser playground on the new compiler (`Pino.Wasm`, from compiler ticket 070).
 
-## Before the first ticket
+## Owner answers (2026-11-23)
 
-- [ ] **The owner commits or approves their uncommitted site changes** (for example `src/components/CoreTruths.astro`). Don't build on uncommitted work.
-- [ ] The owner chooses the **design freedom**: a refresh of the current look, or a redesign.
-- [ ] The owner confirms the worker models (suggested: Sonnet for copy and design, Neon Medium for Astro mechanics).
-- [ ] The owner decides who owns `README.md` (suggested: the site router, since it's the public face; today the compiler router edits it on request).
+- **Uncommitted site changes:** the owner's uncommitted edit to `src/components/CoreTruths.astro` will be rewritten anyway, so it doesn't block. Don't build on it or try to preserve it. Ask the owner before discarding it from the working copy.
+- **Design freedom:** probably **a whole redesign**. Propose one in the audit, with the current look as the comparison, and confirm the direction with the owner before ticketing it.
+- **Workers:** **Claude Opus 5.5 for UI, design and copy** (the owner finds Opus best for UI). **Gemini 4 Neon Low for side tasks**: small mechanical fixes, config, link checks, asset moves.
+- **`README.md` belongs to the site router.** It's the project's public face, so keep it consistent with the site. Language facts in it must still match `spec/` and pass `pino-re check`.
 
 ## First session (for the site router)
 
