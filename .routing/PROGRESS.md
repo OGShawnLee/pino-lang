@@ -111,7 +111,7 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 ## In progress
 
 - **First GitHub run (owner, 2026-11-24):** CI passed with Node 20 deprecation warnings; the release workflow failed on Linux building TinyCC 0.9.27 (`bcheck.c`: `__malloc_hook` undeclared; glibc 2.34 removed it).
-- **085 Linux system cc and Node 24 actions** (Hydrogen Medium, fresh thread). **Owner: Linux doesn't bundle TinyCC**; `--c` uses the system compiler, like macOS.
+- **085 Linux system cc and Node 24 actions** (`d27956b`, Hydrogen Medium; one pass). **Owner: Linux doesn't bundle TinyCC**; `FindBundledTcc` returns null off Windows. Actions bumped: checkout v7, setup-dotnet v6, cache v6, upload-artifact v7, download-artifact v8, action-gh-release v3 (each `using: node24`, with links in the changelog). Router verification: 5672/5672. Needs the owner's GitHub rerun.
 - **086 regex engine** (Neon High, fresh thread, in parallel with 085). The owner no longer knows where `runtime/re.c` came from (Flash 3.8 later edited it). **Owner decisions:**
   - RE2/Go syntax with a linear-time guarantee (no backreferences or lookaround)
   - `replace` is literal; `$1` comes later with a groups API
