@@ -112,12 +112,14 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 
 - **First GitHub run (owner, 2026-11-24):** CI passed with Node 20 deprecation warnings; the release workflow failed on Linux building TinyCC 0.9.27 (`bcheck.c`: `__malloc_hook` undeclared; glibc 2.34 removed it).
 - **085 Linux system cc and Node 24 actions** (`d27956b`, Hydrogen Medium; one pass). **Owner: Linux doesn't bundle TinyCC**; `FindBundledTcc` returns null off Windows. Actions bumped: checkout v7, setup-dotnet v6, cache v6, upload-artifact v7, download-artifact v8, action-gh-release v3 (each `using: node24`, with links in the changelog). Router verification: 5672/5672. Needs the owner's GitHub rerun.
-- **086 regex engine** (Neon High, fresh thread, in parallel with 085). The owner no longer knows where `runtime/re.c` came from (Flash 3.8 later edited it). **Owner decisions:**
-  - RE2/Go syntax with a linear-time guarantee (no backreferences or lookaround)
-  - `replace` is literal; `$1` comes later with a groups API
-  - **0.4 waits for this engine**
-  - written from scratch in C and C#: Pike VM, literal fast paths, lazy DFA if time allows; a differential fuzzer against .NET; benchmarks
-  - D-190 settles D-029
+- **086 regex engine** (`8eb8765`, Neon High, fresh thread; ended its turn early once). It replaces `runtime/re.c` (origin unknown: the owner can't trace it, and Flash 3.8 later edited it).
+  - Owner decisions: RE2/Go syntax with a linear-time guarantee; `replace` is literal; 0.4 waited for this engine. D-190 settles D-029.
+  - Written from scratch in C (`runtime-re/pino_regex.c`) and C# (`Pino.Vm/Regex/`): parser and AST, Thompson program, Pike VM, literal fast path, an ASCII lazy DFA (1,024-state cap), and a generated Unicode simple case-folding table (`tools/gen-casefold.py`)
+  - 20,000-case fuzzer (C# == C, and both against .NET ECMAScript); linear-time tests; 30 regex conformance cases; `re.c`/`re.h` deleted. `runtime/` now holds only the legacy `runtime.c`/`runtime.h` (gone in 084).
+  - Worker benchmark, 10 MB, `find_all` (not reproduced by the router): literal 2.1 ms (C) / 1.6 ms (C#), email 73/87 ms (.NET compiled 43, Go 604), identifier/number 63/84 ms (Go 1,474); the old `re.c` took 278 ms and 2.9 s, and crashed on the third.
+  - Router verification: 5830/5830; by hand on both engines: `(?i)ñandú`, empty-match replace, `find_all`, `match_prefix`, `(a*)*b` on 60,000 characters, and the exact backreference panic.
+  - Follow-up: a UTF-8 byte-level DFA for non-ASCII text (the Pike VM handles it today, still in linear time).
+- **Performance bug found in the 086 review:** `s = s + "a"` 60,000 times takes about 5.8 s natively (`--c`, TCC) against about 1.4 s on the VM. The C runtime seems to copy the string on every append instead of extending a unique one in place. Ticket it with the first performance batch (related to 068 reuse).
 - **Owner, 2026-11-24: Pino's licence is MIT** (`Copyright (c) 2026 OGShawnLee`; the owner may change the name line). 075 adds `LICENSE`. macOS x64 builds on `macos-15-intel` (`macos-13` was retired).
 
 - **075 release 0.4** (Neon High, fresh thread, in parallel with 082; no shared files):
