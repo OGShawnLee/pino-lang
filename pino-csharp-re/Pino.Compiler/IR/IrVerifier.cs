@@ -1,6 +1,13 @@
 using System.Collections.Immutable;
 
+using Pino.Compiler.IR.Passes;
+
 namespace Pino.Compiler.IR;
+
+public enum IrVerifyStage : byte {
+  PreRc,
+  PostRc,
+}
 
 public sealed record IrVerificationError(
     string RuleCode,
@@ -25,23 +32,36 @@ public sealed record IrVerificationResult(ImmutableArray<IrVerificationError> Er
 /// Never throws on malformed IR; returns structured <see cref="IrVerificationError"/> entries.
 /// </summary>
 public static class IrVerifier {
-  public static IrVerificationResult Verify(IrModule module) {
+  public static IrVerificationResult Verify(IrModule module) =>
+      Verify(module, IrVerifyStage.PreRc);
+
+  public static IrVerificationResult VerifyAfterRc(IrModule module) =>
+      Verify(module, IrVerifyStage.PostRc);
+
+  public static IrVerificationResult Verify(IrModule module, IrVerifyStage stage) {
     ArgumentNullException.ThrowIfNull(module);
     var errors = ImmutableArray.CreateBuilder<IrVerificationError>();
 
     VerifyModuleHeaders(module, errors);
     foreach (IrFunction fn in module.Functions) {
-      VerifyFunctionCore(module, fn, errors);
+      VerifyFunctionCore(module, fn, stage, errors);
+    }
+
+    if (stage == IrVerifyStage.PostRc) {
+      VerifyPostRcModule(module, errors);
     }
 
     return new IrVerificationResult(errors.ToImmutable());
   }
 
-  public static IrVerificationResult VerifyFunction(IrModule module, IrFunction fn) {
+  public static IrVerificationResult VerifyFunction(
+      IrModule module,
+      IrFunction fn,
+      IrVerifyStage stage = IrVerifyStage.PreRc) {
     ArgumentNullException.ThrowIfNull(module);
     ArgumentNullException.ThrowIfNull(fn);
     var errors = ImmutableArray.CreateBuilder<IrVerificationError>();
-    VerifyFunctionCore(module, fn, errors);
+    VerifyFunctionCore(module, fn, stage, errors);
     return new IrVerificationResult(errors.ToImmutable());
   }
 
@@ -116,9 +136,11 @@ public static class IrVerifier {
   private static void VerifyFunctionCore(
       IrModule module,
       IrFunction fn,
+      IrVerifyStage stage,
       ImmutableArray<IrVerificationError>.Builder errors) {
     IrTypeTable types = module.Types;
     string fnName = fn.Name;
+    int initialErrors = errors.Count;
 
     // 1. Validate parameters, return type, slots, and temps.
     for (int i = 0; i < fn.Parameters.Length; i++) {
@@ -251,6 +273,10 @@ public static class IrVerifier {
     }
 
     VerifyArenaScopes(fn, reachable, errors);
+
+    if (stage == IrVerifyStage.PostRc && errors.Count == initialErrors) {
+      VerifyPostRcFunction(module, fn, reachable, errors);
+    }
   }
 
   private static void VerifyOperandUse(
@@ -2128,6 +2154,614 @@ public static class IrVerifier {
         errors.Add(new IrVerificationError("IR-TYPE-03", fn.Name, bb, idx, $"{label} dest must be ptr<{FormatTypeName(types, targetType)}>, got '{actual.Name}'."));
       }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Post-RC verification (Step 1 RC invariants: IR-RC-03..IR-RC-06)
+  // ---------------------------------------------------------------------------
+
+  private enum VerifierSlotState : byte {
+    Uninit = 0,
+    Init = 1,
+    MaybeInit = 2,
+  }
+
+  private sealed class PostRcBlockState {
+    public required int[] ParamBalance { get; init; }
+    public required Dictionary<int, int> TempBalance { get; init; }
+    public required VerifierSlotState[] SlotStates { get; init; }
+
+    public PostRcBlockState Clone() => new() {
+      ParamBalance = (int[]) ParamBalance.Clone(),
+      TempBalance = new Dictionary<int, int>(TempBalance),
+      SlotStates = (VerifierSlotState[]) SlotStates.Clone(),
+    };
+  }
+
+  private static void VerifyPostRcModule(
+      IrModule module,
+      ImmutableArray<IrVerificationError>.Builder errors) {
+    IrTypeTable types = module.Types;
+
+    // IR-RC-06a: Check __pino_shutdown() drops every RC-managed global.
+    var rcGlobalIds = new HashSet<int>();
+    for (int i = 0; i < module.Globals.Count; i++) {
+      IrGlobal g = module.Globals[i];
+      if (types.TryGetType(g.Type, out IrType? gType) && gType.IsRcManaged) {
+        rcGlobalIds.Add(i);
+      }
+    }
+
+    if (rcGlobalIds.Count > 0) {
+      if (module.ShutdownFuncId is not { } sid || (uint) sid.Index >= (uint) module.Functions.Count) {
+        errors.Add(new IrVerificationError(
+            "IR-RC-06",
+            "<module>",
+            null,
+            null,
+            $"Module has {rcGlobalIds.Count} RC-managed global(s) but no valid __pino_shutdown() function."));
+      } else {
+        IrFunction shutdownFn = module.Functions[sid.Index];
+        var droppedGlobals = CollectShutdownDroppedGlobals(module, shutdownFn);
+        foreach (int gIdx in rcGlobalIds) {
+          if (!droppedGlobals.Contains(gIdx)) {
+            errors.Add(new IrVerificationError(
+                "IR-RC-06",
+                shutdownFn.Name,
+                shutdownFn.Blocks.Count > 0 ? shutdownFn.Blocks[0].Id : null,
+                null,
+                $"__pino_shutdown() does not drop RC-managed global '${module.Globals[gIdx].Name}'."));
+          }
+        }
+      }
+    }
+
+    // IR-RC-06b: Validate synthesized RcDescriptors when module is PostRcStep1.
+    if (module.Stage >= IrPassStage.PostRcStep1) {
+      var covered = new HashSet<IrTypeId>();
+      foreach (IrTypeRcDescriptor desc in module.RcDescriptors) {
+        if (!types.TryGetType(desc.Type, out IrType? irType)) {
+          errors.Add(new IrVerificationError("IR-RC-06", "<module>", null, null, $"RC descriptor references invalid type {desc.Type}."));
+          continue;
+        }
+
+        if (!irType.IsRcManaged) {
+          errors.Add(new IrVerificationError("IR-RC-06", "<module>", null, null, $"RC descriptor emitted for pointer-free or non-RC type '{irType.Name}'."));
+        }
+
+        covered.Add(desc.Type);
+      }
+
+      for (int i = 0; i < types.Count; i++) {
+        IrType irType = types.Types[i];
+        if (irType.IsRcManaged && !covered.Contains(irType.Id)) {
+          errors.Add(new IrVerificationError("IR-RC-06", "<module>", null, null, $"Missing RC drop/inc descriptor for RC-managed type '{irType.Name}'."));
+        }
+      }
+    }
+  }
+
+  private static HashSet<int> CollectShutdownDroppedGlobals(IrModule module, IrFunction shutdownFn) {
+    var dropped = new HashSet<int>();
+    var addrToGlobal = new Dictionary<int, int>();
+    var loadToGlobal = new Dictionary<int, int>();
+
+    foreach (IrBasicBlock block in shutdownFn.Blocks) {
+      foreach (IrInstruction instr in block.Instructions) {
+        switch (instr) {
+          case AddrGlobal ag when (uint) ag.Global.Index < (uint) module.Globals.Count:
+            addrToGlobal[ag.Dest.Index] = ag.Global.Index;
+            break;
+
+          case LoadPtr lp when lp.Ptr.IsTemp && addrToGlobal.TryGetValue(lp.Ptr.Index, out int gIdx):
+            loadToGlobal[lp.Dest.Index] = gIdx;
+            break;
+
+          case RcDec dec when dec.Value.IsTemp && loadToGlobal.TryGetValue(dec.Value.Index, out int droppedGlobal):
+            dropped.Add(droppedGlobal);
+            break;
+        }
+      }
+    }
+
+    return dropped;
+  }
+
+  private static void VerifyPostRcFunction(
+      IrModule module,
+      IrFunction fn,
+      bool[] reachable,
+      ImmutableArray<IrVerificationError>.Builder errors) {
+    IrTypeTable types = module.Types;
+    int blockCount = fn.Blocks.Count;
+    bool isShutdownFn = module.ShutdownFuncId == fn.Id;
+
+    // Identify panic-only blocks so panic exits do not report spurious leak errors.
+    var succs = new List<int>[blockCount];
+    for (int b = 0; b < blockCount; b++) {
+      succs[b] = [];
+      var targets = new List<IrBlockId>();
+      fn.Blocks[b].Terminator?.CollectTargets(targets);
+      var seen = new HashSet<int>();
+      foreach (IrBlockId t in targets) {
+        if ((uint) t.Index < (uint) blockCount && seen.Add(t.Index)) {
+          succs[b].Add(t.Index);
+        }
+      }
+    }
+
+    bool[] panicOnly = ComputeVerifierPanicOnlyBlocks(fn, reachable, succs);
+
+    // Map init-flag slot -> guarded RC slot (if any), and validate InitFlagSlot types.
+    var flagToGuardedSlot = new Dictionary<int, int>();
+    for (int s = 0; s < fn.Slots.Count; s++) {
+      if (fn.Slots[s].InitFlagSlot is { } flagId) {
+        if ((uint) flagId.Index >= (uint) fn.Slots.Count) {
+          errors.Add(new IrVerificationError("IR-RC-03", fn.Name, null, null, $"Slot '${fn.Slots[s].Name}' has out-of-range InitFlagSlot {flagId}."));
+        } else if (fn.Slots[flagId.Index].Type != types.Bool) {
+          errors.Add(new IrVerificationError("IR-RC-03", fn.Name, null, null, $"Slot '${fn.Slots[s].Name}' InitFlagSlot '${fn.Slots[flagId.Index].Name}' must be bool."));
+        } else {
+          flagToGuardedSlot[flagId.Index] = s;
+        }
+      }
+    }
+
+    // Track AddrGlobal temps in __pino_shutdown so global drop-loads are recognized.
+    var shutdownAddrGlobalTemps = new HashSet<int>();
+    if (isShutdownFn) {
+      foreach (IrBasicBlock block in fn.Blocks) {
+        foreach (IrInstruction instr in block.Instructions) {
+          if (instr is AddrGlobal ag) {
+            shutdownAddrGlobalTemps.Add(ag.Dest.Index);
+          }
+        }
+      }
+    }
+
+    // Initialize bb0 entry state: @owned RC params start at balance 1, all slots Uninit.
+    var entryStates = new PostRcBlockState?[blockCount];
+    var initParamBalance = new int[fn.Parameters.Length];
+    for (int p = 0; p < fn.Parameters.Length; p++) {
+      IrParam param = fn.Parameters[p];
+      if (param.Ownership == IrParamOwnership.Owned && types.GetType(param.Type).IsRcManaged) {
+        initParamBalance[p] = 1;
+      }
+    }
+
+    entryStates[0] = new PostRcBlockState {
+      ParamBalance = initParamBalance,
+      TempBalance = [],
+      SlotStates = new VerifierSlotState[fn.Slots.Count],
+    };
+
+    var worklist = new Queue<int>();
+    var inQueue = new bool[blockCount];
+    worklist.Enqueue(0);
+    inQueue[0] = true;
+
+    // Track reported (block, instr, code) to avoid duplicate diagnostics during fixpoint iterations.
+    var reported = new HashSet<(int Block, int Instr, string Code, string Detail)>();
+
+    void ReportOnce(int bIdx, int iIdx, string code, string message) {
+      if (reported.Add((bIdx, iIdx, code, message))) {
+        errors.Add(new IrVerificationError(code, fn.Name, fn.Blocks[bIdx].Id, iIdx, message));
+      }
+    }
+
+    var consumingOps = new List<IrOperand>();
+    var borrowingOps = new List<IrOperand>();
+    var termTargets = new List<IrBlockId>();
+
+    while (worklist.Count > 0) {
+      int b = worklist.Dequeue();
+      inQueue[b] = false;
+      if (!reachable[b] || entryStates[b] is null) {
+        continue;
+      }
+
+      bool isPanicBlock = panicOnly[b];
+      IrBasicBlock block = fn.Blocks[b];
+      PostRcBlockState state = entryStates[b]!.Clone();
+      var instrs = block.Instructions;
+
+      // Track temp -> guarded slot when loaded from an InitFlagSlot in this block.
+      var flagTempToSlot = new Dictionary<int, int>();
+
+      int i = 0;
+      while (i < instrs.Count) {
+        IrInstruction instr = instrs[i];
+
+        // 1. Check slot initialization safety on LoadSlot and AddrLocal (IR-RC-03).
+        if (instr is LoadSlot ls) {
+          int sIdx = ls.Slot.Index;
+          if (state.SlotStates[sIdx] != VerifierSlotState.Init) {
+            bool isDropLoad = i + 1 < instrs.Count && instrs[i + 1] is RcDec d && d.Value.IsTemp && d.Value.Index == ls.Dest.Index;
+            string verb = isDropLoad ? "drop" : "read";
+            ReportOnce(b, i, "IR-RC-03", $"Cannot {verb} potentially uninitialized slot '${fn.Slots[sIdx].Name}' (state: {state.SlotStates[sIdx]}).");
+          }
+
+          if (flagToGuardedSlot.TryGetValue(sIdx, out int guardedSlot)) {
+            flagTempToSlot[ls.Dest.Index] = guardedSlot;
+          }
+        } else if (instr is AddrLocal al) {
+          int sIdx = al.Slot.Index;
+          if (state.SlotStates[sIdx] != VerifierSlotState.Init) {
+            ReportOnce(b, i, "IR-RC-03", $"Cannot take address of potentially uninitialized slot '${fn.Slots[sIdx].Name}' (state: {state.SlotStates[sIdx]}).");
+          }
+        }
+
+        // 2. Recognize atomic drop/overwrite idioms before generic instruction processing.
+        // Idiom A: Slot overwrite `%old = load $s; store $s, %new; rc_dec %old` (RC slot)
+        if (instr is LoadSlot owLoad
+            && types.GetType(fn.Slots[owLoad.Slot.Index].Type).IsRcManaged
+            && i + 2 < instrs.Count
+            && instrs[i + 1] is StoreSlot owStore && owStore.Slot == owLoad.Slot
+            && instrs[i + 2] is RcDec owDec && owDec.Value.IsTemp && owDec.Value.Index == owLoad.Dest.Index) {
+          ConsumeOperand(fn, types, state, owStore.Value, b, i + 1, "store", ReportOnce);
+          state.SlotStates[owStore.Slot.Index] = VerifierSlotState.Init;
+          state.TempBalance[owLoad.Dest.Index] = 0;
+          i += 3;
+          continue;
+        }
+
+        // Idiom B: Slot drop `%d = load $s; rc_dec %d` (RC slot)
+        if (instr is LoadSlot dropLoad
+            && types.GetType(fn.Slots[dropLoad.Slot.Index].Type).IsRcManaged
+            && i + 1 < instrs.Count
+            && instrs[i + 1] is RcDec slotDec && slotDec.Value.IsTemp && slotDec.Value.Index == dropLoad.Dest.Index) {
+          state.SlotStates[dropLoad.Slot.Index] = VerifierSlotState.Uninit;
+          state.TempBalance[dropLoad.Dest.Index] = 0;
+          i += 2;
+          continue;
+        }
+
+        // Idiom C: Pointer overwrite `%old = load_ptr %p; store_ptr %p, %new; rc_dec %old`
+        if (instr is LoadPtr owPtrLoad
+            && types.GetType(fn.Temps[owPtrLoad.Dest.Index].Type).IsRcManaged
+            && i + 2 < instrs.Count
+            && instrs[i + 1] is StorePtr owPtrStore && owPtrStore.Ptr == owPtrLoad.Ptr
+            && instrs[i + 2] is RcDec owPtrDec && owPtrDec.Value.IsTemp && owPtrDec.Value.Index == owPtrLoad.Dest.Index) {
+          ConsumeOperand(fn, types, state, owPtrStore.Value, b, i + 1, "store_ptr", ReportOnce);
+          state.TempBalance[owPtrLoad.Dest.Index] = 0;
+          i += 3;
+          continue;
+        }
+
+        // Idiom D: Cell overwrite `%old = cell.get %c; cell.set %c, %new; rc_dec %old`
+        if (instr is CellGet owCellGet
+            && types.GetType(fn.Temps[owCellGet.Dest.Index].Type).IsRcManaged
+            && i + 2 < instrs.Count
+            && instrs[i + 1] is CellSet owCellSet && owCellSet.Cell == owCellGet.Cell
+            && instrs[i + 2] is RcDec owCellDec && owCellDec.Value.IsTemp && owCellDec.Value.Index == owCellGet.Dest.Index) {
+          CheckBorrowOperand(fn, types, state, owCellGet.Cell, b, i, "cell.get", ReportOnce);
+          ConsumeOperand(fn, types, state, owCellSet.Value, b, i + 1, "cell.set", ReportOnce);
+          state.TempBalance[owCellGet.Dest.Index] = 0;
+          i += 3;
+          continue;
+        }
+
+        // Idiom E: Global shutdown drop `%v = load_ptr %addrGlobal; rc_dec %v` in __pino_shutdown
+        if (isShutdownFn
+            && instr is LoadPtr gDropLoad
+            && gDropLoad.Ptr.IsTemp && shutdownAddrGlobalTemps.Contains(gDropLoad.Ptr.Index)
+            && types.GetType(fn.Temps[gDropLoad.Dest.Index].Type).IsRcManaged
+            && i + 1 < instrs.Count
+            && instrs[i + 1] is RcDec gDropDec && gDropDec.Value.IsTemp && gDropDec.Value.Index == gDropLoad.Dest.Index) {
+          state.TempBalance[gDropLoad.Dest.Index] = 0;
+          i += 2;
+          continue;
+        }
+
+        // 3. Handle explicit RcInc and RcDec.
+        if (instr is RcInc rcInc) {
+          if (rcInc.Value.IsParam) {
+            state.ParamBalance[rcInc.Value.Index]++;
+          } else if (rcInc.Value.IsTemp) {
+            int cur = state.TempBalance.GetValueOrDefault(rcInc.Value.Index, 0);
+            state.TempBalance[rcInc.Value.Index] = cur + 1;
+          }
+
+          i++;
+          continue;
+        }
+
+        if (instr is RcDec rcDec) {
+          if (rcDec.Value.IsParam) {
+            int pIdx = rcDec.Value.Index;
+            if (state.ParamBalance[pIdx] <= 0) {
+              ReportOnce(b, i, "IR-RC-04", $"rc_dec on unowned or already-dropped parameter '%{fn.Parameters[pIdx].Name}'.");
+            } else {
+              state.ParamBalance[pIdx]--;
+            }
+          } else if (rcDec.Value.IsTemp) {
+            int tIdx = rcDec.Value.Index;
+            int cur = state.TempBalance.GetValueOrDefault(tIdx, 0);
+            if (cur <= 0) {
+              ReportOnce(b, i, "IR-RC-04", $"rc_dec on unowned or already-dropped temp {FormatTempName(fn, rcDec.Value.TempId)}.");
+            } else {
+              state.TempBalance[tIdx] = cur - 1;
+            }
+          }
+
+          i++;
+          continue;
+        }
+
+        // 4. Generic instruction: verify borrowed operands are live and consume owned operands.
+        consumingOps.Clear();
+        borrowingOps.Clear();
+        RcInsertPass.ClassifyInstructionRcOperands(module, fn, instr, consumingOps, borrowingOps);
+
+        foreach (IrOperand borrowOp in borrowingOps) {
+          CheckBorrowOperand(fn, types, state, borrowOp, b, i, instr.GetType().Name, ReportOnce);
+        }
+
+        foreach (IrOperand consumeOp in consumingOps) {
+          ConsumeOperand(fn, types, state, consumeOp, b, i, instr.GetType().Name, ReportOnce);
+        }
+
+        if (instr is StoreSlot ss) {
+          if (types.GetType(fn.Slots[ss.Slot.Index].Type).IsRcManaged
+              && state.SlotStates[ss.Slot.Index] != VerifierSlotState.Uninit
+              && !isPanicBlock) {
+            ReportOnce(b, i, "IR-RC-05", $"store to initialized RC slot '${fn.Slots[ss.Slot.Index].Name}' overwrites live value without dropping old value.");
+          }
+
+          state.SlotStates[ss.Slot.Index] = VerifierSlotState.Init;
+        }
+
+        // 5. Handle defined RC-managed temp.
+        if (instr.DefinedTemp is { } defId && types.GetType(fn.Temps[defId.Index].Type).IsRcManaged) {
+          if (RcInsertPass.IsReadOrProjection(instr)) {
+            // Read/projection starts at balance 0 and must be followed by RcInc(defId).
+            state.TempBalance[defId.Index] = 0;
+            if (i + 1 >= instrs.Count || instrs[i + 1] is not RcInc nextInc || !nextInc.Value.IsTemp || nextInc.Value.Index != defId.Index) {
+              ReportOnce(b, i, "IR-RC-04", $"Read/projection {instr.GetType().Name} producing RC temp {FormatTempName(fn, defId)} must be followed by rc_inc.");
+            }
+          } else {
+            state.TempBalance[defId.Index] = 1;
+          }
+        }
+
+        i++;
+      }
+
+      // 6. Verify terminator & exit balances.
+      int termIdx = instrs.Count;
+      IrTerminator? term = block.Terminator;
+
+      if (term is Ret retTerm) {
+        if (TryGetOperandIrType(fn, types, retTerm.Value, out IrType? retIrType) && retIrType.IsRcManaged) {
+          ConsumeOperand(fn, types, state, retTerm.Value, b, termIdx, "ret", ReportOnce);
+        }
+
+        VerifyCleanReturnState(fn, types, state, b, termIdx, ReportOnce);
+        continue;
+      }
+
+      if (term is RetVoid) {
+        VerifyCleanReturnState(fn, types, state, b, termIdx, ReportOnce);
+        continue;
+      }
+
+      if (term is Panic or Unreachable or null) {
+        continue;
+      }
+
+      // 7. Propagate state to non-panic successors, narrowing MaybeInit on InitFlagSlot BrIf edges.
+      termTargets.Clear();
+      term.CollectTargets(termTargets);
+
+      int narrowedSlot = -1;
+      IrBlockId trueTarget = IrBlockId.Invalid;
+      IrBlockId falseTarget = IrBlockId.Invalid;
+      if (term is BrIf brIf && brIf.Condition.IsTemp && flagTempToSlot.TryGetValue(brIf.Condition.Index, out int gs)) {
+        narrowedSlot = gs;
+        trueTarget = brIf.TrueTarget;
+        falseTarget = brIf.FalseTarget;
+      }
+
+      var processedTargets = new HashSet<int>();
+      foreach (IrBlockId targetId in termTargets) {
+        int t = targetId.Index;
+        if ((uint) t >= (uint) blockCount || !reachable[t] || !processedTargets.Add(t)) {
+          continue;
+        }
+
+        PostRcBlockState outState = state.Clone();
+        if (narrowedSlot >= 0) {
+          if (targetId == trueTarget && targetId != falseTarget) {
+            outState.SlotStates[narrowedSlot] = VerifierSlotState.Init;
+          } else if (targetId == falseTarget && targetId != trueTarget) {
+            outState.SlotStates[narrowedSlot] = VerifierSlotState.Uninit;
+          }
+        }
+
+        if (entryStates[t] is null) {
+          entryStates[t] = outState;
+          if (!inQueue[t]) {
+            inQueue[t] = true;
+            worklist.Enqueue(t);
+          }
+        } else {
+          bool changed = MergePostRcStates(fn, types, entryStates[t]!, outState, t, panicOnly[t], ReportOnce);
+          if (changed && !inQueue[t]) {
+            inQueue[t] = true;
+            worklist.Enqueue(t);
+          }
+        }
+      }
+    }
+  }
+
+  private static void CheckBorrowOperand(
+      IrFunction fn,
+      IrTypeTable types,
+      PostRcBlockState state,
+      IrOperand op,
+      int blockIdx,
+      int instrIdx,
+      string opLabel,
+      Action<int, int, string, string> reportOnce) {
+    if (!TryGetOperandIrType(fn, types, op, out IrType? opType) || !opType.IsRcManaged) {
+      return;
+    }
+
+    if (op.IsParam) {
+      IrParam param = fn.Parameters[op.Index];
+      if (param.Ownership == IrParamOwnership.Owned && state.ParamBalance[op.Index] <= 0) {
+        reportOnce(blockIdx, instrIdx, "IR-RC-04", $"{opLabel} reads already-dropped @owned parameter '%{param.Name}'.");
+      }
+    } else if (op.IsTemp) {
+      if (state.TempBalance.GetValueOrDefault(op.Index, 0) <= 0) {
+        reportOnce(blockIdx, instrIdx, "IR-RC-04", $"{opLabel} reads unowned or already-dropped temp {FormatTempName(fn, op.TempId)}.");
+      }
+    }
+  }
+
+  private static void ConsumeOperand(
+      IrFunction fn,
+      IrTypeTable types,
+      PostRcBlockState state,
+      IrOperand op,
+      int blockIdx,
+      int instrIdx,
+      string opLabel,
+      Action<int, int, string, string> reportOnce) {
+    if (!TryGetOperandIrType(fn, types, op, out IrType? opType) || !opType.IsRcManaged) {
+      return;
+    }
+
+    if (op.IsParam) {
+      int pIdx = op.Index;
+      if (state.ParamBalance[pIdx] <= 0) {
+        reportOnce(blockIdx, instrIdx, "IR-RC-04", $"{opLabel} consumes unowned parameter '%{fn.Parameters[pIdx].Name}' without matching rc_inc.");
+      } else {
+        state.ParamBalance[pIdx]--;
+      }
+    } else if (op.IsTemp) {
+      int tIdx = op.Index;
+      int cur = state.TempBalance.GetValueOrDefault(tIdx, 0);
+      if (cur <= 0) {
+        reportOnce(blockIdx, instrIdx, "IR-RC-04", $"{opLabel} consumes unowned or already-dropped temp {FormatTempName(fn, op.TempId)}.");
+      } else {
+        state.TempBalance[tIdx] = cur - 1;
+      }
+    }
+  }
+
+  private static void VerifyCleanReturnState(
+      IrFunction fn,
+      IrTypeTable types,
+      PostRcBlockState state,
+      int blockIdx,
+      int termIdx,
+      Action<int, int, string, string> reportOnce) {
+    for (int p = 0; p < fn.Parameters.Length; p++) {
+      if (state.ParamBalance[p] != 0) {
+        reportOnce(blockIdx, termIdx, "IR-RC-05", $"Leaked @owned parameter '%{fn.Parameters[p].Name}' at return (remaining RC balance: {state.ParamBalance[p]}).");
+      }
+    }
+
+    foreach ((int tIdx, int bal) in state.TempBalance) {
+      if (bal != 0) {
+        reportOnce(blockIdx, termIdx, "IR-RC-05", $"Leaked RC-managed temp {FormatTempName(fn, new IrTempId(tIdx))} at return (remaining RC balance: {bal}).");
+      }
+    }
+
+    for (int s = 0; s < fn.Slots.Count; s++) {
+      if (types.GetType(fn.Slots[s].Type).IsRcManaged && state.SlotStates[s] != VerifierSlotState.Uninit) {
+        reportOnce(blockIdx, termIdx, "IR-RC-05", $"Leaked RC-managed local slot '${fn.Slots[s].Name}' at return (state: {state.SlotStates[s]}).");
+      }
+    }
+  }
+
+  private static bool MergePostRcStates(
+      IrFunction fn,
+      IrTypeTable types,
+      PostRcBlockState existing,
+      PostRcBlockState incoming,
+      int targetBlockIdx,
+      bool targetIsPanicOnly,
+      Action<int, int, string, string> reportOnce) {
+    bool changed = false;
+
+    for (int p = 0; p < existing.ParamBalance.Length; p++) {
+      if (!targetIsPanicOnly && existing.ParamBalance[p] != incoming.ParamBalance[p]) {
+        reportOnce(targetBlockIdx, 0, "IR-RC-04", $"Inconsistent RC balance for parameter '%{fn.Parameters[p].Name}' at bb{targetBlockIdx} ({existing.ParamBalance[p]} vs {incoming.ParamBalance[p]}).");
+      }
+    }
+
+    for (int s = 0; s < existing.SlotStates.Length; s++) {
+      if (existing.SlotStates[s] != incoming.SlotStates[s]) {
+        VerifierSlotState joined = VerifierSlotState.MaybeInit;
+        if (existing.SlotStates[s] != joined) {
+          existing.SlotStates[s] = joined;
+          changed = true;
+        }
+      }
+    }
+
+    // Check temp balances across incoming edges: every temp with non-zero balance on one edge
+    // must match on the other edge (temps defined in only one branch must have balance 0 at merge).
+    var allTemps = new HashSet<int>(existing.TempBalance.Keys);
+    allTemps.UnionWith(incoming.TempBalance.Keys);
+    foreach (int tIdx in allTemps) {
+      int exBal = existing.TempBalance.GetValueOrDefault(tIdx, 0);
+      int inBal = incoming.TempBalance.GetValueOrDefault(tIdx, 0);
+      if (!targetIsPanicOnly && exBal != inBal) {
+        reportOnce(targetBlockIdx, 0, "IR-RC-04", $"Inconsistent RC balance for temp {FormatTempName(fn, new IrTempId(tIdx))} at bb{targetBlockIdx} ({exBal} vs {inBal}).");
+      }
+    }
+
+    return changed;
+  }
+
+  private static bool[] ComputeVerifierPanicOnlyBlocks(IrFunction fn, bool[] reachable, List<int>[] succs) {
+    int n = fn.Blocks.Count;
+    var canReachNonPanic = new bool[n];
+    var canReachPanic = new bool[n];
+
+    for (int b = 0; b < n; b++) {
+      if (!reachable[b]) {
+        continue;
+      }
+
+      if (fn.Blocks[b].Terminator is Panic) {
+        canReachPanic[b] = true;
+      } else if (fn.Blocks[b].Terminator is Ret or RetVoid or Unreachable) {
+        canReachNonPanic[b] = true;
+      }
+    }
+
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (int b = 0; b < n; b++) {
+        if (!reachable[b]) {
+          continue;
+        }
+
+        foreach (int s in succs[b]) {
+          if (canReachNonPanic[s] && !canReachNonPanic[b]) {
+            canReachNonPanic[b] = true;
+            changed = true;
+          }
+
+          if (canReachPanic[s] && !canReachPanic[b]) {
+            canReachPanic[b] = true;
+            changed = true;
+          }
+        }
+      }
+    }
+
+    var panicOnly = new bool[n];
+    for (int b = 0; b < n; b++) {
+      panicOnly[b] = reachable[b] && canReachPanic[b] && !canReachNonPanic[b];
+    }
+
+    return panicOnly;
   }
 
   private static string FormatTypeName(IrTypeTable types, IrTypeId id) =>

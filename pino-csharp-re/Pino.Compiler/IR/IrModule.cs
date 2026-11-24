@@ -4,6 +4,55 @@ using Pino.Compiler.Checking;
 
 namespace Pino.Compiler.IR;
 
+public enum IrPassStage : byte {
+  PreRc,
+  PostRcStep1,
+}
+
+public enum IrRcDescriptorKind : byte {
+  String,
+  Regex,
+  InlineStruct,
+  InlineTuple,
+  InlineUnion,
+  BoxedRecursiveUnion,
+  Vector,
+  Map,
+  Set,
+  Pool,
+  Cell,
+  Env,
+  Closure,
+  Interface,
+}
+
+public readonly record struct IrRcFieldRef(
+    int FieldIndex,
+    string Name,
+    IrTypeId Type);
+
+public sealed record IrRcVariantDrop(
+    int TagOrdinal,
+    string Name,
+    ImmutableArray<IrRcFieldRef> RcFields);
+
+/// <summary>
+/// Per-type recursive <c>inc_T</c>/<c>drop_T</c> metadata synthesized by Step 1 RC insertion
+/// so <c>PinoVm</c> and the C emitter execute identical recursive increments and drops.
+/// </summary>
+public sealed record IrTypeRcDescriptor(
+    IrTypeId Type,
+    IrRcDescriptorKind Kind,
+    bool IsCycleCapable = false,
+    ImmutableArray<IrRcFieldRef> RcFields = default,
+    ImmutableArray<IrRcVariantDrop> Variants = default,
+    IrTypeId ElementType = default,
+    bool NeedsElementDrop = false,
+    IrTypeId KeyType = default,
+    bool NeedsKeyDrop = false,
+    IrTypeId ValueType = default,
+    bool NeedsValueDrop = false);
+
 public sealed record IrParam(
     string Name,
     IrTypeId Type,
@@ -14,7 +63,8 @@ public sealed record IrLocalSlot(
     string Name,
     IrTypeId Type,
     bool IsMutSlot = false,
-    bool IsBoxedCell = false);
+    bool IsBoxedCell = false,
+    IrSlotId? InitFlagSlot = null);
 
 public sealed record IrTemp(
     IrTempId Id,
@@ -92,6 +142,7 @@ public sealed record IrVTable(
 
 public sealed class IrModule {
   private readonly Dictionary<string, int> _stringInterner = new(StringComparer.Ordinal);
+  private readonly Dictionary<IrTypeId, IrTypeRcDescriptor> _rcDescriptorByType = [];
 
   public IrModule(IrTypeTable? types = null, bool isProgramMode = false) {
     Types = types ?? new IrTypeTable();
@@ -100,11 +151,15 @@ public sealed class IrModule {
 
   public IrTypeTable Types { get; }
 
+  public IrPassStage Stage { get; set; } = IrPassStage.PreRc;
+
   public List<IrGlobal> Globals { get; } = [];
 
   public List<IrFunction> Functions { get; } = [];
 
   public List<IrVTable> VTables { get; } = [];
+
+  public List<IrTypeRcDescriptor> RcDescriptors { get; } = [];
 
   public List<string> StringPool { get; } = [];
 
@@ -115,6 +170,18 @@ public sealed class IrModule {
   public IrFuncId? ShutdownFuncId { get; set; }
 
   public bool IsProgramMode { get; set; }
+
+  public void SetRcDescriptors(IEnumerable<IrTypeRcDescriptor> descriptors) {
+    RcDescriptors.Clear();
+    _rcDescriptorByType.Clear();
+    foreach (IrTypeRcDescriptor desc in descriptors) {
+      RcDescriptors.Add(desc);
+      _rcDescriptorByType[desc.Type] = desc;
+    }
+  }
+
+  public bool TryGetRcDescriptor(IrTypeId typeId, out IrTypeRcDescriptor? descriptor) =>
+      _rcDescriptorByType.TryGetValue(typeId, out descriptor);
 
   public IrGlobalId AddGlobal(string name, IrTypeId type, bool isMutable) {
     var id = new IrGlobalId(Globals.Count);
