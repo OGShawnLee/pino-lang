@@ -664,6 +664,31 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
         - (d) the VM trusts the IR's `ensure_unique`
       - More flaky timing guards under load: `ParserFuzzTests.ExhaustiveZeroToThreeTokenSequences_MaintainAllInvariants` (500 ms) and `CheckerFuzzTests.All024CorpusFiles_CheckInvariantsWithinHangGuard` (5 s)
       - `CRuntimeTests.GccBuild` needs stdin closed and PowerShell (memory note `dotnet-test-stdin-and-gcc`)
+    - [x] **063-re-vm-core-and-shadow-rc** (`cfddc28`, Claude Sonnet 5.5 High; one rebase round over 065):
+      - `Pino.Vm`: a flat-array register VM, a 16-byte `PinoValue`, `PlaceRef`, CoW collections, `Pool`, the intrinsics, the D-186 print forms, an `IVmHost`, and `VmRcTracker` (UAF, double free, leak, CYCLE-LEAK)
+      - The CLI after the merge: `pino-re run [--vm | --c] [--verify-rc] [--debug-rc] <file>`, VM by default; neither "isn't available" stub is left
+      - The CLI tests run one program on both engines and expect identical stdout and exit code, including a panic (101)
+      - Router verification in main (PowerShell): `-re` **6344/6344**, 0 warnings, format clean
+        - the float probe prints identical output on `--vm` and `--c`
+        - `main.pino` on the VM with `--verify-rc`: exit 0
+    - **066 dispatched (Gemini 4 Neon Medium).** Router notes:
+      - reuse the public VM and C APIs
+      - OQ-42 has 10 allowlist entries left, not 11
+      - normalize `\r\n` and run with stdin closed
+      - ReVm and ReC must have 0 known failures, and the fuzzer can't be narrowed
+      - it may fix real engine bugs in `Pino.Vm`, `CodeGen/C` and `runtime-re/`, each with a regression test; IR-pass bugs are reported, not changed
+      - the fuzzer is deterministic, and a failure prints its seed
+    - **Owner asked (2026-11-23) when the new compiler replaces legacy for the 0.4 release.**
+      - Router's proposed gate:
+        1. 066 (both engines in conformance)
+        2. 070 (REPL, plus a **separate `Pino.Wasm`**, since legacy is being retired; this settles the 070 question if the owner agrees)
+        3. a new CLI-parity ticket: `init`, `run` defaulting to `main.pino`, `watch`, `test`, `compile`, `play`, `version`, `update`, and the rename `pino-re` → `pino`
+        4. a new ticket to migrate the games (`jade_temple` 67, `sable` 60 and `star_pino` 125 `-re` errors) and the docs (commands table, an "upgrading from 0.3" note)
+        5. a new release ticket: `release.yml` publishes `Pino.Cli`, packages `runtime-re/` and `runtime/re.*` with TCC, drops bdwgc, adds `osx-arm64`, adds a CI workflow, and the C engine uses the system `cc` on Linux and macOS (`tooling/tcc` is Windows-only); the installers barely change if asset names stay
+        6. the owner tags `v0.4.0`
+      - Legacy `pino-csharp/` stays frozen in the repo during 0.4 and is deleted in 0.5.
+      - 067–069 are speed-only and can ship in 0.4.x.
+      - **Waiting for the owner's OK to draft tickets 3–5.**
     - Overlap: 061 already inlines lambda callbacks into IR loops, so planned performance ticket 1 shrinks to function-value callbacks and C-level tuning.
   - **CHAIN STOPPED (2026-11-22): 060 and 064 integrated.** Waiting for the owner to resume. Next: 061 (Neon High), then 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
