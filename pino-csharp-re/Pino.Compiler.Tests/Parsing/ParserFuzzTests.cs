@@ -88,6 +88,7 @@ public sealed class ParserFuzzTests(ITestOutputHelper output) {
   [Fact]
   public void SeededRandomTokenSequences_MaintainAllInvariants() {
     EnsureWarmedUp();
+    TimeSpan timeout = TestTimeScale.Apply(s_normalTimeout);
 
     var random = new Random(FuzzSeed);
     var sb = new StringBuilder(512);
@@ -105,10 +106,10 @@ public sealed class ParserFuzzTests(ITestOutputHelper output) {
       }
 
       string text = sb.ToString();
-      CheckFuzzInput(text, $"random[seed={FuzzSeed}, i={i}]", s_normalTimeout, ref maxElapsed);
+      CheckFuzzInput(text, $"random[seed={FuzzSeed}, i={i}]", timeout, ref maxElapsed);
     }
 
-    output.WriteLine($"Seeded random ({FuzzSeed}): {RandomInputCount} inputs passed, max={maxElapsed.TotalMilliseconds:F2} ms (limit={s_normalTimeout.TotalMilliseconds:F0} ms).");
+    output.WriteLine($"Seeded random ({FuzzSeed}): {RandomInputCount} inputs passed, max={maxElapsed.TotalMilliseconds:F2} ms (limit={timeout.TotalMilliseconds:F0} ms).");
   }
 
   [Theory]

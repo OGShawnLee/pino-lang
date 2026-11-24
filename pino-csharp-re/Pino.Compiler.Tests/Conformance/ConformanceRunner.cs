@@ -88,30 +88,23 @@ public static class ConformanceRunner {
         "errors/main-none.pino",
       };
 
-  private static string? s_root;
-
   // ---------------------------------------------------------------- repo layout
 
-  public static string RepoRoot {
-    get {
-      if (s_root is not null) {
-        return s_root;
+  public static string RepoRoot { get; } = FindRepoRoot();
+
+  private static string FindRepoRoot() {
+    DirectoryInfo? dir = new(AppContext.BaseDirectory);
+    while (dir is not null) {
+      if (Directory.Exists(Path.Combine(dir.FullName, "conformance"))
+          && Directory.Exists(Path.Combine(dir.FullName, "pino-csharp-re"))) {
+        return dir.FullName;
       }
 
-      DirectoryInfo? dir = new(AppContext.BaseDirectory);
-      while (dir is not null) {
-        if (Directory.Exists(Path.Combine(dir.FullName, "conformance"))
-            && Directory.Exists(Path.Combine(dir.FullName, "pino-csharp-re"))) {
-          s_root = dir.FullName;
-          return s_root;
-        }
-
-        dir = dir.Parent;
-      }
-
-      throw new DirectoryNotFoundException(
-          $"Could not find a directory containing 'conformance/' and 'pino-csharp-re/' above '{AppContext.BaseDirectory}'.");
+      dir = dir.Parent;
     }
+
+    throw new DirectoryNotFoundException(
+        $"Could not find a directory containing 'conformance/' and 'pino-csharp-re/' above '{AppContext.BaseDirectory}'.");
   }
 
   public static string ConformanceDir => Path.Combine(RepoRoot, "conformance");

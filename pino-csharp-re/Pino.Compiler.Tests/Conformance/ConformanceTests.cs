@@ -3,24 +3,25 @@ using System.Text;
 namespace Pino.Compiler.Tests.Conformance;
 
 /// <summary>
-/// Unified conformance test suite for the new compiler (<see cref="ConformanceEngine.ReVm"/> and
+/// Shared runner logic for sharded conformance test classes (<see cref="ConformanceEngine.ReVm"/> and
 /// <see cref="ConformanceEngine.ReC"/>). Each case runs at most once per engine per test run and
 /// verifies exact <c>.out</c> stdout, <c>.err</c> diagnostics/exit codes, zero RC leaks on both
 /// engines, and identical ReVm-vs-ReC output.
 /// </summary>
-public sealed class ConformanceTests {
-  public static TheoryData<string> AllCases() {
+public abstract class ConformanceShardBase {
+  public const int ShardCount = 8;
+
+  public static TheoryData<string> ShardCases(int shardIndex) {
     var data = new TheoryData<string>();
-    foreach (string casePath in ConformanceRunner.DiscoverCases()) {
-      data.Add(casePath);
+    List<string> all = ConformanceRunner.DiscoverCases();
+    for (int i = shardIndex; i < all.Count; i += ShardCount) {
+      data.Add(all[i]);
     }
 
     return data;
   }
 
-  [Theory]
-  [MemberData(nameof(AllCases))]
-  public void RunCase(string caseRelativePath) {
+  protected static void RunCaseCore(string caseRelativePath) {
     PreparedCase prepared = ConformanceRunner.PrepareCase(caseRelativePath);
     var failures = new List<string>();
     var runs = new Dictionary<ConformanceEngine, EngineRun>();
@@ -74,6 +75,101 @@ public sealed class ConformanceTests {
     }
 
     Assert.True(failures.Count == 0, string.Join("\n\n", failures));
+  }
+}
+
+public sealed class ConformanceShard0Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(0);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+public sealed class ConformanceShard1Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(1);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+public sealed class ConformanceShard2Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(2);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+public sealed class ConformanceShard3Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(3);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+public sealed class ConformanceShard4Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(4);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+public sealed class ConformanceShard5Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(5);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+public sealed class ConformanceShard6Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(6);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+public sealed class ConformanceShard7Tests : ConformanceShardBase {
+  public static TheoryData<string> Cases() => ShardCases(7);
+
+  [Theory]
+  [MemberData(nameof(Cases))]
+  public void RunCase(string caseRelativePath) => RunCaseCore(caseRelativePath);
+}
+
+/// <summary>
+/// Conformance suite invariants and status report generation.
+/// </summary>
+public sealed class ConformanceTests {
+  [Fact]
+  public void ShardsCoverAllCasesExactlyOnce() {
+    List<string> expected = ConformanceRunner.DiscoverCases();
+    TheoryData<string>[] shards = [
+      ConformanceShard0Tests.Cases(),
+      ConformanceShard1Tests.Cases(),
+      ConformanceShard2Tests.Cases(),
+      ConformanceShard3Tests.Cases(),
+      ConformanceShard4Tests.Cases(),
+      ConformanceShard5Tests.Cases(),
+      ConformanceShard6Tests.Cases(),
+      ConformanceShard7Tests.Cases(),
+    ];
+
+    var seen = new List<string>(expected.Count);
+    foreach (TheoryData<string> shard in shards) {
+      foreach (string row in shard) {
+        seen.Add(row);
+      }
+    }
+
+    Assert.Equal(expected.Count, seen.Count);
+    seen.Sort(StringComparer.Ordinal);
+    Assert.Equal(expected, seen);
   }
 
   [Fact]
