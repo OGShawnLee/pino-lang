@@ -715,6 +715,8 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
         - (1) git tracks `projects/pino-compiler/modules/lexer.pino` and `parser.pino` in lowercase, while the owner's disk has `Lexer.pino` and `Parser.pino`. The case-only renames were never recorded (Windows ignores case), so clean checkouts and Linux get lowercase files.
         - (2) the `projects/c-compiler/` allowlist entry describes the owner's uncommitted copy.
         - **Fix:** a `git mv` of the two names (router, with the owner's OK), and the owner commits `projects/c-compiler/`. CI needs both.
+      - **Done (owner OK): `1b578f1` records the case-only renames `Lexer.pino` and `Parser.pino`** (0 content change; a repo-wide scan found no other case mismatch). 072 was steered to rebase, fix `ParserSmokeTests.cs:17` to `Parser.pino`, and expect **zero** clean-checkout failures. The c-compiler `parser.pino` item has passed on clean checkouts since 071: the committed and local versions both report only PN2001/PN2006/PN2010, which the allowlist covers.
+      - **Owner: `projects/c-compiler/` stays uncommitted until all tickets are done** (they're finishing that chapter). CI doesn't need it.
       - Still to draft:
         - CLI parity and the rename to `pino` (Neon Medium, after 070)
         - release: `release.yml`, bundled TCC per OS, `osx-arm64`, installers, Linux/macOS CI jobs, docs and an upgrade note (Neon High)
