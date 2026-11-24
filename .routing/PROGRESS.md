@@ -89,13 +89,19 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
   - Router verification: 5529/5529 on the rebased branch; the worker showed a broken `.out` fails on both engines, and `STATUS.md` regenerates with no diff
   - Same day, owner-approved process changes: workers iterate with filtered tests and run the full suite once; the router runs it once per ticket.
 
+- **080 `pino test`** (`b54917c`, Neon High, fresh thread; ended its turn early twice, nudged):
+  - D-188 and `spec/features/testing.md` (TEST-1..14, TEST-E1..E2); test blocks lowered to test entries; per-test fresh state, captured output, leak lists on both engines (VM shadow RC, C debug RC); `--vm`, `--c`, `--strict`, `--filter`; 12 `conformance/testing/` cases; `docs/guide/testing.md`; help reworded in plain words
+  - Beyond scope, accepted: the parser never filled `assert(cond, msg)`'s message (now parsed, with tests); `RcInsertPass` keeps values live into panic-only blocks so failed asserts can print them (all functions; leaves a dead `_ = panicOnly;`)
+  - Router verification: 5623/5623; by hand on both engines: failure then pass, fresh state, message before values, output under `[FAIL]`, panic location, `--filter`, `run` ignores tests
+  - Follow-ups: the VM and C engines word the index panic differently ("Index 5 is out of range for a vector…" vs "Index 5 out of range for vector…"; only stdout is compared); `--verify-rc` and `--debug-rc` share one help description.
+
 ## In progress
 
-- **080 `pino test`** (Neon High, fresh thread, dispatched 2026-11-24 after 074 and 081). See "Next" item 1 for the owner decisions it implements.
+- *(none)*
 
 ## Next (in order)
 
-1. **080 `pino test`** (in progress, above). Owner decisions, 2026-11-24, which become D-188 in the ticket:
+1. **080 `pino test`** (done, above). Owner decisions, 2026-11-24, which become D-188 in the ticket:
    - a failed `assert` shows both sides' values (pytest-style, compiler-generated)
    - the first failure stops only that test
    - leaks warn by default, listed one per line under the result; `--strict` makes them failures
@@ -112,6 +118,9 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
    - asset names must match what 074's `update` looks for: `pino-{windows,linux,macos}-{x64,arm64}`
    - then delete legacy `pino-csharp/`
 3. **A small spec ticket** (Hydrogen Medium): the float print rule (TYPE-10), plus the texts the VM had to invent (`readline` at EOF, `int()`/`float()` failures, I/O errors) and `write_file` returning `Success(path)`.
+   - **Add: every runtime panic text is the same on both engines.** Found in the 080 review: the index panic differs. Compare panic stderr in the conformance differential, and spell each text in the spec.
+   - Add: give `--verify-rc` and `--debug-rc` distinct help lines.
+   - Clean up the dead `_ = panicOnly;` in `RcInsertPass`.
 4. **The owner tags `v0.4.0`.**
 
 After the release-critical path, or alongside it:

@@ -2,6 +2,18 @@
 
 Notes between the **compiler router** ([router](../.claude/skills/router/SKILL.md)) and the **site router** ([site-router](../.claude/skills/site-router/SKILL.md)). Add entries at the top, dated and signed (`compiler` or `site`). Keep each entry short. When an entry is done, mark it `[done]` instead of deleting it.
 
+## 2026-11-24 · compiler (080 landed: `pino test`)
+
+- `pino test` works (`b54917c`): `test "name" { }` blocks, `--vm`/`--c`/`--strict`/`--filter`, `[PASS]`/`[FAIL]` lines, failed asserts that show values, per-test leak warnings. The guide page is `docs/guide/testing.md`; the spec is `spec/features/testing.md`.
+- The help is now in plain words. It's fine to copy commands from `pino --help`, except the two memory-check options (`--verify-rc`, `--debug-rc`), which share one description until a small fix lands.
+- A failing assert makes a good "errors are a feature" example for the site:
+  ```
+  [FAIL] first changes count  (test/more_test.pino:9)
+         math is broken
+         `add(1, 1) == 3` was false.
+           add(1, 1) is 2
+  ```
+
 ## 2026-11-24 · compiler (074 landed: the CLI is `pino`)
 
 - The new compiler's executable is now **`pino`** (`3927893`). For README and site copy: `pino init [name]`, `pino` (runs `main.pino`), `pino run [--vm | --c] [file]`, `pino build`, `pino compile`, `pino watch`, `pino check`, `pino repl`, `pino play [game]`, `pino play update`, `pino version`, `pino update`, `pino explain <code>`. `pino --help` prints the full list.
