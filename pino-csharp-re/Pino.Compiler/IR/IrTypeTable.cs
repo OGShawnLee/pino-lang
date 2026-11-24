@@ -98,6 +98,21 @@ public sealed class IrTypeTable {
     return false;
   }
 
+  /// <summary>
+  /// Returns the user-facing Pino type name for a leaked RC object, shared by the VM and C test runners.
+  /// </summary>
+  public static string FormatLeakTypeName(IrTypeTable? types, IrTypeId id) {
+    if (types is null || !types.TryGetType(id, out IrType? type)) {
+      return "<unknown type>";
+    }
+
+    return type switch {
+      IrCellType ct => $"captured variable ({types.GetType(ct.ElementType).Name})",
+      IrEnvType => "closure",
+      _ => type.Name,
+    };
+  }
+
   public IrTypeId Intern(TypeSymbol type) {
     ArgumentNullException.ThrowIfNull(type);
     int initialCount = _types.Count;

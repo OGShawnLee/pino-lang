@@ -33,6 +33,7 @@ public sealed partial class IrLowerer {
   private readonly Compilation _compilation;
   private readonly IrTypeTable _types;
   private readonly IrModule _module;
+  private readonly bool _includeTests;
   private readonly Dictionary<ModuleSymbol, SemanticModel> _modelsByModule =
       new(ReferenceEqualityComparer.Instance);
   private readonly Dictionary<FunctionSymbol, IrFuncId> _funcIds =
@@ -47,8 +48,9 @@ public sealed partial class IrLowerer {
   private readonly HashSet<string> _usedFunctionNames = new(StringComparer.Ordinal);
   private readonly HashSet<string> _usedGlobalNames = new(StringComparer.Ordinal);
 
-  private IrLowerer(Compilation compilation, IrModule? existingModule = null) {
+  private IrLowerer(Compilation compilation, IrModule? existingModule = null, bool includeTests = false) {
     _compilation = compilation;
+    _includeTests = includeTests;
     if (existingModule is not null) {
       _module = existingModule;
       _types = existingModule.Types;
@@ -68,8 +70,10 @@ public sealed partial class IrLowerer {
 
   /// <summary>
   /// Lowers a checked, error-free <see cref="Compilation"/> into a verified-ready <see cref="IrModule"/>.
+  /// When <paramref name="includeTests"/> is <see langword="true"/>, lowers top-level <c>test</c> blocks
+  /// and a test setup function instead of the normal program entry point.
   /// </summary>
-  public static IrModule Lower(Compilation compilation) {
+  public static IrModule Lower(Compilation compilation, bool includeTests = false) {
     ArgumentNullException.ThrowIfNull(compilation);
     foreach (Diagnostic diag in compilation.Diagnostics) {
       if (diag.Severity == DiagnosticSeverity.Error) {
@@ -78,7 +82,7 @@ public sealed partial class IrLowerer {
       }
     }
 
-    var lowerer = new IrLowerer(compilation);
+    var lowerer = new IrLowerer(compilation, includeTests: includeTests);
     lowerer.LowerCompilation();
     return lowerer._module;
   }

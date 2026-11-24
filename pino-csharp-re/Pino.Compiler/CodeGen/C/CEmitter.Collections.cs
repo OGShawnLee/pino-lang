@@ -164,7 +164,8 @@ public sealed partial class CEmitter {
       _sb.Append("  return pino_vec_string_new(cap);\n");
     } else {
       _sb.Append("  ").Append(vecPtr).Append(" v = (").Append(vecPtr).Append(")PINO_RC_ALLOC(pino_cur_alloc, sizeof(")
-          .Append(vecStruct).Append("), ").Append(vt.Id.Index).Append(", 0, \"vector\");\n");
+          .Append(vecStruct).Append("), ").Append(vt.Id.Index).Append(", 0, \"")
+          .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, vt.Id))).Append("\");\n");
       _sb.Append("  v->len = 0;\n");
       _sb.Append("  v->cap = 0;\n");
       _sb.Append("  v->data = NULL;\n");
@@ -300,7 +301,8 @@ public sealed partial class CEmitter {
     _sb.Append("  ").Append(mapPtr).Append(" m = *mp;\n");
     _sb.Append("  if (m->hdr.rc == 1) return;\n");
     _sb.Append("  ").Append(mapPtr).Append(" copy = (").Append(mapPtr).Append(")PINO_RC_ALLOC(pino_cur_alloc, sizeof(")
-        .Append(mapStruct).Append("), ").Append(mt.Id.Index).Append(", 0, \"map\");\n");
+        .Append(mapStruct).Append("), ").Append(mt.Id.Index).Append(", 0, \"")
+        .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, mt.Id))).Append("\");\n");
     _sb.Append("  copy->count = 0;\n");
     _sb.Append("  copy->entry_len = 0;\n");
     _sb.Append("  copy->entry_cap = 0;\n");
@@ -508,7 +510,8 @@ public sealed partial class CEmitter {
     _sb.Append("  ").Append(setPtr).Append(" s = *sp;\n");
     _sb.Append("  if (s->hdr.rc == 1) return;\n");
     _sb.Append("  ").Append(setPtr).Append(" copy = (").Append(setPtr).Append(")PINO_RC_ALLOC(pino_cur_alloc, sizeof(")
-        .Append(setStruct).Append("), ").Append(setT.Id.Index).Append(", 0, \"set\");\n");
+        .Append(setStruct).Append("), ").Append(setT.Id.Index).Append(", 0, \"")
+        .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, setT.Id))).Append("\");\n");
     _sb.Append("  copy->count = 0;\n");
     _sb.Append("  copy->entry_len = 0;\n");
     _sb.Append("  copy->entry_cap = 0;\n");
@@ -627,7 +630,8 @@ public sealed partial class CEmitter {
     _sb.Append("  ").Append(poolPtr).Append(" p = *pp;\n");
     _sb.Append("  if (p->hdr.rc == 1) return;\n");
     _sb.Append("  ").Append(poolPtr).Append(" copy = (").Append(poolPtr).Append(")PINO_RC_ALLOC(pino_cur_alloc, sizeof(")
-        .Append(poolStruct).Append("), ").Append(pt.Id.Index).Append(", 0, \"pool\");\n");
+        .Append(poolStruct).Append("), ").Append(pt.Id.Index).Append(", 0, \"")
+        .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, pt.Id))).Append("\");\n");
     _sb.Append("  copy->live_count = p->live_count;\n");
     _sb.Append("  copy->slot_len = p->slot_len;\n");
     _sb.Append("  copy->slot_cap = p->slot_len > 0 ? p->slot_len : 0;\n");

@@ -25,6 +25,7 @@
 #endif
 
 PinoFrame* pino_frame_top = NULL;
+bool pino_test_mode = false;
 
 uint64_t pino_stat_alloc_count = 0;
 uint64_t pino_stat_dealloc_count = 0;
@@ -297,7 +298,7 @@ int64_t pino_debug_leak_count(int64_t* cycle_leaks_out) {
 }
 
 void pino_debug_leak_report(void) {
-  if (g_aborting) {
+  if (g_aborting || pino_test_mode) {
     return;
   }
   int64_t cycles = 0;
@@ -325,6 +326,38 @@ void pino_debug_leak_report(void) {
     fflush(stdout);
     _exit(102);
   }
+}
+
+static const char* pino_test_leak_display_name(const char* raw) {
+  if (raw == NULL) {
+    return "object";
+  }
+  if (strcmp(raw, "string buffer") == 0) {
+    return "string";
+  }
+  if (strcmp(raw, "vector of strings") == 0) {
+    return "[]string";
+  }
+  return raw;
+}
+
+void pino_debug_test_leak_report(void) {
+  if (g_aborting || g_live_head == NULL) {
+    return;
+  }
+  /* Walk to the tail so leaked objects are reported in allocation order (oldest first). */
+  PinoDebugNode* tail = g_live_head;
+  while (tail->next != NULL) {
+    tail = tail->next;
+  }
+  fflush(stdout);
+  for (PinoDebugNode* n = tail; n != NULL; n = n->prev) {
+    if (!n->is_rc_object) {
+      continue;
+    }
+    fprintf(stderr, "\x1fPINO_TEST_LEAK\t%s\n", pino_test_leak_display_name(n->type_name));
+  }
+  fflush(stderr);
 }
 
 static void report_registered_once(void) {

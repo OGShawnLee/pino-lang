@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
+using Pino.Cli;
 using Pino.Compiler.Checking;
 using Pino.Compiler.CodeGen.C;
 using Pino.Compiler.Diagnostics;
@@ -68,6 +70,7 @@ public static class ConformanceRunner {
         ["stdlib-regex/err-invalid-pattern.pino"] = "Runtime regex compilation failure on invalid pattern string.",
         ["stdlib-string/err-substring-out-of-range.pino"] = "Runtime substring bounds violation on non-constant indices.",
         ["stdlib-vector/err-swap-out-of-range.pino"] = "Runtime vector swap bounds check on out-of-range index.",
+        ["testing/assert-outside-test.pino"] = "Runtime assert panic outside a test block (TEST-6).",
         ["types/err-runtime-division-by-zero-float.pino"] = "Runtime float division by non-constant zero.",
         ["types/err-runtime-division-by-zero-int.pino"] = "Runtime int division by non-constant zero.",
         ["types/err-runtime-float-modulo-by-zero.pino"] = "Runtime float modulo by non-constant zero.",
@@ -268,7 +271,7 @@ public static class ConformanceRunner {
             $"expected exit code {expectedExit} but got {run.ExitCode}.\n{run.Message}");
       }
 
-      return run.Message.Contains(errText, StringComparison.Ordinal)
+      return Normalize(run.Message).Contains(errText, StringComparison.Ordinal)
           ? new CaseVerdict(true, string.Empty)
           : new CaseVerdict(
               false,
@@ -298,6 +301,10 @@ public static class ConformanceRunner {
     string path = CaseFullPath(caseRelativePath);
     string content = File.ReadAllText(path);
     var source = new SourceText(content, path);
+    if (IsPinoTestCase(caseRelativePath, content)) {
+      return new PreparedCase(caseRelativePath, source, null, null, CompileTimeOutcome: null);
+    }
+
     bool isOutCase = File.Exists(ExpectedPath(caseRelativePath, ".out"));
     bool isRuntimeErrCase = RuntimeErrCases.ContainsKey(caseRelativePath);
 
@@ -456,11 +463,114 @@ public static class ConformanceRunner {
       return prepared.CompileTimeOutcome;
     }
 
+    if (IsPinoTestCase(prepared.CaseRelativePath, prepared.Source.Text)) {
+      return RunPinoTestCase(engine, prepared);
+    }
+
     return engine switch {
       ConformanceEngine.ReVm => RunReVm(prepared),
       ConformanceEngine.ReC => RunReC(prepared),
       _ => throw new ArgumentOutOfRangeException(nameof(engine)),
     };
+  }
+
+  private static readonly Regex s_testDurationRegex = new(@"\(\d+\.\d{2} s\)", RegexOptions.Compiled);
+
+  private static bool IsPinoTestCase(string caseRelativePath, string content) {
+    if (!string.Equals(FeatureOf(caseRelativePath), "testing", StringComparison.Ordinal)) {
+      return false;
+    }
+
+    bool explicitRunner = false;
+    foreach (string rawLine in content.Split('\n')) {
+      string line = rawLine.Trim();
+      if (!line.StartsWith('#')) {
+        break;
+      }
+
+      if (string.Equals(line, "# test-mode: run", StringComparison.Ordinal)) {
+        return false;
+      }
+
+      if (string.Equals(line, "# test-runner", StringComparison.Ordinal)) {
+        explicitRunner = true;
+      }
+    }
+
+    if (explicitRunner) {
+      return true;
+    }
+
+    return !File.Exists(ExpectedPath(caseRelativePath, ".err"));
+  }
+
+  private static EngineRun RunPinoTestCase(ConformanceEngine engine, PreparedCase prepared) {
+    int expectedExit = 0;
+    var extraArgs = new List<string>();
+    foreach (string rawLine in prepared.Source.Text.Split('\n')) {
+      string line = rawLine.Trim();
+      if (!line.StartsWith('#')) {
+        break;
+      }
+
+      if (line.StartsWith("# test-exit:", StringComparison.Ordinal)) {
+        expectedExit = int.Parse(line["# test-exit:".Length..].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+      } else if (line.StartsWith("# test-args:", StringComparison.Ordinal)) {
+        string raw = line["# test-args:".Length..].Trim();
+        extraArgs.AddRange(raw.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+      }
+    }
+
+    string fullPath = CaseFullPath(prepared.CaseRelativePath);
+    string workDir = Path.GetDirectoryName(fullPath)!;
+    string fileName = Path.GetFileName(fullPath);
+
+    var args = new List<string> {
+      "test",
+      "--color",
+      "never",
+      "--voice",
+      "plain",
+      engine == ConformanceEngine.ReVm ? "--vm" : "--c",
+    };
+    args.AddRange(extraArgs);
+    args.Add(fileName);
+
+    var stdout = new StringWriter { NewLine = "\n" };
+    var stderr = new StringWriter { NewLine = "\n" };
+    var env = new CliEnvironment(
+        _ => null,
+        IsOutputRedirected: true,
+        SupportsAnsi: false,
+        Notes: new Dictionary<string, string>(),
+        WorkingDirectory: workDir);
+    int exitCode = CliApp.Run([.. args], TextReader.Null, stdout, stderr, env);
+
+    string normalizedOut = s_testDurationRegex.Replace(
+        stdout.ToString().Replace("\r\n", "\n", StringComparison.Ordinal),
+        "(<time>)");
+    string normalizedErr = stderr.ToString().Replace("\r\n", "\n", StringComparison.Ordinal);
+
+    bool isErrCase = File.Exists(ExpectedPath(prepared.CaseRelativePath, ".err"));
+    if (isErrCase) {
+      bool matchedExit = exitCode == expectedExit;
+      return new EngineRun(
+          Succeeded: false,
+          ExitCode: exitCode,
+          Stdout: normalizedOut,
+          Stderr: normalizedErr,
+          Message: matchedExit
+              ? normalizedOut
+              : $"expected exit code {expectedExit} but got {exitCode}\nstdout:\n{normalizedOut}\nstderr:\n{normalizedErr}".TrimEnd(),
+          IsBuildFailure: !matchedExit,
+          IsCompileTimeError: matchedExit);
+    }
+
+    bool ok = exitCode == expectedExit;
+    string message = ok
+        ? string.Empty
+        : $"expected exit code {expectedExit} but got {exitCode}\nstdout:\n{normalizedOut}\nstderr:\n{normalizedErr}".TrimEnd();
+    return new EngineRun(ok, exitCode, normalizedOut, normalizedErr, message);
   }
 
   private static string FormatDiagnostics(IEnumerable<Diagnostic> diagnostics) {

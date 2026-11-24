@@ -44,6 +44,12 @@ public sealed class PinoVmResult {
 
   public string? PanicMessage { get; init; }
 
+  public bool PanicIsAssert { get; init; }
+
+  public string? PanicFile { get; init; }
+
+  public int PanicLine { get; init; }
+
   /// <summary>The first shadow-RC violation (use-after-free, double-free, negative count), if one stopped the run.</summary>
   public string? RcError { get; init; }
 
@@ -58,7 +64,9 @@ public sealed class PinoVmResult {
 }
 
 /// <summary>A runtime panic (<c>ERR-3</c>); caught by <see cref="PinoVm.Run"/> and printed to <see cref="IVmHost.Err"/>.</summary>
-public sealed class PinoVmPanic(string message) : Exception(message);
+public sealed class PinoVmPanic(string message, bool isAssert = false) : Exception(message) {
+  public bool IsAssert { get; } = isAssert;
+}
 
 internal sealed class PinoVmExit(int code) : Exception("exit") {
   public int Code { get; } = code;
@@ -206,12 +214,16 @@ public sealed partial class PinoVm {
     } catch (PinoVmExit exit) {
       return Finish(exit.Code, PinoVmStopReason.Exited);
     } catch (PinoVmPanic panic) {
+      (string? file, int line) panicLoc = _frames.Count > 0 ? LocationFileLine(_frames[^1]) : (null, 0);
       _host.Err.Write(FormatPanicReport(panic.Message));
       _host.Err.Flush();
       return new PinoVmResult {
         ExitCode = 101,
         Reason = PinoVmStopReason.Panicked,
         PanicMessage = panic.Message,
+        PanicIsAssert = panic.IsAssert,
+        PanicFile = panicLoc.file,
+        PanicLine = panicLoc.line,
         Steps = _steps,
       };
     } catch (PinoVmRcException rcError) {
@@ -293,6 +305,7 @@ public sealed partial class PinoVm {
       _host.Out.Flush();
       return new PinoVmResult { ExitCode = exit.Code, Reason = PinoVmStopReason.Exited, Steps = _steps };
     } catch (PinoVmPanic panic) {
+      (string? file, int line) panicLoc = _frames.Count > 0 ? LocationFileLine(_frames[^1]) : (null, 0);
       string report = FormatPanicReport(panic.Message);
       _frames.Clear();
       _host.Err.Write(report);
@@ -301,6 +314,9 @@ public sealed partial class PinoVm {
         ExitCode = 101,
         Reason = PinoVmStopReason.Panicked,
         PanicMessage = panic.Message,
+        PanicIsAssert = panic.IsAssert,
+        PanicFile = panicLoc.file,
+        PanicLine = panicLoc.line,
         Steps = _steps,
       };
     } catch (PinoVmRcException rcError) {
@@ -319,6 +335,67 @@ public sealed partial class PinoVm {
       return new PinoVmResult { ExitCode = 1, Reason = PinoVmStopReason.StepLimit, Steps = _steps };
     } finally {
       _activeRootSource = previousSource;
+    }
+  }
+
+  /// <summary>
+  /// Runs module setup (<see cref="IrModule.TestSetupFuncId"/>), then one test body, then
+  /// <see cref="IrModule.ShutdownFuncId"/>, and returns the per-test outcome and leak report.
+  /// Call on a fresh <see cref="PinoVm"/> instance per test for full isolation (<c>TEST-4</c>).
+  /// </summary>
+  public PinoVmResult RunTest(IrFuncId testFuncId) {
+    try {
+      if (_module.TestSetupFuncId is { } setupId) {
+        CallFunction(setupId, []);
+      } else {
+        foreach (IrFuncId init in _module.InitFuncIds) {
+          CallFunction(init, []);
+        }
+      }
+
+      CallFunction(testFuncId, []);
+
+      if (_module.ShutdownFuncId is { } shutdownId && (uint) shutdownId.Index < (uint) _module.Functions.Count) {
+        CallFunction(shutdownId, []);
+      }
+
+      Array.Clear(_globals);
+      return Finish(0, PinoVmStopReason.Completed);
+    } catch (PinoVmExit exit) {
+      _frames.Clear();
+      if (exit.Code == 0 && _module.ShutdownFuncId is { } shutdownId && (uint) shutdownId.Index < (uint) _module.Functions.Count) {
+        CallFunction(shutdownId, []);
+        Array.Clear(_globals);
+      }
+
+      return Finish(exit.Code, PinoVmStopReason.Exited);
+    } catch (PinoVmPanic panic) {
+      (string? file, int line) panicLoc = _frames.Count > 0 ? LocationFileLine(_frames[^1]) : (null, 0);
+      _frames.Clear();
+      _host.Out.Flush();
+      return new PinoVmResult {
+        ExitCode = 101,
+        Reason = PinoVmStopReason.Panicked,
+        PanicMessage = panic.Message,
+        PanicIsAssert = panic.IsAssert,
+        PanicFile = panicLoc.file,
+        PanicLine = panicLoc.line,
+        Steps = _steps,
+      };
+    } catch (PinoVmRcException rcError) {
+      _frames.Clear();
+      return new PinoVmResult {
+        ExitCode = 1,
+        Reason = PinoVmStopReason.RcViolation,
+        RcError = rcError.Message,
+        RcErrorKind = rcError.Kind,
+        Steps = _steps,
+      };
+    } catch (PinoVmStepLimitException limit) {
+      _frames.Clear();
+      _host.Err.Write(limit.Message + "\n");
+      _host.Err.Flush();
+      return new PinoVmResult { ExitCode = 1, Reason = PinoVmStopReason.StepLimit, Steps = _steps };
     }
   }
 
@@ -1123,7 +1200,7 @@ public sealed partial class PinoVm {
 
         case OpKind.Panic: {
             var t = (Panic) op.Term!;
-            throw new PinoVmPanic(StringOf(Val(func, regs, t.Message)));
+            throw new PinoVmPanic(StringOf(Val(func, regs, t.Message)), t.IsAssert);
           }
 
         case OpKind.Unreachable:
@@ -1742,6 +1819,23 @@ public sealed partial class PinoVm {
     }
 
     return sb.ToString();
+  }
+
+  private (string? File, int Line) LocationFileLine(Frame frame) {
+    SourceText? source = _options.SourceResolver?.Invoke(frame.Func.Fn)
+        ?? frame.Func.Fn.Source
+        ?? _activeRootSource
+        ?? _options.RootSource;
+    int pc = Math.Min(frame.Pc - (ReferenceEquals(frame, _frames[^1]) ? 0 : 1), frame.Func.Spans.Length - 1);
+    SourceSpan span = pc >= 0 ? frame.Func.Spans[pc] : default;
+    if (source is null) {
+      return (null, 0);
+    }
+
+    int offset = Math.Clamp(span.Start, 0, source.Length);
+    LinePosition position = source.GetLineColumn(offset);
+    string file = (source.FilePath ?? "<input>").Replace('\\', '/');
+    return (file, position.Line);
   }
 
   private string Location(Frame frame) {

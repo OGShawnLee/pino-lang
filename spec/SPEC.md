@@ -40,6 +40,7 @@ Decisions live in [`decisions/`](decisions/README.md) and are made only by the p
 | Unions and `is` | `features/unions.md` | `UNION` | 008 | migrated |
 | Generics | `features/generics.md` | `GEN` | 008 | migrated |
 | Error handling (`panic`, `Result`, `Option`, `?`, `or`/`yield`, `main` failure handler) | `features/errors.md` | `ERR` | 008 | migrated |
+| Testing (`test` blocks, `assert` failure output, `pino test`) | `features/testing.md` | `TEST` | 080 | migrated |
 
 ## Standard library
 

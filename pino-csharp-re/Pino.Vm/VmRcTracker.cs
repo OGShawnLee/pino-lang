@@ -25,7 +25,10 @@ public sealed record VmRcLeak(
     int ShadowRc,
     SourceSpan AllocSpan,
     string? AllocFunction,
-    bool IsCycleLeak);
+    bool IsCycleLeak,
+    string? DisplayTypeName = null) {
+  public string EffectiveDisplayTypeName => DisplayTypeName ?? TypeName;
+}
 
 /// <summary>The result of the exit-time leak check. Cycle leaks (<c>CYCLE-LEAK</c>) are reported separately.</summary>
 public sealed class VmRcLeakReport(IReadOnlyList<VmRcLeak> leaks, IReadOnlyList<VmRcLeak> cycleLeaks) {
@@ -33,8 +36,29 @@ public sealed class VmRcLeakReport(IReadOnlyList<VmRcLeak> leaks, IReadOnlyList<
 
   public IReadOnlyList<VmRcLeak> CycleLeaks { get; } = cycleLeaks;
 
+  /// <summary>Every still-alive object (non-cycle and cycle) in allocation order.</summary>
+  public IReadOnlyList<VmRcLeak> AllLeaks { get; } = BuildAllLeaks(leaks, cycleLeaks);
+
   /// <summary>True when no non-cycle object leaked.</summary>
   public bool IsClean => Leaks.Count == 0;
+
+  private static IReadOnlyList<VmRcLeak> BuildAllLeaks(
+      IReadOnlyList<VmRcLeak> leaks,
+      IReadOnlyList<VmRcLeak> cycleLeaks) {
+    if (cycleLeaks.Count == 0) {
+      return leaks;
+    }
+
+    if (leaks.Count == 0) {
+      return cycleLeaks;
+    }
+
+    var all = new List<VmRcLeak>(leaks.Count + cycleLeaks.Count);
+    all.AddRange(leaks);
+    all.AddRange(cycleLeaks);
+    all.Sort(static (a, b) => a.AllocId.CompareTo(b.AllocId));
+    return all;
+  }
 
   public string Format() {
     var sb = new StringBuilder();
@@ -224,7 +248,8 @@ public sealed class VmRcTracker {
           obj.ShadowRc,
           obj.AllocSpan,
           obj.AllocFunction,
-          isCycle);
+          isCycle,
+          IrTypeTable.FormatLeakTypeName(_types, obj.TypeId));
       (isCycle ? cycle : plain).Add(leak);
     }
 

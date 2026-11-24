@@ -1,0 +1,28 @@
+assert-comparisons.pino
+  [FAIL] eq non-literal left  (assert-comparisons.pino:13)
+         `x == 5` was false.
+           x is 6
+  [FAIL] ne both non-literal  (assert-comparisons.pino:20)
+         `a != b` was false.
+           a is 4
+           b is 4
+  [FAIL] lt string quoting  (assert-comparisons.pino:25)
+         `s < "alpha"` was false.
+           s is "zeta"
+  [FAIL] le both literals  (assert-comparisons.pino:29)
+         `5 <= 2` was false.
+  [FAIL] gt with message  (assert-comparisons.pino:34)
+         too small
+         `n > 10` was false.
+           n is 3
+  [FAIL] ge side effect once  (assert-comparisons.pino:38)
+         `bump() >= 5` was false.
+           bump() is 1
+  [FAIL] non-comparison  (assert-comparisons.pino:43)
+         `ok` was false.
+  [FAIL] non-comparison with message  (assert-comparisons.pino:48)
+         expected true
+         `ok` was false.
+  [PASS] passes after failures
+
+1 passed, 8 failed (<time>)

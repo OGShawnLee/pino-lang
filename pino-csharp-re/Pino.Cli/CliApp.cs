@@ -32,6 +32,8 @@ public static partial class CliApp {
   private const string OptOutput = "-o";
   private const string OptRelease = "--release";
   private const string OptEmitC = "--emit-c";
+  private const string OptStrict = "--strict";
+  private const string OptFilter = "--filter";
 
   internal sealed record CliOptionSpec(string Name, string? ValueSyntax, string Description);
 
@@ -42,47 +44,52 @@ public static partial class CliApp {
 
   internal static readonly ImmutableArray<CliOptionSpec> GlobalOptions = [
     new CliOptionSpec(OptColor, "auto|always|never", "Color the output (default: auto; off when redirected or NO_COLOR is set)."),
-    new CliOptionSpec(OptVoice, "pino|plain", "Include the '= Pino:' notes, or leave them out (default: pino)."),
+    new CliOptionSpec(OptVoice, "pino|plain", "Show or hide Pino's friendly notes under errors (default: pino)."),
     new CliOptionSpec(OptHelp, null, "Show this help message (alias: -h)."),
     new CliOptionSpec(OptHelpShort, null, "Short alias for --help."),
-    new CliOptionSpec(OptVersion, null, "Print the compiler version."),
+    new CliOptionSpec(OptVersion, null, "Print the Pino version."),
   ];
 
   internal static readonly ImmutableArray<CliCommandSpec> CommandSpecs = [
     new CliCommandSpec("pino", "Run main.pino in the current directory, or show this help.", []),
     new CliCommandSpec("pino init [name]", "Create a new Pino project (main.pino, modules/, test/, .gitignore).", []),
-    new CliCommandSpec("pino run [opts] [file]", "Compile and run a .pino file (defaults to main.pino).", [
-      new CliOptionSpec(OptVm, null, "Run on the IR VM (default)."),
-      new CliOptionSpec(OptC, null, "Compile via TCC and run the native binary."),
-      new CliOptionSpec(OptVerifyRc, null, "Enable VM shadow-RC verification."),
-      new CliOptionSpec(OptDebugRc, null, "Build with -DPINO_DEBUG_RC leak and UAF checking."),
+    new CliCommandSpec("pino run [opts] [file]", "Run a .pino file (defaults to main.pino).", [
+      new CliOptionSpec(OptVm, null, "Run with Pino's built-in runner (the default)."),
+      new CliOptionSpec(OptC, null, "Compile to a native program, then run it."),
+      new CliOptionSpec(OptVerifyRc, null, "Report memory that is never freed (slower; for finding bugs)."),
+      new CliOptionSpec(OptDebugRc, null, "Report memory that is never freed (slower; for finding bugs)."),
     ]),
-    new CliCommandSpec("pino build [opts] [file]", "Compile a .pino file to a native executable (defaults to main.pino).", [
-      new CliOptionSpec(OptOutput, "<out>", "Output executable path."),
-      new CliOptionSpec(OptRelease, null, "Build with gcc/clang -O2 instead of TCC."),
-      new CliOptionSpec(OptDebugRc, null, "Build with -DPINO_DEBUG_RC leak and UAF checking."),
-      new CliOptionSpec(OptEmitC, "<path>", "Write the generated C99 source to <path>."),
+    new CliCommandSpec("pino build [opts] [file]", "Compile a .pino file to a native program (defaults to main.pino).", [
+      new CliOptionSpec(OptOutput, "<out>", "Output program path."),
+      new CliOptionSpec(OptRelease, null, "Build an optimized program with GCC or Clang."),
+      new CliOptionSpec(OptDebugRc, null, "Report memory that is never freed (slower; for finding bugs)."),
+      new CliOptionSpec(OptEmitC, "<path>", "Write the generated C code to <path>."),
     ]),
-    new CliCommandSpec("pino compile [file] [out]", "Write generated C99 source for a .pino file (alias: c).", []),
+    new CliCommandSpec("pino compile [file] [out]", "Write the generated C code for a file (alias: c).", []),
     new CliCommandSpec("pino watch [opts] [file]", "Run a .pino file and rerun on save (defaults to main.pino).", [
-      new CliOptionSpec(OptVm, null, "Run on the IR VM (default)."),
-      new CliOptionSpec(OptC, null, "Compile via TCC and run the native binary."),
-      new CliOptionSpec(OptVerifyRc, null, "Enable VM shadow-RC verification."),
-      new CliOptionSpec(OptDebugRc, null, "Build with -DPINO_DEBUG_RC leak and UAF checking."),
+      new CliOptionSpec(OptVm, null, "Run with Pino's built-in runner (the default)."),
+      new CliOptionSpec(OptC, null, "Compile to a native program, then run it."),
+      new CliOptionSpec(OptVerifyRc, null, "Report memory that is never freed (slower; for finding bugs)."),
+      new CliOptionSpec(OptDebugRc, null, "Report memory that is never freed (slower; for finding bugs)."),
     ]),
-    new CliCommandSpec("pino check <path>...", "Lex, parse, and check .pino files or directories.", [
-      new CliOptionSpec(OptColor, "auto|always|never", "Color diagnostic output."),
-      new CliOptionSpec(OptVoice, "pino|plain", "Include or omit '= Pino:' diagnostic notes."),
+    new CliCommandSpec("pino check <path>...", "Check .pino files or folders for errors.", [
+      new CliOptionSpec(OptColor, "auto|always|never", "Color error and warning output."),
+      new CliOptionSpec(OptVoice, "pino|plain", "Show or hide Pino's friendly notes under errors."),
     ]),
-    new CliCommandSpec("pino repl [opts]", "Start an interactive Pino REPL session.", [
-      new CliOptionSpec(OptVerifyRc, null, "Enable VM shadow-RC leak checking on :quit."),
+    new CliCommandSpec("pino repl [opts]", "Start an interactive Pino session.", [
+      new CliOptionSpec(OptVerifyRc, null, "Report memory that is never freed on :quit (slower; for finding bugs)."),
     ]),
     new CliCommandSpec("pino play [game]", "Play a game from ./games/ or the installed games folder.", []),
-    new CliCommandSpec("pino play update", "Download the official Pino games for this compiler version.", []),
-    new CliCommandSpec("pino test", "Run test blocks (not available yet in this version).", []),
-    new CliCommandSpec("pino tree <file>", "Print the syntax tree of one file, then its diagnostics.", []),
-    new CliCommandSpec("pino explain <code>", "Explain a diagnostic code, for example 'pino explain PN1018'.", []),
-    new CliCommandSpec("pino version", "Print the compiler version (aliases: v, --version).", []),
+    new CliCommandSpec("pino play update", "Download the official Pino games for this version.", []),
+    new CliCommandSpec("pino test [opts] [path]", "Run test blocks in a file or folder (defaults to the current folder).", [
+      new CliOptionSpec(OptVm, null, "Run with Pino's built-in runner (the default)."),
+      new CliOptionSpec(OptC, null, "Compile to a native program, then run it."),
+      new CliOptionSpec(OptStrict, null, "Treat memory leaks as test failures."),
+      new CliOptionSpec(OptFilter, "<text>", "Run only tests whose name contains <text> (case-insensitive)."),
+    ]),
+    new CliCommandSpec("pino tree <file>", "Print the syntax tree of one file, then its errors.", []),
+    new CliCommandSpec("pino explain <code>", "Explain an error or hint code, for example 'pino explain PN1018'.", []),
+    new CliCommandSpec("pino version", "Print the Pino version (aliases: v, --version).", []),
     new CliCommandSpec("pino update", "Check for and install the latest Pino release.", []),
     new CliCommandSpec("pino help", "Show this help (aliases: h, --help, -h).", []),
   ];
@@ -225,7 +232,7 @@ public static partial class CliApp {
       "watch" => RunWatch(commandArgs, options, stdin, stdout, stderr, environment),
       "repl" => RunRepl(commandArgs, options, stdin, stdout, stderr, environment),
       "play" => RunPlay(commandArgs, options, stdin, stdout, stderr, environment),
-      "test" => RunTest(stderr),
+      "test" => RunTest(commandArgs, options, stdout, stderr, environment),
       "update" => RunUpdate(commandArgs, stdin, stdout, stderr, environment),
       _ => throw new CliUsageException($"unknown command '{command}'"),
     };

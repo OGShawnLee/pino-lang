@@ -69,11 +69,20 @@ public static class RcInsertPass {
           initializedGlobalsBefore);
     }
 
+    if (module.TestSetupFuncId is { } testSetupId && (uint) testSetupId.Index < (uint) module.Functions.Count) {
+      RewriteFunction(
+          module,
+          module.Functions[testSetupId.Index],
+          trackGlobalInit: true,
+          initializedGlobalsBefore);
+    }
+
     // 3. Process all remaining functions (excluding __pino_shutdown, populated in step 4).
     for (int i = 0; i < module.Functions.Count; i++) {
       var funcId = new IrFuncId(i);
       if (initFuncSet.Contains(funcId)
           || module.EntryFuncId == funcId
+          || module.TestSetupFuncId == funcId
           || module.ShutdownFuncId == funcId) {
         continue;
       }
@@ -1560,7 +1569,7 @@ public static class RcInsertPass {
       def[b] = [];
       liveIn[b] = [];
       liveOut[b] = [];
-      if (!reachable[b] || panicOnly[b]) {
+      if (!reachable[b]) {
         continue;
       }
 
@@ -1589,7 +1598,7 @@ public static class RcInsertPass {
         }
       }
 
-      if (block.Terminator is { } term and not Panic) {
+      if (block.Terminator is { } term) {
         ops.Clear();
         term.CollectReadOperands(ops);
         foreach (IrOperand op in ops) {
@@ -1600,16 +1609,17 @@ public static class RcInsertPass {
       }
     }
 
+    _ = panicOnly;
     bool changed = true;
     while (changed) {
       changed = false;
       for (int b = n - 1; b >= 0; b--) {
-        if (!reachable[b] || panicOnly[b]) {
+        if (!reachable[b]) {
           continue;
         }
 
         foreach (int s in succs[b]) {
-          if (!reachable[s] || panicOnly[s]) {
+          if (!reachable[s]) {
             continue;
           }
 
@@ -1657,7 +1667,7 @@ public static class RcInsertPass {
       def[b] = [];
       liveIn[b] = [];
       liveOut[b] = [];
-      if (!reachable[b] || panicOnly[b]) {
+      if (!reachable[b]) {
         continue;
       }
 
@@ -1691,16 +1701,17 @@ public static class RcInsertPass {
       }
     }
 
+    _ = panicOnly;
     bool changed = true;
     while (changed) {
       changed = false;
       for (int b = n - 1; b >= 0; b--) {
-        if (!reachable[b] || panicOnly[b]) {
+        if (!reachable[b]) {
           continue;
         }
 
         foreach (int s in succs[b]) {
-          if (!reachable[s] || panicOnly[s]) {
+          if (!reachable[s]) {
             continue;
           }
 

@@ -44,14 +44,20 @@ public sealed partial class IrLowerer {
       _module.InitFuncIds.Add(initId);
     }
 
-    // Phase 4: Synthesize __pino_shutdown() and __pino_entry() (Script vs Program mode, MAIN-1..4, ERR-18..20).
+    // Phase 4: Synthesize __pino_shutdown() and either test entries or __pino_entry().
     IrFuncId shutdownId = BuildShutdownFunction();
     _module.ShutdownFuncId = shutdownId;
 
-    IrFuncId entryId = BuildEntryFunction(_compilation.RootModel, shutdownId);
-    _module.EntryFuncId = entryId;
+    if (_includeTests) {
+      IrFuncId testSetupId = BuildTestSetupFunction(_compilation.RootModel);
+      _module.TestSetupFuncId = testSetupId;
+      LowerRootTests(_compilation.RootModel);
+    } else {
+      IrFuncId entryId = BuildEntryFunction(_compilation.RootModel, shutdownId);
+      _module.EntryFuncId = entryId;
+    }
 
-    // Drain any remaining transitive generic instantiations discovered in initializers, entry, or vtables.
+    // Drain any remaining transitive generic instantiations discovered in initializers, entry, tests, or vtables.
     DrainMonomorphizationWorklist();
   }
 
@@ -270,6 +276,13 @@ public sealed partial class IrLowerer {
 
         case StructDeclarationSyntax structDecl:
           RegisterStructMethods(model, structDecl, modPrefix);
+          break;
+
+        case TestDeclarationSyntax testDecl:
+          if (_includeTests && isRoot) {
+            RegisterNestedStructs(model, testDecl.Body, "__test$");
+          }
+
           break;
 
         default:
@@ -606,6 +619,118 @@ public sealed partial class IrLowerer {
 
     FinalizeFunctionBody(fb, rootModel.Tree.Root.Span);
     return entryFn.Id;
+  }
+
+  private IrFuncId BuildTestSetupFunction(SemanticModel rootModel) {
+    string name = ReserveFunctionName("__pino_test_setup");
+    IrFunction setupFn = _module.AddFunction(
+        name,
+        [],
+        _types.Void,
+        ModuleStateEffects.ReadWrite);
+    var fb = new FunctionBuilder(this, setupFn, rootModel);
+
+    // 1. Run imported module initializers in dependency topological order (D-165, TEST-4).
+    foreach (IrFuncId initId in _module.InitFuncIds) {
+      fb.Emit(new CallDirect(null, initId, []));
+    }
+
+    if (!rootModel.IsProgramMode) {
+      // Script mode: execute top-level statements in source order before each test body.
+      foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
+        if (item is not (FunctionDeclarationSyntax
+            or StructDeclarationSyntax
+            or InterfaceDeclarationSyntax
+            or EnumDeclarationSyntax
+            or UnionDeclarationSyntax
+            or ModuleDeclarationSyntax
+            or ImportStatementSyntax
+            or FromImportStatementSyntax
+            or TestDeclarationSyntax)) {
+          PrepareCallableScope(fb, item);
+        }
+      }
+
+      foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
+        if (fb.IsTerminated) {
+          break;
+        }
+
+        if (item is FunctionDeclarationSyntax
+            or StructDeclarationSyntax
+            or InterfaceDeclarationSyntax
+            or EnumDeclarationSyntax
+            or UnionDeclarationSyntax
+            or ModuleDeclarationSyntax
+            or ImportStatementSyntax
+            or FromImportStatementSyntax
+            or TestDeclarationSyntax) {
+          continue;
+        }
+
+        LowerStatement(fb, item);
+      }
+    } else {
+      // Program mode: run top-level variable initializers only; never call `fn main` (TEST-4).
+      foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
+        if (item is VariableDeclarationSyntax or TupleDestructuringStatementSyntax) {
+          PrepareCallableScope(fb, item);
+        }
+      }
+
+      foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
+        if (fb.IsTerminated) {
+          break;
+        }
+
+        if (item is VariableDeclarationSyntax or TupleDestructuringStatementSyntax) {
+          LowerStatement(fb, item);
+        }
+      }
+    }
+
+    FinalizeFunctionBody(fb, rootModel.Tree.Root.Span);
+    return setupFn.Id;
+  }
+
+  private void LowerRootTests(SemanticModel rootModel) {
+    int testIndex = 0;
+    foreach (SyntaxNode item in rootModel.Tree.Root.Items) {
+      if (item is not TestDeclarationSyntax testDecl) {
+        continue;
+      }
+
+      string testName = ExtractTestName(rootModel, testDecl);
+      string fnName = ReserveFunctionName($"__pino_test_{testIndex++}");
+      IrFunction testFn = _module.AddFunction(
+          fnName,
+          [],
+          _types.Void,
+          ModuleStateEffects.ReadWrite);
+      var fb = new FunctionBuilder(this, testFn, rootModel);
+      PrepareCallableScope(fb, testDecl.Body);
+      LowerBlockItems(fb, testDecl.Body.Items);
+      FinalizeFunctionBody(fb, testDecl.Body.Span);
+      _module.Tests.Add(new IrTestEntry(testName, testFn.Id, testDecl.Span));
+    }
+  }
+
+  private static string ExtractTestName(SemanticModel model, TestDeclarationSyntax decl) {
+    if (decl.Name is InterpolatedStringExpressionSyntax interp) {
+      var sb = new System.Text.StringBuilder();
+      foreach (StringPartSyntax part in interp.Parts) {
+        if (part is StringTextPartSyntax textPart) {
+          sb.Append(UnescapeStringText(NameOf(model, textPart.TextToken)));
+        }
+      }
+
+      return sb.ToString();
+    }
+
+    Text.SourceText source = model.Tree.Source;
+    int start = Math.Clamp(decl.Name.Span.Start, 0, source.Length);
+    int end = Math.Clamp(decl.Name.Span.End, start, source.Length);
+    return source.Text[start..end].Trim();
   }
 
   private void EmitMainCallAndFailureHandler(

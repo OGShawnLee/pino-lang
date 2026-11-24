@@ -1106,7 +1106,7 @@ public sealed record RetVoid(SourceSpan Span = default) : IrTerminator(Span) {
   public override void CollectTargets(List<IrBlockId> targets) { }
 }
 
-public sealed record Panic(IrOperand Message, SourceSpan Span = default) : IrTerminator(Span) {
+public sealed record Panic(IrOperand Message, SourceSpan Span = default, bool IsAssert = false) : IrTerminator(Span) {
   public override void CollectReadOperands(List<IrOperand> operands) => operands.Add(Message);
   public override void CollectTargets(List<IrBlockId> targets) { }
 }

@@ -58,7 +58,7 @@ public static class IrPrinter {
       wroteSection = true;
     }
 
-    if (module.InitFuncIds.Count > 0 || module.EntryFuncId is not null || module.ShutdownFuncId is not null) {
+    if (module.InitFuncIds.Count > 0 || module.EntryFuncId is not null || module.TestSetupFuncId is not null || module.Tests.Count > 0 || module.ShutdownFuncId is not null) {
       if (wroteSection) {
         sb.Append('\n');
       }
@@ -79,6 +79,23 @@ public static class IrPrinter {
 
       if (module.EntryFuncId is { } entryId) {
         sb.Append(" entry=").Append(FormatFuncRef(module, entryId));
+      }
+
+      if (module.TestSetupFuncId is { } testSetupId) {
+        sb.Append(" test_setup=").Append(FormatFuncRef(module, testSetupId));
+      }
+
+      if (module.Tests.Count > 0) {
+        sb.Append(" tests=[");
+        for (int i = 0; i < module.Tests.Count; i++) {
+          if (i > 0) {
+            sb.Append(", ");
+          }
+
+          sb.Append(FormatFuncRef(module, module.Tests[i].FuncId));
+        }
+
+        sb.Append(']');
       }
 
       if (module.ShutdownFuncId is { } shutdownId) {

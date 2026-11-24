@@ -1,0 +1,10 @@
+leak-strict.pino
+  [FAIL] strict leak fails
+         error: 4 objects were still alive when this test ended:
+           - map[string, int]
+           - string
+           - captured variable (fn () -> int)
+           - closure
+         captured on strict leak
+
+1 failed, 1 with leaks (<time>)

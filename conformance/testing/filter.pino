@@ -1,0 +1,14 @@
+# covers: TEST-12
+# test-args: --filter ADD
+
+test "adds ints" {
+  assert(1 + 2 == 3)
+}
+
+test "subtracts ints" {
+  panic("filtered out")
+}
+
+test "Add floats" {
+  assert(1.5 + 2.5 == 4.0)
+}

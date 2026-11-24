@@ -1,0 +1,8 @@
+# covers: TEST-14
+# test-mode: run
+
+test "ignored when running normally" {
+  panic("test block must not run")
+}
+
+println("ok")

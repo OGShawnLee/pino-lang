@@ -1,0 +1,9 @@
+panic-and-output.pino
+  [PASS] hides output on pass
+  [FAIL] explicit panic shows output  (panic-and-output.pino:11)
+         panicked: boom
+         before panic
+  [FAIL] runtime panic div zero  (panic-and-output.pino:16)
+         panicked: Cannot divide by zero.
+
+1 passed, 2 failed (<time>)

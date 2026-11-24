@@ -1,0 +1,11 @@
+# covers: TEST-9, TEST-10, TEST-12, TEST-13
+# test-args: --strict
+# test-exit: 1
+
+test "strict leak fails" {
+  println("captured on strict leak")
+  val items = map[string, int] { "a" -> 1 }
+  val label = "key-" + "a"
+  var f = fn () -> 0
+  f = fn () -> if false then f() else items[label]
+}

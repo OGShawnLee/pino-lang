@@ -1,0 +1,15 @@
+# covers: TEST-1, TEST-2, TEST-3, TEST-5, TEST-12, TEST-13
+
+val base = 10
+
+fn add(a int, b int) int {
+  return a + b
+}
+
+test "first test" {
+  assert(add(2, 3) == 5)
+}
+
+test "second test" {
+  assert(add(base, 5) == 15)
+}

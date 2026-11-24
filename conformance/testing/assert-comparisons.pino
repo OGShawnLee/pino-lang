@@ -1,0 +1,53 @@
+# covers: TEST-5, TEST-6, TEST-7
+# test-exit: 1
+
+var calls = 0
+
+fn bump() int {
+  calls += 1
+  return calls
+}
+
+test "eq non-literal left" {
+  val x = 6
+  assert(x == 5)
+  panic("must not run")
+}
+
+test "ne both non-literal" {
+  val a = 4
+  val b = 4
+  assert(a != b)
+}
+
+test "lt string quoting" {
+  val s = "zeta"
+  assert(s < "alpha")
+}
+
+test "le both literals" {
+  assert(5 <= 2)
+}
+
+test "gt with message" {
+  val n = 3
+  assert(n > 10, "too small")
+}
+
+test "ge side effect once" {
+  assert(bump() >= 5)
+}
+
+test "non-comparison" {
+  val ok = false
+  assert(ok)
+}
+
+test "non-comparison with message" {
+  val ok = false
+  assert(ok, "expected true")
+}
+
+test "passes after failures" {
+  assert(bump() == 1)
+}

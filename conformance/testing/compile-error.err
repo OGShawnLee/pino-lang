@@ -1,0 +1,8 @@
+compile-error.pino
+error[PN3102]: Cannot assign type 'string' to variable 'x' of type 'int'.
+ --> compile-error.pino:6:15
+  |
+6 |   val x int = "oops"
+  |               ^^^^^^
+
+1 failed (<time>)

@@ -1,0 +1,11 @@
+# covers: TEST-4
+
+val base = 7
+
+fn main {
+  panic("main must not run during pino test")
+}
+
+test "main is not called" {
+  assert(base == 7)
+}

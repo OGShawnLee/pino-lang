@@ -1,0 +1,5 @@
+# covers: TEST-E1
+
+test 123 {
+  assert(true)
+}

@@ -1,0 +1,12 @@
+# covers: TEST-4
+
+var counter = 0
+
+test "mutates top-level var" {
+  counter = 42
+  assert(counter == 42)
+}
+
+test "sees fresh top-level var" {
+  assert(counter == 0)
+}

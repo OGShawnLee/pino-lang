@@ -92,12 +92,17 @@ public sealed class CliCommandsTests : IDisposable {
     // 2. Also guard against anyone adding a hardcoded flag literal in CliApp*.cs without adding it to the table.
     string cliDir = Path.Combine(Parsing.ParserTestHelpers.FindRepositoryRoot(), "pino-csharp-re", "Pino.Cli");
     var flagRegex = new System.Text.RegularExpressions.Regex(@"""(--[a-z][a-z0-9-]*|-[a-zA-Z])""");
-    foreach (string file in new[] { "CliApp.cs", "CliApp.Commands.cs" }) {
-      string src = File.ReadAllText(Path.Combine(cliDir, file));
+    foreach (string filePath in Directory.EnumerateFiles(cliDir, "CliApp*.cs")) {
+      string src = File.ReadAllText(filePath);
       foreach (System.Text.RegularExpressions.Match match in flagRegex.Matches(src)) {
         string flag = match.Groups[1].Value;
         Assert.Contains(flag, usage, StringComparison.Ordinal);
       }
+    }
+
+    // 3. Help must stay in plain words with no internal compiler jargon (ticket 080 step 6a).
+    foreach (string jargon in new[] { "IR VM", "shadow-RC", "DPINO_DEBUG_RC", "TCC", "C99", "= Pino:" }) {
+      Assert.DoesNotContain(jargon, usage, StringComparison.Ordinal);
     }
   }
 
@@ -287,14 +292,12 @@ public sealed class CliCommandsTests : IDisposable {
   }
 
   [Fact]
-  public void Test_PrintsExactNotAvailableMessageAndExitsTwo() {
+  public void Test_RunsEmptyDirectoryWithNoTestsFoundAndExitsZero() {
     CliResult result = Run(["test"]);
 
-    Assert.Equal(2, result.ExitCode);
-    Assert.Equal(string.Empty, result.Stdout);
-    Assert.Equal(
-        "pino: 'pino test' isn't available yet in this version; test blocks are type-checked by 'pino check'.\n",
-        result.Stderr);
+    Assert.Equal(0, result.ExitCode);
+    Assert.Equal("No tests found.\n", result.Stdout);
+    Assert.Equal(string.Empty, result.Stderr);
   }
 
   [Theory]

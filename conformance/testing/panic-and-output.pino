@@ -1,0 +1,17 @@
+# covers: TEST-5, TEST-10, TEST-11
+# test-exit: 1
+
+test "hides output on pass" {
+  println("hidden line")
+  assert(1 == 1)
+}
+
+test "explicit panic shows output" {
+  println("before panic")
+  panic("boom")
+}
+
+test "runtime panic div zero" {
+  var zero = 0
+  println(10 // zero)
+}

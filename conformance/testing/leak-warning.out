@@ -1,0 +1,10 @@
+leak-warning.pino
+  [PASS] closure cycle leaks
+         warning: 4 objects were still alive when this test ended:
+           - map[string, int]
+           - string
+           - captured variable (fn () -> int)
+           - closure
+  [PASS] clean test passes
+
+2 passed, 1 with leaks (<time>)

@@ -13,7 +13,8 @@ namespace Pino.Compiler.CodeGen.C;
 /// </summary>
 public sealed record CEmitOptions(
     bool EmitLineDirectives = true,
-    bool EmitFrames = true);
+    bool EmitFrames = true,
+    bool EmitTestRunner = false);
 
 /// <summary>
 /// Emits TCC-safe, BOM-less, GC-free C99 targeting <c>runtime-re/pino_rt.h</c> from a

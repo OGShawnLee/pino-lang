@@ -1,0 +1,13 @@
+# covers: TEST-8, TEST-13
+
+test "closure cycle leaks" {
+  val items = map[string, int] { "a" -> 1 }
+  val label = "key-" + "a"
+  var f = fn () -> 0
+  f = fn () -> if false then f() else items[label]
+}
+
+test "clean test passes" {
+  val ok = [1, 2, 3]
+  assert(ok:len == 3)
+}

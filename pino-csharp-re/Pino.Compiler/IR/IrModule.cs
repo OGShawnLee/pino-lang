@@ -144,6 +144,11 @@ public sealed record IrVTable(
     ImmutableArray<IrFuncId?> PropertySetterFuncIds = default,
     string? TypeName = null);
 
+public sealed record IrTestEntry(
+    string Name,
+    IrFuncId FuncId,
+    SourceSpan Span);
+
 public sealed class IrModule {
   private readonly Dictionary<string, int> _stringInterner = new(StringComparer.Ordinal);
   private readonly Dictionary<IrTypeId, IrTypeRcDescriptor> _rcDescriptorByType = [];
@@ -170,6 +175,10 @@ public sealed class IrModule {
   public List<IrFuncId> InitFuncIds { get; } = [];
 
   public IrFuncId? EntryFuncId { get; set; }
+
+  public IrFuncId? TestSetupFuncId { get; set; }
+
+  public List<IrTestEntry> Tests { get; } = [];
 
   public IrFuncId? ShutdownFuncId { get; set; }
 

@@ -1,0 +1,4 @@
+# covers: TEST-6
+
+val x = 6
+assert(x == 5)

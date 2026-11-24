@@ -168,7 +168,12 @@ void pino_rc_mark_cycle_candidate(PinoRcHeader* h);
 int64_t pino_debug_live_count(void);
 int64_t pino_debug_leak_count(int64_t* cycle_leaks_out);
 void pino_debug_leak_report(void);
+void pino_debug_test_leak_report(void);
 #endif
+
+/* Set to true by the generated `pino test --c` harness so panics, asserts, and
+ * leak reports emit structured records on stderr without changing normal runs. */
+extern bool pino_test_mode;
 
 /* ------------------------------------------------------------------------- */
 /* Source locations and backtrace frames (design 7.3)                         */
@@ -261,6 +266,7 @@ static inline void pino_env_release(PinoAlloc* a, PinoEnvHdr* env) {
  *     <n>: <frame name>          (one line per PinoFrame, innermost first)
  * and exits with code 101. */
 PINO_NORETURN void pino_panic_at(PinoString msg, PinoLoc loc);
+PINO_NORETURN void pino_assert_fail_at(PinoString msg, PinoLoc loc);
 PINO_NORETURN void pino_panic_cstr_at(const char* msg, PinoLoc loc);
 
 /* TYPE-E4: "Cannot divide by zero." */

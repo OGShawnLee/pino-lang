@@ -30,7 +30,21 @@
 /* Panics                                                                     */
 /* ------------------------------------------------------------------------- */
 
+static PINO_NORETURN void pino_emit_test_failure(const char* kind, PinoString msg, PinoLoc loc, int exit_code) {
+  fflush(stdout);
+  fprintf(stderr, "\x1fPINO_TEST_FAIL\t%s\t%s\t%d\n", kind, loc.file != NULL ? loc.file : "<unknown>", (int)loc.line);
+  if (msg.byte_len > 0) {
+    fwrite(msg.ptr, 1, (size_t)msg.byte_len, stderr);
+  }
+  fprintf(stderr, "\n\x1fPINO_TEST_FAIL_END\n");
+  fflush(stderr);
+  _exit(exit_code);
+}
+
 void pino_panic_at(PinoString msg, PinoLoc loc) {
+  if (pino_test_mode) {
+    pino_emit_test_failure("panic", msg, loc, 101);
+  }
   fflush(stdout);
   fprintf(stderr, "thread 'main' panicked at '%.*s'\n", (int)msg.byte_len, msg.ptr);
   fprintf(stderr, "  at %s:%d:%d\n", loc.file != NULL ? loc.file : "<unknown>", (int)loc.line, (int)loc.col);
@@ -40,6 +54,13 @@ void pino_panic_at(PinoString msg, PinoLoc loc) {
   }
   fflush(stderr);
   _exit(101);
+}
+
+void pino_assert_fail_at(PinoString msg, PinoLoc loc) {
+  if (pino_test_mode) {
+    pino_emit_test_failure("assert", msg, loc, 104);
+  }
+  pino_panic_at(msg, loc);
 }
 
 void pino_panic_cstr_at(const char* msg, PinoLoc loc) {

@@ -1,0 +1,7 @@
+# covers: TEST-E2, TEST-13
+# test-runner
+# test-exit: 1
+
+test "bad type" {
+  val x int = "oops"
+}

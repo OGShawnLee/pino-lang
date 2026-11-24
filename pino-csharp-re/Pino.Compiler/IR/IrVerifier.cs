@@ -120,6 +120,11 @@ public static class IrVerifier {
     }
 
     CheckOptionalFuncRef(module, module.EntryFuncId, "entry", errors);
+    CheckOptionalFuncRef(module, module.TestSetupFuncId, "test_setup", errors);
+    foreach (IrTestEntry test in module.Tests) {
+      CheckOptionalFuncRef(module, test.FuncId, $"test '{test.Name}'", errors);
+    }
+
     CheckOptionalFuncRef(module, module.ShutdownFuncId, "shutdown", errors);
   }
 

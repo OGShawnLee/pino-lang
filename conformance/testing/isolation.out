@@ -1,0 +1,5 @@
+isolation.pino
+  [PASS] mutates top-level var
+  [PASS] sees fresh top-level var
+
+2 passed (<time>)

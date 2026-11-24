@@ -82,7 +82,8 @@ public sealed partial class CEmitter {
       _sb.Append("static PinoIfaceBox* pvt_clone_").Append(i).Append("(PinoAlloc* a, const PinoIfaceBox* src) {\n");
       _sb.Append("  const ").Append(boxName).Append("* s = (const ").Append(boxName).Append("*)src;\n");
       _sb.Append("  ").Append(boxName).Append("* c = (").Append(boxName).Append("*)PINO_RC_ALLOC(a, sizeof(")
-          .Append(boxName).Append("), ").Append(vt.ConcreteStructType.Index).Append(", 0, \"interface box\");\n");
+          .Append(boxName).Append("), ").Append(vt.ConcreteStructType.Index).Append(", 0, \"")
+          .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, vt.InterfaceType))).Append("\");\n");
       _sb.Append("  c->value = s->value;\n");
       if (structRc) {
         _sb.Append("  ").Append(IncFnName(vt.ConcreteStructType)).Append("(c->value);\n");
@@ -670,7 +671,8 @@ public sealed partial class CEmitter {
               _sb.Append("  {\n");
               _sb.Append("    ").Append(uStruct).Append("* _u = (").Append(uStruct)
                   .Append("*)PINO_RC_ALLOC(pino_cur_alloc, sizeof(").Append(uStruct).Append("), ")
-                  .Append(utId.Index).Append(", ").Append(flags).Append(", \"union\");\n");
+                  .Append(utId.Index).Append(", ").Append(flags).Append(", \"")
+                  .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, utId))).Append("\");\n");
               _sb.Append("    _u->tag = ").Append(variant.TagOrdinal).Append(";\n");
               for (int f = 0; f < un.Fields.Length; f++) {
                 if (IsVoidOrNever(variant.Fields[f].Type)) {
@@ -729,7 +731,8 @@ public sealed partial class CEmitter {
           _sb.Append("  {\n");
           _sb.Append("    ").Append(boxName).Append("* _b = (").Append(boxName)
               .Append("*)PINO_RC_ALLOC(pino_cur_alloc, sizeof(").Append(boxName).Append("), ")
-              .Append(vt.ConcreteStructType.Index).Append(", ").Append(flags).Append(", \"interface box\");\n");
+              .Append(vt.ConcreteStructType.Index).Append(", ").Append(flags).Append(", \"")
+              .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, vt.InterfaceType))).Append("\");\n");
           _sb.Append("    _b->value = ").Append(OperandExpr(fn, ib.Value)).Append(";\n");
           _sb.Append("    ").Append(TempCName(ib.Dest)).Append(" = (").Append(CType(ifaceId))
               .Append("){&_b->base, &").Append(VTableGlobalCName(ib.VTable)).Append("};\n");
@@ -766,7 +769,8 @@ public sealed partial class CEmitter {
           _sb.Append("  {\n");
           _sb.Append("    ").Append(cellStruct).Append("* _c = (").Append(cellStruct)
               .Append("*)PINO_RC_ALLOC(pino_cur_alloc, sizeof(").Append(cellStruct).Append("), ")
-              .Append(cellId.Index).Append(", ").Append(flags).Append(", \"closure cell\");\n");
+              .Append(cellId.Index).Append(", ").Append(flags).Append(", \"")
+              .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, cellId))).Append("\");\n");
           _sb.Append("    _c->value = ").Append(OperandExpr(fn, cn.InitialValue)).Append(";\n");
           _sb.Append("    ").Append(TempCName(cn.Dest)).Append(" = _c;\n");
           _sb.Append("  }\n");
@@ -793,7 +797,8 @@ public sealed partial class CEmitter {
           _sb.Append("  {\n");
           _sb.Append("    ").Append(envStruct).Append("* _e = (").Append(envStruct)
               .Append("*)PINO_RC_ALLOC(pino_cur_alloc, sizeof(").Append(envStruct).Append("), ")
-              .Append(envId.Index).Append(", ").Append(flags).Append(", \"closure env\");\n");
+              .Append(envId.Index).Append(", ").Append(flags).Append(", \"")
+              .Append(EscapeCString(IrTypeTable.FormatLeakTypeName(_types, envId))).Append("\");\n");
           _sb.Append("    _e->hdr.drop = ").Append(EnvDropCallbackCName(envId)).Append(";\n");
           for (int f = 0; f < en.Captures.Length; f++) {
             _sb.Append("    _e->").Append(FieldCName(f, et.Fields[f].Name))
@@ -1710,7 +1715,8 @@ public sealed partial class CEmitter {
         break;
 
       case Panic panic:
-        _sb.Append("  pino_panic_at(").Append(OperandExpr(fn, panic.Message)).Append(", ")
+        _sb.Append(panic.IsAssert ? "  pino_assert_fail_at(" : "  pino_panic_at(")
+            .Append(OperandExpr(fn, panic.Message)).Append(", ")
             .Append(FormatPinoLoc(source, panic.Span)).Append(");\n");
         break;
 
@@ -1724,6 +1730,11 @@ public sealed partial class CEmitter {
   }
 
   private void EmitMainEntrypoint() {
+    if (_options.EmitTestRunner) {
+      EmitTestRunnerMainEntrypoint();
+      return;
+    }
+
     _sb.Append("int main(void) {\n");
     if (_module.EntryFuncId is { } entryId) {
       _sb.Append("  ").Append(FuncCName(entryId)).Append("();\n");
@@ -1736,6 +1747,52 @@ public sealed partial class CEmitter {
       }
     }
 
+    _sb.Append("  return 0;\n");
+    _sb.Append("}\n");
+  }
+
+  private void EmitTestRunnerMainEntrypoint() {
+    _sb.Append("int main(int argc, char** argv) {\n");
+    _sb.Append("  pino_test_mode = true;\n");
+    _sb.Append("  if (argc < 2) {\n");
+    _sb.Append("    return 2;\n");
+    _sb.Append("  }\n");
+    _sb.Append("  int idx = -1;\n");
+    _sb.Append("  if (argc >= 3 && strcmp(argv[1], \"index\") == 0) {\n");
+    _sb.Append("    idx = atoi(argv[2]);\n");
+    _sb.Append("  } else {\n");
+    for (int i = 0; i < _module.Tests.Count; i++) {
+      string keyword = i == 0 ? "if" : "else if";
+      _sb.Append("    ").Append(keyword).Append(" (strcmp(argv[1], \"")
+          .Append(EscapeCString(_module.Tests[i].Name)).Append("\") == 0) idx = ").Append(i).Append(";\n");
+    }
+
+    _sb.Append("  }\n");
+    _sb.Append("  switch (idx) {\n");
+    for (int i = 0; i < _module.Tests.Count; i++) {
+      _sb.Append("    case ").Append(i).Append(":\n");
+      if (_module.TestSetupFuncId is { } setupId) {
+        _sb.Append("      ").Append(FuncCName(setupId)).Append("();\n");
+      } else {
+        foreach (IrFuncId initId in _module.InitFuncIds) {
+          _sb.Append("      ").Append(FuncCName(initId)).Append("();\n");
+        }
+      }
+
+      _sb.Append("      ").Append(FuncCName(_module.Tests[i].FuncId)).Append("();\n");
+      if (_module.ShutdownFuncId is { } shutId) {
+        _sb.Append("      ").Append(FuncCName(shutId)).Append("();\n");
+      }
+
+      _sb.Append("      break;\n");
+    }
+
+    _sb.Append("    default:\n");
+    _sb.Append("      return 2;\n");
+    _sb.Append("  }\n");
+    _sb.Append("#ifdef PINO_DEBUG_RC\n");
+    _sb.Append("  pino_debug_test_leak_report();\n");
+    _sb.Append("#endif\n");
     _sb.Append("  return 0;\n");
     _sb.Append("}\n");
   }

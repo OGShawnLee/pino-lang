@@ -236,31 +236,189 @@ public sealed partial class IrLowerer {
   }
 
   private void LowerAssert(FunctionBuilder fb, AssertStatementSyntax assertStmt) {
-    IrOperand? condOpt = LowerExpression(fb, assertStmt.Condition);
-    if (fb.IsTerminated || condOpt is not { } cond) {
-      return;
-    }
+    string condSource = SourceSliceTrimmed(fb.Model, assertStmt.Condition.Span);
+    ExpressionSyntax inner = UnwrapParens(assertStmt.Condition);
 
-    IrBasicBlock bbOk = fb.NewBlock();
-    IrBasicBlock bbFail = fb.NewBlock();
-    fb.Terminate(new BrIf(cond, bbOk.Id, bbFail.Id, assertStmt.Span));
-
-    fb.SwitchTo(bbFail);
-    IrOperand msg;
-    if (assertStmt.Message is { } msgExpr) {
-      IrOperand? msgOpt = LowerExpression(fb, msgExpr);
-      if (fb.IsTerminated || msgOpt is not { } m) {
-        fb.SwitchTo(bbOk);
+    if (inner is BinaryExpressionSyntax binary && IsAssertComparisonOp(binary.OperatorToken.Kind)) {
+      if (!TryLowerAssertOperand(fb, binary.Left, out IrOperand rawLeft, out IrOperand left)) {
         return;
       }
 
-      msg = m;
-    } else {
-      msg = fb.EmitConstString("Assertion failed.", assertStmt.Span);
+      if (!TryLowerAssertOperand(fb, binary.Right, out IrOperand rawRight, out IrOperand right)) {
+        return;
+      }
+
+      IrOperand cond = binary.OperatorToken.Kind switch {
+        TokenKind.EqualEqual => EmitEquality(fb, left, right, negated: false, binary.Span),
+        TokenKind.BangEqual => EmitEquality(fb, left, right, negated: true, binary.Span),
+        _ => EmitOrderedComparison(fb, binary.OperatorToken.Kind, left, right, binary.Span),
+      };
+
+      IrBasicBlock bbOk = fb.NewBlock();
+      IrBasicBlock bbFail = fb.NewBlock();
+      fb.Terminate(new BrIf(cond, bbOk.Id, bbFail.Id, assertStmt.Span));
+
+      fb.SwitchTo(bbFail);
+      var parts = ImmutableArray.CreateBuilder<IrOperand>();
+      if (assertStmt.Message is { } msgExpr) {
+        IrOperand? msgOpt = LowerExpression(fb, msgExpr);
+        if (fb.IsTerminated || msgOpt is not { } userMsg) {
+          fb.SwitchTo(bbOk);
+          return;
+        }
+
+        parts.Add(userMsg);
+        parts.Add(fb.EmitConstString("\n", assertStmt.Span));
+      }
+
+      parts.Add(fb.EmitConstString($"`{condSource}` was false.", assertStmt.Span));
+
+      if (!IsAssertLiteral(binary.Left)) {
+        string leftSource = SourceSliceTrimmed(fb.Model, binary.Left.Span);
+        parts.Add(fb.EmitConstString($"\n  {leftSource} is ", assertStmt.Span));
+        AppendAssertFormattedValue(fb, rawLeft, parts, assertStmt.Span);
+      }
+
+      if (!IsAssertLiteral(binary.Right)) {
+        string rightSource = SourceSliceTrimmed(fb.Model, binary.Right.Span);
+        parts.Add(fb.EmitConstString($"\n  {rightSource} is ", assertStmt.Span));
+        AppendAssertFormattedValue(fb, rawRight, parts, assertStmt.Span);
+      }
+
+      IrOperand finalMsg = CombineAssertParts(fb, parts, assertStmt.Span);
+      fb.Terminate(new Panic(finalMsg, assertStmt.Span, IsAssert: true));
+      fb.SwitchTo(bbOk);
+      return;
     }
 
-    fb.Terminate(new Panic(msg, assertStmt.Span));
-    fb.SwitchTo(bbOk);
+    IrOperand? condOpt = LowerExpression(fb, assertStmt.Condition);
+    if (fb.IsTerminated || condOpt is not { } nonCmpCond) {
+      return;
+    }
+
+    IrBasicBlock bbOkPlain = fb.NewBlock();
+    IrBasicBlock bbFailPlain = fb.NewBlock();
+    fb.Terminate(new BrIf(nonCmpCond, bbOkPlain.Id, bbFailPlain.Id, assertStmt.Span));
+
+    fb.SwitchTo(bbFailPlain);
+    var plainParts = ImmutableArray.CreateBuilder<IrOperand>();
+    if (assertStmt.Message is { } plainMsgExpr) {
+      IrOperand? msgOpt = LowerExpression(fb, plainMsgExpr);
+      if (fb.IsTerminated || msgOpt is not { } userMsg) {
+        fb.SwitchTo(bbOkPlain);
+        return;
+      }
+
+      plainParts.Add(userMsg);
+      plainParts.Add(fb.EmitConstString("\n", assertStmt.Span));
+    }
+
+    plainParts.Add(fb.EmitConstString($"`{condSource}` was false.", assertStmt.Span));
+    IrOperand plainFinalMsg = CombineAssertParts(fb, plainParts, assertStmt.Span);
+    fb.Terminate(new Panic(plainFinalMsg, assertStmt.Span, IsAssert: true));
+    fb.SwitchTo(bbOkPlain);
+  }
+
+  private static bool IsAssertComparisonOp(TokenKind kind) =>
+      kind is TokenKind.EqualEqual
+          or TokenKind.BangEqual
+          or TokenKind.Less
+          or TokenKind.LessEqual
+          or TokenKind.Greater
+          or TokenKind.GreaterEqual;
+
+  private static bool IsAssertLiteral(ExpressionSyntax expr) {
+    ExpressionSyntax inner = UnwrapParens(expr);
+    if (inner is LiteralExpressionSyntax) {
+      return true;
+    }
+
+    if (inner is UnaryExpressionSyntax { OperatorToken.Kind: TokenKind.Minus } unary
+        && UnwrapParens(unary.Operand) is LiteralExpressionSyntax { Token.Kind: TokenKind.IntLiteral or TokenKind.FloatLiteral }) {
+      return true;
+    }
+
+    if (inner is InterpolatedStringExpressionSyntax interp) {
+      foreach (StringPartSyntax part in interp.Parts) {
+        if (part is StringInterpolationPartSyntax) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    return false;
+  }
+
+  private static string SourceSliceTrimmed(SemanticModel model, SourceSpan span) {
+    SourceText source = model.Tree.Source;
+    int start = Math.Clamp(span.Start, 0, source.Length);
+    int end = Math.Clamp(span.End, start, source.Length);
+    return source.Text[start..end].Trim();
+  }
+
+  private bool TryLowerAssertOperand(
+      FunctionBuilder fb,
+      ExpressionSyntax expr,
+      out IrOperand rawVal,
+      out IrOperand convertedVal) {
+    rawVal = default;
+    convertedVal = default;
+    if (fb.Model.GetConversion(expr) is { Kind: ConversionKind.ImplicitItLambda }) {
+      IrOperand? lowered = LowerExpression(fb, expr);
+      if (fb.IsTerminated || lowered is not { } v) {
+        return false;
+      }
+
+      rawVal = v;
+      convertedVal = v;
+      return true;
+    }
+
+    IrOperand? core = LowerExpressionCore(fb, expr);
+    if (fb.IsTerminated || core is not { } raw) {
+      return false;
+    }
+
+    IrOperand? conv = ApplyConversion(fb, expr, raw, expr.Span);
+    if (fb.IsTerminated || conv is not { } converted) {
+      return false;
+    }
+
+    rawVal = raw;
+    convertedVal = converted;
+    return true;
+  }
+
+  private void AppendAssertFormattedValue(
+      FunctionBuilder fb,
+      IrOperand value,
+      ImmutableArray<IrOperand>.Builder parts,
+      SourceSpan span) {
+    if (fb.GetOperandType(value) == _types.String) {
+      parts.Add(fb.EmitConstString("\"", span));
+      parts.Add(value);
+      parts.Add(fb.EmitConstString("\"", span));
+      return;
+    }
+
+    IrTempId formatted = fb.AddTemp(_types.String);
+    fb.Emit(new CallRuntime(formatted, IrRuntimeOp.ToStr, [value], AllocRegion.Heap, span));
+    parts.Add(formatted);
+  }
+
+  private IrOperand CombineAssertParts(
+      FunctionBuilder fb,
+      ImmutableArray<IrOperand>.Builder parts,
+      SourceSpan span) {
+    if (parts.Count == 1) {
+      return parts[0];
+    }
+
+    IrTempId combined = fb.AddTemp(_types.String);
+    fb.Emit(new StrConcatN(combined, parts.ToImmutable(), AllocRegion.Heap, span));
+    return combined;
   }
 
   private IrOperand? LowerAssignment(FunctionBuilder fb, AssignmentExpressionSyntax assign) {

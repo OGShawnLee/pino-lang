@@ -461,16 +461,74 @@ public sealed partial class Parser {
 
   private AssertStatementSyntax ParseAssertStatement() {
     Token assertKeyword = Consume();
-    ExpressionSyntax condition = ParseExpression(0, ExprContext.AllowBraceLiteral);
+    if (Current.Kind == TokenKind.OpenParen && !IsAssertLeadingGroupedExpression()) {
+      Token openParen = Consume();
+      ExpressionSyntax condition = ParseExpression(0, ExprContext.AllowBraceLiteral);
+      Token? comma = null;
+      ExpressionSyntax? message = null;
+      if (Current.Kind == TokenKind.Comma) {
+        comma = Consume();
+        message = ParseExpression(0, ExprContext.AllowBraceLiteral);
+      }
+
+      Token closeParen = Expect(TokenKind.CloseParen);
+      return new AssertStatementSyntax(
+          NextId(),
+          SourceSpan.FromBounds(assertKeyword.Span.Start, closeParen.Span.End),
+          assertKeyword,
+          openParen,
+          condition,
+          comma,
+          message,
+          closeParen);
+    }
+
+    ExpressionSyntax bareCondition = ParseExpression(0, ExprContext.AllowBraceLiteral);
     return new AssertStatementSyntax(
         NextId(),
-        SourceSpan.FromBounds(assertKeyword.Span.Start, condition.Span.End),
+        SourceSpan.FromBounds(assertKeyword.Span.Start, bareCondition.Span.End),
         assertKeyword,
         null,
-        condition,
+        bareCondition,
         null,
         null,
         null);
+  }
+
+  private bool IsAssertLeadingGroupedExpression() {
+    int depth = 0;
+    int offset = 0;
+    while (true) {
+      Token tok = Peek(offset);
+      if (tok.Kind == TokenKind.EOF) {
+        return false;
+      }
+
+      if (tok.Kind == TokenKind.OpenParen) {
+        depth++;
+      } else if (tok.Kind == TokenKind.CloseParen) {
+        depth--;
+        if (depth == 0) {
+          Token after = Peek(offset + 1);
+          if (HasLeadingNewline(after)) {
+            return false;
+          }
+
+          return GetBinaryLeftBindingPower(after.Kind) > 0
+              || after.Kind is TokenKind.Colon
+                  or TokenKind.OpenBracket
+                  or TokenKind.OpenParen
+                  or TokenKind.Question
+                  or TokenKind.Or
+                  or TokenKind.IsKeyword
+                  or TokenKind.Not;
+        }
+      } else if (tok.Kind == TokenKind.Comma && depth == 1) {
+        return false;
+      }
+
+      offset++;
+    }
   }
 
   private ImportStatementSyntax ParseImportStatement() {

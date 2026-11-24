@@ -13,9 +13,6 @@ using Pino.Compiler.Diagnostics;
 namespace Pino.Cli;
 
 public static partial class CliApp {
-  private const string TestNotAvailableMessage =
-      "pino: 'pino test' isn't available yet in this version; test blocks are type-checked by 'pino check'.\n";
-
   private const string ReleasesLatestUrl =
       "https://api.github.com/repos/OGShawnLee/pino-lang/releases/latest";
 
@@ -32,7 +29,7 @@ public static partial class CliApp {
   }
 
   // ---------------------------------------------------------------------------
-  // `version` / `v` / `--version` and `test`
+  // `version` / `v` / `--version`
   // ---------------------------------------------------------------------------
 
   private static int RunVersion(List<string> args, TextWriter stdout) {
@@ -42,11 +39,6 @@ public static partial class CliApp {
 
     stdout.Write($"pino {GetVersion()}\n");
     return 0;
-  }
-
-  private static int RunTest(TextWriter stderr) {
-    stderr.Write(TestNotAvailableMessage);
-    return 2;
   }
 
   // ---------------------------------------------------------------------------
