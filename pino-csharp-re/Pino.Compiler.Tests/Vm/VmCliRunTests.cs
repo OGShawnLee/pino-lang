@@ -2,9 +2,9 @@ using Pino.Cli;
 
 namespace Pino.Compiler.Tests.Vm;
 
-/// <summary><c>pino-re run [--vm] [--verify-rc] &lt;file&gt;</c>: exit codes 0, 1 and 101 (ERR-5).</summary>
+/// <summary><c>pino run [--vm] [--verify-rc] [file]</c>: exit codes 0, 1 and 101 (ERR-5).</summary>
 public sealed class VmCliRunTests : IDisposable {
-  private readonly string _root = Path.Combine(Path.GetTempPath(), "pino-re-run-" + Guid.NewGuid().ToString("N"));
+  private readonly string _root = Path.Combine(Path.GetTempPath(), "pino-run-" + Guid.NewGuid().ToString("N"));
 
   public VmCliRunTests() {
     Directory.CreateDirectory(_root);
@@ -140,11 +140,11 @@ public sealed class VmCliRunTests : IDisposable {
   }
 
   [Fact]
-  public void Run_WithoutAFileIsABadUsage() {
+  public void Run_WithoutAFileDefaultsToMainPinoAndExitsTwoWhenMissing() {
     (int exit, _, string stderr) = Run(["run"]);
 
     Assert.Equal(2, exit);
-    Assert.Contains("missing path (usage: pino-re run", stderr, StringComparison.Ordinal);
+    Assert.Equal("pino: no such file or directory: 'main.pino'\n", stderr);
   }
 
   [Fact]
@@ -164,10 +164,15 @@ public sealed class VmCliRunTests : IDisposable {
     return path;
   }
 
-  private static (int ExitCode, string Stdout, string Stderr) Run(string[] args) {
+  private (int ExitCode, string Stdout, string Stderr) Run(string[] args) {
     var stdout = new StringWriter { NewLine = "\n" };
     var stderr = new StringWriter { NewLine = "\n" };
-    var environment = new CliEnvironment(_ => null, IsOutputRedirected: true, SupportsAnsi: false, new Dictionary<string, string>());
+    var environment = new CliEnvironment(
+        _ => null,
+        IsOutputRedirected: true,
+        SupportsAnsi: false,
+        new Dictionary<string, string>(),
+        WorkingDirectory: _root);
     int exit = CliApp.Run(args, stdout, stderr, environment);
     return (exit, stdout.ToString(), stderr.ToString());
   }

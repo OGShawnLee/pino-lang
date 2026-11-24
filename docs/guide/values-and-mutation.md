@@ -4,7 +4,7 @@ In Pino, a variable holds a **value**. When you assign it or pass it to a functi
 
 This one rule is why Pino stays simple (no pointers, no "who else is holding this?") and why it can be fast (the compiler knows that plain data can't form tangled webs). Pino is aimed at Go-like microservices and games, and this is how it gets there.
 
-Short snippets on this page run as scripts. Longer ones use `fn main()`. Every example was run through the checker (`pino-re check`).
+Short snippets on this page run as scripts. Longer ones use `fn main()`. Every example was run through the checker (`pino check`).
 
 ## 1. Assigning copies
 

@@ -631,7 +631,7 @@ public static class Lexer {
         DiagnosticCodes.SemicolonIgnored,
         new SourceSpan(start, 1),
         "Pino doesn't use semicolons, so this one was ignored.",
-        help: "you can delete it; run 'pino-re explain PN1018' to see why");
+        help: "you can delete it; run 'pino explain PN1018' to see why");
       AddTrivia(TriviaKind.Whitespace, start);
     }
 

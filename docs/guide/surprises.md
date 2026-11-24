@@ -2,7 +2,7 @@
 
 Pino borrows from many languages, so most of it will feel familiar. This page lists the places where it does something *different* from what Python, JavaScript, Go or Java would do. Each entry says what you'd expect, what Pino does, why, and where the rule is written down.
 
-Most snippets run as short scripts (no `fn main`). Every example was run through the checker (`pino-re check`). Lines marked with an error code show exactly what the checker says.
+Most snippets run as short scripts (no `fn main`). Every example was run through the checker (`pino check`). Lines marked with an error code show exactly what the checker says.
 
 Looking for the big one, copies and `mut`? That has its own page: [Values, not objects](values-and-mutation.md).
 

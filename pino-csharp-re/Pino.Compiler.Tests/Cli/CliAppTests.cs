@@ -13,7 +13,7 @@ public sealed class CliAppTests : IDisposable {
         ["PN1011"] = "backslashes are picky in strings",
       };
 
-  private readonly string _root = Path.Combine(Path.GetTempPath(), "pino-re-cli-" + Guid.NewGuid().ToString("N"));
+  private readonly string _root = Path.Combine(Path.GetTempPath(), "pino-cli-" + Guid.NewGuid().ToString("N"));
 
   public CliAppTests() {
     Directory.CreateDirectory(_root);
@@ -403,7 +403,7 @@ public sealed class CliAppTests : IDisposable {
     RunResult result = Run(["explain"]);
 
     Assert.Equal(1, result.ExitCode);
-    Assert.Equal("Usage: pino-re explain <code>, for example 'pino-re explain PN1018'.\n", result.Stderr);
+    Assert.Equal("Usage: pino explain <code>, for example 'pino explain PN1018'.\n", result.Stderr);
     Assert.Equal("", result.Stdout);
   }
 
@@ -415,7 +415,7 @@ public sealed class CliAppTests : IDisposable {
 
     Assert.Equal(0, result.ExitCode);
     Assert.Equal(2, Regex.Matches(result.Stdout, @"hint\[PN1018\]: Pino doesn't use semicolons, so this one was ignored\.").Count);
-    Assert.Equal(2, Regex.Matches(result.Stdout, Regex.Escape("= help: you can delete it; run 'pino-re explain PN1018' to see why")).Count);
+    Assert.Equal(2, Regex.Matches(result.Stdout, Regex.Escape("= help: you can delete it; run 'pino explain PN1018' to see why")).Count);
     Assert.EndsWith("checked 1 file(s): 0 error(s), 0 warning(s)\n", result.Stdout, StringComparison.Ordinal);
   }
 
@@ -433,7 +433,7 @@ public sealed class CliAppTests : IDisposable {
     Assert.Contains("--voice", result.Stdout, StringComparison.Ordinal);
   }
 
-  private static void AssertUsageError(string[] args) {
+  private void AssertUsageError(string[] args) {
     RunResult result = Run(args);
 
     Assert.Equal(2, result.ExitCode);
@@ -442,7 +442,7 @@ public sealed class CliAppTests : IDisposable {
   }
 
   private static void AssertOnePinoLine(string stderr) {
-    Assert.StartsWith("pino-re: ", stderr, StringComparison.Ordinal);
+    Assert.StartsWith("pino: ", stderr, StringComparison.Ordinal);
     Assert.EndsWith("\n", stderr, StringComparison.Ordinal);
     Assert.Single(stderr.TrimEnd('\n').Split('\n'));
   }
@@ -456,7 +456,7 @@ public sealed class CliAppTests : IDisposable {
     return path;
   }
 
-  private static RunResult Run(
+  private RunResult Run(
       string[] args,
       bool isOutputRedirected = false,
       bool supportsAnsi = false,
@@ -468,7 +468,8 @@ public sealed class CliAppTests : IDisposable {
         name => environmentVariables is not null && environmentVariables.TryGetValue(name, out string? value) ? value : null,
         isOutputRedirected,
         supportsAnsi,
-        notes ?? new Dictionary<string, string>());
+        notes ?? new Dictionary<string, string>(),
+        WorkingDirectory: _root);
 
     int exitCode = CliApp.Run(args, stdout, stderr, environment);
     return new RunResult(exitCode, stdout.ToString(), stderr.ToString());

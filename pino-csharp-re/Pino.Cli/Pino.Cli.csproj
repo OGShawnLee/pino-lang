@@ -2,10 +2,15 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>pino-re</AssemblyName>
+    <AssemblyName>pino</AssemblyName>
     <RootNamespace>Pino.Cli</RootNamespace>
+    <Version>0.4.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Pino.Compiler.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Pino.Compiler\Pino.Compiler.csproj" />

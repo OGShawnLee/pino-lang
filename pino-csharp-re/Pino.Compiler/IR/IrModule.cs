@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 
 using Pino.Compiler.Checking;
+using Pino.Compiler.Text;
 
 namespace Pino.Compiler.IR;
 
@@ -94,6 +95,9 @@ public sealed class IrFunction(
   public IrTypeId ReturnType { get; } = returnType;
 
   public ModuleStateEffects ModuleStateEffects { get; set; } = moduleStateEffects;
+
+  /// <summary>The source file this function was lowered from, used for panic locations and <c>#line</c> directives.</summary>
+  public SourceText? Source { get; set; }
 
   public List<IrLocalSlot> Slots { get; } = [];
 

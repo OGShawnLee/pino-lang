@@ -11,12 +11,12 @@ Three text games written in Pino, ported to the new compiler (0.4 and later).
 ## Run
 
 ```
-pino-re run --vm games/jade_temple.pino
-pino-re run --vm games/sable.pino
-pino-re run --vm games/star_pino.pino
+pino run --vm games/jade_temple.pino
+pino run --vm games/sable.pino
+pino run --vm games/star_pino.pino
 ```
 
-Use `--c` instead of `--vm` to compile through C99 and run the native program. Check a game without running it with `pino-re check games/<name>.pino`.
+Use `--c` instead of `--vm` to compile through C99 and run the native program. Check a game without running it with `pino check games/<name>.pino`.
 
 ## Legacy copy
 

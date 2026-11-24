@@ -356,6 +356,7 @@ public sealed partial class IrLowerer {
       Owner = owner;
       Function = function;
       Model = model;
+      function.Source ??= model.Tree.Source;
       EnclosingStruct = enclosingStruct;
       IsMutatingMethod = isMutatingMethod;
       DeclaredReturnType = declaredReturnType;

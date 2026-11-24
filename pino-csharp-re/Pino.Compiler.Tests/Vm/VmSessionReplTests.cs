@@ -4,7 +4,7 @@ using Pino.Vm;
 
 namespace Pino.Compiler.Tests.Vm;
 
-/// <summary>Interactive REPL session (<see cref="VmSession"/>) and <c>pino-re repl</c> tests.</summary>
+/// <summary>Interactive REPL session (<see cref="VmSession"/>) and <c>pino repl</c> tests.</summary>
 public sealed class VmSessionReplTests {
   private static readonly DiagnosticRenderOptions s_plainOptions = new() {
     Color = false,

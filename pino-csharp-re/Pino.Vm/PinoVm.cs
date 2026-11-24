@@ -1745,7 +1745,10 @@ public sealed partial class PinoVm {
   }
 
   private string Location(Frame frame) {
-    SourceText? source = _options.SourceResolver?.Invoke(frame.Func.Fn) ?? _activeRootSource ?? _options.RootSource;
+    SourceText? source = _options.SourceResolver?.Invoke(frame.Func.Fn)
+        ?? frame.Func.Fn.Source
+        ?? _activeRootSource
+        ?? _options.RootSource;
     int pc = Math.Min(frame.Pc - (ReferenceEquals(frame, _frames[^1]) ? 0 : 1), frame.Func.Spans.Length - 1);
     SourceSpan span = pc >= 0 ? frame.Func.Spans[pc] : default;
     if (source is null) {
@@ -1754,8 +1757,9 @@ public sealed partial class PinoVm {
 
     int offset = Math.Clamp(span.Start, 0, source.Length);
     LinePosition position = source.GetLineColumn(offset);
+    string file = (source.FilePath ?? "<input>").Replace('\\', '/');
     return string.Create(
         CultureInfo.InvariantCulture,
-        $"{source.FilePath ?? "<input>"}:{position.Line}:{position.Column}");
+        $"{file}:{position.Line}:{position.Column}");
   }
 }

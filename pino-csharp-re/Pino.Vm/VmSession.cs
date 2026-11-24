@@ -302,7 +302,7 @@ public sealed class VmSession : IDisposable {
     IrVerificationResult verification = IrVerifier.VerifyAfterRc(_module);
     if (!verification.IsValid) {
       RollbackFailedChunk(oldGlobalCount, oldFuncCount);
-      string err = "pino-re: the REPL chunk could not be run because its IR failed verification: "
+      string err = "pino: the REPL chunk could not be run because its IR failed verification: "
           + string.Join("; ", verification.Errors.Take(3)) + "\n";
       _host.Err.Write(err);
       _host.Err.Flush();

@@ -100,7 +100,7 @@ public static class CCompilerDriver {
         Directory.CreateDirectory(cParent);
       }
     } else {
-      tempDir = Path.Combine(Path.GetTempPath(), "pino-re-build-" + Guid.NewGuid().ToString("N"));
+      tempDir = Path.Combine(Path.GetTempPath(), "pino-build-" + Guid.NewGuid().ToString("N"));
       Directory.CreateDirectory(tempDir);
       cFilePath = Path.Combine(tempDir, "pino_program.c");
     }

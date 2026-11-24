@@ -1,6 +1,6 @@
 namespace Pino.Compiler.Diagnostics;
 
-/// <summary>Longer, human-written explanations for diagnostic codes, shown by <c>pino-re explain</c>.</summary>
+/// <summary>Longer, human-written explanations for diagnostic codes, shown by <c>pino explain</c>.</summary>
 public static class DiagnosticExplanations {
   private static readonly Dictionary<string, string> s_explanations = new(StringComparer.OrdinalIgnoreCase) {
     [DiagnosticCodes.SemicolonIgnored] = """

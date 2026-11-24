@@ -45,7 +45,7 @@ public sealed class LexerRecoveryTests {
     Assert.Equal(DiagnosticSeverity.Hint, diagnostic.Severity);
     Assert.Equal(new SourceSpan(start, 1), diagnostic.Span);
     Assert.Equal("Pino doesn't use semicolons, so this one was ignored.", diagnostic.Message);
-    Assert.Equal("you can delete it; run 'pino-re explain PN1018' to see why", diagnostic.Help);
+    Assert.Equal("you can delete it; run 'pino explain PN1018' to see why", diagnostic.Help);
   }
 
   [Fact]

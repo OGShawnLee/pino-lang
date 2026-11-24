@@ -15,48 +15,105 @@ using Pino.Vm;
 
 namespace Pino.Cli;
 
-/// <summary>The <c>pino-re</c> command line: checker, native C99 builder, and runner for the C# rewrite.</summary>
-public static class CliApp {
-  private const string Prefix = "pino-re: ";
+/// <summary>The <c>pino</c> command line: compiler, checker, native C99 builder, VM runner, and REPL.</summary>
+public static partial class CliApp {
+  private const string Prefix = "pino: ";
 
-  private const string Usage = """
-      pino-re: the Pino compiler and front-end checker
+  // Single source of truth for option flags shared by the argument parsers and the generated Usage text.
+  private const string OptColor = "--color";
+  private const string OptVoice = "--voice";
+  private const string OptHelp = "--help";
+  private const string OptHelpShort = "-h";
+  private const string OptVersion = "--version";
+  private const string OptVm = "--vm";
+  private const string OptC = "--c";
+  private const string OptVerifyRc = "--verify-rc";
+  private const string OptDebugRc = "--debug-rc";
+  private const string OptOutput = "-o";
+  private const string OptRelease = "--release";
+  private const string OptEmitC = "--emit-c";
 
-      Usage:
-        pino-re check <path>...   Lex, parse, and check .pino files (or directories,
-                                  searched recursively) and print their diagnostics.
-        pino-re run [opts] <file> Compile and execute a .pino file.
-        pino-re build [opts] <file>
-                                  Compile a .pino file to a native executable.
-        pino-re repl              Start an interactive Pino REPL session.
-        pino-re tree <file>       Print the syntax tree of one file, then its diagnostics.
-        pino-re explain <code>    Explain a diagnostic code, for example 'pino-re explain PN1018'.
-        pino-re --help            Show this help (also -h, or no arguments).
+  internal sealed record CliOptionSpec(string Name, string? ValueSyntax, string Description);
 
-      Options (before or after the paths):
-        --color auto|always|never   Color the output (default: auto; off when output is
-                                    redirected, NO_COLOR is set, or ANSI is unsupported).
-        --voice pino|plain          Include the '= Pino:' notes, or leave them out
-                                    (default: pino).
+  internal sealed record CliCommandSpec(
+      string Signature,
+      string Description,
+      ImmutableArray<CliOptionSpec> Options);
 
-      Run options:
-        --vm                        Run on the IR VM (default).
-        --c                         Compile via TCC and run the native binary.
-        --verify-rc                 Enable VM shadow-RC verification.
-        --debug-rc                  Build with -DPINO_DEBUG_RC leak and UAF checking.
+  internal static readonly ImmutableArray<CliOptionSpec> GlobalOptions = [
+    new CliOptionSpec(OptColor, "auto|always|never", "Color the output (default: auto; off when redirected or NO_COLOR is set)."),
+    new CliOptionSpec(OptVoice, "pino|plain", "Include the '= Pino:' notes, or leave them out (default: pino)."),
+    new CliOptionSpec(OptHelp, null, "Show this help message (alias: -h)."),
+    new CliOptionSpec(OptHelpShort, null, "Short alias for --help."),
+    new CliOptionSpec(OptVersion, null, "Print the compiler version."),
+  ];
 
-      Build options:
-        -o <out>                    Output executable path.
-        --release                   Build with gcc/clang -O2 instead of TCC.
-        --debug-rc                  Build with -DPINO_DEBUG_RC leak and UAF checking.
-        --emit-c <path>             Write the generated C99 source to <path>.
+  internal static readonly ImmutableArray<CliCommandSpec> CommandSpecs = [
+    new CliCommandSpec("pino", "Run main.pino in the current directory, or show this help.", []),
+    new CliCommandSpec("pino init [name]", "Create a new Pino project (main.pino, modules/, test/, .gitignore).", []),
+    new CliCommandSpec("pino run [opts] [file]", "Compile and run a .pino file (defaults to main.pino).", [
+      new CliOptionSpec(OptVm, null, "Run on the IR VM (default)."),
+      new CliOptionSpec(OptC, null, "Compile via TCC and run the native binary."),
+      new CliOptionSpec(OptVerifyRc, null, "Enable VM shadow-RC verification."),
+      new CliOptionSpec(OptDebugRc, null, "Build with -DPINO_DEBUG_RC leak and UAF checking."),
+    ]),
+    new CliCommandSpec("pino build [opts] [file]", "Compile a .pino file to a native executable (defaults to main.pino).", [
+      new CliOptionSpec(OptOutput, "<out>", "Output executable path."),
+      new CliOptionSpec(OptRelease, null, "Build with gcc/clang -O2 instead of TCC."),
+      new CliOptionSpec(OptDebugRc, null, "Build with -DPINO_DEBUG_RC leak and UAF checking."),
+      new CliOptionSpec(OptEmitC, "<path>", "Write the generated C99 source to <path>."),
+    ]),
+    new CliCommandSpec("pino compile [file] [out]", "Write generated C99 source for a .pino file (alias: c).", []),
+    new CliCommandSpec("pino watch [opts] [file]", "Run a .pino file and rerun on save (defaults to main.pino).", [
+      new CliOptionSpec(OptVm, null, "Run on the IR VM (default)."),
+      new CliOptionSpec(OptC, null, "Compile via TCC and run the native binary."),
+      new CliOptionSpec(OptVerifyRc, null, "Enable VM shadow-RC verification."),
+      new CliOptionSpec(OptDebugRc, null, "Build with -DPINO_DEBUG_RC leak and UAF checking."),
+    ]),
+    new CliCommandSpec("pino check <path>...", "Lex, parse, and check .pino files or directories.", [
+      new CliOptionSpec(OptColor, "auto|always|never", "Color diagnostic output."),
+      new CliOptionSpec(OptVoice, "pino|plain", "Include or omit '= Pino:' diagnostic notes."),
+    ]),
+    new CliCommandSpec("pino repl [opts]", "Start an interactive Pino REPL session.", [
+      new CliOptionSpec(OptVerifyRc, null, "Enable VM shadow-RC leak checking on :quit."),
+    ]),
+    new CliCommandSpec("pino play [game]", "Play a game from ./games/ or the installed games folder.", []),
+    new CliCommandSpec("pino play update", "Download the official Pino games for this compiler version.", []),
+    new CliCommandSpec("pino test", "Run test blocks (not available yet in this version).", []),
+    new CliCommandSpec("pino tree <file>", "Print the syntax tree of one file, then its diagnostics.", []),
+    new CliCommandSpec("pino explain <code>", "Explain a diagnostic code, for example 'pino explain PN1018'.", []),
+    new CliCommandSpec("pino version", "Print the compiler version (aliases: v, --version).", []),
+    new CliCommandSpec("pino update", "Check for and install the latest Pino release.", []),
+    new CliCommandSpec("pino help", "Show this help (aliases: h, --help, -h).", []),
+  ];
 
-      Exit codes:
-        0  no errors
-        1  errors were found (or main returned Failure/None)
-        2  bad usage or an unreadable path
-        101 runtime panic
-      """ + "\n";
+  private static readonly string Usage = BuildUsage();
+
+  private static string BuildUsage() {
+    var sb = new StringBuilder();
+    sb.Append("pino: the Pino compiler and toolchain\n\n");
+    sb.Append("Usage:\n");
+    foreach (CliCommandSpec cmd in CommandSpecs) {
+      sb.Append("  ").Append(cmd.Signature.PadRight(28)).Append(cmd.Description).Append('\n');
+      foreach (CliOptionSpec opt in cmd.Options) {
+        string label = opt.ValueSyntax is null ? opt.Name : $"{opt.Name} {opt.ValueSyntax}";
+        sb.Append("    ").Append(label.PadRight(26)).Append(opt.Description).Append('\n');
+      }
+    }
+
+    sb.Append("\nGlobal options (before or after the command):\n");
+    foreach (CliOptionSpec opt in GlobalOptions) {
+      string label = opt.ValueSyntax is null ? opt.Name : $"{opt.Name} {opt.ValueSyntax}";
+      sb.Append("  ").Append(label.PadRight(28)).Append(opt.Description).Append('\n');
+    }
+
+    sb.Append("\nExit codes:\n");
+    sb.Append("  0   no errors\n");
+    sb.Append("  1   errors were found (or main returned Failure/None)\n");
+    sb.Append("  2   bad usage or an unreadable path\n");
+    sb.Append("  101 runtime panic\n");
+    return sb.ToString();
+  }
 
   public static int Run(string[] args, TextWriter stdout, TextWriter stderr, CliEnvironment environment) =>
       Run(args, Console.In, stdout, stderr, environment);
@@ -91,6 +148,16 @@ public static class CliApp {
       TextWriter stderr,
       CliEnvironment environment) {
     if (args.Length == 0) {
+      string defaultMain = Path.Combine(environment.EffectiveWorkingDirectory, "main.pino");
+      if (File.Exists(defaultMain)) {
+        var defaultDiagOptions = new DiagnosticRenderOptions {
+          Color = ResolveColor("auto", environment),
+          Voice = DiagnosticVoice.Pino,
+          Notes = environment.Notes,
+        };
+        return RunOnVm(defaultMain, "main.pino", verifyRc: false, defaultDiagOptions, stdin, stdout, stderr, CancellationToken.None);
+      }
+
       stdout.Write(Usage);
       return 0;
     }
@@ -102,14 +169,18 @@ public static class CliApp {
 
     for (int i = 0; i < args.Length; i++) {
       string arg = args[i];
-      if (arg is "--help" or "-h") {
+      if (arg is OptHelp or OptHelpShort) {
         stdout.Write(Usage);
         return 0;
       }
 
-      if (arg is "--color") {
+      if (arg is OptVersion && command is null) {
+        return RunVersion([], stdout);
+      }
+
+      if (arg is OptColor) {
         colorMode = ReadOptionValue(args, ref i, ["auto", "always", "never"]);
-      } else if (arg is "--voice") {
+      } else if (arg is OptVoice) {
         voiceMode = ReadOptionValue(args, ref i, ["pino", "plain"]);
       } else if (command is null) {
         if (arg.StartsWith('-')) {
@@ -123,7 +194,8 @@ public static class CliApp {
     }
 
     if (command is null) {
-      throw new CliUsageException("missing command (expected 'check', 'run', 'build', 'repl', 'tree', or 'explain')");
+      throw new CliUsageException(
+          "missing command (expected 'init', 'run', 'build', 'compile', 'watch', 'check', 'repl', 'play', 'test', 'tree', 'explain', 'version', 'update', or 'help')");
     }
 
     var options = new DiagnosticRenderOptions {
@@ -141,14 +213,27 @@ public static class CliApp {
     }
 
     return command switch {
-      "check" => RunCheck(commandArgs, options, stdout),
-      "tree" => RunTree(commandArgs, options, stdout),
+      "help" or "h" => PrintUsage(stdout),
+      "version" or "v" => RunVersion(commandArgs, stdout),
+      "init" => RunInit(commandArgs, stdout, stderr, environment),
+      "check" => RunCheck(commandArgs, options, stdout, environment),
+      "tree" => RunTree(commandArgs, options, stdout, environment),
       "explain" => RunExplain(commandArgs, stdout, stderr),
-      "run" => RunProgram(commandArgs, options, stdout, stderr, environment),
-      "build" => RunBuild(commandArgs, options, stdout, stderr),
+      "run" => RunProgram(commandArgs, options, stdin, stdout, stderr, environment),
+      "build" => RunBuild(commandArgs, options, stdout, stderr, environment),
+      "compile" or "c" => RunCompile(commandArgs, options, stdout, stderr, environment),
+      "watch" => RunWatch(commandArgs, options, stdin, stdout, stderr, environment),
       "repl" => RunRepl(commandArgs, options, stdin, stdout, stderr, environment),
+      "play" => RunPlay(commandArgs, options, stdin, stdout, stderr, environment),
+      "test" => RunTest(stderr),
+      "update" => RunUpdate(commandArgs, stdin, stdout, stderr, environment),
       _ => throw new CliUsageException($"unknown command '{command}'"),
     };
+  }
+
+  private static int PrintUsage(TextWriter stdout) {
+    stdout.Write(Usage);
+    return 0;
   }
 
   private static string ReadOptionValue(string[] args, ref int index, string[] allowed) {
@@ -189,7 +274,7 @@ public static class CliApp {
 
   private static int RunExplain(List<string> codes, TextWriter stdout, TextWriter stderr) {
     if (codes.Count == 0) {
-      stderr.Write("Usage: pino-re explain <code>, for example 'pino-re explain PN1018'.\n");
+      stderr.Write("Usage: pino explain <code>, for example 'pino explain PN1018'.\n");
       return 1;
     }
 
@@ -210,6 +295,7 @@ public static class CliApp {
   private static int RunProgram(
       List<string> args,
       DiagnosticRenderOptions diagOptions,
+      TextReader stdin,
       TextWriter stdout,
       TextWriter stderr,
       CliEnvironment environment) {
@@ -222,16 +308,16 @@ public static class CliApp {
     for (int i = 0; i < args.Count; i++) {
       string arg = args[i];
       switch (arg) {
-        case "--vm":
+        case OptVm:
           useVm = true;
           break;
-        case "--c":
+        case OptC:
           useC = true;
           break;
-        case "--verify-rc":
+        case OptVerifyRc:
           verifyRc = true;
           break;
-        case "--debug-rc":
+        case OptDebugRc:
           debugRc = true;
           break;
         default:
@@ -248,27 +334,25 @@ public static class CliApp {
       throw new CliUsageException("cannot combine '--vm' and '--c'");
     }
 
-    if (files.Count == 0) {
-      throw new CliUsageException("missing path (usage: pino-re run [--vm | --c] [--verify-rc] [--debug-rc] <file>)");
-    }
-
     if (files.Count > 1) {
-      throw new CliUsageException("'run' takes exactly one file");
+      throw new CliUsageException("'run' takes at most one file");
     }
 
-    string file = ValidateSingleFilePath(files[0], "run");
+    string requestedFile = files.Count == 1 ? files[0] : "main.pino";
+    string file = ValidateSingleFilePath(requestedFile, "run", environment);
 
     // A flag that does not apply to the chosen engine is ignored: --verify-rc is VM-only, --debug-rc is C-only.
     return useC
-        ? RunWithCEngine(file, debugRc, diagOptions, stdout, stderr, environment)
-        : RunOnVm(file, verifyRc, diagOptions, stdout, stderr);
+        ? RunWithCEngine(file, requestedFile, debugRc, diagOptions, stdout, stderr, environment, CancellationToken.None)
+        : RunOnVm(file, requestedFile, verifyRc, diagOptions, stdin, stdout, stderr, CancellationToken.None);
   }
 
   private static int RunBuild(
       List<string> args,
       DiagnosticRenderOptions diagOptions,
       TextWriter stdout,
-      TextWriter stderr) {
+      TextWriter stderr,
+      CliEnvironment environment) {
     bool release = false;
     bool debugRc = false;
     string? outputPath = null;
@@ -278,16 +362,16 @@ public static class CliApp {
     for (int i = 0; i < args.Count; i++) {
       string arg = args[i];
       switch (arg) {
-        case "--release":
+        case OptRelease:
           release = true;
           break;
-        case "--debug-rc":
+        case OptDebugRc:
           debugRc = true;
           break;
-        case "-o":
+        case OptOutput:
           outputPath = ReadAnyOptionValue(args, ref i);
           break;
-        case "--emit-c":
+        case OptEmitC:
           emitCPath = ReadAnyOptionValue(args, ref i);
           break;
         default:
@@ -300,30 +384,31 @@ public static class CliApp {
       }
     }
 
-    if (files.Count == 0) {
-      throw new CliUsageException("missing path (usage: pino-re build <file> [-o <out>] [--release] [--debug-rc] [--emit-c <path>])");
-    }
-
     if (files.Count > 1) {
-      throw new CliUsageException("'build' takes exactly one file");
+      throw new CliUsageException("'build' takes at most one file");
     }
 
-    string file = ValidateSingleFilePath(files[0], "build");
-    return BuildWithCEngine(file, outputPath, release, debugRc, emitCPath, diagOptions, stdout, stderr);
+    string requestedFile = files.Count == 1 ? files[0] : "main.pino";
+    string file = ValidateSingleFilePath(requestedFile, "build", environment);
+    string? resolvedOutput = outputPath is null ? null : ResolvePath(outputPath, environment);
+    string? resolvedEmitC = emitCPath is null ? null : ResolvePath(emitCPath, environment);
+    return BuildWithCEngine(file, requestedFile, resolvedOutput, release, debugRc, resolvedEmitC, diagOptions, stdout, stderr);
   }
 
   private static int RunWithCEngine(
       string filePath,
+      string requestedDisplayPath,
       bool debugRc,
       DiagnosticRenderOptions diagOptions,
       TextWriter stdout,
       TextWriter stderr,
-      CliEnvironment environment) {
-    if (!TryCompilePinoFileToC(filePath, diagOptions, stderr, out string? cSource)) {
+      CliEnvironment environment,
+      CancellationToken cancellationToken) {
+    if (!TryCompilePinoFileToC(filePath, requestedDisplayPath, diagOptions, stderr, out string? cSource)) {
       return 1;
     }
 
-    string tempDir = Path.Combine(Path.GetTempPath(), "pino-re-run-" + Guid.NewGuid().ToString("N"));
+    string tempDir = Path.Combine(Path.GetTempPath(), "pino-run-" + Guid.NewGuid().ToString("N"));
     Directory.CreateDirectory(tempDir);
     string exeName = OperatingSystem.IsWindows() ? "pino_prog.exe" : "pino_prog";
     string exePath = Path.Combine(tempDir, exeName);
@@ -342,9 +427,19 @@ public static class CliApp {
       string? existingFailEnv = environment.GetEnvironmentVariable("PINO_FAIL_ON_LEAK");
       bool failOnLeak = debugRc && !string.Equals(existingFailEnv, "0", StringComparison.Ordinal);
 
+      if (cancellationToken.CanBeCanceled) {
+        return RunNativeProcessCancellable(
+            exePath,
+            environment.EffectiveWorkingDirectory,
+            failOnLeak,
+            stdout,
+            stderr,
+            cancellationToken);
+      }
+
       CExecResult exec = CCompilerDriver.RunExecutable(
           exePath,
-          workingDirectory: Environment.CurrentDirectory,
+          workingDirectory: environment.EffectiveWorkingDirectory,
           failOnLeak: failOnLeak,
           closeStdin: false,
           timeout: TimeSpan.FromMinutes(5));
@@ -367,8 +462,58 @@ public static class CliApp {
     }
   }
 
+  private static int RunNativeProcessCancellable(
+      string exePath,
+      string workingDirectory,
+      bool failOnLeak,
+      TextWriter stdout,
+      TextWriter stderr,
+      CancellationToken cancellationToken) {
+    var psi = new System.Diagnostics.ProcessStartInfo {
+      FileName = exePath,
+      WorkingDirectory = workingDirectory,
+      UseShellExecute = false,
+      RedirectStandardOutput = true,
+      RedirectStandardError = true,
+      CreateNoWindow = true,
+    };
+    if (failOnLeak) {
+      psi.Environment["PINO_FAIL_ON_LEAK"] = "1";
+    }
+
+    using System.Diagnostics.Process? process = System.Diagnostics.Process.Start(psi);
+    if (process is null) {
+      return 1;
+    }
+
+    using CancellationTokenRegistration reg = cancellationToken.Register(() => {
+      try {
+        if (!process.HasExited) {
+          process.Kill(entireProcessTree: true);
+        }
+      } catch (Exception) {
+      }
+    });
+
+    Task<string> outTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+    Task<string> errTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+    process.WaitForExit();
+    Task.WaitAll(outTask, errTask);
+
+    if (!string.IsNullOrEmpty(outTask.Result)) {
+      stdout.Write(outTask.Result);
+    }
+
+    if (!string.IsNullOrEmpty(errTask.Result)) {
+      stderr.Write(errTask.Result);
+    }
+
+    return process.ExitCode;
+  }
+
   private static int BuildWithCEngine(
       string filePath,
+      string requestedDisplayPath,
       string? outputPath,
       bool release,
       bool debugRc,
@@ -376,7 +521,7 @@ public static class CliApp {
       DiagnosticRenderOptions diagOptions,
       TextWriter stdout,
       TextWriter stderr) {
-    if (!TryCompilePinoFileToC(filePath, diagOptions, stderr, out string? cSource)) {
+    if (!TryCompilePinoFileToC(filePath, requestedDisplayPath, diagOptions, stderr, out string? cSource)) {
       return 1;
     }
 
@@ -403,11 +548,12 @@ public static class CliApp {
 
   private static bool TryCompilePinoFileToC(
       string filePath,
+      string requestedDisplayPath,
       DiagnosticRenderOptions diagOptions,
       TextWriter diagWriter,
       out string? cSource) {
-    string displayPath = ToDisplayPath(filePath);
-    var source = new SourceText(ReadFile(filePath, displayPath), displayPath);
+    string displayPath = ToDisplayPath(requestedDisplayPath);
+    var source = new SourceText(ReadFile(filePath, displayPath), ToDisplayPath(Path.GetFullPath(filePath)));
     ParseResult parsed = Parser.Parse(source);
     Compilation compilation = Compilation.Create(parsed, FileSystemModuleSource.Instance);
 
@@ -444,24 +590,28 @@ public static class CliApp {
     return true;
   }
 
-  private static string ValidateSingleFilePath(string path, string command) {
-    if (Directory.Exists(path)) {
-      throw new CliUsageException($"'{path}' is a directory; '{command}' takes exactly one file");
+  private static string ResolvePath(string path, CliEnvironment environment) =>
+      Path.IsPathRooted(path) ? Path.GetFullPath(path) : Path.GetFullPath(Path.Combine(environment.EffectiveWorkingDirectory, path));
+
+  private static string ValidateSingleFilePath(string requestedPath, string command, CliEnvironment environment) {
+    string resolved = ResolvePath(requestedPath, environment);
+    if (Directory.Exists(resolved)) {
+      throw new CliUsageException($"'{requestedPath}' is a directory; '{command}' takes exactly one file");
     }
 
-    if (!File.Exists(path)) {
-      throw new CliUsageException($"no such file or directory: '{path}'");
+    if (!File.Exists(resolved)) {
+      throw new CliUsageException($"no such file or directory: '{requestedPath}'");
     }
 
-    return path;
+    return resolved;
   }
 
-  private static int RunCheck(List<string> paths, DiagnosticRenderOptions options, TextWriter stdout) {
+  private static int RunCheck(List<string> paths, DiagnosticRenderOptions options, TextWriter stdout, CliEnvironment environment) {
     if (paths.Count == 0) {
-      throw new CliUsageException("missing path (usage: pino-re check <path>...)");
+      throw new CliUsageException("missing path (usage: pino check <path>...)");
     }
 
-    List<InputFile> files = CollectFiles(paths);
+    List<InputFile> files = CollectFiles(paths, environment);
 
     // Read everything before printing so an unreadable file never leaves partial output behind.
     var sources = new List<SourceText>(files.Count);
@@ -481,7 +631,7 @@ public static class CliApp {
 
     foreach (SourceText source in sources) {
       ParseResult result = Parser.Parse(source);
-      Compilation compilation = Compilation.Create(result, FileSystemModuleSource.Instance);
+      Compilation compilation = Compilation.Create(result, new WorkingDirectoryModuleSource(environment.EffectiveWorkingDirectory));
       SemanticModel rootModel = compilation.RootModel;
       (int fileErrors, int fileWarnings) = Count(rootModel.Diagnostics);
       errors += fileErrors;
@@ -531,25 +681,19 @@ public static class CliApp {
     return errors > 0 ? 1 : 0;
   }
 
-  private static int RunTree(List<string> paths, DiagnosticRenderOptions options, TextWriter stdout) {
+  private static int RunTree(List<string> paths, DiagnosticRenderOptions options, TextWriter stdout, CliEnvironment environment) {
     if (paths.Count == 0) {
-      throw new CliUsageException("missing path (usage: pino-re tree <file>)");
+      throw new CliUsageException("missing path (usage: pino tree <file>)");
     }
 
     if (paths.Count > 1) {
       throw new CliUsageException("'tree' takes exactly one file");
     }
 
-    string path = paths[0];
-    if (Directory.Exists(path)) {
-      throw new CliUsageException($"'{path}' is a directory; 'tree' takes exactly one file");
-    }
+    string requestedPath = paths[0];
+    string path = ValidateSingleFilePath(requestedPath, "tree", environment);
 
-    if (!File.Exists(path)) {
-      throw new CliUsageException($"no such file or directory: '{path}'");
-    }
-
-    string displayPath = ToDisplayPath(path);
+    string displayPath = ToDisplayPath(requestedPath);
     var source = new SourceText(ReadFile(path, displayPath), displayPath);
     ParseResult result = Parser.Parse(source);
 
@@ -571,12 +715,15 @@ public static class CliApp {
 
   private static int RunOnVm(
       string path,
+      string requestedDisplayPath,
       bool verifyRc,
       DiagnosticRenderOptions options,
+      TextReader stdin,
       TextWriter stdout,
-      TextWriter stderr) {
-    string displayPath = ToDisplayPath(path);
-    var source = new SourceText(ReadFile(path, displayPath), displayPath);
+      TextWriter stderr,
+      CancellationToken cancellationToken) {
+    string displayPath = ToDisplayPath(requestedDisplayPath);
+    var source = new SourceText(ReadFile(path, displayPath), ToDisplayPath(Path.GetFullPath(path)));
     ParseResult parsed = Parser.Parse(source);
     Compilation compilation = Compilation.Create(parsed, FileSystemModuleSource.Instance);
 
@@ -605,13 +752,20 @@ public static class CliApp {
     RcInsertPass.Run(module);
     IrVerificationResult verification = IrVerifier.VerifyAfterRc(module);
     if (!verification.IsValid) {
-      stderr.Write("pino-re: the program could not be run because its IR failed verification: "
+      stderr.Write("pino: the program could not be run because its IR failed verification: "
           + OneLine(string.Join("; ", verification.Errors.Take(3))) + "\n");
       return 1;
     }
 
-    var host = new ConsoleVmHost(stdout, stderr);
-    var vm = new PinoVm(module, host, new PinoVmOptions { VerifyRc = verifyRc, RootSource = source });
+    var host = new ConsoleVmHost(stdout, stderr, stdin);
+    var vm = new PinoVm(
+        module,
+        host,
+        new PinoVmOptions {
+          VerifyRc = verifyRc,
+          RootSource = source,
+          CancellationToken = cancellationToken,
+        });
     PinoVmResult result = vm.Run();
     stdout.Flush();
 
@@ -627,7 +781,7 @@ public static class CliApp {
       }
 
       if (!report.IsClean) {
-        stderr.Write($"pino-re: {report.Leaks.Count} object(s) were still alive when the program ended.\n");
+        stderr.Write($"pino: {report.Leaks.Count} object(s) were still alive when the program ended.\n");
         if (exitCode == 0) {
           exitCode = 1;
         }
@@ -657,7 +811,7 @@ public static class CliApp {
       CliEnvironment environment) {
     bool verifyRc = false;
     foreach (string arg in args) {
-      if (arg == "--verify-rc") {
+      if (arg == OptVerifyRc) {
         verifyRc = true;
       } else if (arg.StartsWith('-')) {
         throw new CliUsageException($"unknown option '{arg}'");
@@ -754,7 +908,7 @@ public static class CliApp {
       }
 
       if (!report.IsClean) {
-        stderr.Write($"pino-re: {report.Leaks.Count} object(s) were still alive when the REPL session ended.\n");
+        stderr.Write($"pino: {report.Leaks.Count} object(s) were still alive when the REPL session ended.\n");
         stderr.Flush();
         return 1;
       }
@@ -879,23 +1033,24 @@ public static class CliApp {
     return source.Text.Substring(start, end - start);
   }
 
-  private static List<InputFile> CollectFiles(List<string> paths) {
+  private static List<InputFile> CollectFiles(List<string> paths, CliEnvironment environment) {
     var byFullPath = new Dictionary<string, InputFile>(StringComparer.Ordinal);
 
     foreach (string path in paths) {
-      if (File.Exists(path)) {
-        Add(byFullPath, new InputFile(ToDisplayPath(path), Path.GetFullPath(path)));
-      } else if (Directory.Exists(path)) {
+      string resolved = ResolvePath(path, environment);
+      if (File.Exists(resolved)) {
+        Add(byFullPath, new InputFile(ToDisplayPath(path), resolved));
+      } else if (Directory.Exists(resolved)) {
         string root = ToDisplayPath(path).TrimEnd('/');
         IEnumerable<string> found;
         try {
-          found = Directory.EnumerateFiles(path, "*.pino", SearchOption.AllDirectories).ToList();
+          found = Directory.EnumerateFiles(resolved, "*.pino", SearchOption.AllDirectories).ToList();
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
           throw new CliUsageException($"cannot read directory '{path}': {OneLine(ex.Message)}");
         }
 
         foreach (string file in found) {
-          string relative = ToDisplayPath(Path.GetRelativePath(path, file));
+          string relative = ToDisplayPath(Path.GetRelativePath(resolved, file));
           Add(byFullPath, new InputFile(root + "/" + relative, Path.GetFullPath(file)));
         }
       } else {
@@ -931,6 +1086,21 @@ public static class CliApp {
 
   private static string OneLine(string text) =>
       text.ReplaceLineEndings(" ").Trim();
+
+  private sealed class WorkingDirectoryModuleSource(string workingDirectory) : IModuleSource {
+    public bool TryResolveModule(
+        string? importingFilePath,
+        string moduleName,
+        out ParseResult? parseResult,
+        out string? expectedPath) {
+      string? resolvedImporting = string.IsNullOrWhiteSpace(importingFilePath) || Path.IsPathRooted(importingFilePath)
+          ? importingFilePath
+          : Path.GetFullPath(Path.Combine(workingDirectory, importingFilePath));
+      return FileSystemModuleSource.Instance.TryResolveModule(resolvedImporting, moduleName, out parseResult, out expectedPath);
+    }
+
+    public bool IsTestFile(string? filePath) => FileSystemModuleSource.Instance.IsTestFile(filePath);
+  }
 
   private readonly record struct InputFile(string DisplayPath, string FullPath);
 
