@@ -51,15 +51,19 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 - **`1b578f1` (router, with the owner's OK):** recorded the case-only rename of `projects/pino-compiler/modules/Lexer.pino` and `Parser.pino`. That was the old "worktree-only" failure. **Workers now have zero allowed test failures.**
 - **README** rewritten and pushed (`eee5915`). The story is option B, and Anahí is not named in it.
 
+- **066 ReVm/ReC in conformance** (`56f41c1`, Neon Medium; blocked once and asked, correctly):
+  - ReVm and ReC are in the shared runner, with five columns in `STATUS.md`; each passes 656/656 with 0 known failures
+  - the ReVm-vs-ReC differential passes 421/421, and the fuzzer 220 seeds
+  - OQ-42 is settled: 24 `.err` files moved to the `-re` wording, `match/err-union` and `types/err-void-collection-element` were fixed per the spec, and `CheckerConformanceTests` now matches lex/parse `.err` text
+  - Router verification of the rebased branch (PowerShell): `-re` 6350/6350, conformance 3576/3576, 0 warnings
+
 ## In progress
 
-- **066 ReVm/ReC in the conformance runner** (Neon Medium, worktree `t3-d6a1ec8d…`, rebased to `b1c4af9`):
-  - the worker reported 656/656 on both new engines, OQ-42 settled (24 `.err` files and 2 cases fixed), and the lex/parse `.err` hole in `CheckerConformanceTests` closed
-  - the router reviewed the scope; the final test run is in progress, then merge
+- **076 checker bug** (Neon Medium, **reusing the warm 066 thread**, branch `t3/checker-else-scope-076`): inside a struct method, an `else`/`else if` body can't see fields, `self` or earlier locals (PN3001). It also restores `show_status` in `games/jade_temple.pino`.
 
 ## Next (in order)
 
-1. **076 checker bug** (Neon Medium, drafted): inside a struct method, an `else`/`else if` body can't see fields, `self` or earlier locals (PN3001). It also restores `show_status` in `games/jade_temple.pino`. **Reuse the warm 066 thread.**
+1. *(076 is in progress, above.)*
 2. **077 retire legacy testing** (to draft; Neon Medium, reuse the same thread):
    - move the conformance runner and spec lint into `pino-csharp-re` tests, keeping only ReVm and ReC
    - drop the legacy known-failure lines and the legacy `STATUS.md` columns
