@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Pino.Compiler.CodeGen.C;
@@ -9,7 +10,11 @@ public sealed record CBuildOptions(
     bool Release = false,
     bool DebugRc = false,
     string? EmitCPath = null,
-    string? RepoRoot = null);
+    string? RepoRoot = null,
+    string? ExecutableDirectory = null,
+    string? WorkingDirectory = null,
+    string? PathOverride = null,
+    OSPlatform? TargetPlatform = null);
 
 public sealed record CBuildResult(
     bool Succeeded,
@@ -18,7 +23,8 @@ public sealed record CBuildResult(
     string? EmittedCPath,
     string Stdout,
     string Stderr,
-    TimeSpan CompileElapsed);
+    TimeSpan CompileElapsed,
+    bool IsUserFacingError = false);
 
 public sealed record CExecResult(
     int ExitCode,
@@ -27,8 +33,9 @@ public sealed record CExecResult(
     bool TimedOut = false);
 
 /// <summary>
-/// Compiles generated C99 + <c>runtime-re/*.c</c> + <c>runtime/re.c</c> via bundled TCC (dev)
-/// or GCC/Clang (<c>--release</c>) and runs compiled binaries.
+/// Compiles generated C99 + <c>runtime-re/*.c</c> + <c>runtime/re.c</c> via bundled TCC (dev),
+/// falling back to the system C compiler (<c>cc</c>, <c>clang</c>, <c>gcc</c>) when no bundled TCC
+/// exists, or GCC/Clang (<c>--release</c>), and runs compiled binaries.
 /// </summary>
 public static class CCompilerDriver {
   private static readonly string[] s_runtimeReSources = [
@@ -37,19 +44,47 @@ public static class CCompilerDriver {
     "pino_io.c",
   ];
 
-  public static string FindRepositoryRoot(string? startDirectory = null) {
-    string[] seeds = startDirectory is not null
-        ? [startDirectory, Environment.CurrentDirectory, AppContext.BaseDirectory]
-        : [Environment.CurrentDirectory, AppContext.BaseDirectory];
+  public static bool HasRuntimeLayout(string? directory) =>
+      !string.IsNullOrWhiteSpace(directory)
+      && File.Exists(Path.Combine(directory, "runtime-re", "pino_rt.h"))
+      && File.Exists(Path.Combine(directory, "runtime", "re.c"));
 
-    foreach (string seed in seeds) {
+  public static string? GetDefaultExecutableDirectory() {
+    string? processPath = Environment.ProcessPath;
+    if (!string.IsNullOrWhiteSpace(processPath)) {
+      string? processDir = Path.GetDirectoryName(Path.GetFullPath(processPath));
+      if (!string.IsNullOrWhiteSpace(processDir)) {
+        return processDir;
+      }
+    }
+
+    return AppContext.BaseDirectory;
+  }
+
+  public static string FindRepositoryRoot(string? startDirectory = null, string? executableDirectory = null) {
+    // 1. Installed layout: the folder of the running pino executable wins whenever it holds
+    //    runtime-re/pino_rt.h and runtime/re.c, regardless of the current working directory.
+    string? exeDir = executableDirectory ?? GetDefaultExecutableDirectory();
+    if (!string.IsNullOrWhiteSpace(exeDir)) {
+      string fullExeDir = Path.GetFullPath(exeDir);
+      if (HasRuntimeLayout(fullExeDir)) {
+        return fullExeDir;
+      }
+    }
+
+    // 2. Development layout: walk up from the start/current directory, then from the
+    //    executable/AppContext base directory.
+    string?[] seeds = startDirectory is not null
+        ? [startDirectory, Environment.CurrentDirectory, exeDir, AppContext.BaseDirectory]
+        : [Environment.CurrentDirectory, exeDir, AppContext.BaseDirectory];
+
+    foreach (string? seed in seeds) {
       if (string.IsNullOrWhiteSpace(seed)) {
         continue;
       }
 
       for (DirectoryInfo? dir = new(Path.GetFullPath(seed)); dir is not null; dir = dir.Parent) {
-        if (File.Exists(Path.Combine(dir.FullName, "runtime-re", "pino_rt.h"))
-            && File.Exists(Path.Combine(dir.FullName, "runtime", "re.c"))) {
+        if (HasRuntimeLayout(dir.FullName)) {
           return dir.FullName;
         }
       }
@@ -59,20 +94,29 @@ public static class CCompilerDriver {
         "Could not locate the Pino runtime directory (runtime-re/pino_rt.h and runtime/re.c).");
   }
 
-  public static string? FindTcc(string repoRoot) {
-    string bundled = Path.Combine(repoRoot, "tooling", "tcc", OperatingSystem.IsWindows() ? "tcc.exe" : "tcc");
-    if (File.Exists(bundled)) {
-      return bundled;
-    }
-
-    return FindOnPath("tcc");
+  public static string? FindBundledTcc(string repoRoot, OSPlatform? platform = null) {
+    OSPlatform os = platform ?? CurrentPlatform();
+    string bundled = Path.Combine(repoRoot, "tooling", "tcc", os == OSPlatform.Windows ? "tcc.exe" : "tcc");
+    return File.Exists(bundled) ? bundled : null;
   }
 
-  public static string? FindReleaseCompiler() => FindOnPath("gcc") ?? FindOnPath("clang");
+  public static string? FindTcc(string repoRoot, string? pathOverride = null, OSPlatform? platform = null) =>
+      FindBundledTcc(repoRoot, platform) ?? FindOnPath("tcc", pathOverride, platform);
 
-  public static string? FindOnPath(string toolName) {
-    string[] extensions = OperatingSystem.IsWindows() ? [".exe", ".cmd", ".bat"] : [string.Empty];
-    string path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+  public static string? FindSystemCompiler(string? pathOverride = null, OSPlatform? platform = null) =>
+      FindOnPath("cc", pathOverride, platform)
+      ?? FindOnPath("clang", pathOverride, platform)
+      ?? FindOnPath("gcc", pathOverride, platform);
+
+  public static string? FindReleaseCompiler(string? pathOverride = null, OSPlatform? platform = null) =>
+      FindOnPath("gcc", pathOverride, platform)
+      ?? FindOnPath("clang", pathOverride, platform)
+      ?? FindOnPath("cc", pathOverride, platform);
+
+  public static string? FindOnPath(string toolName, string? pathOverride = null, OSPlatform? platform = null) {
+    OSPlatform os = platform ?? CurrentPlatform();
+    string[] extensions = os == OSPlatform.Windows ? [".exe", ".cmd", ".bat"] : [string.Empty];
+    string path = pathOverride ?? Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
     foreach (string dir in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)) {
       foreach (string ext in extensions) {
         string candidate = Path.Combine(dir, toolName + ext);
@@ -85,9 +129,48 @@ public static class CCompilerDriver {
     return null;
   }
 
+  public static string FormatMissingCompilerMessage(OSPlatform? platform = null) {
+    OSPlatform os = platform ?? CurrentPlatform();
+    if (os == OSPlatform.OSX) {
+      return "pino: --c needs a C compiler. Install Apple's command line tools with: xcode-select --install";
+    }
+
+    if (os == OSPlatform.Windows) {
+      return "pino: --c needs TinyCC, which should come with Pino. Reinstall Pino, or put gcc or clang on your PATH.";
+    }
+
+    return "pino: --c needs a C compiler and the C library headers (for example: sudo apt install build-essential).";
+  }
+
+  public static string FormatMissingLinuxHeadersMessage() =>
+      "pino: --c needs the C library headers (for example: sudo apt install libc6-dev, or glibc-devel on Fedora).";
+
+  public static bool LooksLikeMissingLinuxLibcHeaders(string stderr) {
+    if (string.IsNullOrWhiteSpace(stderr)) {
+      return false;
+    }
+
+    return stderr.Contains("crt1.o", StringComparison.Ordinal)
+        || stderr.Contains("crti.o", StringComparison.Ordinal)
+        || stderr.Contains("crtn.o", StringComparison.Ordinal)
+        || stderr.Contains("include file 'stdio.h' not found", StringComparison.Ordinal)
+        || stderr.Contains("include file 'stdlib.h' not found", StringComparison.Ordinal)
+        || stderr.Contains("include file 'stdint.h' not found", StringComparison.Ordinal)
+        || stderr.Contains("stdio.h: No such file or directory", StringComparison.Ordinal)
+        || stderr.Contains("'stdio.h' file not found", StringComparison.Ordinal);
+  }
+
+  private static OSPlatform CurrentPlatform() =>
+      OperatingSystem.IsWindows()
+          ? OSPlatform.Windows
+          : OperatingSystem.IsMacOS()
+              ? OSPlatform.OSX
+              : OSPlatform.Linux;
+
   public static CBuildResult Build(CBuildOptions options) {
     ArgumentNullException.ThrowIfNull(options);
-    string repoRoot = options.RepoRoot ?? FindRepositoryRoot();
+    OSPlatform targetPlatform = options.TargetPlatform ?? CurrentPlatform();
+    string repoRoot = options.RepoRoot ?? FindRepositoryRoot(options.WorkingDirectory, options.ExecutableDirectory);
     string runtimeReDir = Path.Combine(repoRoot, "runtime-re");
     string runtimeDir = Path.Combine(repoRoot, "runtime");
 
@@ -117,7 +200,7 @@ public static class CCompilerDriver {
 
       var sw = Stopwatch.StartNew();
       if (options.Release) {
-        string? cc = FindReleaseCompiler();
+        string? cc = FindReleaseCompiler(options.PathOverride, targetPlatform);
         if (cc is null) {
           sw.Stop();
           return new CBuildResult(
@@ -126,77 +209,82 @@ public static class CCompilerDriver {
               OutputPath: outExe,
               EmittedCPath: options.EmitCPath,
               Stdout: string.Empty,
-              Stderr: "Release build requires 'gcc' or 'clang' on PATH, but neither was found.",
-              CompileElapsed: sw.Elapsed);
+              Stderr: FormatMissingCompilerMessage(targetPlatform),
+              CompileElapsed: sw.Elapsed,
+              IsUserFacingError: true);
         }
 
-        List<string> args = ["-O2", "-std=c99"];
-        if (options.DebugRc) {
-          args.Add("-DPINO_DEBUG_RC");
-        }
-
-        args.Add($"-I{runtimeReDir}");
-        args.Add($"-I{runtimeDir}");
-        args.Add(cFilePath);
-        foreach (string src in s_runtimeReSources) {
-          args.Add(Path.Combine(runtimeReDir, src));
-        }
-
-        args.Add(Path.Combine(runtimeDir, "re.c"));
-        args.Add("-lm");
-        args.Add("-o");
-        args.Add(outExe);
+        List<string> args = BuildSystemCompilerArgs(
+            cFilePath,
+            runtimeReDir,
+            runtimeDir,
+            outExe,
+            optimize: true,
+            debugRc: options.DebugRc);
 
         CExecResult res = RunProcess(cc, args, repoRoot, timeout: TimeSpan.FromMinutes(2));
         sw.Stop();
-        return new CBuildResult(
-            Succeeded: !res.TimedOut && res.ExitCode == 0,
-            CompilerUsed: cc,
-            OutputPath: outExe,
-            EmittedCPath: options.EmitCPath,
-            Stdout: res.Stdout,
-            Stderr: res.Stderr,
-            CompileElapsed: sw.Elapsed);
+        return FinishCompileResult(res, cc, outExe, options.EmitCPath, sw.Elapsed, targetPlatform);
       } else {
-        string? tcc = FindTcc(repoRoot);
-        if (tcc is null) {
+        string? bundledTcc = FindBundledTcc(repoRoot, targetPlatform);
+        if (bundledTcc is not null) {
+          List<string> args = BuildTccArgs(
+              bundledTcc,
+              isBundled: true,
+              cFilePath,
+              runtimeReDir,
+              runtimeDir,
+              outExe,
+              options.DebugRc,
+              targetPlatform);
+
+          CExecResult res = RunProcess(bundledTcc, args, repoRoot, timeout: TimeSpan.FromMinutes(1));
           sw.Stop();
-          return new CBuildResult(
-              Succeeded: false,
-              CompilerUsed: "tcc",
-              OutputPath: outExe,
-              EmittedCPath: options.EmitCPath,
-              Stdout: string.Empty,
-              Stderr: $"TCC was not found under '{Path.Combine(repoRoot, "tooling", "tcc")}' or on PATH.",
-              CompileElapsed: sw.Elapsed);
+          return FinishCompileResult(res, bundledTcc, outExe, options.EmitCPath, sw.Elapsed, targetPlatform);
         }
 
-        List<string> args = [];
-        if (options.DebugRc) {
-          args.Add("-DPINO_DEBUG_RC");
+        string? systemCc = FindSystemCompiler(options.PathOverride, targetPlatform);
+        if (systemCc is not null) {
+          List<string> args = BuildSystemCompilerArgs(
+              cFilePath,
+              runtimeReDir,
+              runtimeDir,
+              outExe,
+              optimize: false,
+              debugRc: options.DebugRc);
+
+          CExecResult res = RunProcess(systemCc, args, repoRoot, timeout: TimeSpan.FromMinutes(2));
+          sw.Stop();
+          return FinishCompileResult(res, systemCc, outExe, options.EmitCPath, sw.Elapsed, targetPlatform);
         }
 
-        args.Add($"-I{runtimeReDir}");
-        args.Add($"-I{runtimeDir}");
-        args.Add(cFilePath);
-        foreach (string src in s_runtimeReSources) {
-          args.Add(Path.Combine(runtimeReDir, src));
+        string? pathTcc = FindOnPath("tcc", options.PathOverride, targetPlatform);
+        if (pathTcc is not null) {
+          List<string> args = BuildTccArgs(
+              pathTcc,
+              isBundled: false,
+              cFilePath,
+              runtimeReDir,
+              runtimeDir,
+              outExe,
+              options.DebugRc,
+              targetPlatform);
+
+          CExecResult res = RunProcess(pathTcc, args, repoRoot, timeout: TimeSpan.FromMinutes(1));
+          sw.Stop();
+          return FinishCompileResult(res, pathTcc, outExe, options.EmitCPath, sw.Elapsed, targetPlatform);
         }
 
-        args.Add(Path.Combine(runtimeDir, "re.c"));
-        args.Add("-o");
-        args.Add(outExe);
-
-        CExecResult res = RunProcess(tcc, args, repoRoot, timeout: TimeSpan.FromMinutes(1));
         sw.Stop();
         return new CBuildResult(
-            Succeeded: !res.TimedOut && res.ExitCode == 0,
-            CompilerUsed: tcc,
+            Succeeded: false,
+            CompilerUsed: "none",
             OutputPath: outExe,
             EmittedCPath: options.EmitCPath,
-            Stdout: res.Stdout,
-            Stderr: res.Stderr,
-            CompileElapsed: sw.Elapsed);
+            Stdout: string.Empty,
+            Stderr: FormatMissingCompilerMessage(targetPlatform),
+            CompileElapsed: sw.Elapsed,
+            IsUserFacingError: true);
       }
     } finally {
       if (tempDir is not null) {
@@ -207,6 +295,109 @@ public static class CCompilerDriver {
         }
       }
     }
+  }
+
+  private static List<string> BuildSystemCompilerArgs(
+      string cFilePath,
+      string runtimeReDir,
+      string runtimeDir,
+      string outExe,
+      bool optimize,
+      bool debugRc) {
+    List<string> args = [];
+    if (optimize) {
+      args.Add("-O2");
+    }
+
+    args.Add("-std=c99");
+    if (debugRc) {
+      args.Add("-DPINO_DEBUG_RC");
+    }
+
+    args.Add($"-I{runtimeReDir}");
+    args.Add($"-I{runtimeDir}");
+    args.Add(cFilePath);
+    foreach (string src in s_runtimeReSources) {
+      args.Add(Path.Combine(runtimeReDir, src));
+    }
+
+    args.Add(Path.Combine(runtimeDir, "re.c"));
+    args.Add("-lm");
+    args.Add("-o");
+    args.Add(outExe);
+    return args;
+  }
+
+  private static List<string> BuildTccArgs(
+      string tccPath,
+      bool isBundled,
+      string cFilePath,
+      string runtimeReDir,
+      string runtimeDir,
+      string outExe,
+      bool debugRc,
+      OSPlatform targetPlatform) {
+    List<string> args = [];
+    if (isBundled && targetPlatform != OSPlatform.Windows) {
+      string? tccDir = Path.GetDirectoryName(tccPath);
+      if (!string.IsNullOrEmpty(tccDir)) {
+        args.Add($"-B{tccDir}");
+      }
+    }
+
+    if (debugRc) {
+      args.Add("-DPINO_DEBUG_RC");
+    }
+
+    args.Add($"-I{runtimeReDir}");
+    args.Add($"-I{runtimeDir}");
+    args.Add(cFilePath);
+    foreach (string src in s_runtimeReSources) {
+      args.Add(Path.Combine(runtimeReDir, src));
+    }
+
+    args.Add(Path.Combine(runtimeDir, "re.c"));
+    if (targetPlatform != OSPlatform.Windows) {
+      args.Add("-lm");
+    }
+
+    args.Add("-o");
+    args.Add(outExe);
+    return args;
+  }
+
+  private static CBuildResult FinishCompileResult(
+      CExecResult res,
+      string compilerUsed,
+      string outExe,
+      string? emitCPath,
+      TimeSpan elapsed,
+      OSPlatform targetPlatform) {
+    bool succeeded = !res.TimedOut && res.ExitCode == 0;
+    if (!succeeded && targetPlatform == OSPlatform.Linux && LooksLikeMissingLinuxLibcHeaders(res.Stderr)) {
+      string detail = res.Stderr.Trim();
+      string message = string.IsNullOrEmpty(detail)
+          ? FormatMissingLinuxHeadersMessage()
+          : FormatMissingLinuxHeadersMessage() + "\n" + detail;
+      return new CBuildResult(
+          Succeeded: false,
+          CompilerUsed: compilerUsed,
+          OutputPath: outExe,
+          EmittedCPath: emitCPath,
+          Stdout: res.Stdout,
+          Stderr: message,
+          CompileElapsed: elapsed,
+          IsUserFacingError: true);
+    }
+
+    return new CBuildResult(
+        Succeeded: succeeded,
+        CompilerUsed: compilerUsed,
+        OutputPath: outExe,
+        EmittedCPath: emitCPath,
+        Stdout: res.Stdout,
+        Stderr: res.Stderr,
+        CompileElapsed: elapsed);
   }
 
   public static CExecResult RunExecutable(

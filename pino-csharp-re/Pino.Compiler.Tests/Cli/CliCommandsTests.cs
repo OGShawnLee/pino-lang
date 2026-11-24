@@ -406,6 +406,55 @@ public sealed class CliCommandsTests : IDisposable {
     Assert.Equal("linux-rt", File.ReadAllText(Path.Combine(installDir, "runtime-re", "pino_rt.h")));
   }
 
+  [Fact]
+  public void Update_ReplacesWholeInstallFolderFor040ReleaseLayout() {
+    const string ReleasesUrl = "https://api.github.com/repos/OGShawnLee/pino-lang/releases/latest";
+    string installDir = Path.Combine(_root, "full_04_install");
+    Directory.CreateDirectory(installDir);
+    string exePath = Path.Combine(installDir, "pino.exe");
+    File.WriteAllText(exePath, "old-0.4-binary");
+
+    byte[] releaseZip = BuildZip(
+        ("pino-windows-x64/pino.exe", "new-0.5-binary"),
+        ("pino-windows-x64/runtime-re/pino_rt.h", "new-rt-h"),
+        ("pino-windows-x64/runtime-re/pino_alloc.c", "new-alloc-c"),
+        ("pino-windows-x64/runtime-re/pino_str.c", "new-str-c"),
+        ("pino-windows-x64/runtime-re/pino_io.c", "new-io-c"),
+        ("pino-windows-x64/runtime/re.c", "new-re-c"),
+        ("pino-windows-x64/runtime/re.h", "new-re-h"),
+        ("pino-windows-x64/tooling/tcc/tcc.exe", "new-tcc-exe"),
+        ("pino-windows-x64/games/star_pino.pino", "println(\"star\")\n"),
+        ("pino-windows-x64/games/jade_temple.pino", "println(\"jade\")\n"),
+        ("pino-windows-x64/games/sable.pino", "println(\"sable\")\n"),
+        ("pino-windows-x64/LICENSE", "MIT License"),
+        ("pino-windows-x64/THIRD_PARTY_NOTICES.md", "TinyCC 0.9.27 LGPL-2.1"));
+
+    var fetcher = new FakeHttpFetcher();
+    fetcher.Responses[ReleasesUrl] = new PinoHttpResponse(
+        200,
+        Encoding.UTF8.GetBytes("""{"tag_name":"v0.5.0","assets":[{"name":"pino-windows-x64.zip","browser_download_url":"https://example.invalid/pino-windows-x64.zip"}]}"""));
+    fetcher.Responses["https://example.invalid/pino-windows-x64.zip"] = new PinoHttpResponse(200, releaseZip);
+
+    CliResult result = Run(
+        ["update"],
+        stdinText: "y\n",
+        executablePath: exePath,
+        httpFetcher: fetcher,
+        osPlatform: OSPlatform.Windows,
+        architecture: Architecture.X64);
+
+    Assert.Equal(0, result.ExitCode);
+    Assert.Equal("new-0.5-binary", File.ReadAllText(exePath));
+    Assert.Equal("old-0.4-binary", File.ReadAllText(exePath + ".old"));
+    Assert.Equal("new-rt-h", File.ReadAllText(Path.Combine(installDir, "runtime-re", "pino_rt.h")));
+    Assert.Equal("new-re-c", File.ReadAllText(Path.Combine(installDir, "runtime", "re.c")));
+    Assert.Equal("new-re-h", File.ReadAllText(Path.Combine(installDir, "runtime", "re.h")));
+    Assert.Equal("new-tcc-exe", File.ReadAllText(Path.Combine(installDir, "tooling", "tcc", "tcc.exe")));
+    Assert.Equal("println(\"star\")\n", File.ReadAllText(Path.Combine(installDir, "games", "star_pino.pino")));
+    Assert.Equal("MIT License", File.ReadAllText(Path.Combine(installDir, "LICENSE")));
+    Assert.Equal("TinyCC 0.9.27 LGPL-2.1", File.ReadAllText(Path.Combine(installDir, "THIRD_PARTY_NOTICES.md")));
+  }
+
   private string WriteFile(string relativePath, string content) {
     string path = Path.Combine(_root, relativePath);
     Directory.CreateDirectory(Path.GetDirectoryName(path)!);

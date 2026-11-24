@@ -336,10 +336,21 @@ public sealed class CliAppTests : IDisposable {
   public void UnreadableFileIsAUsageError() {
     string file = WriteFile("locked.pino", "val x = 1\n");
 
-    using var hold = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+    if (OperatingSystem.IsWindows()) {
+      using var hold = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
-    AssertUsageError(["check", file]);
-    AssertUsageError(["tree", file]);
+      AssertUsageError(["check", file]);
+      AssertUsageError(["tree", file]);
+      return;
+    }
+
+    File.SetUnixFileMode(file, UnixFileMode.None);
+    try {
+      AssertUsageError(["check", file]);
+      AssertUsageError(["tree", file]);
+    } finally {
+      File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+    }
   }
 
   [Fact]

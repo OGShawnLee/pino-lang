@@ -184,15 +184,8 @@ public static partial class CliApp {
         continue;
       }
 
-      if (wroteSection) {
-        stdout.Write('\n');
-      }
-
-      stdout.Write(file.DisplayPath + "\n");
-      wroteSection = true;
-
       if (useC) {
-        RunTestsWithCEngine(
+        if (!RunTestsWithCEngine(
             ir,
             compilation,
             file,
@@ -200,11 +193,22 @@ public static partial class CliApp {
             strict,
             diagOptions.Color,
             stdout,
+            stderr,
             environment,
+            ref wroteSection,
             ref totalPassed,
             ref totalFailed,
-            ref totalWithLeaks);
+            ref totalWithLeaks)) {
+          return 1;
+        }
       } else {
+        if (wroteSection) {
+          stdout.Write('\n');
+        }
+
+        stdout.Write(file.DisplayPath + "\n");
+        wroteSection = true;
+
         RunTestsWithVmEngine(
             ir,
             source,
@@ -327,7 +331,7 @@ public static partial class CliApp {
     }
   }
 
-  private static void RunTestsWithCEngine(
+  private static bool RunTestsWithCEngine(
       IrModule ir,
       Compilation compilation,
       DiscoveredTestFile file,
@@ -335,7 +339,9 @@ public static partial class CliApp {
       bool strict,
       bool useColor,
       TextWriter stdout,
+      TextWriter stderr,
       CliEnvironment environment,
+      ref bool wroteSection,
       ref int totalPassed,
       ref int totalFailed,
       ref int totalWithLeaks) {
@@ -349,12 +355,34 @@ public static partial class CliApp {
           CSource: cSource,
           OutputExecutablePath: exePath,
           Release: false,
-          DebugRc: true));
+          DebugRc: true,
+          ExecutableDirectory: environment.EffectiveExecutableDirectory,
+          WorkingDirectory: environment.EffectiveWorkingDirectory,
+          PathOverride: environment.GetEnvironmentVariable("PATH"),
+          TargetPlatform: environment.OsPlatform));
       if (!build.Succeeded) {
+        if (build.IsUserFacingError) {
+          stderr.Write(build.Stderr.TrimEnd() + "\n");
+          return false;
+        }
+
+        if (wroteSection) {
+          stdout.Write('\n');
+        }
+
+        stdout.Write(file.DisplayPath + "\n");
+        wroteSection = true;
         stdout.Write($"  C compilation failed ({build.CompilerUsed}):\n{build.Stderr}{build.Stdout}".TrimEnd() + "\n");
         totalFailed += selectedTests.Count;
-        return;
+        return true;
       }
+
+      if (wroteSection) {
+        stdout.Write('\n');
+      }
+
+      stdout.Write(file.DisplayPath + "\n");
+      wroteSection = true;
 
       foreach ((int index, IrTestEntry entry) in selectedTests) {
         CExecResult exec = CCompilerDriver.RunProcess(
@@ -378,6 +406,8 @@ public static partial class CliApp {
             ref totalFailed,
             ref totalWithLeaks);
       }
+
+      return true;
     } finally {
       try {
         Directory.Delete(tempDir, recursive: true);

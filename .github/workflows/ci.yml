@@ -83,3 +83,69 @@ jobs:
           name: test-results
           path: TestResults/**/*.trx
           if-no-files-found: ignore
+
+  build-and-test-linux:
+    name: Build and test (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the new compiler
+        run: dotnet build pino-csharp-re/Pino.sln -warnaserror
+
+      - name: Test the new compiler
+        shell: bash
+        env:
+          PINO_TEST_TIME_SCALE: '5'
+        run: dotnet test pino-csharp-re/Pino.sln --no-build --logger trx --results-directory TestResults/linux < /dev/null
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore
+
+  build-and-test-macos:
+    name: Build and test (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the new compiler
+        run: dotnet build pino-csharp-re/Pino.sln -warnaserror
+
+      - name: Test the new compiler
+        shell: bash
+        env:
+          PINO_TEST_TIME_SCALE: '5'
+        run: dotnet test pino-csharp-re/Pino.sln --no-build --logger trx --results-directory TestResults/macos < /dev/null
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-macos
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore

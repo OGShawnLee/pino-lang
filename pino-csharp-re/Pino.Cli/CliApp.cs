@@ -399,7 +399,7 @@ public static partial class CliApp {
     string file = ValidateSingleFilePath(requestedFile, "build", environment);
     string? resolvedOutput = outputPath is null ? null : ResolvePath(outputPath, environment);
     string? resolvedEmitC = emitCPath is null ? null : ResolvePath(emitCPath, environment);
-    return BuildWithCEngine(file, requestedFile, resolvedOutput, release, debugRc, resolvedEmitC, diagOptions, stdout, stderr);
+    return BuildWithCEngine(file, requestedFile, resolvedOutput, release, debugRc, resolvedEmitC, diagOptions, stdout, stderr, environment);
   }
 
   private static int RunWithCEngine(
@@ -425,9 +425,18 @@ public static partial class CliApp {
           CSource: cSource!,
           OutputExecutablePath: exePath,
           Release: false,
-          DebugRc: debugRc));
+          DebugRc: debugRc,
+          ExecutableDirectory: environment.EffectiveExecutableDirectory,
+          WorkingDirectory: environment.EffectiveWorkingDirectory,
+          PathOverride: environment.GetEnvironmentVariable("PATH"),
+          TargetPlatform: environment.OsPlatform));
       if (!build.Succeeded) {
-        WriteError(stderr, $"C compilation failed ({build.CompilerUsed}):\n{build.Stderr}{build.Stdout}".TrimEnd());
+        if (build.IsUserFacingError) {
+          stderr.Write(build.Stderr.TrimEnd() + "\n");
+        } else {
+          WriteError(stderr, $"C compilation failed ({build.CompilerUsed}):\n{build.Stderr}{build.Stdout}".TrimEnd());
+        }
+
         return 1;
       }
 
@@ -527,7 +536,8 @@ public static partial class CliApp {
       string? emitCPath,
       DiagnosticRenderOptions diagOptions,
       TextWriter stdout,
-      TextWriter stderr) {
+      TextWriter stderr,
+      CliEnvironment environment) {
     if (!TryCompilePinoFileToC(filePath, requestedDisplayPath, diagOptions, stderr, out string? cSource)) {
       return 1;
     }
@@ -542,10 +552,19 @@ public static partial class CliApp {
         OutputExecutablePath: resolvedOut,
         Release: release,
         DebugRc: debugRc,
-        EmitCPath: emitCPath));
+        EmitCPath: emitCPath,
+        ExecutableDirectory: environment.EffectiveExecutableDirectory,
+        WorkingDirectory: environment.EffectiveWorkingDirectory,
+        PathOverride: environment.GetEnvironmentVariable("PATH"),
+        TargetPlatform: environment.OsPlatform));
 
     if (!build.Succeeded) {
-      WriteError(stderr, $"C compilation failed ({build.CompilerUsed}):\n{build.Stderr}{build.Stdout}".TrimEnd());
+      if (build.IsUserFacingError) {
+        stderr.Write(build.Stderr.TrimEnd() + "\n");
+      } else {
+        WriteError(stderr, $"C compilation failed ({build.CompilerUsed}):\n{build.Stderr}{build.Stdout}".TrimEnd());
+      }
+
       return 1;
     }
 

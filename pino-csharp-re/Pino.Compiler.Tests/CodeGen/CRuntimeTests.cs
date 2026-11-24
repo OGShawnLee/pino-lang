@@ -1,11 +1,15 @@
 using System.Diagnostics;
 using System.Text;
 
+using Pino.Compiler.CodeGen.C;
+
 namespace Pino.Compiler.Tests.CodeGen;
 
 /// <summary>
-/// Builds and runs <c>runtime-re/tests/test_runtime.c</c> with the repository's TCC (normal and
-/// <c>-DPINO_DEBUG_RC</c> modes) and, when <c>gcc</c> is on PATH, with <c>-O2 -Wall -Wextra -Werror</c>.
+/// Builds and runs <c>runtime-re/tests/test_runtime.c</c> with the repository's TCC (or system C
+/// compiler fallback on Linux/macOS where TCC is not bundled, in normal and <c>-DPINO_DEBUG_RC</c>
+/// modes) and, when a system C compiler (<c>gcc</c>/<c>clang</c>/<c>cc</c>) is on PATH, with
+/// <c>-O2 -Wall -Wextra -Werror</c>.
 /// </summary>
 public sealed class CRuntimeTests : IDisposable {
   private static readonly string[] s_runtimeSources = [
@@ -30,7 +34,7 @@ public sealed class CRuntimeTests : IDisposable {
 
   [Fact]
   public void TccNormalMode_BuildsAndAllRuntimeChecksPass() {
-    string exe = BuildWithTcc("normal", debug: false);
+    string exe = BuildWithDevCompiler("normal", debug: false);
 
     ProcessResult run = Run(exe, [], FindRepositoryRoot(), failOnLeak: false);
 
@@ -40,7 +44,7 @@ public sealed class CRuntimeTests : IDisposable {
 
   [Fact]
   public void TccDebugMode_BuildsAndReportsNoLeaksWithFailOnLeak() {
-    string exe = BuildWithTcc("debug", debug: true);
+    string exe = BuildWithDevCompiler("debug", debug: true);
 
     ProcessResult run = Run(exe, [], FindRepositoryRoot(), failOnLeak: true);
 
@@ -50,9 +54,9 @@ public sealed class CRuntimeTests : IDisposable {
 
   [Fact]
   public void GccBuild_HasNoWarningsInRuntimeReAndPasses() {
-    string? gcc = FindOnPath("gcc");
-    if (gcc is null) {
-      return; // gcc is optional; the TCC tests above are the required ones.
+    string? cc = CCompilerDriver.FindReleaseCompiler();
+    if (cc is null) {
+      return; // gcc/clang is optional; the dev-compiler tests above are the required ones.
     }
 
     string root = FindRepositoryRoot();
@@ -63,8 +67,8 @@ public sealed class CRuntimeTests : IDisposable {
       // runtime/re.c is the shared legacy regex engine, which must stay untouched and has one
       // unused-variable warning of its own, so it is compiled to its own object without -Werror.
       string reObject = Path.Combine(_work, tag + "-re.o");
-      ProcessResult re = Run(gcc, ["-O2", "-Wall", "-Wextra", "-c", "runtime/re.c", "-o", reObject], root, failOnLeak: false);
-      Assert.True(re.ExitCode == 0, Describe("gcc runtime/re.c", re));
+      ProcessResult re = Run(cc, ["-O2", "-Wall", "-Wextra", "-c", "runtime/re.c", "-o", reObject], root, failOnLeak: false);
+      Assert.True(re.ExitCode == 0, Describe("cc runtime/re.c", re));
 
       List<string> args = ["-O2", "-Wall", "-Wextra", "-Werror"];
       if (debug) {
@@ -72,11 +76,11 @@ public sealed class CRuntimeTests : IDisposable {
       }
 
       args.AddRange(["-Iruntime-re", "-Iruntime", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, reObject, "-lm", "-o", exe]);
-      ProcessResult build = Run(gcc, args, root, failOnLeak: false);
-      Assert.True(build.ExitCode == 0, Describe("gcc build " + tag, build));
+      ProcessResult build = Run(cc, args, root, failOnLeak: false);
+      Assert.True(build.ExitCode == 0, Describe("cc build " + tag, build));
 
       ProcessResult run = Run(exe, [], root, failOnLeak: true);
-      Assert.True(run.ExitCode == 0, Describe("gcc run " + tag, run));
+      Assert.True(run.ExitCode == 0, Describe("cc run " + tag, run));
     }
   }
 
@@ -98,25 +102,46 @@ public sealed class CRuntimeTests : IDisposable {
     }
   }
 
-  private string BuildWithTcc(string tag, bool debug) {
+  private string BuildWithDevCompiler(string tag, bool debug) {
     string root = FindRepositoryRoot();
-    string tcc = Path.Combine(root, "tooling", "tcc", OperatingSystem.IsWindows() ? "tcc.exe" : "tcc");
-    if (!File.Exists(tcc)) {
-      string? onPath = FindOnPath("tcc");
-      Assert.True(onPath is not null, $"TCC was not found at '{tcc}' or on PATH; copy tooling/ into the checkout.");
-      tcc = onPath!;
+    string exe = ExePath("dev-" + tag);
+    string? tcc = CCompilerDriver.FindBundledTcc(root);
+    if (tcc is not null) {
+      List<string> args = [];
+      if (!OperatingSystem.IsWindows()) {
+        string? tccDir = Path.GetDirectoryName(tcc);
+        if (!string.IsNullOrEmpty(tccDir)) {
+          args.Add($"-B{tccDir}");
+        }
+      }
+
+      if (debug) {
+        args.Add("-DPINO_DEBUG_RC");
+      }
+
+      args.AddRange(["-Iruntime-re", "-Iruntime", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, "runtime/re.c"]);
+      if (!OperatingSystem.IsWindows()) {
+        args.Add("-lm");
+      }
+
+      args.AddRange(["-o", exe]);
+
+      ProcessResult build = Run(tcc, args, root, failOnLeak: false);
+      Assert.True(build.ExitCode == 0, Describe("tcc build " + tag, build));
+      return exe;
     }
 
-    string exe = ExePath("tcc-" + tag);
-    List<string> args = [];
+    string? cc = CCompilerDriver.FindSystemCompiler();
+    Assert.True(cc is not null, $"Neither bundled TCC nor a system C compiler (cc/clang/gcc) was found.");
+    List<string> ccArgs = [];
     if (debug) {
-      args.Add("-DPINO_DEBUG_RC");
+      ccArgs.Add("-DPINO_DEBUG_RC");
     }
 
-    args.AddRange(["-Iruntime-re", "-Iruntime", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, "runtime/re.c", "-o", exe]);
+    ccArgs.AddRange(["-Iruntime-re", "-Iruntime", "runtime-re/tests/test_runtime.c", .. s_runtimeSources, "runtime/re.c", "-lm", "-o", exe]);
 
-    ProcessResult build = Run(tcc, args, root, failOnLeak: false);
-    Assert.True(build.ExitCode == 0, Describe("tcc build " + tag, build));
+    ProcessResult ccBuild = Run(cc!, ccArgs, root, failOnLeak: false);
+    Assert.True(ccBuild.ExitCode == 0, Describe("cc build " + tag, ccBuild));
     return exe;
   }
 
@@ -151,21 +176,6 @@ public sealed class CRuntimeTests : IDisposable {
 
   private static string Describe(string what, ProcessResult result) =>
       $"{what} failed with exit code {result.ExitCode}.\n--- stdout ---\n{result.Stdout}\n--- stderr ---\n{result.Stderr}";
-
-  private static string? FindOnPath(string name) {
-    string[] extensions = OperatingSystem.IsWindows() ? [".exe", ".cmd", ".bat"] : [string.Empty];
-    string path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-    foreach (string dir in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)) {
-      foreach (string extension in extensions) {
-        string candidate = Path.Combine(dir, name + extension);
-        if (File.Exists(candidate)) {
-          return candidate;
-        }
-      }
-    }
-
-    return null;
-  }
 
   private static string FindRepositoryRoot() {
     for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {

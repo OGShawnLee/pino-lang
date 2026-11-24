@@ -670,8 +670,15 @@ public static partial class CliApp {
     }
 
     if (!isWindows && !OperatingSystem.IsWindows()) {
-      string targetExe = Path.Combine(installDir, exeFileName);
-      if (File.Exists(targetExe)) {
+      string[] unixExecutables = [
+        Path.Combine(installDir, exeFileName),
+        Path.Combine(installDir, "tooling", "tcc", "tcc"),
+      ];
+      foreach (string targetExe in unixExecutables) {
+        if (!File.Exists(targetExe)) {
+          continue;
+        }
+
         try {
           using Process? p = Process.Start(new ProcessStartInfo("chmod", $"+x \"{targetExe}\"") {
             CreateNoWindow = true,
