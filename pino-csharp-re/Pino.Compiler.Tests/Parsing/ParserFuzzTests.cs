@@ -44,19 +44,20 @@ public sealed class ParserFuzzTests(ITestOutputHelper output) {
   [Fact]
   public void ExhaustiveZeroToThreeTokenSequences_MaintainAllInvariants() {
     EnsureWarmedUp();
+    TimeSpan timeout = TestTimeScale.Apply(s_normalTimeout);
 
     int count = 0;
     TimeSpan maxElapsed = TimeSpan.Zero;
 
     // Length 0
-    CheckFuzzInput(string.Empty, "exhaustive[len=0, index=0]", s_normalTimeout, ref maxElapsed);
+    CheckFuzzInput(string.Empty, "exhaustive[len=0, index=0]", timeout, ref maxElapsed);
     count++;
 
     int len = s_exhaustiveAlphabet.Length;
 
     // Length 1
     for (int i = 0; i < len; i++) {
-      CheckFuzzInput(s_exhaustiveAlphabet[i], $"exhaustive[len=1, index={count}]", s_normalTimeout, ref maxElapsed);
+      CheckFuzzInput(s_exhaustiveAlphabet[i], $"exhaustive[len=1, index={count}]", timeout, ref maxElapsed);
       count++;
     }
 
@@ -64,7 +65,7 @@ public sealed class ParserFuzzTests(ITestOutputHelper output) {
     for (int i = 0; i < len; i++) {
       for (int j = 0; j < len; j++) {
         string text = $"{s_exhaustiveAlphabet[i]} {s_exhaustiveAlphabet[j]}";
-        CheckFuzzInput(text, $"exhaustive[len=2, index={count}]", s_normalTimeout, ref maxElapsed);
+        CheckFuzzInput(text, $"exhaustive[len=2, index={count}]", timeout, ref maxElapsed);
         count++;
       }
     }
@@ -74,14 +75,14 @@ public sealed class ParserFuzzTests(ITestOutputHelper output) {
       for (int j = 0; j < len; j++) {
         for (int k = 0; k < len; k++) {
           string text = $"{s_exhaustiveAlphabet[i]} {s_exhaustiveAlphabet[j]} {s_exhaustiveAlphabet[k]}";
-          CheckFuzzInput(text, $"exhaustive[len=3, index={count}]", s_normalTimeout, ref maxElapsed);
+          CheckFuzzInput(text, $"exhaustive[len=3, index={count}]", timeout, ref maxElapsed);
           count++;
         }
       }
     }
 
     Assert.Equal(16_276, count);
-    output.WriteLine($"Exhaustive 0-3 tokens: {count} inputs passed, max={maxElapsed.TotalMilliseconds:F2} ms (limit={s_normalTimeout.TotalMilliseconds:F0} ms).");
+    output.WriteLine($"Exhaustive 0-3 tokens: {count} inputs passed, max={maxElapsed.TotalMilliseconds:F2} ms (limit={timeout.TotalMilliseconds:F0} ms).");
   }
 
   [Fact]

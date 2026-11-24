@@ -1,0 +1,302 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # tooling/ is gitignored, so a clean checkout has no C toolchain. TinyCC 0.9.27 (win64) is pinned by version and SHA256.
+      - name: Restore TinyCC 0.9.27 from cache
+        id: tcc-cache
+        uses: actions/cache@v4
+        with:
+          path: tooling/tcc
+          key: tinycc-0.9.27-win64-34a721949a2583fdff725312dda92fa0f5f1f284b702e6f811c6954714faabb2
+
+      - name: Download and verify TinyCC 0.9.27
+        if: steps.tcc-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        env:
+          TCC_URL: https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip
+          TCC_SHA256: 34A721949A2583FDFF725312DA092FA0F5F1F284B702E6F811C6954714FAABB2
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'tcc.zip'
+          curl.exe --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors --output $zip $env:TCC_URL
+          if ($LASTEXITCODE -ne 0) { throw "Downloading TinyCC from $env:TCC_URL failed." }
+          $actual = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
+          if ($actual -ne $env:TCC_SHA256) { throw "TinyCC SHA256 mismatch: expected $env:TCC_SHA256 but got $actual." }
+          New-Item -ItemType Directory -Force -Path tooling | Out-Null
+          # The archive's top-level folder is tcc/, so this produces tooling/tcc/tcc.exe.
+          Expand-Archive -Path $zip -DestinationPath tooling -Force
+
+      - name: Check TinyCC is in place
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path tooling/tcc/tcc.exe)) { throw 'tooling/tcc/tcc.exe is missing after the TinyCC step.' }
+          & tooling/tcc/tcc.exe -v
+
+      # The legacy suite compiles tooling/gc/gc.c with TinyCC. That file is Pino's own small collector (not a third-party
+      # download, and bdwgc does not build under TinyCC 0.9.27). It is gitignored with the rest of tooling/, so the exact
+      # sources are embedded here and checked against pinned SHA256 values.
+      - name: Provide tooling/gc
+        shell: pwsh
+        env:
+          GC_C_SHA256: 068A03755A36A8672437D385DF72A9862F027F8082BE98724FBAFD8F9C16F681
+          GC_H_SHA256: BFAD47ED6D1CE3EB0F3417D7F5389517AE635193A43C00E636400E866244ED5C
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path tooling/gc/include | Out-Null
+          $utf8 = New-Object System.Text.UTF8Encoding($false)
+          $gcC = @'
+          /*
+           * Pino Conservative Mark-and-Sweep Garbage Collector (Boehm GC API Compatible)
+           *
+           * Architecture: Conservative Mark-and-Sweep Collector for C.
+           * Design Credits: Inspired by the Hans-J. Boehm, Alan J. Demers & Mark Weiser 
+           *                 conservative collector design (bdwgc).
+           * Embedded Implementation: Zero-dependency runtime GC for Pino language compilers.
+           */
+
+          #include "gc.h"
+          #include <stdio.h>
+          #include <stdint.h>
+          #include <string.h>
+
+          #ifdef _WIN32
+          #include <windows.h>
+          #endif
+
+          typedef struct GC_Header {
+              size_t size;
+              int marked;
+              struct GC_Header* next;
+          } GC_Header;
+
+          static GC_Header* gc_head = NULL;
+          static void* stack_bottom = NULL;
+          static size_t total_allocated = 0;
+          static size_t gc_threshold = 1024 * 1024 * 8; // Auto collect at 8MB
+
+          void GC_init(void) {
+              int dummy = 0;
+              stack_bottom = (void*)&dummy;
+          }
+
+          static void mark_region(uintptr_t start, uintptr_t end) {
+              if (start > end) {
+                  uintptr_t tmp = start;
+                  start = end;
+                  end = tmp;
+              }
+
+              // Align bounds to pointer boundaries
+              start &= ~(sizeof(void*) - 1);
+              end &= ~(sizeof(void*) - 1);
+
+              for (uintptr_t p = start; p + sizeof(void*) <= end; p += sizeof(void*)) {
+                  void* val = *(void**)p;
+                  if (!val) continue;
+
+                  GC_Header* curr = gc_head;
+                  while (curr) {
+                      void* block_start = (void*)(curr + 1);
+                      void* block_end = (void*)((uintptr_t)block_start + curr->size);
+
+                      if (val >= block_start && val < block_end) {
+                          if (!curr->marked) {
+                              curr->marked = 1;
+                              // Recursively mark interior pointers
+                              mark_region((uintptr_t)block_start, (uintptr_t)block_end);
+                          }
+                          break;
+                      }
+                      curr = curr->next;
+                  }
+              }
+          }
+
+          void GC_gcollect(void) {
+              int dummy = 0;
+              void* stack_top = (void*)&dummy;
+
+              // Reset marks
+              GC_Header* curr = gc_head;
+              while (curr) {
+                  curr->marked = 0;
+                  curr = curr->next;
+              }
+
+              // Mark stack
+              if (stack_bottom != NULL) {
+                  mark_region((uintptr_t)stack_top, (uintptr_t)stack_bottom);
+              }
+
+              // Sweep unreferenced blocks
+              GC_Header** prev_ptr = &gc_head;
+              curr = gc_head;
+              while (curr) {
+                  if (!curr->marked) {
+                      GC_Header* unreferenced = curr;
+                      *prev_ptr = curr->next;
+                      curr = curr->next;
+                      total_allocated -= unreferenced->size;
+                      free(unreferenced);
+                  } else {
+                      prev_ptr = &curr->next;
+                      curr = curr->next;
+                  }
+              }
+          }
+
+          void* GC_malloc(size_t size) {
+              if (stack_bottom == NULL) {
+                  GC_init();
+              }
+
+              if (total_allocated + size > gc_threshold) {
+                  GC_gcollect();
+              }
+
+              GC_Header* header = (GC_Header*)malloc(sizeof(GC_Header) + size);
+              if (!header) {
+                  GC_gcollect();
+                  header = (GC_Header*)malloc(sizeof(GC_Header) + size);
+                  if (!header) {
+                      fprintf(stderr, "Out of memory in GC_malloc(%zu)\n", size);
+                      exit(101);
+                  }
+              }
+
+              header->size = size;
+              header->marked = 0;
+              header->next = gc_head;
+              gc_head = header;
+
+              total_allocated += size;
+              void* ptr = (void*)(header + 1);
+              memset(ptr, 0, size);
+              return ptr;
+          }
+
+          void* GC_malloc_atomic(size_t size) {
+              return GC_malloc(size);
+          }
+
+          void* GC_realloc(void* ptr, size_t new_size) {
+              if (!ptr) return GC_malloc(new_size);
+              GC_Header* header = ((GC_Header*)ptr) - 1;
+              if (header->size >= new_size) return ptr;
+
+              void* new_ptr = GC_malloc(new_size);
+              memcpy(new_ptr, ptr, header->size);
+              return new_ptr;
+          }
+
+          void GC_free(void* ptr) {
+              // GC handles freeing automatically; manual free is optional
+          }
+
+          size_t GC_get_heap_size(void) {
+              return total_allocated;
+          }
+          '@
+          $gcH = @'
+          /*
+           * Pino Conservative Mark-and-Sweep Garbage Collector (Boehm GC API Compatible)
+           *
+           * Architecture: Conservative Mark-and-Sweep Collector for C.
+           * Design Credits: Inspired by the Hans-J. Boehm, Alan J. Demers & Mark Weiser 
+           *                 conservative collector design (bdwgc).
+           * Embedded Implementation: Zero-dependency runtime GC for Pino language compilers.
+           */
+
+          #ifndef GC_H
+          #define GC_H
+
+          #include <stddef.h>
+          #include <stdlib.h>
+
+          #ifdef __cplusplus
+          extern "C" {
+          #endif
+
+          void GC_init(void);
+          void* GC_malloc(size_t size);
+          void* GC_malloc_atomic(size_t size);
+          void* GC_realloc(void* ptr, size_t new_size);
+          void GC_free(void* ptr);
+          void GC_gcollect(void);
+          size_t GC_get_heap_size(void);
+
+          #define GC_INIT() GC_init()
+          #define GC_MALLOC(sz) GC_malloc(sz)
+          #define GC_MALLOC_ATOMIC(sz) GC_malloc_atomic(sz)
+          #define GC_REALLOC(ptr, sz) GC_realloc(ptr, sz)
+          #define GC_FREE(ptr) GC_free(ptr)
+          #define GC_GCOLLECT() GC_gcollect()
+
+          #ifdef __cplusplus
+          }
+          #endif
+
+          #endif /* GC_H */
+          '@
+          [IO.File]::WriteAllText("$PWD/tooling/gc/gc.c", (($gcC -replace "`r`n", "`n") + "`n"), $utf8)
+          [IO.File]::WriteAllText("$PWD/tooling/gc/include/gc.h", (($gcH -replace "`r`n", "`n") + "`n"), $utf8)
+          $actualC = (Get-FileHash tooling/gc/gc.c -Algorithm SHA256).Hash
+          $actualH = (Get-FileHash tooling/gc/include/gc.h -Algorithm SHA256).Hash
+          if ($actualC -ne $env:GC_C_SHA256) { throw "tooling/gc/gc.c SHA256 mismatch: expected $env:GC_C_SHA256 but got $actualC." }
+          if ($actualH -ne $env:GC_H_SHA256) { throw "tooling/gc/include/gc.h SHA256 mismatch: expected $env:GC_H_SHA256 but got $actualH." }
+
+      - name: Build the new compiler
+        run: dotnet build pino-csharp-re/Pino.sln -warnaserror
+
+      - name: Check formatting
+        run: dotnet format pino-csharp-re/Pino.sln --verify-no-changes
+
+      # cmd with "< NUL" closes stdin: a gcc-built test program waits on an open stdin and times out.
+      - name: Test the new compiler
+        shell: cmd
+        env:
+          PINO_TEST_TIME_SCALE: '5'
+        run: dotnet test pino-csharp-re/Pino.sln --no-build --logger trx --results-directory TestResults/re < NUL
+
+      - name: Test the legacy compiler
+        shell: cmd
+        run: dotnet test pino-csharp.tests/pino-csharp.tests.csproj --logger trx --results-directory TestResults/legacy < NUL
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore

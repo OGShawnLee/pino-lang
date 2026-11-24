@@ -170,6 +170,7 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
         .ToArray();
     Assert.NotEmpty(files);
 
+    TimeSpan perInputTimeout = TestTimeScale.Apply(s_perInputTimeout);
     var totalSw = Stopwatch.StartNew();
     TimeSpan worstTime = TimeSpan.Zero;
     string worstFile = string.Empty;
@@ -194,7 +195,7 @@ public sealed class CheckerFuzzTests(ITestOutputHelper output) {
         worstFile = relativePath;
       }
 
-      Assert.True(sw.Elapsed < s_perInputTimeout, $"{relativePath} took {sw.Elapsed.TotalSeconds:F2}s (limit {s_perInputTimeout.TotalSeconds}s).");
+      Assert.True(sw.Elapsed < perInputTimeout, $"{relativePath} took {sw.Elapsed.TotalSeconds:F2}s (limit {perInputTimeout.TotalSeconds}s).");
       AssertSemanticInvariants(relativePath, compilation);
     }
 

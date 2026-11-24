@@ -277,6 +277,6 @@ public sealed class ParserRecoveryTests {
     Diagnostic diag = Assert.Single(result.Diagnostics, static d => d.Code == DiagnosticCodes.MaxNestingDepthExceeded);
     Assert.Equal(1, result.Diagnostics.Count(static d => d.Code == DiagnosticCodes.MaxNestingDepthExceeded));
     Assert.True(diag.Span.Start > 0);
-    Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1), $"Took {sw.Elapsed.TotalMilliseconds:F1} ms.");
+    Assert.True(sw.Elapsed < TestTimeScale.Apply(TimeSpan.FromSeconds(1)), $"Took {sw.Elapsed.TotalMilliseconds:F1} ms.");
   }
 }

@@ -14,7 +14,7 @@ public sealed class ParserSmokeTests(ITestOutputHelper output) {
   public static TheoryData<string> SmokeFiles {
     get {
       var data = new TheoryData<string>();
-      string selfHostParser = "projects/pino-compiler/modules/parser.pino";
+      string selfHostParser = "projects/pino-compiler/modules/Parser.pino";
       if (File.Exists(Path.Combine(s_repositoryRoot, selfHostParser))) {
         data.Add(selfHostParser);
       }
