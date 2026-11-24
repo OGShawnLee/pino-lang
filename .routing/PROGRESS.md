@@ -95,9 +95,10 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
   - Router verification: 5623/5623; by hand on both engines: failure then pass, fresh state, message before values, output under `[FAIL]`, panic location, `--filter`, `run` ignores tests
   - Follow-ups: the VM and C engines word the index panic differently ("Index 5 is out of range for a vector…" vs "Index 5 out of range for vector…"; only stdout is compared); `--verify-rc` and `--debug-rc` share one help description.
 
+- **082 assert value lines and help polish** (`c8d882d`, Hydrogen Medium, fresh thread; one pass): value lines align with "was false" (owner caught the two-space indent that the router's 080 format introduced); TEST-6 and a D-188 note; distinct `--verify-rc`/`--debug-rc` help; dead `panicOnly` parameter removed. Router verification: 5623/5623 (2 min 13 s while 075 was building); output checked.
+
 ## In progress
 
-- **082 assert value lines and help polish** (Hydrogen Medium, fresh thread): the owner saw the value lines (`add(1, 1) is 2`) indented two spaces too far (my 080 format); align them, update TEST-6, D-188 note. Also distinct `--verify-rc`/`--debug-rc` help texts and the dead `_ = panicOnly;`.
 - **075 release 0.4** (Neon High, fresh thread, in parallel with 082; no shared files):
   - archive per OS: `pino`, `runtime-re/`, `runtime/re.c` and `re.h`, `tooling/tcc/`, `games/`, `LICENSE`, `THIRD_PARTY_NOTICES.md`
   - TCC per OS: win64 pinned; Linux built from the pinned 0.9.27 source; macOS uses the system `clang`
