@@ -17,6 +17,7 @@
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#include <process.h>
 #include <windows.h>
 #else
 #include <sys/stat.h>
@@ -38,7 +39,7 @@ void pino_panic_at(PinoString msg, PinoLoc loc) {
     fprintf(stderr, "  %d: %s\n", n++, f->name != NULL ? f->name : "<unknown>");
   }
   fflush(stderr);
-  exit(101);
+  _exit(101);
 }
 
 void pino_panic_cstr_at(const char* msg, PinoLoc loc) {
@@ -101,7 +102,26 @@ void pino_println_n(const PinoString* parts, int64_t n) {
       fputc(' ', stdout);
     }
     if (parts[i].byte_len > 0) {
+#ifdef _WIN32
+      /* Windows text-mode stdout turns '\n' into "\r\n", so skip any '\r' directly
+       * preceding '\n' to prevent "\r\n" inside multiline strings becoming "\r\r\n". */
+      const char* p = parts[i].ptr;
+      int64_t len = parts[i].byte_len;
+      int64_t start = 0;
+      for (int64_t k = 0; k < len; k++) {
+        if (p[k] == '\r' && k + 1 < len && p[k + 1] == '\n') {
+          if (k > start) {
+            fwrite(p + start, 1, (size_t)(k - start), stdout);
+          }
+          start = k + 1;
+        }
+      }
+      if (len > start) {
+        fwrite(p + start, 1, (size_t)(len - start), stdout);
+      }
+#else
       fwrite(parts[i].ptr, 1, (size_t)parts[i].byte_len, stdout);
+#endif
     }
   }
   fputc('\n', stdout);

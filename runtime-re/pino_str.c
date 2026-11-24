@@ -511,28 +511,90 @@ PinoString pino_f64_to_str(double v) {
   if (v < -1.7976931348623157e308) {
     return PINO_STR_LIT("-Infinity");
   }
-  char buf[64];
-  int n = 0;
-  for (int prec = 15; prec <= 17; prec++) {
-    n = snprintf(buf, sizeof buf, "%.*g", prec, v);
-    if (strtod(buf, NULL) == v) {
+
+  uint64_t bits = 0;
+  memcpy(&bits, &v, sizeof bits);
+  bool neg = (bits >> 63) != 0;
+  if (v == 0.0) {
+    return neg ? PINO_STR_LIT("-0.0") : PINO_STR_LIT("0.0");
+  }
+
+  double av = neg ? -v : v;
+  char ebuf[64];
+  int e_len = 0;
+  for (int prec = 1; prec <= 17; prec++) {
+    e_len = snprintf(ebuf, sizeof ebuf, "%.*e", prec - 1, av);
+    if (prec == 17 || strtod(ebuf, NULL) == av) {
       break;
     }
   }
-  bool whole = true;
-  for (int i = 0; i < n; i++) {
-    char c = buf[i];
-    if (!((c >= '0' && c <= '9') || c == '-')) {
-      whole = false;
-      break;
+  if (e_len <= 0) {
+    return PINO_STR_LIT("0.0");
+  }
+
+  /* Parse mantissa digits and base-10 exponent from snprintf("%.*e") output. */
+  char digits[32];
+  int ndigits = 0;
+  int i = 0;
+  while (i < e_len && ebuf[i] != 'e' && ebuf[i] != 'E') {
+    if (ebuf[i] >= '0' && ebuf[i] <= '9' && ndigits < (int)sizeof digits) {
+      digits[ndigits++] = ebuf[i];
+    }
+    i++;
+  }
+  while (ndigits > 1 && digits[ndigits - 1] == '0') {
+    ndigits--;
+  }
+
+  int exp10 = 0;
+  if (i < e_len && (ebuf[i] == 'e' || ebuf[i] == 'E')) {
+    exp10 = atoi(ebuf + i + 1);
+  }
+
+  /* Match .NET double.ToString(CultureInfo.InvariantCulture) + D-022 (".0" on fixed whole values). */
+  char out[64];
+  int pos = 0;
+  if (neg) {
+    out[pos++] = '-';
+  }
+
+  if (exp10 < -4 || exp10 >= 17) {
+    out[pos++] = digits[0];
+    if (ndigits > 1) {
+      out[pos++] = '.';
+      memcpy(out + pos, digits + 1, (size_t)(ndigits - 1));
+      pos += ndigits - 1;
+    }
+    int abs_exp = exp10 < 0 ? -exp10 : exp10;
+    pos += snprintf(out + pos, sizeof out - (size_t)pos, "E%c%02d", exp10 < 0 ? '-' : '+', abs_exp);
+  } else if (exp10 < 0) {
+    out[pos++] = '0';
+    out[pos++] = '.';
+    for (int z = 0; z < -exp10 - 1; z++) {
+      out[pos++] = '0';
+    }
+    memcpy(out + pos, digits, (size_t)ndigits);
+    pos += ndigits;
+  } else {
+    int int_digits = exp10 + 1;
+    if (ndigits <= int_digits) {
+      memcpy(out + pos, digits, (size_t)ndigits);
+      pos += ndigits;
+      for (int z = ndigits; z < int_digits; z++) {
+        out[pos++] = '0';
+      }
+      out[pos++] = '.';
+      out[pos++] = '0';
+    } else {
+      memcpy(out + pos, digits, (size_t)int_digits);
+      pos += int_digits;
+      out[pos++] = '.';
+      memcpy(out + pos, digits + int_digits, (size_t)(ndigits - int_digits));
+      pos += ndigits - int_digits;
     }
   }
-  if (whole && n + 2 < (int)sizeof buf) {
-    buf[n++] = '.';
-    buf[n++] = '0';
-    buf[n] = '\0';
-  }
-  return pino_str_from_bytes(buf, n);
+  out[pos] = '\0';
+  return pino_str_from_bytes(out, pos);
 }
 
 PinoString pino_bool_to_str(bool v) { return v ? PINO_STR_LIT("true") : PINO_STR_LIT("false"); }
