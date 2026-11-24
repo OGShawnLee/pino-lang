@@ -83,7 +83,7 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 3. **075 release** (Neon High):
    - `release.yml` publishes `Pino.Cli` with TCC bundled per OS: win64 0.9.27; Linux built from pinned source; macOS tested, falling back to system clang
    - add `osx-arm64`, and Linux/macOS CI jobs
-   - installers, the README commands table, an "upgrading from 0.3" note, and the TinyCC LGPL notice
+   - installers and the TinyCC LGPL notice. The README commands table and the "upgrading from 0.3" note are now the site router's: hand them over through HANDOFF.md
    - **no light variant** (owner agreed with the router)
    - then delete legacy `pino-csharp/`
 4. **A small spec ticket** (Hydrogen Medium): the float print rule (TYPE-10), plus the texts the VM had to invent (`readline` at EOF, `int()`/`float()` failures, I/O errors) and `write_file` returning `Success(path)`.
