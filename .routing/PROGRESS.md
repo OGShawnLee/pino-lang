@@ -97,7 +97,15 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 
 ## In progress
 
-- *(none)*
+- **082 assert value lines and help polish** (Hydrogen Medium, fresh thread): the owner saw the value lines (`add(1, 1) is 2`) indented two spaces too far (my 080 format); align them, update TEST-6, D-188 note. Also distinct `--verify-rc`/`--debug-rc` help texts and the dead `_ = panicOnly;`.
+- **075 release 0.4** (Neon High, fresh thread, in parallel with 082; no shared files):
+  - archive per OS: `pino`, `runtime-re/`, `runtime/re.c` and `re.h`, `tooling/tcc/`, `games/`, `LICENSE`, `THIRD_PARTY_NOTICES.md`
+  - TCC per OS: win64 pinned; Linux built from the pinned 0.9.27 source; macOS uses the system `clang`
+  - `CCompilerDriver` prefers the executable's folder and falls back to the system C compiler, with an install hint per OS
+  - `release.yml` gets four assets, `SHA256SUMS` and a smoke test per archive; `ci.yml` adds Linux and macOS jobs; the installers install the whole folder and verify it
+  - **Linux and macOS can only be checked on GitHub:** the owner pushes the branch and runs the workflows; expect a fix round
+  - `pino-csharp/` is deleted later (084). The site doesn't use the legacy WASM (no reference in `pino-site-next/`).
+  - Note for the owner: on Linux, `--c` still needs the C library headers; on macOS, Apple's command line tools. The VM (`pino run`) needs nothing.
 
 ## Next (in order)
 
@@ -119,8 +127,9 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
    - then delete legacy `pino-csharp/`
 3. **A small spec ticket** (Hydrogen Medium): the float print rule (TYPE-10), plus the texts the VM had to invent (`readline` at EOF, `int()`/`float()` failures, I/O errors) and `write_file` returning `Success(path)`.
    - **Add: every runtime panic text is the same on both engines.** Found in the 080 review: the index panic differs. Compare panic stderr in the conformance differential, and spell each text in the spec.
-   - Add: give `--verify-rc` and `--debug-rc` distinct help lines.
-   - Clean up the dead `_ = panicOnly;` in `RcInsertPass`.
+   - *(The help lines and the dead code moved to 082.)*
+   - Starts after 082 (both touch conformance expectations). Becomes ticket 083.
+   - Then **084: delete `pino-csharp/`** and the legacy parts of `runtime/` (keep `re.c`/`re.h`), after 075 lands; `pino.games/` stays for 0.3's `play update`.
 4. **The owner tags `v0.4.0`.**
 
 After the release-critical path, or alongside it:
