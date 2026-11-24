@@ -640,6 +640,30 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - the shared `run` shape: `pino-re run [--vm | --c] [--verify-rc] [--debug-rc] <file>`, VM by default; the second to land rebases
       - 100% coverage with no skip list
       - 065 only: it may touch `runtime-re/` for the float rule and blocking bugs; GCC runs from PowerShell
+    - **Owner (2026-11-23): use Neon more.** Neon High for the hardest compiler work, Neon Medium for mid tickets, Sonnet only as a quota fallback. 066 and 070 moved from Sonnet Medium to **Neon Medium** (Model column and trailer updated); 067–069 stay on Neon High.
+    - [x] **065-re-c-emitter-and-cli** (`dfde22d`, Gemini 4 Neon High; nudged once after ending its turn early):
+      - `CodeGen/C/` (`CEmitter` partials, ~4,600 lines) and `CCompilerDriver` (TCC by default, `--release` with gcc/clang `-O2`)
+      - `pino-re build` and `pino-re run --c`; until 063 merges, `--vm` prints a plain sentence
+      - **C conformance under TCC + `-DPINO_DEBUG_RC` + `PINO_FAIL_ON_LEAK=1`:** 421/421 `.out` and 21/21 `.err`, with 0 leaks and no skips. The GCC `-O2` smoke test is byte-identical to TCC.
+      - `main.pino`: 0 leaks; TCC build 1.5 s end to end, GCC `-O2` 12.7 s
+      - `runtime-re/` changes:
+        - `pino_f64_to_str` now matches .NET
+        - `_exit(101)` on panic, so the leak report's `atexit` can't turn exit 101 into 102
+        - Windows `println` no longer doubles the `\r` from CRLF inside multiline strings
+        - float tests added
+      - **The float rule, corrected by measurement:** .NET 10 switches to an exponent at **`1e17`** (`1E+17`) and below `0.0001` (`1E-05`); `1e15` and `1e16` stay fixed (`10000000000000000.0`). The router's `1e15` guess was wrong; the test compares the C output against .NET at test time. **A spec ticket must record this rule (TYPE-10 extension).**
+      - Router verification (PowerShell): worktree 5823/5824 (allowed corpus item only); 0 warnings; format clean
+        - probe: `run --c` prints `1E+17`, `10000000000000000.0`, `1E-05`, `0.0001`, `0.30000000000000004`, `3.0`, plus the PN1018 hint, and exits 0
+    - **063 (Sonnet High) finished (`dc675e2`):**
+      - VM conformance 421/421 and 21/21, with 0 shadow-RC leaks and 0 CYCLE-LEAKs; `main.pino` is clean
+      - Sent back to rebase onto 065: merge the `run` flags, remove the "isn't available" stubs, and add a `--vm` vs `--c` identical-output CLI test
+      - Open points to carry forward:
+        - (a) a panic inside an imported module prints the root file name (`IrFunction` has no source file; the VM has a `SourceResolver`, but the CLI doesn't pass one)
+        - (b) `readline` at end of input, `int()`/`float()` parse failures and `IOError` payloads have no spec text; the VM's texts are in its changelog, and C must match (066 differential)
+        - (c) `write_file` returns `Success(path)`, as legacy does
+        - (d) the VM trusts the IR's `ensure_unique`
+      - More flaky timing guards under load: `ParserFuzzTests.ExhaustiveZeroToThreeTokenSequences_MaintainAllInvariants` (500 ms) and `CheckerFuzzTests.All024CorpusFiles_CheckInvariantsWithinHangGuard` (5 s)
+      - `CRuntimeTests.GccBuild` needs stdin closed and PowerShell (memory note `dotnet-test-stdin-and-gcc`)
     - Overlap: 061 already inlines lambda callbacks into IR loops, so planned performance ticket 1 shrinks to function-value callbacks and C-level tuning.
   - **CHAIN STOPPED (2026-11-22): 060 and 064 integrated.** Waiting for the owner to resume. Next: 061 (Neon High), then 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
