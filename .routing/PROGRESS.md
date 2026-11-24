@@ -742,6 +742,16 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
           - (5) `rand(n / 2 + 1)` reports a float argument without pointing at the `/`
           - (6) `fn main {` without parentheses is accepted
       - **Ticket numbers reserved:** 074 is CLI parity, 075 is release, 076 is the else-scope fix.
+      - [x] **072-ci-workflow** (`dca3076`, Claude Sonnet 5.5 Medium; one steer for the rename):
+        - `.github/workflows/ci.yml` on windows-latest: build with `-warnaserror`, format, the `-re` suite with `PINO_TEST_TIME_SCALE=5`, the legacy suite, and TRX artifacts on failure
+        - TinyCC 0.9.27 win64 comes from savannah, pinned by SHA256 `34A72194…FAABB2` and cached; its `tcc.exe` is byte-identical to the owner's
+        - **`tooling/gc` is the owner's own 3.7 KB collector (`gc.c`, `gc.h`), not bdwgc** (bdwgc doesn't build under TCC 0.9.27). It's gitignored, so `ci.yml` embeds both files with pinned hashes. **Better: track `tooling/gc/` in git** (`.gitignore` → `/tooling/*` plus `!/tooling/gc/`) and drop the embedded copy. Ask the owner.
+        - The three timing guards scale through `TestTimeScale.cs`, and `ParserSmokeTests` uses `Parser.pino`.
+        - Clean-clone dry run (worker):
+          - legacy 2264/2264
+          - `-re` 6340/6341; one transient `tcc: could not write …\case.exe` in `CEmitterConformanceTests(enums/equality.pino)` passed on rerun, so it's a temp-dir race or AV flake. Watch it on GitHub.
+        - **Router verification of the rebased branch (PowerShell, scale 5): `-re` 6348/6348 in a worktree.** It's the first fully green worktree run, because the rename fixed the old "worktree-only" corpus item. **From now on, workers have zero allowed failures.**
+        - The workflow has never run on GitHub; the first push will run it.
       - **Owner: `projects/c-compiler/` stays uncommitted until all tickets are done** (they're finishing that chapter). CI doesn't need it.
       - Still to draft:
         - CLI parity and the rename to `pino` (Neon Medium, after 070)
