@@ -14,4 +14,4 @@ Pino is a statically typed, expression-oriented systems and data-science languag
 ## Windows / PowerShell
 - Chain commands with `;` (never `&&`).
 - If `pino-csharp.exe` is locked during build or test runs, run `Stop-Process -Name pino-csharp -Force`.
-- Run the test suite (including conformance and spec-lint tests) with `dotnet test` from `pino-csharp.tests/`.
+- Run the test suite (including conformance and spec-lint tests) with `dotnet test pino-csharp-re/Pino.sln`.

@@ -849,7 +849,7 @@ public sealed class RcInsertPassTests {
 
   public static TheoryData<string> RuntimeErrConformanceCases() {
     var data = new TheoryData<string>();
-    foreach (string rel in Checking.CheckerConformanceTests.RuntimeErrCases.Keys
+    foreach (string rel in Conformance.ConformanceRunner.RuntimeErrCases.Keys
         .OrderBy(static p => p, StringComparer.OrdinalIgnoreCase)) {
       data.Add(rel);
     }
@@ -916,7 +916,7 @@ public sealed class RcInsertPassTests {
 
     int errTotal = 0;
     int errPassed = 0;
-    foreach (string rel in Checking.CheckerConformanceTests.RuntimeErrCases.Keys
+    foreach (string rel in Conformance.ConformanceRunner.RuntimeErrCases.Keys
         .OrderBy(static p => p, StringComparer.OrdinalIgnoreCase)) {
       errTotal++;
       try {

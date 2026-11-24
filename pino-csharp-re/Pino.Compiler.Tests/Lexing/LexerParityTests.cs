@@ -4,7 +4,7 @@ using Pino.Compiler.Text;
 namespace Pino.Compiler.Tests.Lexing;
 
 /// <summary>
-/// Mirrors every scenario of the legacy <c>pino-csharp.tests/LexerTests.cs</c> against the new
+/// Mirrors every scenario of the retired legacy <c>LexerTests.cs</c> against the new
 /// token model: explicit string tokens instead of synthetic <c>+</c> operators, plus exact spans.
 /// </summary>
 public sealed class LexerParityTests {

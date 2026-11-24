@@ -498,9 +498,6 @@ dotnet build
 dotnet run run main.pino        # interpreter
 dotnet run run main.pino --vm   # VM
 dotnet run repl
-
-cd ../pino-csharp.tests
-dotnet test
 ```
 
 The new compiler:

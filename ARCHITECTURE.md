@@ -58,4 +58,4 @@ Pino is a statically typed, expression-oriented systems and data-science languag
 ## 5. Specification & Conformance (`spec/`, `conformance/`)
 
 - **`spec/`:** Normative language definition (`SPEC.md`), per-feature and stdlib rule files with rule IDs (e.g. `LEX-1`, `LOOP-2`), `grammar.ebnf`, and owner decisions in `decisions/`.
-- **`conformance/`:** Executable `.pino` test cases tagged with `# covers: <RULE-ID>`, run across Tree-Walk, VM, and C backends via `dotnet test` in `pino-csharp.tests/` (which also runs `SpecLintTests` to verify rule coverage).
+- **`conformance/`:** Executable `.pino` test cases tagged with `# covers: <RULE-ID>`, run across the `ReVm` and `ReC` backends via `dotnet test pino-csharp-re/Pino.sln` (which also runs `SpecLintTests` to verify rule coverage).

@@ -29,7 +29,7 @@ public sealed class IrLoweringConformanceSweepTests {
 
   public static TheoryData<string> RuntimeErrConformanceCases() {
     var data = new TheoryData<string>();
-    foreach (string rel in Checking.CheckerConformanceTests.RuntimeErrCases.Keys
+    foreach (string rel in Conformance.ConformanceRunner.RuntimeErrCases.Keys
         .OrderBy(static p => p, StringComparer.OrdinalIgnoreCase)) {
       data.Add(rel);
     }

@@ -17,54 +17,14 @@ using Xunit.Abstractions;
 namespace Pino.Compiler.Tests.IR;
 
 /// <summary>
-/// Differential tests comparing <c>ReVm</c> (shadow-RC on) against <c>ReC</c> (TCC + <c>-DPINO_DEBUG_RC</c>
-/// + <c>PINO_FAIL_ON_LEAK=1</c>) across every <c>conformance/**/*.out</c> case and 220 deterministic
-/// seeded random valid Pino programs (<c>056/design.md</c> §8).
+/// Differential fuzzer comparing <c>ReVm</c> (shadow-RC on) against <c>ReC</c> (TCC + <c>-DPINO_DEBUG_RC</c>
+/// + <c>PINO_FAIL_ON_LEAK=1</c>) across 220 deterministic seeded random valid Pino programs (<c>056/design.md</c> §8).
+/// Conformance <c>.out</c> parity is checked directly in <see cref="Conformance.ConformanceTests"/>.
 /// </summary>
 public sealed class DifferentialTests(ITestOutputHelper output) {
   private const int FuzzProgramCount = 220;
 
   private static readonly string s_repoRoot = ParserTestHelpers.FindRepositoryRoot();
-  private static readonly string s_conformanceRoot = Path.Combine(s_repoRoot, "conformance");
-
-  [Fact]
-  public void ConformanceOutCases_ReVmAndReCProduceIdenticalStdoutExitCodeAndZeroLeaks() {
-    string[] outCases = Directory.EnumerateFiles(s_conformanceRoot, "*.pino", SearchOption.AllDirectories)
-        .Where(static f => File.Exists(Path.ChangeExtension(f, ".out")))
-        .OrderBy(static f => f, StringComparer.OrdinalIgnoreCase)
-        .ToArray();
-
-    Assert.True(outCases.Length >= 421, $"Expected at least 421 .out conformance cases, found {outCases.Length}.");
-
-    var failures = new ConcurrentBag<(string CasePath, string Detail)>();
-    var options = new ParallelOptions { MaxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, 4) };
-
-    Parallel.ForEach(outCases, options, fullPath => {
-      string rel = Path.GetRelativePath(s_conformanceRoot, fullPath).Replace('\\', '/');
-      string expectedOut = Normalize(File.ReadAllText(Path.ChangeExtension(fullPath, ".out")));
-      string sourceText = File.ReadAllText(fullPath);
-
-      string? failure = RunDifferentialCase(
-          label: rel,
-          source: sourceText,
-          filePath: fullPath,
-          useFileSystemModules: true,
-          expectedStdout: expectedOut);
-      if (failure is not null) {
-        failures.Add((rel, failure));
-      }
-    });
-
-    (string CasePath, string Detail)[] orderedFailures = failures
-        .OrderBy(static f => f.CasePath, StringComparer.Ordinal)
-        .ToArray();
-
-    output.WriteLine($"Conformance differential sweep: {outCases.Length - orderedFailures.Length}/{outCases.Length} matched (ReVm == ReC, 0 leaks).");
-    Assert.True(
-        orderedFailures.Length == 0,
-        $"Conformance differential failures ({orderedFailures.Length}/{outCases.Length}):\n"
-        + string.Join("\n\n", orderedFailures.Take(10).Select(static f => f.Detail)));
-  }
 
   [Fact]
   public void RandomizedValidPrograms_ReVmAndReCProduceIdenticalStdoutExitCodeAndZeroLeaks() {
