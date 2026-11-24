@@ -64,29 +64,30 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
   - Router verification: `-re` 6365/6365, the `bug3` probe prints `3`, and no story literal was lost.
   - **Warm-rule verdict (one data point):** 22 minutes in total, about 6 of them to find the root cause and fix it; the rest was the test suites. No fix rounds, and a deeper root cause than asked. It was good.
 
+- **077 retire legacy testing** (`e9260e9`, Neon Medium, fresh thread; one pass):
+  - one ReVm/ReC runner, spec lint and the `STATUS.md` generator in `Pino.Compiler.Tests/Conformance/`, each case running once per engine
+  - the changelog maps every old check to its new place
+  - `pino-csharp.tests/` is deleted, along with the duplicate VM/C/checker conformance tests and 30 legacy `known-failures.txt` files (1,328 entries)
+  - CI dropped the legacy suite and the `tooling/gc` step; the docs were updated, plus one line in `ARCHITECTURE.md`
+  - Router verification: a broken `.out` fails on both engines (worker probe); `-re` 5487/5487 in main; the suite takes about 3.5 minutes, down from about 4.5
+  - `STATUS.md`: ReVm and ReC 657/657
+
 ## In progress
 
-- **077 retire legacy testing** (Neon Medium, **fresh thread**: the 066 thread already did two tickets, the rule's limit):
-  - a single ReVm/ReC conformance runner and spec lint in `Pino.Compiler.Tests/Conformance/`, each case running once per engine
-  - drop about 1,745 legacy known-failure lines, and delete `pino-csharp.tests/`
-  - CI drops the legacy suite and the `tooling/gc` step
-  - docs updated
-  - the router updated the ticket skill's quality gate
+*(nothing)*
 
 ## Next (in order)
 
-1. *(077 is in progress, above.)*
-2. *(CONTEXT's quality gate drops the `pino-csharp.tests` line once 077 lands.)*
-3. **070 REPL and a separate `Pino.Wasm`** (Neon Medium).
-4. **074 CLI parity and the rename `pino-re` → `pino`** (Neon Medium): `init`; `run` defaulting to `main.pino`; `watch`, `test`, `compile`; `play` from `games/`, pinned to the release tag; `version`, `update`. Panics inside imported modules must name the right file (063 open point).
-5. **075 release** (Neon High):
+1. **070 REPL and a separate `Pino.Wasm`** (Neon Medium).
+2. **074 CLI parity and the rename `pino-re` → `pino`** (Neon Medium): `init`; `run` defaulting to `main.pino`; `watch`, `test`, `compile`; `play` from `games/`, pinned to the release tag; `version`, `update`. Panics inside imported modules must name the right file (063 open point).
+3. **075 release** (Neon High):
    - `release.yml` publishes `Pino.Cli` with TCC bundled per OS: win64 0.9.27; Linux built from pinned source; macOS tested, falling back to system clang
    - add `osx-arm64`, and Linux/macOS CI jobs
    - installers, the README commands table, an "upgrading from 0.3" note, and the TinyCC LGPL notice
    - **no light variant** (owner agreed with the router)
    - then delete legacy `pino-csharp/`
-6. **A small spec ticket** (Hydrogen Medium): the float print rule (TYPE-10), plus the texts the VM had to invent (`readline` at EOF, `int()`/`float()` failures, I/O errors) and `write_file` returning `Success(path)`.
-7. **The owner tags `v0.4.0`.**
+4. **A small spec ticket** (Hydrogen Medium): the float print rule (TYPE-10), plus the texts the VM had to invent (`readline` at EOF, `int()`/`float()` failures, I/O errors) and `write_file` returning `Success(path)`.
+5. **The owner tags `v0.4.0`.**
 
 After the release-critical path, or alongside it:
 - **078 idiomatic games refactor** (owner wants it): `mut fn` methods and `mut` params. Text and numbers stay locked.

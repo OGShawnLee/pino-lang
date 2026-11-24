@@ -24,8 +24,8 @@ Central routing directory for all agents. Read this first.
   - `spec/`, `conformance/`, `docs/guide/`
   - `games/`: the games for the new Pino
   - `.github/workflows/`: `ci.yml`, `release.yml`
-- **Tooling (gitignored):** `tooling/tcc/` (TinyCC 0.9.27 win64; CI downloads it pinned by SHA256) and `tooling/gc/` (legacy only).
-- **Legacy, frozen until deleted:** `pino-csharp/`, `pino-csharp.tests/` (still hosts the conformance runner until ticket 077 moves it), `runtime/` (except `re.c`/`re.h`, which `runtime-re` uses), `pino.games/` (downloaded by 0.3's `pino play update`; don't edit).
+- **Tooling (gitignored):** `tooling/tcc/` (TinyCC 0.9.27 win64; CI downloads it pinned by SHA256).
+- **Legacy, frozen until deleted:** `pino-csharp/`, `runtime/` (except `re.c`/`re.h`, which `runtime-re` uses), `pino.games/` (downloaded by 0.3's `pino play update`; don't edit).
 - **Owner's, off-limits unless asked:** `projects/` (never rewrite `projects/pino-compiler/`), `main.pino`, `pino-site-next/`, `vscode-pino/`, `zed-pino/`, `benchmarks/`.
 
 ## Ground rules
@@ -34,7 +34,7 @@ Central routing directory for all agents. Read this first.
   - `dotnet test pino-csharp-re/Pino.sln`, with **0 failures**; there are no allowed worktree-only failures any more
   - `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`
   - ReVm and ReC have 0 known failures
-  - Until 077 lands, conformance for ReVm and ReC also runs through `pino-csharp.tests/`.
+  - Conformance, spec lint and `STATUS.md` (`PINO_CONFORMANCE_STATUS=1`) live in `pino-csharp-re/Pino.Compiler.Tests/Conformance/`.
 - **Spec and rule IDs:** tickets that change language behavior cite rule IDs (for example `LOOP-2`). Behavior with no rule ID needs a decision file first. Only the owner changes a decision's `Status`.
 - **Messages:** every diagnostic and panic is a plain sentence with no compiler jargon. Tickets spell out the exact texts.
 - **C output** must compile cleanly with TCC 0.9.27 and with `gcc -O2`.
