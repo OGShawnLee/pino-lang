@@ -103,9 +103,14 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
   - Router verification: 5636/5636 after rebasing onto 082; worker's local Windows install and smoke test from outside the repo (8 MB zip, 17 MB `pino.exe`)
   - **Not yet checked: Linux and macOS** (needs the owner's push, CI, and a manual release-workflow run). **Before tagging:** `runtime/re.c` is SLRE-derived with its licence header stripped; some SLRE versions are GPL-2.0. Owner to confirm the origin, or replace it.
 
+- **083 runtime texts** (`d9fe3a6`, Hydrogen Medium, fresh thread; one pass, rebased by the router onto 075):
+  - D-189; TYPE-20 (float form, kept as .NET style by the owner), TYPE-21/22 (`int()`/`float()` failures), VEC-E4, MAP-E1, STRLIB-E1/E2, BUILTIN-9/13/17 (`readline` at end of input, `write_file`, `IOError` payloads)
+  - C now uses the VM's plain-sentence wording everywhere; the ReVm-vs-ReC differential compares runtime-panic stderr (a deliberate mismatch fails); 5 new cases, 3 `.err` files tightened from fragments to full texts
+  - Router verification: 5671/5671 after the rebase (2 min 6 s)
+
 ## In progress
 
-- **083 spec runtime texts** (Hydrogen Medium, fresh thread, in parallel with 075): an inventory of runtime panics and payloads; both engines print them identically (plain-sentence wording wins); the differential compares runtime-panic stderr; D-189. **Owner, 2026-11-24: floats keep the .NET form (`1E+17`, `1E-05`, `.0`).**
+- *(none)*
 - **Owner, 2026-11-24: Pino's licence is MIT** (`Copyright (c) 2026 OGShawnLee`; the owner may change the name line). 075 adds `LICENSE`. macOS x64 builds on `macos-15-intel` (`macos-13` was retired).
 
 - **075 release 0.4** (Neon High, fresh thread, in parallel with 082; no shared files):
