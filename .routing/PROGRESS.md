@@ -752,6 +752,24 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
           - `-re` 6340/6341; one transient `tcc: could not write …\case.exe` in `CEmitterConformanceTests(enums/equality.pino)` passed on rerun, so it's a temp-dir race or AV flake. Watch it on GitHub.
         - **Router verification of the rebased branch (PowerShell, scale 5): `-re` 6348/6348 in a worktree.** It's the first fully green worktree run, because the rename fixed the old "worktree-only" corpus item. **From now on, workers have zero allowed failures.**
         - The workflow has never run on GitHub; the first push will run it.
+      - **Owner (2026-11-23), on the 073 language feedback:**
+        - `fn main {` without parentheses is intended (FN-1).
+        - **Problem 4** (return-and-assign) is a porting choice: the idiom is a `mut` parameter. A small candidate change: let a local shadow a same-named parameter (`var ship = ship`, blocked today by VAR-E4).
+        - **Problem 3** (an alias into a vector element): mostly solved by `mut fn` methods and `mut` parameters. The remaining gap is a block-scoped alias, `with mut s = sectors[i] { ... }`, which lowers like a `mut` argument and follows D-184 exclusivity. The owner finds it interesting; **decide after the idiomatic games refactor shows whether it's still needed.** `Pool` doesn't solve this.
+        - **The owner is worried about friendliness.** Router proposals:
+          - a "lost write" warning (a `var` copied from an element or field, changed, and never written back), with help pointing to `xs[i]:f = …` or a `mut fn`
+          - one PN3221 per field instead of per use
+          - `readline() or ""`
+          - a **new task-oriented guide chapter** ("common patterns": change an element, update through functions, game state, when to use `Pool`), built from the games
+        - **Owner wants the games refactored in proper, idiomatic Pino** (ticket to draft after 076).
+      - **066 was reviewed and rebased (`b1c4af9`, Neon Medium); the final test run was interrupted by the owner.** Merge after that run.
+        - The worker reported:
+          - legacy plus 5 engines: 3576/3576
+          - ReVm and ReC: 656/656 each, 0 known failures
+          - the differential 421/421, the fuzzer 220/220 seeds
+          - 24 `.err` files updated, 2 cases fixed, 30 legacy OQ-42 lines
+          - no engine fixes needed
+        - Router checks: the scope is clean, no ReVm/ReC known failures were added, and the lex/parse `.err` hole is closed.
       - **Owner: `projects/c-compiler/` stays uncommitted until all tickets are done** (they're finishing that chapter). CI doesn't need it.
       - Still to draft:
         - CLI parity and the rename to `pino` (Neon Medium, after 070)
