@@ -32,6 +32,7 @@ Central routing directory for all agents. Read this first.
 - **Quality gate:**
   - `dotnet build pino-csharp-re/Pino.sln -warnaserror`
   - `dotnet test pino-csharp-re/Pino.sln`, with **0 failures**; there are no allowed worktree-only failures any more
+  - Workers iterate with a filtered run (`--filter "FullyQualifiedName~<Area>"`) and run the full suite once, before committing. The router runs it once per ticket, on the branch, and doesn't run it again on `main` when the fast-forward lands on the same commit.
   - `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`
   - ReVm and ReC have 0 known failures
   - Conformance, spec lint and `STATUS.md` (`PINO_CONFORMANCE_STATUS=1`) live in `pino-csharp-re/Pino.Compiler.Tests/Conformance/`.

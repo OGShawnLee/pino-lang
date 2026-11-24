@@ -51,6 +51,7 @@ Use this exact structure:
     - `dotnet format pino-csharp-re/Pino.sln --verify-no-changes` exits `0`
   - **Conformance & `known-failures.txt`:** behavior changes add or update conformance cases covering the cited rule IDs. ReVm and ReC keep 0 known failures, and `conformance/STATUS.md` is regenerated.
   - **Running a program:** `dotnet run --no-build --project pino-csharp-re/Pino.Cli -- run [--vm | --c] <file.pino>` exits `0` with the expected stdout. With `--c`, the emitted C must compile under TCC 0.9.27.
+  - **Test in two speeds** (owner, 2026-11-24). While working, run only the tests for the area being changed with `dotnet test pino-csharp-re/Pino.sln --no-build --filter "FullyQualifiedName~<Area>"`, for example `~Cli`, `~Vm`, `~Checking`, `~CodeGen` or `~Conformance`. Run the full suite **once**, right before committing; that run is the gate. Every task.md says which filter fits the ticket.
   - **The legacy compiler (`pino-csharp/`) is not tested any more** (owner, 2026-11-23). Never add checks against it.
 - Include a scope check (`git status` / `git diff --name-only` shows only files listed in `May create or edit`).
 - Include commit check when applicable: English Conventional Commit with detailed body.

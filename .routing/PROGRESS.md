@@ -14,7 +14,7 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 - **Memory:** reference counting step 1 (simple and correct), no garbage collector. Perceus, reuse and arenas come next (067–069).
 - **The legacy compiler (`pino-csharp/`) is being disposed of (owner, 2026-11-23): stop testing it.** It is still published by `release.yml` and used by the site's WASM playground until 070 and 075 replace those. Delete it after them.
 - **Goal: the Pino 0.4 release with the new compiler.**
-- **CI:** `.github/workflows/ci.yml` (Windows). It has never run on GitHub; the next push runs it.
+- **CI:** `.github/workflows/ci.yml` (Windows). Pushed 2026-11-23 and green on GitHub (owner).
 
 ## Architecture decisions (accepted)
 
@@ -72,23 +72,47 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
   - Router verification: a broken `.out` fails on both engines (worker probe); `-re` 5487/5487 in main; the suite takes about 3.5 minutes, down from about 4.5
   - `STATUS.md`: ReVm and ReC 657/657
 
+- **070 REPL and `Pino.Wasm`** (`404211c`, Neon Medium, fresh thread; one round back):
+  - `pino-re repl` on `VmSession`: persistent globals, each chunk runs once (round 1 replayed earlier chunks; `val t = time()` changed). Additive `IrLowerer.LowerReplChunk`, `RcInsertPass.RunIncremental`.
+  - `pino-csharp-re/Pino.Wasm/` (browser-wasm, outside `Pino.sln`, so CI needs no `wasm-tools`): `Playground.Run` → JSON `{stdout, stderr, exitCode}`, plus a legacy-shaped `Evaluate`. Contract in HANDOFF.
+  - Router verification: REPL probes (`time()` stable, `readline` not re-read, 3M-step loop once, `--verify-rc` 0 leaks); `-re` 5505/5505.
+
+- **074 CLI parity, `pino-re` → `pino`** (`3927893`, Neon Medium, **warm reuse of the 070 thread**; ended its turn early twice, one wrong claim corrected (`assert` "not a builtin"), help guard added mid-ticket):
+  - `init`, no-argument run, `main.pino` defaults, `compile`, `watch`, `play`/`play update` (games at tag `v<version>`), `version`, `update` (OS and architecture assets, injectable fetcher); `pino test` is a placeholder until 080
+  - `IrFunction.Source`: panics in imported modules name their own file on both engines
+  - one table of commands and options drives the parser and the help; a test fails when an option is missing from the help
+  - Router verification: 5528/5528 on the branch; probes of help, `init` (twice), no-args, `run --c`, `check`, `test`, an unknown option. Help wording still has jargon → reworded in 080.
+
+- **081 parallel conformance tests** (`add43e6`, Hydrogen Medium, fresh thread; one pass, rebased by the router onto 074):
+  - 8 conformance shard classes (stride over `DiscoverCases()`), a test that they cover each case exactly once, a thread-safe `RepoRoot`, and the fourth timing guard now scaled
+  - **Suite: 2 min 13 s alone (router measurement), down from about 3.5** (about 6 under load); the old single theory was 333 s of serial work
+  - Router verification: 5529/5529 on the rebased branch; the worker showed a broken `.out` fails on both engines, and `STATUS.md` regenerates with no diff
+  - Same day, owner-approved process changes: workers iterate with filtered tests and run the full suite once; the router runs it once per ticket.
+
 ## In progress
 
-- **070 REPL and `Pino.Wasm`** (Neon Medium, fresh thread: no warm Neon thread knows `Pino.Vm`). Router notes: a new `pino-csharp-re/Pino.Wasm` (browser-wasm, `[JSExport] Pino.Wasm.Playground.Run` returning JSON `stdout`/`stderr`/`exitCode`, plus a legacy-compatible `Evaluate`), and **nothing in `pino-csharp/` is touched**. CI must not need `wasm-tools`. The JS contract goes to HANDOFF for the site router.
-  - **Round 1 (`0e3d6c5`) sent back.** The REPL re-ran every earlier chunk on each submission (`val t = time()` printed two different values). Fix: persistent globals and run-once chunks, with small additive IR/VM changes allowed. The `PermissionDenied` payload fix was approved. Otherwise good: `Pino.Wasm` publishes (it's out of `Pino.sln`, so CI needs no `wasm-tools`), with `exports.Pino.Wasm.Playground.Run`/`Evaluate`, and 5501 tests.
+- **080 `pino test`** (Neon High, fresh thread, dispatched 2026-11-24 after 074 and 081). See "Next" item 1 for the owner decisions it implements.
 
 ## Next (in order)
 
-1. *(070 is in progress, above.)*
-2. **074 CLI parity and the rename `pino-re` → `pino`** (Neon Medium): `init`; `run` defaulting to `main.pino`; `watch`, `test`, `compile`; `play` from `games/`, pinned to the release tag; `version`, `update`. Panics inside imported modules must name the right file (063 open point).
-3. **075 release** (Neon High):
+1. **080 `pino test`** (in progress, above). Owner decisions, 2026-11-24, which become D-188 in the ticket:
+   - a failed `assert` shows both sides' values (pytest-style, compiler-generated)
+   - the first failure stops only that test
+   - leaks warn by default, listed one per line under the result; `--strict` makes them failures
+   - expected-panic tests come after 0.4
+   - the help must list every option (074 adds a guard test)
+
+   Original proposal: how `test "name" { }` blocks run. Router proposal, matching 0.3: each test runs alone after the module's top level, a failed `assert` or panic fails that test and the rest go on, `[PASS]`/`[FAIL] test "<name>"` lines, a summary, exit `1` on any failure; `pino test` with no file scans `*_test.pino` and `test/`. Then lowering and a runner on both engines (Neon Medium).
+2. **075 release** (Neon High):
    - `release.yml` publishes `Pino.Cli` with TCC bundled per OS: win64 0.9.27; Linux built from pinned source; macOS tested, falling back to system clang
    - add `osx-arm64`, and Linux/macOS CI jobs
    - installers and the TinyCC LGPL notice. The README commands table and the "upgrading from 0.3" note are now the site router's: hand them over through HANDOFF.md
    - **no light variant** (owner agreed with the router)
+   - `CCompilerDriver` finds TCC under the **repo root** (`tooling/tcc`); an installed `pino` must find it next to its own executable
+   - asset names must match what 074's `update` looks for: `pino-{windows,linux,macos}-{x64,arm64}`
    - then delete legacy `pino-csharp/`
-4. **A small spec ticket** (Hydrogen Medium): the float print rule (TYPE-10), plus the texts the VM had to invent (`readline` at EOF, `int()`/`float()` failures, I/O errors) and `write_file` returning `Success(path)`.
-5. **The owner tags `v0.4.0`.**
+3. **A small spec ticket** (Hydrogen Medium): the float print rule (TYPE-10), plus the texts the VM had to invent (`readline` at EOF, `int()`/`float()` failures, I/O errors) and `write_file` returning `Success(path)`.
+4. **The owner tags `v0.4.0`.**
 
 After the release-critical path, or alongside it:
 - **078 idiomatic games refactor** (owner wants it): `mut fn` methods and `mut` params. Text and numbers stay locked.
@@ -117,7 +141,6 @@ After the release-critical path, or alongside it:
 
 ## Waiting on the owner
 
-- **Push:** 19+ commits are local. The first push runs CI on GitHub.
 - `projects/c-compiler/`: the owner commits it after all tickets (they're finishing that chapter).
 - **The site** has its own router (`site-router` skill, `.routing/SITE.md`). The owner answered its questions: likely a full redesign, Opus for UI, Neon Low for side tasks, and **README belongs to the site router**. It's ready to start. Old note on the `pino-site-next/` refresh: align it with the README and remove the "AI-slop" feel. The owner must commit their site changes first and choose the model and how much design freedom. The router hasn't read the site.
 - A Proyecto Guiado proposal (Spanish, one page), once the owner shares the course details.
@@ -126,5 +149,5 @@ After the release-critical path, or alongside it:
 
 - `ARCHITECTURE.md` and `LANGUAGE_REFERENCE.md` are stale against `spec/` and the new compiler. Rewrite or retire them with the 0.4 docs.
 - Self-host corrections are **the owner's, by hand, never ticketed**. The list is in the archive under "Pending self-host corrections": D-020 regex escapes, `=>` → `->`, `k: v` map entries, and others.
-- Three timing guards are flaky under load (now scaled in CI). Possible TCC temp-dir flake in `CEmitterConformanceTests`.
+- Three timing guards are flaky under load (now scaled in CI). **A fourth:** `ParserFuzzTests.SeededRandomTokenSequences_MaintainAllInvariants` (500 ms per input; 574.5 ms on 2026-11-24 while a worker was building; passes alone). Is it scaled by `PINO_TEST_TIME_SCALE`? Check in the test-speed ticket. Possible TCC temp-dir flake in `CEmitterConformanceTests`.
 - `Option`/`Result` can be shadowed by a user `struct Option` with no guard (nit from 054).
