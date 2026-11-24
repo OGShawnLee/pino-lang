@@ -99,6 +99,9 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 
 ## In progress
 
+- **083 spec runtime texts** (Hydrogen Medium, fresh thread, in parallel with 075): an inventory of runtime panics and payloads; both engines print them identically (plain-sentence wording wins); the differential compares runtime-panic stderr; D-189. **Owner, 2026-11-24: floats keep the .NET form (`1E+17`, `1E-05`, `.0`).**
+- **Owner, 2026-11-24: Pino's licence is MIT** (`Copyright (c) 2026 OGShawnLee`; the owner may change the name line). 075 adds `LICENSE`. macOS x64 builds on `macos-15-intel` (`macos-13` was retired).
+
 - **075 release 0.4** (Neon High, fresh thread, in parallel with 082; no shared files):
   - archive per OS: `pino`, `runtime-re/`, `runtime/re.c` and `re.h`, `tooling/tcc/`, `games/`, `LICENSE`, `THIRD_PARTY_NOTICES.md`
   - TCC per OS: win64 pinned; Linux built from the pinned 0.9.27 source; macOS uses the system `clang`
