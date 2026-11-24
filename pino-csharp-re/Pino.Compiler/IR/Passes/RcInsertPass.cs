@@ -414,7 +414,6 @@ public static class RcInsertPass {
         isRcTemp,
         reachable,
         succs,
-        panicOnly,
         ptrToPinnedCellTemps,
         out HashSet<int>[] tempLiveIn,
         out HashSet<int>[] tempLiveOut);
@@ -426,7 +425,6 @@ public static class RcInsertPass {
         isRcSlot,
         reachable,
         succs,
-        panicOnly,
         ptrToSlots,
         out HashSet<int>[] slotLiveIn,
         out HashSet<int>[] slotLiveOut);
@@ -1553,7 +1551,6 @@ public static class RcInsertPass {
       bool[] isRcTemp,
       bool[] reachable,
       List<int>[] succs,
-      bool[] panicOnly,
       Dictionary<int, HashSet<int>> ptrToPinnedCellTemps,
       out HashSet<int>[] liveIn,
       out HashSet<int>[] liveOut) {
@@ -1609,7 +1606,6 @@ public static class RcInsertPass {
       }
     }
 
-    _ = panicOnly;
     bool changed = true;
     while (changed) {
       changed = false;
@@ -1651,7 +1647,6 @@ public static class RcInsertPass {
       bool[] isRcSlot,
       bool[] reachable,
       List<int>[] succs,
-      bool[] panicOnly,
       Dictionary<int, HashSet<int>> ptrToSlots,
       out HashSet<int>[] liveIn,
       out HashSet<int>[] liveOut) {
@@ -1701,7 +1696,6 @@ public static class RcInsertPass {
       }
     }
 
-    _ = panicOnly;
     bool changed = true;
     while (changed) {
       changed = false;

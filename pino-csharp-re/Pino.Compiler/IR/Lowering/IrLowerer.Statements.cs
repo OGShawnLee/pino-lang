@@ -275,13 +275,13 @@ public sealed partial class IrLowerer {
 
       if (!IsAssertLiteral(binary.Left)) {
         string leftSource = SourceSliceTrimmed(fb.Model, binary.Left.Span);
-        parts.Add(fb.EmitConstString($"\n  {leftSource} is ", assertStmt.Span));
+        parts.Add(fb.EmitConstString($"\n{leftSource} is ", assertStmt.Span));
         AppendAssertFormattedValue(fb, rawLeft, parts, assertStmt.Span);
       }
 
       if (!IsAssertLiteral(binary.Right)) {
         string rightSource = SourceSliceTrimmed(fb.Model, binary.Right.Span);
-        parts.Add(fb.EmitConstString($"\n  {rightSource} is ", assertStmt.Span));
+        parts.Add(fb.EmitConstString($"\n{rightSource} is ", assertStmt.Span));
         AppendAssertFormattedValue(fb, rawRight, parts, assertStmt.Span);
       }
 

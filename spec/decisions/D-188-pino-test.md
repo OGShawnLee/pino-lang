@@ -26,3 +26,5 @@ Decided by the owner on 2026-11-24:
 3. **Leaks warn by default.** `--strict` turns a leak into a test failure (`error:` instead of `warning:`). Leaked objects are listed one per line below the test's result line, not on a single line.
 4. **Expected-panic tests are not in 0.4.** No syntax for them is added.
 5. **CLI help must list every command and option** (enforced by the shared command/option table and help guard test from ticket 074), written in plain words without compiler jargon.
+
+Note (2026-11-24, ticket 082): value lines are no longer indented beyond the "was false" line (owner).

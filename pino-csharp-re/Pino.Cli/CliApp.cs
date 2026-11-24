@@ -56,21 +56,21 @@ public static partial class CliApp {
     new CliCommandSpec("pino run [opts] [file]", "Run a .pino file (defaults to main.pino).", [
       new CliOptionSpec(OptVm, null, "Run with Pino's built-in runner (the default)."),
       new CliOptionSpec(OptC, null, "Compile to a native program, then run it."),
-      new CliOptionSpec(OptVerifyRc, null, "Report memory that is never freed (slower; for finding bugs)."),
-      new CliOptionSpec(OptDebugRc, null, "Report memory that is never freed (slower; for finding bugs)."),
+      new CliOptionSpec(OptVerifyRc, null, "Check for memory that is never freed while running on the built-in runner (slower)."),
+      new CliOptionSpec(OptDebugRc, null, "With --c, build in checks for memory that is never freed or used after it's freed (slower)."),
     ]),
     new CliCommandSpec("pino build [opts] [file]", "Compile a .pino file to a native program (defaults to main.pino).", [
       new CliOptionSpec(OptOutput, "<out>", "Output program path."),
       new CliOptionSpec(OptRelease, null, "Build an optimized program with GCC or Clang."),
-      new CliOptionSpec(OptDebugRc, null, "Report memory that is never freed (slower; for finding bugs)."),
+      new CliOptionSpec(OptDebugRc, null, "Build in checks for memory that is never freed or used after it's freed (slower)."),
       new CliOptionSpec(OptEmitC, "<path>", "Write the generated C code to <path>."),
     ]),
     new CliCommandSpec("pino compile [file] [out]", "Write the generated C code for a file (alias: c).", []),
     new CliCommandSpec("pino watch [opts] [file]", "Run a .pino file and rerun on save (defaults to main.pino).", [
       new CliOptionSpec(OptVm, null, "Run with Pino's built-in runner (the default)."),
       new CliOptionSpec(OptC, null, "Compile to a native program, then run it."),
-      new CliOptionSpec(OptVerifyRc, null, "Report memory that is never freed (slower; for finding bugs)."),
-      new CliOptionSpec(OptDebugRc, null, "Report memory that is never freed (slower; for finding bugs)."),
+      new CliOptionSpec(OptVerifyRc, null, "Check for memory that is never freed while running on the built-in runner (slower)."),
+      new CliOptionSpec(OptDebugRc, null, "With --c, build in checks for memory that is never freed or used after it's freed (slower)."),
     ]),
     new CliCommandSpec("pino check <path>...", "Check .pino files or folders for errors.", [
       new CliOptionSpec(OptColor, "auto|always|never", "Color error and warning output."),

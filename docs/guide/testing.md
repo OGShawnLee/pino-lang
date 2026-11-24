@@ -63,7 +63,7 @@ Output:
 math_test.pino
   [FAIL] math works  (math_test.pino:6)
          `add(2, 3) == 5` was false.
-           add(2, 3) is 6
+         add(2, 3) is 6
 
 1 failed (0.01 s)
 ```
