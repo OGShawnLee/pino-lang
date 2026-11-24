@@ -75,6 +75,7 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 ## In progress
 
 - **070 REPL and `Pino.Wasm`** (Neon Medium, fresh thread: no warm Neon thread knows `Pino.Vm`). Router notes: a new `pino-csharp-re/Pino.Wasm` (browser-wasm, `[JSExport] Pino.Wasm.Playground.Run` returning JSON `stdout`/`stderr`/`exitCode`, plus a legacy-compatible `Evaluate`), and **nothing in `pino-csharp/` is touched**. CI must not need `wasm-tools`. The JS contract goes to HANDOFF for the site router.
+  - **Round 1 (`0e3d6c5`) sent back.** The REPL re-ran every earlier chunk on each submission (`val t = time()` printed two different values). Fix: persistent globals and run-once chunks, with small additive IR/VM changes allowed. The `PermissionDenied` payload fix was approved. Otherwise good: `Pino.Wasm` publishes (it's out of `Pino.sln`, so CI needs no `wasm-tools`), with `exports.Pino.Wasm.Playground.Run`/`Evaluate`, and 5501 tests.
 
 ## Next (in order)
 
