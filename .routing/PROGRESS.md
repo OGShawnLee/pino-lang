@@ -74,11 +74,11 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 
 ## In progress
 
-*(nothing)*
+- **070 REPL and `Pino.Wasm`** (Neon Medium, fresh thread: no warm Neon thread knows `Pino.Vm`). Router notes: a new `pino-csharp-re/Pino.Wasm` (browser-wasm, `[JSExport] Pino.Wasm.Playground.Run` returning JSON `stdout`/`stderr`/`exitCode`, plus a legacy-compatible `Evaluate`), and **nothing in `pino-csharp/` is touched**. CI must not need `wasm-tools`. The JS contract goes to HANDOFF for the site router.
 
 ## Next (in order)
 
-1. **070 REPL and a separate `Pino.Wasm`** (Neon Medium).
+1. *(070 is in progress, above.)*
 2. **074 CLI parity and the rename `pino-re` → `pino`** (Neon Medium): `init`; `run` defaulting to `main.pino`; `watch`, `test`, `compile`; `play` from `games/`, pinned to the release tag; `version`, `update`. Panics inside imported modules must name the right file (063 open point).
 3. **075 release** (Neon High):
    - `release.yml` publishes `Pino.Cli` with TCC bundled per OS: win64 0.9.27; Linux built from pinned source; macOS tested, falling back to system clang
