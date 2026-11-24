@@ -722,6 +722,26 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
         - the early-return hole is closed, so the checker test now matches lex/parse diagnostics too
 
         So far: the differential 421/421, the fuzzer 220/220 seeds, and OQ-42 had 10 entries.
+      - [x] **073-games-for-new-pino** (`92a03bd`, Claude Sonnet 5.5 Medium; one pass):
+        - `games/` holds the ported `jade_temple`, `sable` and `star_pino`, plus a README
+        - `GamesTests`: 3 checks and 4 scripted VM sessions with `VerifyRc`
+        - manual C runs: 0 leaks
+        - Router verified:
+          - its own literal comparison: no story string lost; the only addition is `""` from the `ask()` helper in each game
+          - `pino.games/` unchanged; diffs of about 70–90 lines per game
+          - worktree tests 6347/6348 (allowed corpus item only), GamesTests 7/7, 0 warnings
+        - **Found a real checker bug:** inside a struct method, an `else`/`else if` body can't see fields, `self` **or earlier locals** (PN3001).
+          - Router probes: `if` without `else`, `match`'s `else`, plain functions, and names declared inside the `else` all work.
+          - The worker moved one path line to a free function `show_path` as a workaround.
+          - **Ticket 076 drafted (Neon Medium, after 066):** root-cause fix, a scope audit, regression tests, a conformance case, and restoring `show_status` in `jade_temple`.
+        - **Language feedback from the port** (changelog "What was awkward"; owner decides):
+          - (1) `readline` returning `Result` needs an `ask()` wrapper in every game; consider `readline() or ""` or a prelude helper
+          - (2) PN3221 reports once per use (67/60/125 errors); consider one summary per field
+          - (3) no `mut` local alias, so `val s = xs[i]; s:f = …` becomes `xs[i]:f` everywhere
+          - (4) the return-and-assign style needs `var x = x_in`
+          - (5) `rand(n / 2 + 1)` reports a float argument without pointing at the `/`
+          - (6) `fn main {` without parentheses is accepted
+      - **Ticket numbers reserved:** 074 is CLI parity, 075 is release, 076 is the else-scope fix.
       - **Owner: `projects/c-compiler/` stays uncommitted until all tickets are done** (they're finishing that chapter). CI doesn't need it.
       - Still to draft:
         - CLI parity and the rename to `pino` (Neon Medium, after 070)
