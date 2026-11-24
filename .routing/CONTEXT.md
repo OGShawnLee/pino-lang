@@ -3,50 +3,78 @@
 Central routing directory for all agents. Read this first.
 
 ## Files
-- [spec/SPEC.md](../spec/SPEC.md): normative language spec: features, rule IDs, grammar, decisions.
-- [conformance/](../conformance/): executable proof of the spec across engines.
-- [PROGRESS.md](PROGRESS.md): completed work, active tickets, next steps, and tech debt.
-- [LANGUAGE_REFERENCE.md](../LANGUAGE_REFERENCE.md): human-facing guide; defer to `spec/` on conflicts.
-- [ARCHITECTURE.md](../ARCHITECTURE.md): compiler frontend & VM overview *(outdated on transpiler target — [TranspilerC.cs](../pino-csharp/Compiler/TranspilerC.cs) and [runtime/](../runtime/) are authoritative)*.
-- [proposals/](../proposals/): RFCs and design proposals (FFI, zero-copy strings, tagged unions).
+- [spec/SPEC.md](../spec/SPEC.md): the normative language spec (features, rule IDs, grammar, decisions).
+- [conformance/](../conformance/): executable proof of the spec.
+- [PROGRESS.md](PROGRESS.md): where we are, what's next, open decisions. History is in [archive/](archive/).
+- [docs/guide/](../docs/guide/): the user guide (`values-and-mutation.md`, `surprises.md`).
+- `LANGUAGE_REFERENCE.md` and `ARCHITECTURE.md` are **stale**. Defer to `spec/` and the new compiler.
 
 ## Project
-- **Pino Lang:** statically typed, expression-oriented language bridging systems programming and data science.
-- **Dual-Engine Execution:**
-  1. *Dev/Scripting:* .NET 10 single-file CLI running Tree-Walk Evaluator and stack-based Bytecode VM.
-  2. *Production/Native:* Transpiles AST to standard C ([TranspilerC.cs](../pino-csharp/Compiler/TranspilerC.cs)), compiled via TCC + Boehm GC into ~3 KB standalone binaries.
-- **Self-Hosting:** [`projects/pino-compiler/`](../projects/pino-compiler/) is Pino's hand-written compiler in Pino.
+- **Pino Lang:** a small, statically typed, expression-oriented language for people and AI. It targets Go-like services and games. Values instead of shared references, no `null`, plain-sentence errors, no garbage collector.
+- **The compiler is `pino-csharp-re/`** (C#, .NET 10). It parses and checks, then lowers to one IR (PIR) with reference counting. Two engines read the IR:
+  1. `Pino.Vm`: the IR VM. It's the default for `pino-re run`, and it powers the REPL and WASM.
+  2. `CodeGen/C`: C99, compiled with bundled TCC (dev) or GCC/Clang (`--release`) against `runtime-re/` plus `runtime/re.c`.
+- **The legacy compiler `pino-csharp/`** (Tree-Walk, VM, `TranspilerC` on a GC) **is being disposed of. Don't test it, extend it, or rely on it.** It lives on only until the release (075) and the WASM playground (070) move to the new compiler.
+- **Self-host:** `projects/pino-compiler/` is the owner's hand-written compiler in Pino.
 
 ## Repo Map
-- **Active compiler & runtime:** [`pino-csharp/`](../pino-csharp/) (legacy C# compiler/CLI), [`pino-csharp-re/`](../pino-csharp-re/) (clean LSP-ready C# rewrite), [`pino-csharp.tests/`](../pino-csharp.tests/) (xUnit suite), [`runtime/`](../runtime/) (`runtime.c`/`runtime.h`/`re.c`), [`tooling/tcc/`](../tooling/tcc/) (bundled TCC).
-- **Active self-host:** [`projects/pino-compiler/`](../projects/pino-compiler/).
-- **Editor tooling:** [`vscode-pino/`](../vscode-pino/), [`zed-pino/`](../zed-pino/).
-- **Off-scope unless asked:** [`pino-site-next/`](../pino-site-next/), [`pino.site-legacy/`](../pino.site-legacy/), [`pino.games/`](../pino.games/), [`projects/c-compiler/`](../projects/c-compiler/), [`benchmarks/`](../benchmarks/).
-
-## Stack
-- **Compiler & Tooling:** C# (.NET 10.0 SDK), xUnit.
-- **Native Runtime:** Tiny C Compiler (TCC) and a GC behind `gc.h`. In this checkout that is the home-grown `tooling/gc/gc.c` (gitignored, stack-only roots), not Boehm; the release workflow builds bdwgc. See ticket 032.
-- **Web Playground:** C# compiled to WebAssembly (`WASMBridge.cs`).
+- **Active:**
+  - `pino-csharp-re/`: `Pino.Compiler`, `Pino.Vm`, `Pino.Cli`, `Pino.Compiler.Tests`
+  - `runtime-re/`: the C RC runtime
+  - `spec/`, `conformance/`, `docs/guide/`
+  - `games/`: the games for the new Pino
+  - `.github/workflows/`: `ci.yml`, `release.yml`
+- **Tooling (gitignored):** `tooling/tcc/` (TinyCC 0.9.27 win64; CI downloads it pinned by SHA256) and `tooling/gc/` (legacy only).
+- **Legacy, frozen until deleted:** `pino-csharp/`, `pino-csharp.tests/` (still hosts the conformance runner until ticket 077 moves it), `runtime/` (except `re.c`/`re.h`, which `runtime-re` uses), `pino.games/` (downloaded by 0.3's `pino play update`; don't edit).
+- **Owner's, off-limits unless asked:** `projects/` (never rewrite `projects/pino-compiler/`), `main.pino`, `pino-site-next/`, `vscode-pino/`, `zed-pino/`, `benchmarks/`.
 
 ## Ground rules
-- **Quality Gate:** Compiler/runtime tickets must pass conformance and spec-lint tests (`dotnet test` in `pino-csharp.tests/` covers both) with 0 failures.
-- **Spec & Rule IDs:** Tickets that change language behavior cite rule IDs (e.g. `LOOP-2`). Behavior with no rule ID requires a decision file first.
-- **Decisions:** Only the owner changes a decision's `Status`.
-- **TCC Constraint:** Transpiled C must compile cleanly with TCC (`--c` flag) using only `runtime/` and Boehm GC.
-- **Self-Host Rule:** Never rewrite or bulk-generate `projects/pino-compiler/` unasked; the user writes it by hand. Assist only with scoped fixes, tests, or explicitly requested tasks.
-- **Grammar Invariants:**
-  - Unified `for` keyword for all loops (never `loop` or `while`).
-  - Empty vectors are `[]Type` (e.g. `[]int`), never `[]int {}` (initializers like `{ cap: 100 }` are valid).
-  - Commas are optional in lists, collections, parameters, and struct literals.
-  - Member access uses `:`; static/namespace access uses `::`.
-  - Error handling uses suffix `?` and `or { yield fallback }`.
-  - Type annotations go after the name with no colon (`val n int = 12`, D-012); inference stays the default. Never name identifiers `val`.
-- **Windows / PowerShell:** Chain commands with `;` (not `&&`). If `pino-csharp.exe` is locked, run `Stop-Process -Name pino-csharp -Force`.
-- **C# Rewrite (`pino-csharp-re/`):** Use uppercase acronyms in C# symbols (e.g. `EOF`, `LSP`, `AST`, `IR`, `UTF16`), `net10.0`, `<Nullable>enable</Nullable>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`, error-tolerant diagnostics (never throw on invalid user code), and follow [`.editorconfig`](../.editorconfig) (2-space indent, same-line `{`, LF; checked via `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`).
-- **Multi-line Strings:** Use triple double-quotes (`"""..."""`), keeping single `"..."` strings single-line for LSP error recovery.
-- **Commits:** English, Conventional Commits (`feat`, `fix`, `refactor`, `test`, `docs`, `progress`), with detailed bodies. One commit per ticket; integrate worker branches by rebase + fast-forward (no merge commits), resolving `spec/SPEC.md` row conflicts per ticket.
+- **Quality gate:**
+  - `dotnet build pino-csharp-re/Pino.sln -warnaserror`
+  - `dotnet test pino-csharp-re/Pino.sln`, with **0 failures**; there are no allowed worktree-only failures any more
+  - `dotnet format pino-csharp-re/Pino.sln --verify-no-changes`
+  - ReVm and ReC have 0 known failures
+  - Until 077 lands, conformance for ReVm and ReC also runs through `pino-csharp.tests/`.
+- **Spec and rule IDs:** tickets that change language behavior cite rule IDs (for example `LOOP-2`). Behavior with no rule ID needs a decision file first. Only the owner changes a decision's `Status`.
+- **Messages:** every diagnostic and panic is a plain sentence with no compiler jargon. Tickets spell out the exact texts.
+- **C output** must compile cleanly with TCC 0.9.27 and with `gcc -O2`.
+- **Self-host rule:** never rewrite or bulk-generate `projects/pino-compiler/`. The owner writes it by hand.
+- **Grammar invariants:**
+  - `for` is the only loop keyword.
+  - Empty vectors are `[]T`.
+  - Commas are optional in lists, collections, parameters and struct literals. They're required between positional union payload types, and never used between union variants.
+  - Member access uses `:`; static access uses `::`.
+  - Errors use suffix `?` and `or { yield fallback }`.
+  - Types go after the name (`val n int = 12`).
+  - Arrows are `->`; `=>` is an error.
+  - `/` returns a float; `//` floors.
+  - `fn name {` with no parentheses is valid when there are no parameters.
+  - `;` is ignored with a hint.
+- **Windows:**
+  - Chain commands with `;` in PowerShell.
+  - Run test suites and GCC **from PowerShell with stdin closed** (`cmd /c "dotnet test ... < NUL"`). From Git Bash, GCC fails silently, and with an open stdin, gcc-built test programs hang.
+- **C# style (`pino-csharp-re/`):**
+  - uppercase acronyms (`EOF`, `IR`, `AST`)
+  - `net10.0`, `<Nullable>enable</Nullable>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`
+  - error-tolerant diagnostics (never throw on invalid user code)
+  - `.editorconfig`: 2-space indent, same-line `{`, LF
+  - triple-quoted multi-line strings
+- **Commits:**
+  - English Conventional Commits with detailed bodies, one commit per ticket.
+  - Integrate by rebase plus fast-forward; no merge commits.
+  - Never `git add -A` or `git add .`.
+  - Workers sign with their model's `Co-Authored-By` trailer.
 
 ## Agent roles
-- **Router:** Gemini 4 Carbon / Argon / Neon or Claude Opus 5.5. Tracks state in [PROGRESS.md](PROGRESS.md), answers architecture questions, writes tickets in `.tickets/`, and verifies deliverables. Never writes compiler code directly. Instructions: [router skill](../.claude/skills/router/SKILL.md).
-- **Implementer Workers:** Gemini 4 Hydrogen (Medium) by default (owner: on par with Sonnet 5.5 High, faster and cheaper; clean results on 009/010), or Claude Sonnet 5.5 (High). Execute one ticket at a time within strict `task.md` scope. Ticket format: [ticket skill](../.claude/skills/ticket/SKILL.md).
-- **Reviewer:** The user. Approves plans, reviews diffs, and owns architectural decisions.
+- **Router:** Claude Opus 5.5 (or Gemini Neon). Keeps [PROGRESS.md](PROGRESS.md), answers architecture questions, writes tickets in `.tickets/` (untracked: they exist only in the main checkout, so say so in every brief), verifies every deliverable by running the tests itself, and integrates. Never writes compiler code. Instructions: [router skill](../.claude/skills/router/SKILL.md).
+- **Workers** (owner, 2026-11-23):
+
+  | Work | Model |
+  | :--- | :--- |
+  | Hard compiler work (IR passes, emitters, RC, arenas, designs) | **Gemini 4 Neon (High)** |
+  | Mid-sized, well-specified tickets | **Gemini 4 Neon (Medium)** |
+  | Small, mechanical tickets | **Gemini 4 Hydrogen (Medium)** |
+  | When Gemini quota is short, or the owner picks it (CI, games) | **Claude Sonnet 5.5** on the `claudeAgent` provider, reviewed extra carefully |
+
+  Gemini workers sometimes end their turn early: check the branch, and nudge them on the same thread.
+- **Reviewer:** the owner. Approves plans and owns architecture and language decisions.
