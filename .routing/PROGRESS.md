@@ -110,7 +110,14 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
 
 ## In progress
 
-- *(none)*
+- **First GitHub run (owner, 2026-11-24):** CI passed with Node 20 deprecation warnings; the release workflow failed on Linux building TinyCC 0.9.27 (`bcheck.c`: `__malloc_hook` undeclared; glibc 2.34 removed it).
+- **085 Linux system cc and Node 24 actions** (Hydrogen Medium, fresh thread). **Owner: Linux doesn't bundle TinyCC**; `--c` uses the system compiler, like macOS.
+- **086 regex engine** (Neon High, fresh thread, in parallel with 085). The owner no longer knows where `runtime/re.c` came from (Flash 3.8 later edited it). **Owner decisions:**
+  - RE2/Go syntax with a linear-time guarantee (no backreferences or lookaround)
+  - `replace` is literal; `$1` comes later with a groups API
+  - **0.4 waits for this engine**
+  - written from scratch in C and C#: Pike VM, literal fast paths, lazy DFA if time allows; a differential fuzzer against .NET; benchmarks
+  - D-190 settles D-029
 - **Owner, 2026-11-24: Pino's licence is MIT** (`Copyright (c) 2026 OGShawnLee`; the owner may change the name line). 075 adds `LICENSE`. macOS x64 builds on `macos-15-intel` (`macos-13` was retired).
 
 - **075 release 0.4** (Neon High, fresh thread, in parallel with 082; no shared files):
