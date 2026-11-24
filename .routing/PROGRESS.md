@@ -689,6 +689,36 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - Legacy `pino-csharp/` stays frozen in the repo during 0.4 and is deleted in 0.5.
       - 067–069 are speed-only and can ship in 0.4.x.
       - **Waiting for the owner's OK to draft tickets 3–5.**
+    - **Owner approved the 0.4 plan (2026-11-23).**
+      - **Bundle TCC with Pino** so it works with no requirements (owner's intent). Router advice:
+        - yes, bundle it; it's 1.9 MB against a self-contained .NET binary of tens of MB
+        - **no "light" variant** (it would double the release matrix for little gain); revisit size with NativeAOT later
+        - Windows: TinyCC 0.9.27 win64
+        - Linux: build TCC from pinned source in the release workflow
+        - macOS: TCC support is the weakest, so test it in the release ticket and fall back to the system `clang` if it fails conformance
+        - the VM always works with nothing installed
+        - the release ticket must check the TinyCC LGPL obligations (ship the license and a source link; check how `libtcc1` is linked into user binaries)
+      - **070 uses a separate `Pino.Wasm` project**, settled by the 0.4 plan.
+      - **CI and games go to Sonnet Medium (owner's choice), dispatched in parallel with 066:**
+        - **072-ci-workflow:**
+          - `ci.yml` on windows-latest: build with `-warnaserror`, format, `-re` and legacy suites with stdin closed
+          - TinyCC 0.9.27 is a pinned download with its SHA256, because `tooling/` is gitignored
+          - `tooling/gc` gets a pinned source
+          - the three timing guards scale by `PINO_TEST_TIME_SCALE`
+          - a clean-checkout dry run
+        - **073-games-for-new-pino:**
+          - ported copies go in a **new `games/` folder**; `pino.games/` stays frozen, because legacy `pino play update` downloads `pino.games/` from `main` (`Program.cs:796`). It is deleted with legacy in 0.5.
+          - every story string is kept, checked by a literal comparison
+          - scripted VM play tests, and manual C runs
+          - a changelog section, "What was awkward in the new Pino"
+      - **Found the cause of the two "worktree-only" failures:**
+        - (1) git tracks `projects/pino-compiler/modules/lexer.pino` and `parser.pino` in lowercase, while the owner's disk has `Lexer.pino` and `Parser.pino`. The case-only renames were never recorded (Windows ignores case), so clean checkouts and Linux get lowercase files.
+        - (2) the `projects/c-compiler/` allowlist entry describes the owner's uncommitted copy.
+        - **Fix:** a `git mv` of the two names (router, with the owner's OK), and the owner commits `projects/c-compiler/`. CI needs both.
+      - Still to draft:
+        - CLI parity and the rename to `pino` (Neon Medium, after 070)
+        - release: `release.yml`, bundled TCC per OS, `osx-arm64`, installers, Linux/macOS CI jobs, docs and an upgrade note (Neon High)
+        - a small spec ticket for the float rule (TYPE-10)
     - Overlap: 061 already inlines lambda callbacks into IR loops, so planned performance ticket 1 shrinks to function-value callbacks and C-level tuning.
   - **CHAIN STOPPED (2026-11-22): 060 and 064 integrated.** Waiting for the owner to resume. Next: 061 (Neon High), then 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
