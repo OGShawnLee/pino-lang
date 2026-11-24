@@ -11,6 +11,7 @@ using Pino.Compiler.Lexing;
 using Pino.Compiler.Parsing;
 using Pino.Compiler.Syntax;
 using Pino.Compiler.Text;
+using Pino.Vm;
 
 namespace Pino.Cli;
 
@@ -187,7 +188,7 @@ public static class CliApp {
   }
 
   // ---------------------------------------------------------------------------
-  // Shared `run` dispatch (shared with 063 VM) & native C `run` / `build`
+  // `run` (IR VM or C engine) and `build` (C engine)
   // ---------------------------------------------------------------------------
 
   private static int RunProgram(
@@ -241,13 +242,10 @@ public static class CliApp {
 
     string file = ValidateSingleFilePath(files[0], "run");
 
-    if (!useC) {
-      _ = verifyRc;
-      stderr.Write("The VM engine isn't available in this build yet.\n");
-      return 1;
-    }
-
-    return RunWithCEngine(file, debugRc, diagOptions, stdout, stderr, environment);
+    // A flag that does not apply to the chosen engine is ignored: --verify-rc is VM-only, --debug-rc is C-only.
+    return useC
+        ? RunWithCEngine(file, debugRc, diagOptions, stdout, stderr, environment)
+        : RunOnVm(file, verifyRc, diagOptions, stdout, stderr);
   }
 
   private static int RunBuild(
@@ -549,6 +547,129 @@ public static class CliApp {
     }
 
     return Count(result).Errors > 0 ? 1 : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // run --vm: execute one file on the IR VM (ticket 063)
+  // ---------------------------------------------------------------------------
+
+  private static int RunOnVm(
+      string path,
+      bool verifyRc,
+      DiagnosticRenderOptions options,
+      TextWriter stdout,
+      TextWriter stderr) {
+    string displayPath = ToDisplayPath(path);
+    var source = new SourceText(ReadFile(path, displayPath), displayPath);
+    ParseResult parsed = Parser.Parse(source);
+    Compilation compilation = Compilation.Create(parsed, FileSystemModuleSource.Instance);
+
+    // Hints and warnings are printed but never stop the run; only errors do.
+    int errors = 0;
+    var seenModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var models = new List<SemanticModel> { compilation.RootModel };
+    models.AddRange(compilation.SemanticModels
+        .Where(m => !ReferenceEquals(m, compilation.RootModel))
+        .OrderBy(static m => m.Tree.Source.FilePath ?? string.Empty, StringComparer.Ordinal));
+    foreach (SemanticModel model in models) {
+      string key = model.Tree.Source.FilePath ?? string.Empty;
+      if (model.Diagnostics.IsEmpty || !seenModules.Add(key)) {
+        continue;
+      }
+
+      errors += Count(model.Diagnostics).Errors;
+      stderr.Write(DiagnosticRenderer.RenderAll(model.Diagnostics, model.Tree.Source, options));
+    }
+
+    if (errors > 0) {
+      return 1;
+    }
+
+    IrModule module = IrLowerer.Lower(compilation);
+    RcInsertPass.Run(module);
+    IrVerificationResult verification = IrVerifier.VerifyAfterRc(module);
+    if (!verification.IsValid) {
+      stderr.Write("pino-re: the program could not be run because its IR failed verification: "
+          + OneLine(string.Join("; ", verification.Errors.Take(3))) + "\n");
+      return 1;
+    }
+
+    var host = new ConsoleVmHost(stdout, stderr);
+    var vm = new PinoVm(module, host, new PinoVmOptions { VerifyRc = verifyRc, RootSource = source });
+    PinoVmResult result = vm.Run();
+    stdout.Flush();
+
+    if (result.RcError is { } rcError) {
+      stderr.Write(rcError + "\n");
+      return 1;
+    }
+
+    int exitCode = result.ExitCode;
+    if (result.LeakReport is { } report) {
+      if (report.CycleLeaks.Count > 0) {
+        stderr.Write(report.Format());
+      }
+
+      if (!report.IsClean) {
+        stderr.Write($"pino-re: {report.Leaks.Count} object(s) were still alive when the program ended.\n");
+        if (exitCode == 0) {
+          exitCode = 1;
+        }
+      }
+    }
+
+    return exitCode;
+  }
+
+  private sealed class ConsoleVmHost(TextWriter stdout, TextWriter stderr) : IVmHost {
+    public TextWriter Out { get; } = stdout;
+
+    public TextWriter Err { get; } = stderr;
+
+    public TextReader In => Console.In;
+
+    public IVmFileSystem Fs { get; } = new DiskVmFileSystem();
+
+    public Random Random { get; } = new();
+
+    public double ClockMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    public void Sleep(int milliseconds) => Thread.Sleep(milliseconds);
+
+    public void Clear() => Out.Write("\u001b[2J\u001b[H");
+  }
+
+  private sealed class DiskVmFileSystem : IVmFileSystem {
+    public bool TryReadAllText(string path, out string content, out VmFileError error) {
+      try {
+        content = File.ReadAllText(path, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        error = default;
+        return true;
+      } catch (Exception ex) {
+        content = string.Empty;
+        error = Describe(ex);
+        return false;
+      }
+    }
+
+    public bool TryWriteAllText(string path, string content, out VmFileError error) {
+      try {
+        File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        error = default;
+        return true;
+      } catch (Exception ex) {
+        error = Describe(ex);
+        return false;
+      }
+    }
+
+    public bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
+
+    private static VmFileError Describe(Exception ex) => ex switch {
+      FileNotFoundException or DirectoryNotFoundException => new VmFileError(VmFileErrorKind.NotFound, ex.Message),
+      UnauthorizedAccessException => new VmFileError(VmFileErrorKind.PermissionDenied, ex.Message),
+      _ => new VmFileError(VmFileErrorKind.Other, OneLine(ex.Message)),
+    };
   }
 
   private static (int Errors, int Warnings) Count(ParseResult result) =>

@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pino.Compiler\Pino.Compiler.csproj" />
+    <ProjectReference Include="..\Pino.Vm\Pino.Vm.csproj" />
   </ItemGroup>
 
 </Project>

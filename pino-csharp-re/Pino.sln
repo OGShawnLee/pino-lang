@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pino.Compiler.Tests", "Pino
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pino.Cli", "Pino.Cli\Pino.Cli.csproj", "{6FBA2781-8F19-4239-AB1B-4365529B1F2A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pino.Vm", "Pino.Vm\Pino.Vm.csproj", "{B4CF9A87-E358-4DBE-B230-53039792BED5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{6FBA2781-8F19-4239-AB1B-4365529B1F2A}.Release|x64.Build.0 = Release|Any CPU
 		{6FBA2781-8F19-4239-AB1B-4365529B1F2A}.Release|x86.ActiveCfg = Release|Any CPU
 		{6FBA2781-8F19-4239-AB1B-4365529B1F2A}.Release|x86.Build.0 = Release|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Debug|x64.Build.0 = Debug|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Debug|x86.Build.0 = Debug|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Release|x64.ActiveCfg = Release|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Release|x64.Build.0 = Release|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Release|x86.ActiveCfg = Release|Any CPU
+		{B4CF9A87-E358-4DBE-B230-53039792BED5}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

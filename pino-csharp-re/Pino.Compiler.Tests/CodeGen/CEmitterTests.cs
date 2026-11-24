@@ -247,14 +247,15 @@ public sealed class CEmitterTests : IDisposable {
   }
 
   [Fact]
-  public void CliRunAndBuild_HandleCExecutionReleaseEmitCHintsAndVmPlaceholder() {
+  public void CliRunAndBuild_HandleCExecutionReleaseEmitCHintsAndDefaultVm() {
     string semiFile = Path.Combine(_work, "semi.pino");
     File.WriteAllText(semiFile, "val a = 40;\nval b = 2;\nprintln(a + b);\n", CEmitter.Utf8NoBom);
 
-    // 1. Default `run` (no engine flag) reports VM unavailable and exits 1.
-    (int vmCode, _, string vmErr) = RunCli(["run", semiFile]);
-    Assert.Equal(1, vmCode);
-    Assert.Contains("VM engine isn't available", vmErr, StringComparison.Ordinal);
+    // 1. Default `run` (no engine flag) executes on the VM, prints the PN1018 hints, and exits 0.
+    (int vmCode, string vmOut, string vmErr) = RunCli(["run", "--color", "never", semiFile]);
+    Assert.Equal(0, vmCode);
+    Assert.Equal("42", Normalize(vmOut));
+    Assert.Contains("hint[PN1018]", vmErr, StringComparison.Ordinal);
 
     // 2. `run --c --debug-rc` still executes a file with only PN1018 hints, prints the hints, and exits 0.
     (int runCode, string runOut, string runErr) = RunCli(["run", "--c", "--debug-rc", "--color", "never", semiFile]);
