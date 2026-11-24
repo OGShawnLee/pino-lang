@@ -23,7 +23,13 @@ struct Player {
     println(" Chi    : $chi/$max_chi")
     println(" Focus  : $focus/$max_focus")
 
-    show_path(alignment)
+    if alignment > 115 {
+      println(" Path   : WAY OF THE OPEN PALM 🕊️  ($alignment/200)")
+    } else if alignment < 85 {
+      println(" Path   : WAY OF THE CLOSED FIST ✊ ($alignment/200)")
+    } else {
+      println(" Path   : SPIRITUAL BALANCE ☯️  ($alignment/200)")
+    }
 
     println(" Skills : Reason: Lvl $reason | Intimidation: Lvl $intimidation | Charm: Lvl $charm")
     val act_style = get_style(style_idx)
@@ -49,16 +55,6 @@ struct Player {
 
 fn ask(prompt string) string {
   return readline(prompt) or { yield "" }
-}
-
-fn show_path(alignment int) {
-  if alignment > 115 {
-    println(" Path   : WAY OF THE OPEN PALM 🕊️  ($alignment/200)")
-  } else if alignment < 85 {
-    println(" Path   : WAY OF THE CLOSED FIST ✊ ($alignment/200)")
-  } else {
-    println(" Path   : SPIRITUAL BALANCE ☯️  ($alignment/200)")
-  }
 }
 
 struct Style {

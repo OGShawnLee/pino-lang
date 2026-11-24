@@ -444,42 +444,9 @@ internal sealed partial class CheckerSession {
     sym.Methods = methods.ToImmutable();
   }
 
-  private void ReparentMethodBodyScope(ModuleCheckState state, BlockStatementSyntax body, Scope methodScope) {
-    Scope? oldBodyScope = state.ScopesByBlockId[body.Id];
-    if (oldBodyScope is null) {
-      return;
-    }
-
-    var newBodyScope = new Scope(ScopeKind.Block, methodScope, methodScope.Owner);
-    foreach (Symbol hoisted in oldBodyScope.HoistedDeclarations) {
-      newBodyScope.TryDeclareHoisted(hoisted, out _);
-    }
-
-    state.SetScope(body, newBodyScope);
-    // Any direct nested block scopes created in Phase 1 pointing to oldBodyScope? Update their parent by re-walking items.
-    foreach (SyntaxNode item in body.Items) {
-      UpdateDirectChildScopeParent(state, item, oldBodyScope, newBodyScope);
-    }
-  }
-
-  private void UpdateDirectChildScopeParent(ModuleCheckState state, SyntaxNode node, Scope oldParent, Scope newParent) {
-    // Re-parent scopes directly attached to immediate statements inside the method body.
-    if ((uint) node.Id < (uint) state.ScopesByBlockId.Length
-        && state.ScopesByBlockId[node.Id] is { } existingScope
-        && ReferenceEquals(existingScope.Parent, oldParent)) {
-      var replacement = new Scope(existingScope.Kind, newParent, existingScope.Owner);
-      foreach (Symbol hoisted in existingScope.HoistedDeclarations) {
-        replacement.TryDeclareHoisted(hoisted, out _);
-      }
-      state.SetScope(node, replacement);
-      oldParent = existingScope;
-      newParent = replacement;
-    }
-
-    foreach (SyntaxElement elem in node.GetChildren()) {
-      if (elem.IsNode) {
-        UpdateDirectChildScopeParent(state, elem.AsNode(), oldParent, newParent);
-      }
+  private static void ReparentMethodBodyScope(ModuleCheckState state, BlockStatementSyntax body, Scope methodScope) {
+    if (state.ScopesByBlockId[body.Id] is { } bodyScope) {
+      bodyScope.Reparent(methodScope, methodScope.Owner);
     }
   }
 

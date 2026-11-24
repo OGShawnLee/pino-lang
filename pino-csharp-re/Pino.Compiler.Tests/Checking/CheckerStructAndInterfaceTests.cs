@@ -450,4 +450,165 @@ public sealed class CheckerStructAndInterfaceTests {
 
     Assert.Empty(CheckerErrors(compilation));
   }
+
+  [Fact]
+  public void MethodElseAndElseIfBodies_SeeFieldsSelfAndEarlierLocals() {
+    Compilation compilation = Compile("""
+      struct Probe {
+        a int
+
+        fn classify() int {
+          val local = a + 1
+          if a > 10 {
+            return a
+          } else if a > 5 and self:a > 5 and local > 6 {
+            return a + self:a + local
+          } else {
+            return a + self:a + local
+          }
+        }
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(compilation));
+  }
+
+  [Fact]
+  public void MethodElseBody_StillReportsUndeclaredIdentifier() {
+    Compilation compilation = Compile("""
+      struct Probe {
+        a int
+
+        fn f() {
+          if a > 5 {
+            println(a)
+          } else {
+            println(no_such_name)
+          }
+        }
+      }
+      """);
+
+    Diagnostic error = Assert.Single(CheckerErrors(compilation));
+    Assert.Equal(DiagnosticCodes.UndeclaredIdentifier, error.Code);
+    Assert.Contains("no_such_name", error.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void MethodElseNestedInLoop_SeesFieldsSelfAndLocals() {
+    Compilation compilation = Compile("""
+      struct Counter {
+        limit int
+
+        fn sum_bounded(xs []int) int {
+          var total = 0
+          for x in xs {
+            val step = x + 1
+            if x > limit {
+              total += limit
+            } else if x == self:limit {
+              total += step + limit
+            } else {
+              total += step + self:limit
+            }
+          }
+          return total
+        }
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(compilation));
+  }
+
+  [Fact]
+  public void MutMethodElseAndElseIfBodies_CanMutateFieldsAndSelf() {
+    Compilation compilation = Compile("""
+      struct Meter {
+        mut value int
+
+        mut fn adjust(delta int) {
+          val base_val = value
+          if delta > 10 {
+            value += delta
+          } else if delta > 0 {
+            value = base_val + delta
+          } else {
+            self:value = base_val - 1
+          }
+        }
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(compilation));
+  }
+
+  [Fact]
+  public void GenericStructMethodElseBody_SeesFieldsSelfAndLocals() {
+    Compilation compilation = Compile("""
+      @@Generic[T]
+      struct Box {
+        item T
+        flag bool
+
+        fn pick(fallback T) T {
+          val first = item
+          if flag {
+            return first
+          } else if self:flag {
+            return item
+          } else {
+            return self:item
+          }
+        }
+      }
+      val b = Box[int] { item: 42, flag: false }
+      println(b:pick(0))
+      """);
+
+    Assert.Empty(CheckerErrors(compilation));
+  }
+
+  [Fact]
+  public void MethodOtherNestedScopes_IfIsMatchOrLoopLambda_SeeMethodScope() {
+    Compilation compilation = Compile("""
+      struct Worker {
+        base_val int
+
+        fn helper(ok bool) Result[int, string] {
+          if ok {
+            return Result::Success(base_val)
+          }
+          return Result::Failure("no")
+        }
+
+        fn audit(opt Option[int]) int {
+          val bonus = base_val + 1
+          var acc = 0
+          if opt is Option::Some(v) {
+            acc += v + base_val
+          } else {
+            acc += self:base_val + bonus
+          }
+
+          match base_val {
+            when 0 { acc += bonus }
+            else { acc += self:base_val + bonus }
+          }
+
+          val recovered = helper(false) or {
+            yield base_val + self:base_val + bonus
+          }
+          acc += recovered
+
+          for n in (helper(true) or { yield base_val }) {
+            val f = fn (x int) -> x + base_val + self:base_val + bonus
+            acc += f(n)
+          }
+          return acc
+        }
+      }
+      """);
+
+    Assert.Empty(CheckerErrors(compilation));
+  }
 }

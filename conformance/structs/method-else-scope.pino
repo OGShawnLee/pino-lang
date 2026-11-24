@@ -1,0 +1,22 @@
+# covers: STRUCT-3, STRUCT-5
+struct Score {
+  value int
+
+  fn describe() string {
+    val doubled = value * 2
+    if value > 10 {
+      return "high:$value:$doubled"
+    } else if value > 5 {
+      return "mid:$value:$(self:value):$doubled"
+    } else {
+      return "low:$value:$(self:value):$doubled"
+    }
+  }
+}
+
+val hi = Score { value: 12 }
+val mid = Score { value: 7 }
+val lo = Score { value: 3 }
+println(hi:describe())
+println(mid:describe())
+println(lo:describe())

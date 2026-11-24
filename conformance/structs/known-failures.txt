@@ -110,3 +110,7 @@ C err-mut-modifier-placement.pino  # D-179: legacy fails with 'PARSER: Expected 
 TreeWalk err-direct-recursive-struct.pino  # D-186: legacy compiler accepts a struct that contains itself by value
 VM err-direct-recursive-struct.pino  # D-186: legacy compiler accepts a struct that contains itself by value
 C err-direct-recursive-struct.pino  # D-186: legacy compiler accepts a struct that contains itself by value
+
+# --- Method else/else-if scope visibility (ticket 076)
+VM method-else-scope.pino  # legacy engine (being retired)
+C method-else-scope.pino  # legacy engine (being retired)

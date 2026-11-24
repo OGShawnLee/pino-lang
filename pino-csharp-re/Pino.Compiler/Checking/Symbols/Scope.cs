@@ -34,9 +34,16 @@ public sealed class Scope {
 
   public ScopeKind Kind { get; }
 
-  public Scope? Parent { get; }
+  public Scope? Parent { get; private set; }
 
-  public Symbol? Owner { get; }
+  public Symbol? Owner { get; private set; }
+
+  internal void Reparent(Scope? newParent, Symbol? newOwner = null) {
+    Parent = newParent;
+    if (newOwner is not null) {
+      Owner = newOwner;
+    }
+  }
 
   public ImmutableArray<Symbol> HoistedDeclarations =>
       _frozenHoisted ?? [.. _hoistedDeclarations];
