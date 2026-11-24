@@ -156,9 +156,10 @@ public sealed partial class PinoVm {
   private readonly IVmHost _host;
   private readonly PinoVmOptions _options;
   private readonly VmRcTracker _rc;
-  private readonly CompiledFunc?[] _funcs;
-  private readonly PinoValue[] _globals;
-  private readonly PinoVmString?[] _stringLiterals;
+  private CompiledFunc?[] _funcs;
+  private PinoValue[] _globals;
+  private PinoVmString?[] _stringLiterals;
+  private SourceText? _activeRootSource;
   private readonly List<Frame> _frames = [];
   private readonly Stack<PinoVmHeapObject> _dropStack = new();
   private bool _dropping;
@@ -249,6 +250,110 @@ public sealed partial class PinoVm {
     _host.Out.Flush();
     VmRcLeakReport? report = _options.VerifyRc ? _rc.ReportLeaks() : null;
     return new PinoVmResult { ExitCode = exitCode, Reason = reason, LeakReport = report, Steps = _steps };
+  }
+
+  /// <summary>
+  /// Grows the VM's function, global, and string-literal tables to match an incrementally extended
+  /// <see cref="IrModule"/> while preserving all live global values and compiled functions.
+  /// </summary>
+  public void SyncWithModule() {
+    if (_module.Functions.Count > _funcs.Length) {
+      Array.Resize(ref _funcs, _module.Functions.Count);
+    }
+
+    if (_module.Globals.Count > _globals.Length) {
+      Array.Resize(ref _globals, _module.Globals.Count);
+    }
+
+    if (_module.StringPool.Count > _stringLiterals.Length) {
+      Array.Resize(ref _stringLiterals, _module.StringPool.Count);
+    }
+
+    if (_module.ShutdownFuncId is { } sid && (uint) sid.Index < (uint) _funcs.Length) {
+      _funcs[sid.Index] = null;
+    }
+  }
+
+  /// <summary>
+  /// Runs a single function on the existing VM heap and global table without running shutdown or
+  /// leak checks (used by incremental REPL sessions).
+  /// </summary>
+  public PinoVmResult RunFunction(IrFuncId funcId, SourceText? source = null) {
+    SyncWithModule();
+    SourceText? previousSource = _activeRootSource;
+    _activeRootSource = source;
+    _steps = 0;
+
+    try {
+      CallFunction(funcId, []);
+      _host.Out.Flush();
+      return new PinoVmResult { ExitCode = 0, Reason = PinoVmStopReason.Completed, Steps = _steps };
+    } catch (PinoVmExit exit) {
+      _frames.Clear();
+      _host.Out.Flush();
+      return new PinoVmResult { ExitCode = exit.Code, Reason = PinoVmStopReason.Exited, Steps = _steps };
+    } catch (PinoVmPanic panic) {
+      string report = FormatPanicReport(panic.Message);
+      _frames.Clear();
+      _host.Err.Write(report);
+      _host.Err.Flush();
+      return new PinoVmResult {
+        ExitCode = 101,
+        Reason = PinoVmStopReason.Panicked,
+        PanicMessage = panic.Message,
+        Steps = _steps,
+      };
+    } catch (PinoVmRcException rcError) {
+      _frames.Clear();
+      return new PinoVmResult {
+        ExitCode = 1,
+        Reason = PinoVmStopReason.RcViolation,
+        RcError = rcError.Message,
+        RcErrorKind = rcError.Kind,
+        Steps = _steps,
+      };
+    } catch (PinoVmStepLimitException limit) {
+      _frames.Clear();
+      _host.Err.Write(limit.Message + "\n");
+      _host.Err.Flush();
+      return new PinoVmResult { ExitCode = 1, Reason = PinoVmStopReason.StepLimit, Steps = _steps };
+    } finally {
+      _activeRootSource = previousSource;
+    }
+  }
+
+  /// <summary>
+  /// Runs <c>__pino_shutdown()</c> to release all live RC-managed globals and returns the leak report.
+  /// </summary>
+  public PinoVmResult Shutdown() {
+    SyncWithModule();
+    try {
+      if (_module.ShutdownFuncId is { } shutdownId && (uint) shutdownId.Index < (uint) _module.Functions.Count) {
+        CallFunction(shutdownId, []);
+      }
+
+      Array.Clear(_globals);
+      return Finish(0, PinoVmStopReason.Completed);
+    } catch (PinoVmRcException rcError) {
+      _frames.Clear();
+      return new PinoVmResult {
+        ExitCode = 1,
+        Reason = PinoVmStopReason.RcViolation,
+        RcError = rcError.Message,
+        RcErrorKind = rcError.Kind,
+        Steps = _steps,
+      };
+    }
+  }
+
+  internal void DropGlobalsFrom(int startIndex) {
+    for (int i = startIndex; i < _globals.Length && i < _module.Globals.Count; i++) {
+      PinoValue val = _globals[i];
+      if (val.Raw != 0 || val.Obj is not null) {
+        DecValue(val, _module.Globals[i].Type);
+        _globals[i] = default;
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1640,7 +1745,7 @@ public sealed partial class PinoVm {
   }
 
   private string Location(Frame frame) {
-    SourceText? source = _options.SourceResolver?.Invoke(frame.Func.Fn) ?? _options.RootSource;
+    SourceText? source = _options.SourceResolver?.Invoke(frame.Func.Fn) ?? _activeRootSource ?? _options.RootSource;
     int pc = Math.Min(frame.Pc - (ReferenceEquals(frame, _frames[^1]) ? 0 : 1), frame.Func.Spans.Length - 1);
     SourceSpan span = pc >= 0 ? frame.Func.Spans[pc] : default;
     if (source is null) {

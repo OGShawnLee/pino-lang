@@ -47,10 +47,23 @@ public sealed partial class IrLowerer {
   private readonly HashSet<string> _usedFunctionNames = new(StringComparer.Ordinal);
   private readonly HashSet<string> _usedGlobalNames = new(StringComparer.Ordinal);
 
-  private IrLowerer(Compilation compilation) {
+  private IrLowerer(Compilation compilation, IrModule? existingModule = null) {
     _compilation = compilation;
-    _types = new IrTypeTable(compilation.Reachability);
-    _module = new IrModule(_types, compilation.RootModel.IsProgramMode);
+    if (existingModule is not null) {
+      _module = existingModule;
+      _types = existingModule.Types;
+      _types.UpdateReachability(compilation.Reachability);
+      foreach (IrFunction fn in existingModule.Functions) {
+        _usedFunctionNames.Add(fn.Name);
+      }
+
+      foreach (IrGlobal g in existingModule.Globals) {
+        _usedGlobalNames.Add(g.Name);
+      }
+    } else {
+      _types = new IrTypeTable(compilation.Reachability);
+      _module = new IrModule(_types, compilation.RootModel.IsProgramMode);
+    }
   }
 
   /// <summary>
@@ -68,6 +81,41 @@ public sealed partial class IrLowerer {
     var lowerer = new IrLowerer(compilation);
     lowerer.LowerCompilation();
     return lowerer._module;
+  }
+
+  /// <summary>
+  /// Lowers only the newly submitted REPL items (<paramref name="committedItemCount"/>..end) into an
+  /// incremental <c>__repl_chunk_N</c> function on <paramref name="module"/>, binding prior globals,
+  /// functions, and methods to their existing IDs without re-executing earlier chunks.
+  /// </summary>
+  public static IrFuncId LowerReplChunk(
+      Compilation compilation,
+      IrModule module,
+      int committedItemCount,
+      int chunkNumber,
+      IReadOnlyDictionary<string, IrGlobalId> existingGlobals,
+      IReadOnlyDictionary<string, IrFuncId> existingFunctions,
+      IReadOnlyDictionary<string, IrFuncId> existingMethods) {
+    ArgumentNullException.ThrowIfNull(compilation);
+    ArgumentNullException.ThrowIfNull(module);
+    ArgumentNullException.ThrowIfNull(existingGlobals);
+    ArgumentNullException.ThrowIfNull(existingFunctions);
+    ArgumentNullException.ThrowIfNull(existingMethods);
+
+    foreach (Diagnostic diag in compilation.Diagnostics) {
+      if (diag.Severity == DiagnosticSeverity.Error) {
+        throw new InvalidOperationException(
+            $"Cannot lower compilation with errors: {diag.Code}: {diag.Message}");
+      }
+    }
+
+    var lowerer = new IrLowerer(compilation, module);
+    return lowerer.LowerReplChunkCore(
+        committedItemCount,
+        chunkNumber,
+        existingGlobals,
+        existingFunctions,
+        existingMethods);
   }
 
   /// <summary>Formats the exact FN-34 panic text for aliased dynamic <c>mut</c> arguments (D-184).</summary>

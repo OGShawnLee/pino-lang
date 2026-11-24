@@ -319,7 +319,7 @@ public sealed partial class PinoVm {
     IrTypeId ioErrorType = VariantFieldType(resultType, "Failure", 0);
     (string variant, string payload) = error.Kind switch {
       VmFileErrorKind.NotFound => ("NotFound", path),
-      VmFileErrorKind.PermissionDenied => ("PermissionDenied", path),
+      VmFileErrorKind.PermissionDenied => ("PermissionDenied", string.IsNullOrEmpty(error.Message) ? path : error.Message),
       VmFileErrorKind.AlreadyExists => ("AlreadyExists", path),
       _ => ("Gremlin", error.Message),
     };

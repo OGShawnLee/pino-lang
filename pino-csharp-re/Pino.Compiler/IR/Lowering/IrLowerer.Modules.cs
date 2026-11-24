@@ -55,6 +55,178 @@ public sealed partial class IrLowerer {
     DrainMonomorphizationWorklist();
   }
 
+  private IrFuncId LowerReplChunkCore(
+      int committedItemCount,
+      int chunkNumber,
+      IReadOnlyDictionary<string, IrGlobalId> existingGlobals,
+      IReadOnlyDictionary<string, IrFuncId> existingFunctions,
+      IReadOnlyDictionary<string, IrFuncId> existingMethods) {
+    foreach (SemanticModel model in _compilation.SemanticModels) {
+      _modelsByModule[model.Module] = model;
+    }
+
+    SemanticModel rootModel = _compilation.RootModel;
+    ImmutableArray<SyntaxNode> items = rootModel.Tree.Root.Items;
+
+    // Phase 1: Bind previously committed declarations to their existing IR IDs, and register new ones.
+    for (int idx = 0; idx < items.Length; idx++) {
+      SyntaxNode item = items[idx];
+      bool isCommitted = idx < committedItemCount;
+      if (isCommitted) {
+        BindCommittedReplDeclaration(rootModel, item, existingGlobals, existingFunctions, existingMethods);
+      } else {
+        switch (item) {
+          case VariableDeclarationSyntax varDecl:
+            RegisterGlobalVariable(rootModel, varDecl, isRoot: true);
+            break;
+          case TupleDestructuringStatementSyntax destructDecl:
+            RegisterGlobalDestructuring(rootModel, destructDecl, isRoot: true);
+            break;
+          case FunctionDeclarationSyntax fnDecl:
+            RegisterFunction(rootModel, fnDecl, string.Empty);
+            break;
+          case StructDeclarationSyntax structDecl:
+            RegisterStructMethods(rootModel, structDecl, string.Empty);
+            break;
+          default:
+            RegisterNestedStructs(rootModel, item, $"__repl_{chunkNumber}$");
+            break;
+        }
+      }
+    }
+
+    SeedGenericInstantiations();
+
+    // Phase 2: Lower newly declared functions and methods only.
+    foreach ((SemanticModel model, FunctionDeclarationSyntax decl, FunctionSymbol symbol, IrFuncId funcId) in _pendingFunctions) {
+      LowerFunctionBody(model, decl, symbol, funcId);
+    }
+
+    foreach ((SemanticModel model, StructSymbol owner, MethodDeclarationSyntax decl, MethodSymbol symbol, IrFuncId funcId) in _pendingMethods) {
+      LowerMethodBody(model, owner, decl, symbol, funcId);
+    }
+
+    DrainMonomorphizationWorklist();
+
+    // Phase 3: Lower only the new chunk's statements into __repl_chunk_<N>() (no shutdown call).
+    string chunkName = ReserveFunctionName($"__repl_chunk_{chunkNumber}");
+    IrFunction chunkFn = _module.AddFunction(
+        chunkName,
+        [],
+        _types.Void,
+        ModuleStateEffects.ReadWrite);
+    var fb = new FunctionBuilder(this, chunkFn, rootModel);
+
+    for (int idx = committedItemCount; idx < items.Length; idx++) {
+      SyntaxNode item = items[idx];
+      if (item is not (FunctionDeclarationSyntax
+          or StructDeclarationSyntax
+          or InterfaceDeclarationSyntax
+          or EnumDeclarationSyntax
+          or UnionDeclarationSyntax
+          or ModuleDeclarationSyntax
+          or ImportStatementSyntax
+          or FromImportStatementSyntax
+          or TestDeclarationSyntax)) {
+        PrepareCallableScope(fb, item);
+      }
+    }
+
+    for (int idx = committedItemCount; idx < items.Length; idx++) {
+      if (fb.IsTerminated) {
+        break;
+      }
+
+      SyntaxNode item = items[idx];
+      if (item is FunctionDeclarationSyntax
+          or StructDeclarationSyntax
+          or InterfaceDeclarationSyntax
+          or EnumDeclarationSyntax
+          or UnionDeclarationSyntax
+          or ModuleDeclarationSyntax
+          or ImportStatementSyntax
+          or FromImportStatementSyntax
+          or TestDeclarationSyntax) {
+        continue;
+      }
+
+      LowerStatement(fb, item);
+    }
+
+    FinalizeFunctionBody(fb, rootModel.Tree.Root.Span);
+    DrainMonomorphizationWorklist();
+    return chunkFn.Id;
+  }
+
+  private void BindCommittedReplDeclaration(
+      SemanticModel model,
+      SyntaxNode item,
+      IReadOnlyDictionary<string, IrGlobalId> existingGlobals,
+      IReadOnlyDictionary<string, IrFuncId> existingFunctions,
+      IReadOnlyDictionary<string, IrFuncId> existingMethods) {
+    switch (item) {
+      case VariableDeclarationSyntax varDecl:
+        if (model.GetDeclaredSymbol(varDecl) is LocalSymbol localSym
+            && existingGlobals.TryGetValue(localSym.Name, out IrGlobalId existingGlobal)) {
+          _globalIds[localSym] = existingGlobal;
+        }
+
+        break;
+
+      case TupleDestructuringStatementSyntax destructDecl:
+        foreach (DestructureFieldSyntax field in destructDecl.Fields) {
+          if (model.GetDeclaredSymbol(field) is LocalSymbol fieldSym
+              && existingGlobals.TryGetValue(fieldSym.Name, out IrGlobalId existingFieldGlobal)) {
+            _globalIds[fieldSym] = existingFieldGlobal;
+          }
+        }
+
+        break;
+
+      case FunctionDeclarationSyntax fnDecl:
+        if (model.GetDeclaredSymbol(fnDecl) is FunctionSymbol fnSym) {
+          if (!fnSym.TypeParameters.IsEmpty) {
+            _genericFunctionDecls[fnSym] = (model, fnDecl, string.Empty);
+          } else if (existingFunctions.TryGetValue(fnSym.Name, out IrFuncId existingFn)) {
+            _funcIds[fnSym] = existingFn;
+          } else {
+            RegisterFunction(model, fnDecl, string.Empty);
+          }
+        }
+
+        break;
+
+      case StructDeclarationSyntax structDecl:
+        if (model.GetDeclaredSymbol(structDecl) is StructSymbol structSym) {
+          if (!structSym.TypeParameters.IsEmpty) {
+            foreach (SyntaxNode member in structDecl.Members) {
+              if (member is MethodDeclarationSyntax methodDecl
+                  && model.GetDeclaredSymbol(methodDecl) is MethodSymbol methodSym) {
+                _genericMethodDecls[methodSym] = (model, structSym, methodDecl, string.Empty);
+              }
+            }
+          } else {
+            StructType concreteStructType = _compilation.Types.GetStruct(structSym);
+            _ = InternType(concreteStructType);
+            foreach (SyntaxNode member in structDecl.Members) {
+              if (member is not MethodDeclarationSyntax methodDecl
+                  || model.GetDeclaredSymbol(methodDecl) is not MethodSymbol methodSym) {
+                continue;
+              }
+
+              if (!methodSym.TypeParameters.IsEmpty) {
+                _genericMethodDecls[methodSym] = (model, structSym, methodDecl, string.Empty);
+              } else if (existingMethods.TryGetValue($"{structSym.Name}::{methodSym.Name}", out IrFuncId existingMethod)) {
+                _methodIds[methodSym] = existingMethod;
+              }
+            }
+          }
+        }
+
+        break;
+    }
+  }
+
   private List<SemanticModel> TopologicalSortModules() {
     var result = new List<SemanticModel>();
     var visited = new HashSet<ModuleSymbol>(ReferenceEqualityComparer.Instance);

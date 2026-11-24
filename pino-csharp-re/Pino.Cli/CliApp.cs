@@ -28,6 +28,7 @@ public static class CliApp {
         pino-re run [opts] <file> Compile and execute a .pino file.
         pino-re build [opts] <file>
                                   Compile a .pino file to a native executable.
+        pino-re repl              Start an interactive Pino REPL session.
         pino-re tree <file>       Print the syntax tree of one file, then its diagnostics.
         pino-re explain <code>    Explain a diagnostic code, for example 'pino-re explain PN1018'.
         pino-re --help            Show this help (also -h, or no arguments).
@@ -57,14 +58,23 @@ public static class CliApp {
         101 runtime panic
       """ + "\n";
 
-  public static int Run(string[] args, TextWriter stdout, TextWriter stderr, CliEnvironment environment) {
+  public static int Run(string[] args, TextWriter stdout, TextWriter stderr, CliEnvironment environment) =>
+      Run(args, Console.In, stdout, stderr, environment);
+
+  public static int Run(
+      string[] args,
+      TextReader stdin,
+      TextWriter stdout,
+      TextWriter stderr,
+      CliEnvironment environment) {
     ArgumentNullException.ThrowIfNull(args);
+    ArgumentNullException.ThrowIfNull(stdin);
     ArgumentNullException.ThrowIfNull(stdout);
     ArgumentNullException.ThrowIfNull(stderr);
     ArgumentNullException.ThrowIfNull(environment);
 
     try {
-      return RunCore(args, stdout, stderr, environment);
+      return RunCore(args, stdin, stdout, stderr, environment);
     } catch (CliUsageException ex) {
       WriteError(stderr, ex.Message);
       return 2;
@@ -74,7 +84,12 @@ public static class CliApp {
     }
   }
 
-  private static int RunCore(string[] args, TextWriter stdout, TextWriter stderr, CliEnvironment environment) {
+  private static int RunCore(
+      string[] args,
+      TextReader stdin,
+      TextWriter stdout,
+      TextWriter stderr,
+      CliEnvironment environment) {
     if (args.Length == 0) {
       stdout.Write(Usage);
       return 0;
@@ -108,7 +123,7 @@ public static class CliApp {
     }
 
     if (command is null) {
-      throw new CliUsageException("missing command (expected 'check', 'run', 'build', 'tree', or 'explain')");
+      throw new CliUsageException("missing command (expected 'check', 'run', 'build', 'repl', 'tree', or 'explain')");
     }
 
     var options = new DiagnosticRenderOptions {
@@ -131,6 +146,7 @@ public static class CliApp {
       "explain" => RunExplain(commandArgs, stdout, stderr),
       "run" => RunProgram(commandArgs, options, stdout, stderr, environment),
       "build" => RunBuild(commandArgs, options, stdout, stderr),
+      "repl" => RunRepl(commandArgs, options, stdin, stdout, stderr, environment),
       _ => throw new CliUsageException($"unknown command '{command}'"),
     };
   }
@@ -621,12 +637,138 @@ public static class CliApp {
     return exitCode;
   }
 
-  private sealed class ConsoleVmHost(TextWriter stdout, TextWriter stderr) : IVmHost {
+  // ---------------------------------------------------------------------------
+  // `repl`: interactive IR VM session (ticket 070)
+  // ---------------------------------------------------------------------------
+
+  private const string ReplHelp = """
+      REPL commands:
+        :help   Show this help message.
+        :reset  Clear all bindings, functions, and types in the session.
+        :quit   Exit the REPL.
+      """ + "\n";
+
+  private static int RunRepl(
+      List<string> args,
+      DiagnosticRenderOptions diagOptions,
+      TextReader stdin,
+      TextWriter stdout,
+      TextWriter stderr,
+      CliEnvironment environment) {
+    bool verifyRc = false;
+    foreach (string arg in args) {
+      if (arg == "--verify-rc") {
+        verifyRc = true;
+      } else if (arg.StartsWith('-')) {
+        throw new CliUsageException($"unknown option '{arg}'");
+      } else {
+        throw new CliUsageException($"unexpected argument '{arg}' for 'repl'");
+      }
+    }
+
+    var host = new ConsoleVmHost(stdout, stderr, stdin);
+    var session = new VmSession(host, diagOptions, verifyRc: verifyRc);
+    bool interactive = !environment.IsOutputRedirected;
+
+    if (interactive) {
+      stdout.Write("Pino REPL — type :help for commands, :quit to exit.\n");
+      stdout.Flush();
+    }
+
+    var buffer = new StringBuilder();
+    while (true) {
+      if (interactive) {
+        stdout.Write(buffer.Length == 0 ? "pino> " : "... ");
+        stdout.Flush();
+      }
+
+      string? line = stdin.ReadLine();
+      if (line is null) {
+        if (buffer.Length > 0) {
+          session.Submit(buffer.ToString());
+          buffer.Clear();
+        }
+
+        break;
+      }
+
+      if (line.Length > 0 && line[0] == '\uFEFF') {
+        line = line[1..];
+      }
+
+      if (buffer.Length == 0) {
+        string trimmed = line.Trim();
+        if (trimmed.Length == 0) {
+          continue;
+        }
+
+        if (trimmed.StartsWith(':')) {
+          switch (trimmed) {
+            case ":help":
+              stdout.Write(ReplHelp);
+              stdout.Flush();
+              continue;
+            case ":reset":
+              session.Reset();
+              stdout.Write("Session reset.\n");
+              stdout.Flush();
+              continue;
+            case ":quit":
+              return FinishReplSession(session, stderr);
+            default:
+              stderr.Write($"Unknown REPL command '{trimmed}'. Type :help for available commands.\n");
+              stderr.Flush();
+              continue;
+          }
+        }
+      }
+
+      if (buffer.Length > 0) {
+        buffer.Append('\n');
+      }
+
+      buffer.Append(line);
+      if (VmSession.NeedsMoreInput(buffer.ToString())) {
+        continue;
+      }
+
+      session.Submit(buffer.ToString());
+      buffer.Clear();
+    }
+
+    return FinishReplSession(session, stderr);
+  }
+
+  private static int FinishReplSession(VmSession session, TextWriter stderr) {
+    PinoVmResult shutdown = session.Shutdown();
+    if (shutdown.RcError is { } rcError) {
+      stderr.Write(rcError + "\n");
+      stderr.Flush();
+      return 1;
+    }
+
+    if (shutdown.LeakReport is { } report) {
+      if (report.CycleLeaks.Count > 0) {
+        stderr.Write(report.Format());
+        stderr.Flush();
+      }
+
+      if (!report.IsClean) {
+        stderr.Write($"pino-re: {report.Leaks.Count} object(s) were still alive when the REPL session ended.\n");
+        stderr.Flush();
+        return 1;
+      }
+    }
+
+    return 0;
+  }
+
+  private sealed class ConsoleVmHost(TextWriter stdout, TextWriter stderr, TextReader? stdin = null) : IVmHost {
     public TextWriter Out { get; } = stdout;
 
     public TextWriter Err { get; } = stderr;
 
-    public TextReader In => Console.In;
+    public TextReader In { get; } = stdin ?? Console.In;
 
     public IVmFileSystem Fs { get; } = new DiskVmFileSystem();
 

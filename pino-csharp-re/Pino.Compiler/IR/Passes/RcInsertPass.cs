@@ -92,6 +92,54 @@ public static class RcInsertPass {
     return module;
   }
 
+  /// <summary>
+  /// Runs Step 1 RC insertion on only the newly appended functions of an incremental REPL module
+  /// (starting at <paramref name="firstNewFunctionIndex"/>), treating <paramref name="previouslyInitializedGlobals"/>
+  /// as already initialized on entry to <paramref name="chunkFuncId"/>, and refreshes <c>__pino_shutdown()</c>.
+  /// </summary>
+  public static IrModule RunIncremental(
+      IrModule module,
+      int firstNewFunctionIndex,
+      IrFuncId chunkFuncId,
+      IEnumerable<IrGlobalId> previouslyInitializedGlobals) {
+    ArgumentNullException.ThrowIfNull(module);
+    ArgumentNullException.ThrowIfNull(previouslyInitializedGlobals);
+
+    SynthesizeRcDescriptors(module);
+
+    var initializedBefore = new HashSet<IrGlobalId>(previouslyInitializedGlobals);
+    if ((uint) chunkFuncId.Index < (uint) module.Functions.Count) {
+      RewriteFunction(
+          module,
+          module.Functions[chunkFuncId.Index],
+          trackGlobalInit: true,
+          initializedBefore);
+    }
+
+    for (int i = Math.Max(0, firstNewFunctionIndex); i < module.Functions.Count; i++) {
+      var funcId = new IrFuncId(i);
+      if (funcId == chunkFuncId || module.ShutdownFuncId == funcId) {
+        continue;
+      }
+
+      RewriteFunction(
+          module,
+          module.Functions[i],
+          trackGlobalInit: false,
+          previouslyInitializedGlobals: null);
+    }
+
+    PopulateShutdownFunction(module);
+    module.Stage = IrPassStage.PostRcStep1;
+    return module;
+  }
+
+  /// <summary>Rebuilds <c>__pino_shutdown()</c> to match the current <see cref="IrModule.Globals"/> list.</summary>
+  public static void RefreshShutdown(IrModule module) {
+    ArgumentNullException.ThrowIfNull(module);
+    PopulateShutdownFunction(module);
+  }
+
   // ---------------------------------------------------------------------------
   // Per-type inc_T / drop_T descriptor synthesis
   // ---------------------------------------------------------------------------

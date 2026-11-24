@@ -12,7 +12,7 @@ namespace Pino.Compiler.IR;
 /// and <see cref="IrType.IsCycleCapable"/> propagation from <see cref="TypeReachabilityGraph"/>.
 /// </summary>
 public sealed class IrTypeTable {
-  private readonly TypeReachabilityGraph _reachability;
+  private TypeReachabilityGraph _reachability;
   private readonly List<IrType> _types = [];
   private readonly Dictionary<TypeSymbol, IrTypeId> _symbolToId = new(ReferenceEqualityComparer.Instance);
   private readonly Dictionary<IrTypeId, IrTypeId> _handles = [];
@@ -28,6 +28,22 @@ public sealed class IrTypeTable {
   private readonly Dictionary<NominalKey<StructSymbol>, IrTypeId> _structsBySymbol = [];
   private readonly Dictionary<NominalKey<UnionSymbol>, IrTypeId> _unionsBySymbol = [];
   private readonly Dictionary<NominalKey<InterfaceSymbol>, IrTypeId> _interfacesBySymbol = [];
+  private readonly Dictionary<string, IrTypeId> _enumsByName = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, IrTypeId> _structsByName = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, IrTypeId> _unionsByName = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, IrTypeId> _interfacesByName = new(StringComparer.Ordinal);
+
+  /// <summary>
+  /// When <see langword="true"/> (used by incremental REPL sessions), nominal types from a fresh
+  /// <see cref="Compilation"/> reuse an existing <see cref="IrTypeId"/> with the same formatted name
+  /// so live VM heap objects keep valid type IDs across chunks.
+  /// </summary>
+  public bool MatchNominalTypesByName { get; init; }
+
+  public void UpdateReachability(TypeReachabilityGraph reachability) {
+    ArgumentNullException.ThrowIfNull(reachability);
+    _reachability = reachability;
+  }
 
   public IrTypeTable(TypeReachabilityGraph? reachability = null) {
     _reachability = reachability ?? TypeReachabilityGraph.Empty;
@@ -251,11 +267,23 @@ public sealed class IrTypeTable {
       return existing;
     }
 
+    if (MatchNominalTypesByName && _enumsByName.TryGetValue(name, out IrTypeId existingByName)) {
+      if (definition is not null) {
+        _enumsBySymbol[definition] = existingByName;
+      }
+
+      return existingByName;
+    }
+
     ImmutableArray<string> normalized = memberNames.IsDefault ? [] : memberNames;
     var id = new IrTypeId(_types.Count);
     _types.Add(new IrEnumType(id, name, normalized, definition));
     if (definition is not null) {
       _enumsBySymbol[definition] = id;
+    }
+
+    if (MatchNominalTypesByName) {
+      _enumsByName[name] = id;
     }
 
     return id;
@@ -502,12 +530,24 @@ public sealed class IrTypeTable {
     }
 
     string name = FormatNominalName(structType.Definition.Name, normalizedArgs);
+    if (MatchNominalTypesByName && _structsByName.TryGetValue(name, out IrTypeId existingByName)) {
+      if (outerSubst.IsEmpty) {
+        _symbolToId[structType] = existingByName;
+      }
+
+      _structsBySymbol[key] = existingByName;
+      return existingByName;
+    }
+
     IrTypeId id = DeclareStruct(name, structType.Definition, normalizedArgs);
     if (outerSubst.IsEmpty) {
       _types[id.Index].IsCycleCapable = _reachability.IsCycleCapable(structType);
       _symbolToId[structType] = id;
     }
     _structsBySymbol[key] = id;
+    if (MatchNominalTypesByName) {
+      _structsByName[name] = id;
+    }
 
     ImmutableArray<(TypeParameterSymbol Param, IrTypeId Arg)> innerSubst =
         BuildSubst(structType.Definition.TypeParameters, normalizedArgs);
@@ -543,8 +583,16 @@ public sealed class IrTypeTable {
     }
 
     string name = FormatNominalName(definition.Name, normalizedArgs);
+    if (MatchNominalTypesByName && _structsByName.TryGetValue(name, out IrTypeId existingByName)) {
+      _structsBySymbol[key] = existingByName;
+      return existingByName;
+    }
+
     IrTypeId id = DeclareStruct(name, definition, normalizedArgs);
     _structsBySymbol[key] = id;
+    if (MatchNominalTypesByName) {
+      _structsByName[name] = id;
+    }
 
     ImmutableArray<(TypeParameterSymbol Param, IrTypeId Arg)> innerSubst =
         BuildSubst(definition.TypeParameters, normalizedArgs);
@@ -589,12 +637,24 @@ public sealed class IrTypeTable {
     }
 
     string name = FormatNominalName(unionType.Definition.Name, normalizedArgs);
+    if (MatchNominalTypesByName && _unionsByName.TryGetValue(name, out IrTypeId existingByName)) {
+      if (outerSubst.IsEmpty) {
+        _symbolToId[unionType] = existingByName;
+      }
+
+      _unionsBySymbol[key] = existingByName;
+      return existingByName;
+    }
+
     IrTypeId id = DeclareUnion(name, unionType.Definition, normalizedArgs);
     if (outerSubst.IsEmpty) {
       _types[id.Index].IsCycleCapable = _reachability.IsCycleCapable(unionType);
       _symbolToId[unionType] = id;
     }
     _unionsBySymbol[key] = id;
+    if (MatchNominalTypesByName) {
+      _unionsByName[name] = id;
+    }
 
     ImmutableArray<(TypeParameterSymbol Param, IrTypeId Arg)> innerSubst =
         BuildSubst(unionType.Definition.TypeParameters, normalizedArgs);
@@ -634,12 +694,24 @@ public sealed class IrTypeTable {
     }
 
     string name = FormatNominalName(ifaceType.Definition.Name, normalizedArgs);
+    if (MatchNominalTypesByName && _interfacesByName.TryGetValue(name, out IrTypeId existingByName)) {
+      if (outerSubst.IsEmpty) {
+        _symbolToId[ifaceType] = existingByName;
+      }
+
+      _interfacesBySymbol[key] = existingByName;
+      return existingByName;
+    }
+
     IrTypeId id = DeclareInterface(name, ifaceType.Definition, normalizedArgs);
     if (outerSubst.IsEmpty) {
       _types[id.Index].IsCycleCapable = _reachability.IsCycleCapable(ifaceType);
       _symbolToId[ifaceType] = id;
     }
     _interfacesBySymbol[key] = id;
+    if (MatchNominalTypesByName) {
+      _interfacesByName[name] = id;
+    }
 
     ImmutableArray<(TypeParameterSymbol Param, IrTypeId Arg)> innerSubst =
         BuildSubst(ifaceType.Definition.TypeParameters, normalizedArgs);
