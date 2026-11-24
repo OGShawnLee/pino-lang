@@ -716,6 +716,12 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
         - (2) the `projects/c-compiler/` allowlist entry describes the owner's uncommitted copy.
         - **Fix:** a `git mv` of the two names (router, with the owner's OK), and the owner commits `projects/c-compiler/`. CI needs both.
       - **Done (owner OK): `1b578f1` records the case-only renames `Lexer.pino` and `Parser.pino`** (0 content change; a repo-wide scan found no other case mismatch). 072 was steered to rebase, fix `ParserSmokeTests.cs:17` to `Parser.pino`, and expect **zero** clean-checkout failures. The c-compiler `parser.pino` item has passed on clean checkouts since 071: the committed and local versions both report only PN2001/PN2006/PN2010, which the allowlist covers.
+      - **066 blocked once, correctly.** `CheckerConformanceTests` had returned early on lex/parse errors without matching the `.err` substring, which hid 16 stale cases until ReVm and ReC ran them. Router decision:
+        - (A) the 14 lex/parse `.err` files move to the `-re` wording, with legacy known-failure lines citing OQ-42
+        - (B) two cases are wrong per the spec, not the parser: `match/err-union.pino` drops the comma between variants (grammar 349-351, UNION-1), and `types/err-void-collection-element.pino` gets an initializer (VAR-10)
+        - the early-return hole is closed, so the checker test now matches lex/parse diagnostics too
+
+        So far: the differential 421/421, the fuzzer 220/220 seeds, and OQ-42 had 10 entries.
       - **Owner: `projects/c-compiler/` stays uncommitted until all tickets are done** (they're finishing that chapter). CI doesn't need it.
       - Still to draft:
         - CLI parity and the rename to `pino` (Neon Medium, after 070)
