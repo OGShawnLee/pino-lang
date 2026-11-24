@@ -96,7 +96,11 @@ public static class CCompilerDriver {
 
   public static string? FindBundledTcc(string repoRoot, OSPlatform? platform = null) {
     OSPlatform os = platform ?? CurrentPlatform();
-    string bundled = Path.Combine(repoRoot, "tooling", "tcc", os == OSPlatform.Windows ? "tcc.exe" : "tcc");
+    if (os != OSPlatform.Windows) {
+      return null;
+    }
+
+    string bundled = Path.Combine(repoRoot, "tooling", "tcc", "tcc.exe");
     return File.Exists(bundled) ? bundled : null;
   }
 

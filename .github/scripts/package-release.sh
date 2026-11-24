@@ -89,7 +89,7 @@ cp "$REPO_ROOT"/runtime-re/*.c "$REPO_ROOT"/runtime-re/*.h "$STAGE_ROOT/runtime-
 mkdir -p "$STAGE_ROOT/runtime"
 cp "$REPO_ROOT/runtime/re.c" "$REPO_ROOT/runtime/re.h" "$STAGE_ROOT/runtime/"
 
-# tooling/tcc/ (Linux x64 only; omitted on macOS)
+# Optional tooling/tcc/ (omitted on Linux and macOS)
 if [ -n "$TCC_DIR" ]; then
   if [ ! -f "$TCC_DIR/tcc" ]; then
     echo "TinyCC was not found at '$TCC_DIR/tcc'." >&2

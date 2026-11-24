@@ -40,10 +40,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -51,7 +51,7 @@ jobs:
       - name: Restore TinyCC 0.9.27 (Windows) from cache
         if: matrix.rid == 'win-x64'
         id: tcc-win-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tooling/tcc
           key: tinycc-0.9.27-win64-34a721949a2583fdff725312dda92fa0f5f1f284b702e6f811c6954714faabb2
@@ -72,50 +72,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path tooling | Out-Null
           Expand-Archive -Path $zip -DestinationPath tooling -Force
 
-      # Linux x64: build unmodified TinyCC 0.9.27 from the official source tarball, pinned by SHA256.
-      - name: Build TinyCC 0.9.27 from source (Linux)
-        if: matrix.rid == 'linux-x64'
-        shell: bash
-        env:
-          TCC_SRC_URL: https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2
-          TCC_SRC_SHA256: de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396ceb9c
-        run: |
-          set -euo pipefail
-          BUILD_ROOT="$RUNNER_TEMP/tcc-build"
-          STAGE_DIR="$RUNNER_TEMP/tcc-linux-stage"
-          rm -rf "$BUILD_ROOT" "$STAGE_DIR"
-          mkdir -p "$BUILD_ROOT" "$STAGE_DIR"
-          TARBALL="$BUILD_ROOT/tcc-0.9.27.tar.bz2"
-
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors --output "$TARBALL" "$TCC_SRC_URL"
-          ACTUAL="$(sha256sum "$TARBALL" | awk '{print $1}')"
-          if [ "$ACTUAL" != "$TCC_SRC_SHA256" ]; then
-            echo "TinyCC source SHA256 mismatch: expected $TCC_SRC_SHA256 but got $ACTUAL." >&2
-            exit 1
-          fi
-
-          tar -xjf "$TARBALL" -C "$BUILD_ROOT"
-          cd "$BUILD_ROOT/tcc-0.9.27"
-          ./configure \
-            --prefix="$STAGE_DIR" \
-            --bindir="$STAGE_DIR" \
-            --tccdir="$STAGE_DIR" \
-            --libdir="$STAGE_DIR/lib" \
-            --includedir="$STAGE_DIR/include" \
-            --crtprefix="/usr/lib/x86_64-linux-gnu:/usr/lib64:/usr/lib" \
-            --sysincludepaths="{B}/include:/usr/local/include/x86_64-linux-gnu:/usr/local/include:/usr/include/x86_64-linux-gnu:/usr/include" \
-            --libpaths="{B}:{B}/lib:/usr/lib/x86_64-linux-gnu:/usr/lib64:/usr/lib:/lib/x86_64-linux-gnu:/lib64:/lib" \
-            --extra-cflags="-O2 -Wno-error=strict-prototypes -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types"
-          make -j"$(nproc)"
-          make install
-          cp COPYING "$STAGE_DIR/COPYING"
-          rm -rf "$STAGE_DIR/share"
-
-          "$STAGE_DIR/tcc" -v
-          printf '#include <stdio.h>\n#include <math.h>\nint main(void) { printf("%%.1f\\n", floor(3.7)); return 0; }\n' > "$BUILD_ROOT/probe.c"
-          "$STAGE_DIR/tcc" -B"$STAGE_DIR" "$BUILD_ROOT/probe.c" -lm -o "$BUILD_ROOT/probe"
-          "$BUILD_ROOT/probe"
-
       - name: Package release archive (Windows)
         if: matrix.rid == 'win-x64'
         shell: pwsh
@@ -127,19 +83,8 @@ jobs:
             -OutputDir '.' `
             -TccDir 'tooling/tcc'
 
-      - name: Package release archive (Linux)
-        if: matrix.rid == 'linux-x64'
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash .github/scripts/package-release.sh \
-            --rid '${{ matrix.rid }}' \
-            --artifact-name '${{ matrix.artifact_name }}' \
-            --output-dir '.' \
-            --tcc-dir "$RUNNER_TEMP/tcc-linux-stage"
-
-      - name: Package release archive (macOS)
-        if: startsWith(matrix.rid, 'osx-')
+      - name: Package release archive (Unix)
+        if: matrix.rid != 'win-x64'
         shell: bash
         run: |
           set -euo pipefail
@@ -222,7 +167,7 @@ jobs:
           pino play star_pino < /dev/null
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.file_name }}
@@ -235,7 +180,7 @@ jobs:
     needs: build
     steps:
       - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./artifacts
           merge-multiple: true
@@ -254,7 +199,7 @@ jobs:
           cat SHA256SUMS
 
       - name: Upload SHA256SUMS Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SHA256SUMS
           path: ./artifacts/SHA256SUMS
@@ -263,7 +208,7 @@ jobs:
 
       - name: Create Release and Upload Assets
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             ./artifacts/pino-windows-x64.zip

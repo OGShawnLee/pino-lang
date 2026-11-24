@@ -24,17 +24,17 @@ jobs:
       DOTNET_NOLOGO: '1'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
       # tooling/ is gitignored, so a clean checkout has no C toolchain. TinyCC 0.9.27 (win64) is pinned by version and SHA256.
       - name: Restore TinyCC 0.9.27 from cache
         id: tcc-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tooling/tcc
           key: tinycc-0.9.27-win64-34a721949a2583fdff725312dda92fa0f5f1f284b702e6f811c6954714faabb2
@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload test results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: TestResults/**/*.trx
@@ -93,10 +93,10 @@ jobs:
       DOTNET_NOLOGO: '1'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -111,7 +111,7 @@ jobs:
 
       - name: Upload test results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-linux
           path: TestResults/**/*.trx
@@ -126,10 +126,10 @@ jobs:
       DOTNET_NOLOGO: '1'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -144,7 +144,7 @@ jobs:
 
       - name: Upload test results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-macos
           path: TestResults/**/*.trx

@@ -36,9 +36,25 @@ public sealed class CCompilerDriverTests : IDisposable {
         executableDirectory: installedDir);
 
     Assert.Equal(Path.GetFullPath(installedDir), Path.GetFullPath(resolved));
-    string? tcc = CCompilerDriver.FindBundledTcc(resolved);
-    Assert.NotNull(tcc);
-    Assert.StartsWith(Path.GetFullPath(installedDir), Path.GetFullPath(tcc!), StringComparison.OrdinalIgnoreCase);
+    if (OperatingSystem.IsWindows()) {
+      string? tcc = CCompilerDriver.FindBundledTcc(resolved);
+      Assert.NotNull(tcc);
+      Assert.StartsWith(Path.GetFullPath(installedDir), Path.GetFullPath(tcc!), StringComparison.OrdinalIgnoreCase);
+    }
+  }
+
+  [Fact]
+  public void FindBundledTcc_OnlyReturnsBundledTccOnWindows() {
+    string dir = CreateFakeRuntimeTree("tcc-os-check", includeTcc: false);
+    string tccDir = Path.Combine(dir, "tooling", "tcc");
+    Directory.CreateDirectory(tccDir);
+    string winTcc = Path.Combine(tccDir, "tcc.exe");
+    File.WriteAllText(winTcc, "fake-tcc-win");
+    File.WriteAllText(Path.Combine(tccDir, "tcc"), "fake-tcc-unix");
+
+    Assert.Equal(winTcc, CCompilerDriver.FindBundledTcc(dir, OSPlatform.Windows));
+    Assert.Null(CCompilerDriver.FindBundledTcc(dir, OSPlatform.Linux));
+    Assert.Null(CCompilerDriver.FindBundledTcc(dir, OSPlatform.OSX));
   }
 
   [Fact]
