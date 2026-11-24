@@ -622,6 +622,24 @@ Work tracker for Pino Lang. Invariants live in [CONTEXT.md](CONTEXT.md) and [spe
       - the post-RC sweep covers 100% of cases, with no skip list
       - the verifier is never loosened
       - the flaky parser timer is noted
+    - [x] **062-re-ir-rc-step1** (`c7b22d6`, Gemini 4 Neon High; one pass):
+      - `IR/Passes/RcInsertPass.cs` (~2,000 lines): Step 1 RC, plus per-type `IrTypeRcDescriptor`s in `IrModule`, including bool init flags for conditionally initialized slots
+      - `IrVerifier` adds an `IrVerifyStage.PostRc` stage that rejects RC on pointer-free types, an uninitialized drop or read, a missing shutdown drop, a double free, an unowned `@owned` argument, and leaks
+      - 24 tests: goldens (`sum_vec` balanced, `area` with 0 RC ops, `Log::record`) and every edge case
+      - **Post-RC sweep:** 421/421 `.out`, 21/21 `.err` and `main.pino`, with no skips
+      - Router verification (PowerShell): worktree 5374/5375 (allowed corpus item only); main 5378/5378; 0 warnings; format clean
+      - **ABI for 063 and 065 (062 changelog):**
+        - the closure, the non-mutating iface receiver and `CallRuntime` arguments are borrowed
+        - `CallClosure` with an env does `rc_inc(env)` first
+        - stores are plain
+        - `VecPush`, `MapSet`, `SetAdd` and `PoolAdd` consume their operands
+    - **063 (Sonnet High) and 065 (Neon High) dispatched in parallel**, with shared router notes:
+      - the 062 ABI
+      - **provisional float rule (router):** print floats as the .NET oracle does (`double.ToString(InvariantCulture)`: shortest round-trip, `1E+20`, `1E-05`, `NaN`, `Infinity`) plus D-022's `.0`. No `.out` covers exponents. Record it in the spec later, and tell the owner.
+      - hints don't block `run`
+      - the shared `run` shape: `pino-re run [--vm | --c] [--verify-rc] [--debug-rc] <file>`, VM by default; the second to land rebases
+      - 100% coverage with no skip list
+      - 065 only: it may touch `runtime-re/` for the float rule and blocking bugs; GCC runs from PowerShell
     - Overlap: 061 already inlines lambda callbacks into IR loops, so planned performance ticket 1 shrinks to function-value callbacks and C-level tuning.
   - **CHAIN STOPPED (2026-11-22): 060 and 064 integrated.** Waiting for the owner to resume. Next: 061 (Neon High), then 062 (Neon High), then 063 (Sonnet High) with 065 (Neon High).
   - **Owner (2026-11-21): stop the chain after 060 and 064**, to save Gemini quota for the week. The router verifies and integrates those two, then dispatches nothing more until the owner says to resume. Next in line: 061 (Neon), then 062 (Neon), then 063 (Sonnet High) with 065 (Neon).
