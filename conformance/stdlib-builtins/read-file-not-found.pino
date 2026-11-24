@@ -1,0 +1,5 @@
+# covers: BUILTIN-17
+match read_file("__pino_nonexistent_test_file__.txt") {
+  when Result::Success(text) { println(text) }
+  when Result::Failure(err) { println(str(err)) }
+}

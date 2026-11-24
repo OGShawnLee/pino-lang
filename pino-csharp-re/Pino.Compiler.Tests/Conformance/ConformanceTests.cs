@@ -55,7 +55,7 @@ public abstract class ConformanceShardBase {
     }
 
     // Differential check: when both engines ran with no known failures on an executable case,
-    // verify identical exit code and normalized stdout.
+    // verify identical exit code, normalized stdout, and normalized runtime panic/failure stderr.
     if (failures.Count == 0
         && prepared.CompileTimeOutcome is null
         && hasKnownFailure.Count == 0
@@ -72,9 +72,46 @@ public abstract class ConformanceShardBase {
         failures.Add(
             $"[Differential] {caseRelativePath}: stdout mismatch between ReVm and ReC.\n--- ReVm ---\n{vmOut}\n--- ReC ---\n{cOut}");
       }
+
+      if (vmRun.ExitCode != 0 || cRun.ExitCode != 0) {
+        string vmErr = NormalizeRuntimeStderr(caseRelativePath, vmRun.Stderr);
+        string cErr = NormalizeRuntimeStderr(caseRelativePath, cRun.Stderr);
+        if (!string.Equals(vmErr, cErr, StringComparison.Ordinal)) {
+          failures.Add(
+              $"[Differential] {caseRelativePath}: stderr mismatch between ReVm and ReC.\n--- ReVm ---\n{vmErr}\n--- ReC ---\n{cErr}");
+        }
+      }
     }
 
     Assert.True(failures.Count == 0, string.Join("\n\n", failures));
+  }
+
+  /// <summary>
+  /// Normalizes runtime panic/failure stderr for cross-engine comparison: unifies line endings and
+  /// file-path separators, strips the engine-specific backtrace section (open <c>D-081</c>), and
+  /// masks the engine-specific regex error detail (<c>D-029</c>).
+  /// </summary>
+  private static string NormalizeRuntimeStderr(string caseRelativePath, string stderr) {
+    string normalized = ConformanceRunner.Normalize(stderr).Replace('\\', '/');
+    int btIndex = normalized.IndexOf("\nstack backtrace:", StringComparison.Ordinal);
+    if (btIndex >= 0) {
+      normalized = normalized[..btIndex];
+    } else {
+      int frameIndex = normalized.IndexOf("\n  0:", StringComparison.Ordinal);
+      if (frameIndex >= 0) {
+        normalized = normalized[..frameIndex];
+      }
+    }
+
+    if (string.Equals(caseRelativePath, "stdlib-regex/err-invalid-pattern.pino", StringComparison.OrdinalIgnoreCase)) {
+      int prefixEnd = normalized.IndexOf("': ", StringComparison.Ordinal);
+      int lineEnd = prefixEnd >= 0 ? normalized.IndexOf("'\n", prefixEnd, StringComparison.Ordinal) : -1;
+      if (prefixEnd >= 0 && lineEnd > prefixEnd) {
+        normalized = string.Concat(normalized.AsSpan(0, prefixEnd + 3), "<D-029>.", normalized.AsSpan(lineEnd));
+      }
+    }
+
+    return normalized.TrimEnd();
   }
 }
 

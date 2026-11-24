@@ -684,6 +684,19 @@ bool pino_parse_float(PinoString s, double* out) {
   return true;
 }
 
+static PinoString format_parse_error(PinoString input, const char* suffix) {
+  PinoString parts[3] = {
+      PINO_STR_LIT("Cannot convert '"),
+      input,
+      {NULL, suffix, (int64_t)strlen(suffix)},
+  };
+  return pino_str_concat_n(parts, 3);
+}
+
+PinoString pino_parse_int_error(PinoString input) { return format_parse_error(input, "' to an int."); }
+
+PinoString pino_parse_float_error(PinoString input) { return format_parse_error(input, "' to a float."); }
+
 /* ------------------------------------------------------------------------- */
 /* Vector of strings and split                                                */
 /* ------------------------------------------------------------------------- */

@@ -48,7 +48,8 @@ Members are accessed with the `:` operator on a `string` value, for example `"PI
 - STRLIB-19: `s[i]` returns the `rune` at zero-based Unicode code-point index `i`, consistent with `s:len`. [src: spec/decisions/D-023-string-indexing.md]
 
 ## Errors
-- STRLIB-E1: `s:substring(start, len)` panics at run time when `start < 0` or `start + len > s:len`. [src: spec/decisions/D-028-substring-out-of-range.md]
+- STRLIB-E1: `s:substring(start, len)` panics at run time (ERR-3, exit code 101 per ERR-5) when `start < 0`, `len < 0`, or `start + len > s:len` with `Substring starting at <start> with length <len> is out of range for a string of length <s:len>.`. [src: spec/decisions/D-028-substring-out-of-range.md; spec/decisions/D-189-runtime-texts.md]
+- STRLIB-E2: Indexing a string `s[i]` with `i < 0` or `i >= s:len` panics at run time (ERR-3, exit code 101 per ERR-5) with `Index <i> is out of range for a string of length <s:len>.`. [src: spec/decisions/D-023-string-indexing.md; spec/decisions/D-189-runtime-texts.md]
 
 ## Examples
 Conformance cases: `conformance/stdlib-string/`.

@@ -1,0 +1,1 @@
+IOError::NotFound("__pino_nonexistent_test_file__.txt")

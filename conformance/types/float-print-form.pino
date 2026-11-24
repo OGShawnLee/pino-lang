@@ -1,0 +1,16 @@
+# covers: TYPE-20
+println(100000000000000000.0)
+println(10000000000000000.0)
+println(0.0001)
+println(0.00001)
+println(3.0)
+println(-0.00002)
+println(-0.0)
+var big = 100000000000000000000.0
+big = big * big
+big = big * big
+val inf = big * big * big * big
+val ninf = -inf
+println(inf)
+println(ninf)
+println(inf - inf)

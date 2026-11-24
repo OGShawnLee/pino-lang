@@ -68,6 +68,7 @@ public static class ConformanceRunner {
         ["maps/err-missing-key.pino"] = "Runtime lookup of a missing map key.",
         ["pools/err-stale-index.pino"] = "Runtime panic on indexing a Pool[T] with a stale Handle[T].",
         ["stdlib-regex/err-invalid-pattern.pino"] = "Runtime regex compilation failure on invalid pattern string.",
+        ["stdlib-string/err-index-out-of-range.pino"] = "Runtime string rune-index bounds violation (STRLIB-E2).",
         ["stdlib-string/err-substring-out-of-range.pino"] = "Runtime substring bounds violation on non-constant indices.",
         ["stdlib-vector/err-swap-out-of-range.pino"] = "Runtime vector swap bounds check on out-of-range index.",
         ["testing/assert-outside-test.pino"] = "Runtime assert panic outside a test block (TEST-6).",

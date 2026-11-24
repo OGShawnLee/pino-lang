@@ -85,11 +85,11 @@ void pino_panic_div_overflow(PinoLoc loc) {
 }
 
 void pino_panic_vec_index(int64_t index, int64_t len, PinoLoc loc) {
-  panic_printf(loc, "Index %lld out of range for vector of length %lld.", (long long)index, (long long)len);
+  panic_printf(loc, "Index %lld is out of range for a vector of length %lld.", (long long)index, (long long)len);
 }
 
 void pino_panic_map_key(PinoString key_text, PinoLoc loc) {
-  panic_printf(loc, "Key %.*s not found in map.", (int)key_text.byte_len, key_text.ptr);
+  panic_printf(loc, "Key %.*s was not found in map.", (int)key_text.byte_len, key_text.ptr);
 }
 
 void pino_panic_aliased_mut(const char* collection, const char* target, PinoLoc loc) {
@@ -170,7 +170,7 @@ bool pino_readline(PinoString prompt, PinoString* out) {
   bool at_end = (c == EOF && len == 0) || ferror(stdin);
   if (at_end) {
     pino_dealloc(pino_cur_alloc, buf, cap);
-    *out = PINO_STR_LIT("End of input.");
+    *out = PINO_STR_LIT("There is no more input to read.");
     return false;
   }
   *out = pino_str_from_bytes(buf, (int64_t)len);

@@ -683,8 +683,8 @@ static void test_panics(void) {
   expect_panic("substring",
                "Substring starting at 3 with length 5 is out of range for a string of length 5.");
   expect_panic("get_rune", "Index 3 is out of range for a string of length 3.");
-  expect_panic("vec_index", "Index 5 out of range for vector of length 3.");
-  expect_panic("map_key", "Key \"x\" not found in map.");
+  expect_panic("vec_index", "Index 5 is out of range for a vector of length 3.");
+  expect_panic("map_key", "Key \"x\" was not found in map.");
   expect_panic("alias", "Cannot pass the same element of 'enemies' as two 'mut' arguments to 'duel'.");
   expect_panic("alias_fn", "Cannot pass the same element of 'enemies' as two 'mut' arguments to this function.");
   expect_panic("stale", "This handle no longer points to a value in 'world'; it was removed.");

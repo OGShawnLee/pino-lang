@@ -24,7 +24,7 @@ A map associates unique keys with values. It is created with `map[KeyType, Value
 - MAP-13: Maps have value semantics with copy-on-write (CoW): assignment and non-`mut` argument passing produce logically independent maps, and mutating a caller's map requires a `mut` parameter and call-site `mut`. [src: spec/decisions/D-177-value-semantics-cow-and-mut.md]
 
 ## Errors
-- MAP-E1: Reading a key that is not in the map with `m[key]` fails at run time; the engines share the wording "not found in map", which the conformance case checks. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior]
+- MAP-E1: Reading a key that is not in the map with `m[key]` panics at run time (ERR-3, exit code 101 per ERR-5) with `Key <key> was not found in map.`, where `<key>` is formatted as by `str(key)` with strings in double quotes. [src: DataStructureTests.TestMapEvaluatorRuntimeBehavior; spec/decisions/D-189-runtime-texts.md]
 - MAP-E2: A key in a map literal whose type is not the declared key type is rejected before execution with a type check error. [src: CheckerTests.TestMapTypeCheckerSemanticValidation]
 - MAP-E3: A value in a map literal whose type is not the declared value type is rejected before execution with a type check error. [src: CheckerTests.TestMapTypeCheckerSemanticValidation]
 - MAP-E4: A map type with only one type argument, or a map literal entry without `-> value`, is rejected as a parse error. [src: ParserTests.TestMapParserEdgeCases; spec/decisions/D-100-arrow-token.md]

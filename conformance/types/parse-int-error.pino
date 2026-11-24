@@ -1,0 +1,9 @@
+# covers: TYPE-21
+match int("abc") {
+  when Result::Success(v) { println(v) }
+  when Result::Failure(e) { println(e) }
+}
+match int("") {
+  when Result::Success(v) { println(v) }
+  when Result::Failure(e) { println(e) }
+}

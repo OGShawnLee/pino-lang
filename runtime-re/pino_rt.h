@@ -273,9 +273,9 @@ PINO_NORETURN void pino_panic_cstr_at(const char* msg, PinoLoc loc);
 PINO_NORETURN void pino_panic_div_zero(PinoLoc loc);
 /* TYPE-E6 / D-186: "Integer division overflowed: the smallest 64-bit integer cannot be divided by -1." */
 PINO_NORETURN void pino_panic_div_overflow(PinoLoc loc);
-/* VEC-E4 / VECLIB-E2: "Index <i> out of range for vector of length <len>." */
+/* VEC-E4 / VECLIB-E2: "Index <i> is out of range for a vector of length <len>." */
 PINO_NORETURN void pino_panic_vec_index(int64_t index, int64_t len, PinoLoc loc);
-/* MAP-E1: "Key <key> not found in map." (`key_text` is the already formatted key) */
+/* MAP-E1: "Key <key> was not found in map." (`key_text` is the already formatted key) */
 PINO_NORETURN void pino_panic_map_key(PinoString key_text, PinoLoc loc);
 /* FN-34 / D-184: "Cannot pass the same element of '<collection>' as two 'mut' arguments to '<target>'."
  * `target` is the unqualified function name, or NULL for a call through a function
@@ -411,6 +411,8 @@ PinoString pino_handle_to_str(PinoHandle h); /* "Handle(<index>, <gen>)" */
 /* Parsers. Return true on success and store the value in *out. */
 bool pino_parse_int(PinoString s, int64_t* out);
 bool pino_parse_float(PinoString s, double* out);
+PinoString pino_parse_int_error(PinoString input);
+PinoString pino_parse_float_error(PinoString input);
 
 /* UTF-8 helpers shared by the runtime and by generated code. */
 int pino_utf8_encode(int32_t rune, char out[4]);                         /* bytes written (1..4) */
@@ -458,7 +460,7 @@ typedef struct PinoFileResult {
 void pino_println_n(const PinoString* parts, int64_t n);
 /* Prints `prompt` (when not empty), reads one line. Returns true with the owned
  * line in *out (CR and LF removed). At end of input or on a read error returns
- * false and *out is the static message "End of input." (D-030, BUILTIN-9). */
+ * false and *out is the static message "There is no more input to read." (D-030, BUILTIN-9). */
 bool pino_readline(PinoString prompt, PinoString* out);
 PinoFileResult pino_read_file(PinoString path);
 PinoFileResult pino_write_file(PinoString path, PinoString content);
