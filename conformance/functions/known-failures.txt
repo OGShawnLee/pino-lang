@@ -168,3 +168,11 @@ C err-mut-arg-exact-type.pino  # D-180: legacy parser rejects 'mut' parameter in
 TreeWalk err-return-type-mismatch.pino  # 071, FN-E10: legacy says 'declared return type ... but returned' instead of 'should return'
 VM err-return-type-mismatch.pino  # 071, FN-E10: legacy says 'declared return type ... but returned' instead of 'should return'
 C err-return-type-mismatch.pino  # 071, FN-E10: legacy says 'declared return type ... but returned' instead of 'should return'
+
+# --- OQ-42 canonical -re diagnostic wording (ticket 066)
+TreeWalk err-arrow-named-fn.pino  # OQ-42: legacy emits "PARSER: Expected '{'" instead of "must have a '{ ... }' block body, not '-> expr'"
+VM err-arrow-named-fn.pino  # OQ-42: legacy emits "PARSER: Expected '{'" instead of "must have a '{ ... }' block body, not '-> expr'"
+C err-arrow-named-fn.pino  # OQ-42: legacy emits "PARSER: Expected '{'" instead of "must have a '{ ... }' block body, not '-> expr'"
+TreeWalk err-keyword-parameter-name.pino  # OQ-42: legacy emits "PARSER: Expected Identifier" instead of "Expected identifier"
+VM err-keyword-parameter-name.pino  # OQ-42: legacy emits "PARSER: Expected Identifier" instead of "Expected identifier"
+C err-keyword-parameter-name.pino  # OQ-42: legacy emits "PARSER: Expected Identifier" instead of "Expected identifier"

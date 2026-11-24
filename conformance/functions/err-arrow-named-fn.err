@@ -1,1 +1,1 @@
-Expected '{'
+must have a '{ ... }' block body, not '-> expr'

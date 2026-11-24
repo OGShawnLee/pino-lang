@@ -60,3 +60,11 @@ C insertion-order.pino  # D-004: legacy parser uses k: v instead of k -> v for m
 TreeWalk value-semantics-cow.pino  # D-177: legacy parser uses k: v instead of k -> v and lacks CoW value semantics
 VM value-semantics-cow.pino  # D-177: legacy parser uses k: v instead of k -> v and lacks CoW value semantics
 C value-semantics-cow.pino  # D-177: legacy parser uses k: v instead of k -> v and lacks CoW value semantics
+
+# --- OQ-42 canonical -re diagnostic wording (ticket 066)
+TreeWalk err-entry-without-value.pino  # OQ-42: legacy emits "PARSER: Expected ':' after map key expression" instead of "Expected '->', found '}'"
+VM err-entry-without-value.pino  # OQ-42: legacy emits "PARSER: Expected ':' after map key expression" instead of "Expected '->', found '}'"
+C err-entry-without-value.pino  # OQ-42: legacy emits "PARSER: Expected ':' after map key expression" instead of "Expected '->', found '}'"
+TreeWalk err-missing-value-type.pino  # OQ-42: legacy emits "PARSER: Expected ',' separator in map types" instead of "Expected ',', found ']'"
+VM err-missing-value-type.pino  # OQ-42: legacy emits "PARSER: Expected ',' separator in map types" instead of "Expected ',', found ']'"
+C err-missing-value-type.pino  # OQ-42: legacy emits "PARSER: Expected ',' separator in map types" instead of "Expected ',', found ']'"

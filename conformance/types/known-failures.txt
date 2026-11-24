@@ -49,9 +49,8 @@ C err-floor-division-by-zero-const.pino  # D-166: legacy fails with 'PARSER: Exp
 TreeWalk err-modulo-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
 VM err-modulo-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
 C err-modulo-by-zero-const.pino  # D-166: legacy accepts the program (no error containing 'Division by Zero')
-TreeWalk err-void-collection-element.pino  # D-162: legacy fails with 'PARSER: Expected '=', got Marker: [ (BracketBegin)' instead of an error containing 'void'
-VM err-void-collection-element.pino  # D-162: legacy fails with 'PARSER: Expected '=', got Marker: [ (BracketBegin)' instead of an error containing 'void'
-C err-void-collection-element.pino  # D-162: legacy fails with 'PARSER: Expected '=', got Marker: [ (BracketBegin)' instead of an error containing 'void'
+TreeWalk err-void-collection-element.pino  # D-162: legacy accepts 'val xs = []void' instead of failing with an error containing 'void'
+VM err-void-collection-element.pino  # D-162: legacy accepts 'val xs = []void' instead of failing with an error containing 'void'
 TreeWalk err-void-field.pino  # D-162: legacy accepts the program (no error containing 'void')
 VM err-void-field.pino  # D-162: legacy accepts the program (no error containing 'void')
 C err-void-field.pino  # D-162: legacy fails with 'TCC compilation failed: / Assertation failed! / ..\ / x86_64-gen.c, Line 441 / Expression:' instead of an error containing 'void'

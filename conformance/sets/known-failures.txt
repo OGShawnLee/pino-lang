@@ -31,3 +31,8 @@ C value-semantics-cow.pino  # D-177: legacy compiler has no set[T] type or CoW v
 TreeWalk format.pino  # D-186: legacy compiler has no set[T] type, so str(s) cannot print set[T] { e1, e2 }
 VM format.pino  # D-186: legacy compiler has no set[T] type, so str(s) cannot print set[T] { e1, e2 }
 C format.pino  # D-186: legacy compiler has no set[T] type, so str(s) cannot print set[T] { e1, e2 }
+
+# --- OQ-42 canonical -re diagnostic wording (ticket 066)
+TreeWalk err-bare-brace-set.pino  # OQ-42: legacy emits "PARSER: Expected expression, got Marker: { (BlockBegin)" instead of "Unexpected '{' in expression position"
+VM err-bare-brace-set.pino  # OQ-42: legacy emits "PARSER: Expected expression, got Marker: { (BlockBegin)" instead of "Unexpected '{' in expression position"
+C err-bare-brace-set.pino  # OQ-42: legacy emits "PARSER: Expected expression, got Marker: { (BlockBegin)" instead of "Unexpected '{' in expression position"

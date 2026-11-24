@@ -91,3 +91,8 @@ C err-mut-as-identifier.pino  # D-177: legacy treats 'mut' as an identifier and 
 TreeWalk semicolons-ignored.pino  # D-187: legacy lexer rejects ';' (PARSER: Expected expression, got Illegal: 1;)
 VM semicolons-ignored.pino  # D-187: legacy lexer rejects ';' (PARSER: Expected expression, got Illegal: 1;)
 C semicolons-ignored.pino  # D-187: legacy lexer rejects ';' (PARSER: Expected expression, got Illegal: 1;)
+
+# --- OQ-42 canonical -re diagnostic wording (ticket 066)
+TreeWalk keyword-as-identifier-rejected.pino  # OQ-42: legacy emits "PARSER: Expected Identifier" instead of "Expected identifier, found reserved keyword"
+VM keyword-as-identifier-rejected.pino  # OQ-42: legacy emits "PARSER: Expected Identifier" instead of "Expected identifier, found reserved keyword"
+C keyword-as-identifier-rejected.pino  # OQ-42: legacy emits "PARSER: Expected Identifier" instead of "Expected identifier, found reserved keyword"

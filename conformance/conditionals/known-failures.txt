@@ -14,3 +14,8 @@ C err-branch-type-mismatch.pino  # D-033: legacy fails with 'TCC compilation fai
 TreeWalk if-expression-widening.pino  # D-033: legacy prints '1 / 2.5' instead of '1.0 / 2.5'
 VM if-expression-widening.pino  # D-033: legacy prints '1 / 2.5' instead of '1.0 / 2.5'
 C if-expression-widening.pino  # D-033: legacy prints '1 / 2' instead of '1.0 / 2.5'
+
+# --- OQ-42 canonical -re diagnostic wording (ticket 066)
+TreeWalk err-else-arrow.pino  # OQ-42: legacy emits "PARSER: Expected '{'" instead of "Unexpected '->' after 'else'"
+VM err-else-arrow.pino  # OQ-42: legacy emits "PARSER: Expected '{'" instead of "Unexpected '->' after 'else'"
+C err-else-arrow.pino  # OQ-42: legacy emits "PARSER: Expected '{'" instead of "Unexpected '->' after 'else'"

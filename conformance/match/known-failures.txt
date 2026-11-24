@@ -45,3 +45,8 @@ C err-arrow-arm-in-statement.pino  # D-148: legacy parser uses => instead of -> 
 TreeWalk err-bare-identifier-pattern.pino  # D-034: legacy accepts the program and prints 'k matched' instead of failing with an error containing 'bare identifier'
 VM err-bare-identifier-pattern.pino  # D-034: legacy accepts the program and prints nothing instead of failing with an error containing 'bare identifier'
 C err-bare-identifier-pattern.pino  # D-034: legacy accepts the program and prints 'k matched' instead of failing with an error containing 'bare identifier'
+
+# --- OQ-42 canonical -re diagnostic wording (ticket 066)
+TreeWalk err-arrow-block.pino  # OQ-42: legacy emits "PARSER: Expected expression, got Operator: >" instead of "Unexpected '{' after '->' in match arm"
+VM err-arrow-block.pino  # OQ-42: legacy emits "PARSER: Expected expression, got Operator: >" instead of "Unexpected '{' after '->' in match arm"
+C err-arrow-block.pino  # OQ-42: legacy emits "PARSER: Expected expression, got Operator: >" instead of "Unexpected '{' after '->' in match arm"

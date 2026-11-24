@@ -46,55 +46,6 @@ public sealed class CheckerConformanceTests {
         ["vectors/err-index-out-of-range.pino"] = "Runtime vector bounds check on out-of-range index.",
       };
 
-  /// <summary>
-  /// OQ-42 explicit allowlist for <c>.err</c> cases whose diagnostic wording is cleaner in <c>pino-re</c>
-  /// than the legacy C#-compiler <c>TYPE CHECK ERROR</c> or mangled <c>Option_string</c>/<c>@(x:int)</c>
-  /// strings. Each entry records the expected <c>PN3xxx</c> code and required semantic phrasing.
-  /// </summary>
-  public static readonly IReadOnlyDictionary<string, (string ExpectedCode, string RequiredPhrase, string Reason)> LegacyErrTextAllowlist =
-      new Dictionary<string, (string ExpectedCode, string RequiredPhrase, string Reason)>(StringComparer.OrdinalIgnoreCase) {
-        ["functions/err-argument-type.pino"] = (
-            DiagnosticCodes.TypeMismatch,
-            "expected type 'int', but got 'string'",
-            "Legacy .err checks coarse 'TYPE CHECK ERROR' prefix; pino-re emits PN3102."),
-        ["generics/err-incompatible-init.pino"] = (
-            DiagnosticCodes.TypeMismatch,
-            "in struct 'Pair'",
-            "Legacy .err uses mangled 'Pair_string_int'; pino-re reports field/struct mismatch directly."),
-        ["maps/err-key-type.pino"] = (
-            DiagnosticCodes.TypeMismatch,
-            "map key of type 'string'",
-            "Legacy .err checks 'TYPE CHECK ERROR'; pino-re emits PN3102."),
-        ["maps/err-value-type.pino"] = (
-            DiagnosticCodes.TypeMismatch,
-            "map value of type 'int'",
-            "Legacy .err checks 'TYPE CHECK ERROR'; pino-re emits PN3102."),
-        ["modules/err-module-main.pino"] = (
-            DiagnosticCodes.ModuleDefinesMain,
-            "cannot define a 'main' function",
-            "Legacy .err checks 'TYPE CHECK ERROR'; pino-re emits PN3008."),
-        ["structs/err-fn-field-bad-lambda.pino"] = (
-            DiagnosticCodes.TypeMismatch,
-            "field 'increment' of type 'fn (int) -> int'",
-            "Legacy .err omits '->' in 'fn(string) string'; pino-re uses canonical 'fn (int) -> int'."),
-        ["unions/err-generic-arg-mismatch.pino"] = (
-            DiagnosticCodes.TypeMismatch,
-            "Container[string]",
-            "Legacy .err uses mangled 'Container_string'; pino-re uses canonical 'Container[string]'."),
-        ["unions/err-generic-mismatch.pino"] = (
-            DiagnosticCodes.TypeMismatch,
-            "Maybe[string]",
-            "Legacy .err uses mangled 'Maybe_string'; pino-re uses canonical 'Maybe[string]'."),
-        ["unions/err-is-generic-mismatch.pino"] = (
-            DiagnosticCodes.InvalidIsPattern,
-            "Option[int]",
-            "Legacy .err uses mangled 'Option_int'; pino-re uses canonical 'Option[int]'."),
-        ["unions/err-is-unknown-variant.pino"] = (
-            DiagnosticCodes.InvalidIsPattern,
-            "has no variant",
-            "Legacy .err uses mangled 'Option_int'; pino-re emits PN3307."),
-      };
-
   public static TheoryData<string> PositiveCases() {
     var data = new TheoryData<string>();
     foreach (string file in Directory.EnumerateFiles(s_conformanceRoot, "*.pino", SearchOption.AllDirectories)
@@ -148,9 +99,16 @@ public sealed class CheckerConformanceTests {
     string expectedErr = File.ReadAllText(errFullPath).Trim();
 
     ParseResult parsed = Parser.Parse(new SourceText(content, fullPath));
-    bool hasLexOrParseError = parsed.Diagnostics.Any(static d => d.Severity == DiagnosticSeverity.Error);
-    if (hasLexOrParseError) {
+    Diagnostic[] lexOrParseErrors = parsed.Diagnostics
+        .Where(static d => d.Severity == DiagnosticSeverity.Error)
+        .ToArray();
+    if (lexOrParseErrors.Length > 0) {
       Assert.False(RuntimeErrCases.ContainsKey(relativePath), $"{relativePath} failed to parse but is listed in RuntimeErrCases.");
+      bool matchesParseErrText = lexOrParseErrors.Any(d =>
+          (d.Message + "\n" + d.Help).Contains(expectedErr, StringComparison.Ordinal));
+      Assert.True(
+          matchesParseErrText,
+          $"{relativePath}: lex/parse diagnostic(s) [{string.Join(" | ", lexOrParseErrors.Select(d => $"{d.Code}: {d.Message} (help: {d.Help})"))}] do not contain .err text '{expectedErr}'.");
       return;
     }
 
@@ -170,14 +128,6 @@ public sealed class CheckerConformanceTests {
         checkerErrors.Length > 0,
         $"Expected checker error for {relativePath} (conformance .err: '{expectedErr}'), but got none.");
 
-    if (LegacyErrTextAllowlist.TryGetValue(relativePath, out (string Code, string Phrase, string Reason) allowed)) {
-      Assert.Contains(
-          checkerErrors,
-          d => string.Equals(d.Code, allowed.Code, StringComparison.Ordinal)
-              && ((d.Message + "\n" + d.Help).Contains(allowed.Phrase, StringComparison.Ordinal)));
-      return;
-    }
-
     bool matchesErrText = checkerErrors.Any(d =>
         (d.Message + "\n" + d.Help).Contains(expectedErr, StringComparison.Ordinal));
     Assert.True(
@@ -196,12 +146,6 @@ public sealed class CheckerConformanceTests {
     foreach ((string runtimeCase, string reason) in RuntimeErrCases) {
       Assert.True(allNegative.Contains(runtimeCase), $"Stale RuntimeErrCases entry: {runtimeCase}");
       Assert.False(string.IsNullOrWhiteSpace(reason), $"Missing reason for RuntimeErrCases entry: {runtimeCase}");
-    }
-
-    foreach ((string legacyCase, (_, _, string reason)) in LegacyErrTextAllowlist) {
-      Assert.True(allNegative.Contains(legacyCase), $"Stale LegacyErrTextAllowlist entry: {legacyCase}");
-      Assert.False(RuntimeErrCases.ContainsKey(legacyCase), $"Overlap between allowlists: {legacyCase}");
-      Assert.False(string.IsNullOrWhiteSpace(reason), $"Missing reason for LegacyErrTextAllowlist entry: {legacyCase}");
     }
   }
 

@@ -1,13 +1,26 @@
+extern alias PinoRe;
+
 using System.Diagnostics;
 using System.Text;
 using Pino;
+using PinoRe::Pino.Compiler.Checking;
+using PinoRe::Pino.Compiler.CodeGen.C;
+using PinoRe::Pino.Compiler.Diagnostics;
+using PinoRe::Pino.Compiler.IR;
+using PinoRe::Pino.Compiler.IR.Passes;
+using Pino.Vm;
+using ReCompilation = PinoRe::Pino.Compiler.Checking.Compilation;
+using ReParser = PinoRe::Pino.Compiler.Parsing.Parser;
+using ReSourceText = PinoRe::Pino.Compiler.Text.SourceText;
 
 namespace pino_csharp.tests.Conformance;
 
 public enum ConformanceEngine {
   TreeWalk,
   VM,
-  C
+  C,
+  ReVm,
+  ReC
 }
 
 /// <summary>Raw outcome of running one case on one engine.</summary>
@@ -168,6 +181,8 @@ public static class ConformanceRunner {
       ConformanceEngine.TreeWalk => RunInProcess(path, useVM: false),
       ConformanceEngine.VM => RunInProcess(path, useVM: true),
       ConformanceEngine.C => RunC(path),
+      ConformanceEngine.ReVm => RunReVm(path),
+      ConformanceEngine.ReC => RunReC(path),
       _ => throw new ArgumentOutOfRangeException(nameof(engine))
     };
   }
@@ -333,6 +348,139 @@ public static class ConformanceRunner {
         return new EngineRun(false, exe.Stdout, $"exit code {exe.ExitCode}\nstdout:\n{exe.Stdout}\nstderr:\n{exe.Stderr}".TrimEnd());
       }
       return new EngineRun(true, exe.Stdout, "");
+    } finally {
+      try { Directory.Delete(tempDir, recursive: true); } catch { /* best effort */ }
+    }
+  }
+
+  private static string FormatReDiagnostics(IEnumerable<Diagnostic> diagnostics) {
+    var sb = new StringBuilder();
+    foreach (var d in diagnostics) {
+      if (sb.Length > 0) sb.Append('\n');
+      sb.Append($"{d.Code}: {d.Message}");
+      if (!string.IsNullOrWhiteSpace(d.Help)) {
+        sb.Append('\n').Append(d.Help);
+      }
+    }
+    return sb.ToString();
+  }
+
+  private static bool TryBuildRePostRc(
+      string path,
+      out ReSourceText source,
+      out ReCompilation? compilation,
+      out IrModule? ir,
+      out string? errorMessage) {
+    var content = File.ReadAllText(path);
+    source = new ReSourceText(content, path);
+    compilation = null;
+    ir = null;
+    errorMessage = null;
+
+    var parsed = ReParser.Parse(source);
+    var parseErrors = parsed.Diagnostics.Where(static d => d.Severity == DiagnosticSeverity.Error).ToArray();
+    if (parseErrors.Length > 0) {
+      errorMessage = FormatReDiagnostics(parseErrors);
+      return false;
+    }
+
+    compilation = ReCompilation.Create(parsed, FileSystemModuleSource.Instance);
+    var compErrors = compilation.Diagnostics.Where(static d => d.Severity == DiagnosticSeverity.Error).ToArray();
+    if (compErrors.Length > 0) {
+      errorMessage = FormatReDiagnostics(compErrors);
+      return false;
+    }
+
+    ir = IrLowerer.Lower(compilation);
+    RcInsertPass.Run(ir);
+    var verification = IrVerifier.Verify(ir, IrVerifyStage.PostRc);
+    if (!verification.IsValid) {
+      errorMessage = "IR verification failed:\n" + string.Join("\n", verification.Errors);
+      return false;
+    }
+
+    return true;
+  }
+
+  private static EngineRun RunReVm(string path) {
+    if (!TryBuildRePostRc(path, out var source, out _, out var ir, out var errorMessage)) {
+      return new EngineRun(false, "", errorMessage!);
+    }
+
+    var host = new BufferedVmHost();
+    using var cts = new CancellationTokenSource(Timeout);
+    PinoVmResult result;
+    try {
+      var vm = new PinoVm(ir!, host, new PinoVmOptions {
+        VerifyRc = true,
+        RootSource = source,
+        CancellationToken = cts.Token,
+      });
+      result = vm.Run();
+    } catch (OperationCanceledException) {
+      return new EngineRun(false, host.StdOut, "timeout");
+    }
+
+    if (result.RcError is not null) {
+      return new EngineRun(false, host.StdOut, $"shadow-RC error: {result.RcError}");
+    }
+
+    if (result.ExitCode != 0) {
+      return new EngineRun(
+          false,
+          host.StdOut,
+          $"exit code {result.ExitCode}\nstdout:\n{host.StdOut}\nstderr:\n{host.StdErr}".TrimEnd());
+    }
+
+    if (result.LeakReport is { IsClean: false } leaky) {
+      return new EngineRun(false, host.StdOut, $"shadow-RC leaks:\n{leaky.Format()}");
+    }
+
+    return new EngineRun(true, host.StdOut, "");
+  }
+
+  private static EngineRun RunReC(string path) {
+    if (!TryBuildRePostRc(path, out _, out var compilation, out var ir, out var errorMessage)) {
+      return new EngineRun(false, "", errorMessage!);
+    }
+
+    var cSource = CEmitter.Emit(ir!, compilation);
+    var tempDir = Path.Combine(Path.GetTempPath(), "pino-re-conformance", Guid.NewGuid().ToString("N"));
+    try {
+      Directory.CreateDirectory(tempDir);
+      var exePath = Path.Combine(tempDir, OperatingSystem.IsWindows() ? "pino_re_case.exe" : "pino_re_case");
+      var build = CCompilerDriver.Build(new CBuildOptions(
+          CSource: cSource,
+          OutputExecutablePath: exePath,
+          Release: false,
+          DebugRc: true,
+          RepoRoot: RepoRoot));
+      if (!build.Succeeded) {
+        return new EngineRun(false, "", $"TCC compilation failed ({build.CompilerUsed}):\n{build.Stderr}{build.Stdout}".TrimEnd());
+      }
+
+      var exec = CCompilerDriver.RunExecutable(
+          exePath,
+          workingDirectory: tempDir,
+          failOnLeak: true,
+          closeStdin: true,
+          timeout: Timeout);
+      if (exec.TimedOut) {
+        return new EngineRun(false, "", "timeout");
+      }
+
+      if (exec.ExitCode != 0) {
+        return new EngineRun(
+            false,
+            exec.Stdout,
+            $"exit code {exec.ExitCode}\nstdout:\n{exec.Stdout}\nstderr:\n{exec.Stderr}".TrimEnd());
+      }
+
+      if (exec.Stderr.Contains("LEAK:", StringComparison.Ordinal)) {
+        return new EngineRun(false, exec.Stdout, $"RC leak detected:\n{exec.Stderr}".TrimEnd());
+      }
+
+      return new EngineRun(true, exec.Stdout, "");
     } finally {
       try { Directory.Delete(tempDir, recursive: true); } catch { /* best effort */ }
     }

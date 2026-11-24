@@ -98,3 +98,8 @@ C err-is-pattern-too-many-bindings.pino  # D-169: legacy fails with 'TYPE CHECK 
 TreeWalk err-mutate-payload-binding.pino  # D-182: legacy allows mutating union payload binding instead of failing with 'Cannot mutate immutable pattern binding'
 VM err-mutate-payload-binding.pino  # D-182: legacy fails with 'Value is not callable' instead of 'Cannot mutate immutable pattern binding'
 C err-mutate-payload-binding.pino  # D-182: legacy allows mutating union payload binding instead of failing with 'Cannot mutate immutable pattern binding'
+
+# --- OQ-42 canonical -re diagnostic wording (ticket 066)
+TreeWalk err-is-generic-mismatch.pino  # OQ-42: legacy emits mangled 'Option_int' instead of canonical 'Option[int]'
+VM err-is-generic-mismatch.pino  # OQ-42: legacy emits mangled 'Option_int' instead of canonical 'Option[int]'
+C err-is-generic-mismatch.pino  # OQ-42: legacy emits mangled 'Option_int' instead of canonical 'Option[int]'

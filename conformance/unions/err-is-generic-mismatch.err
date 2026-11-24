@@ -1,1 +1,1 @@
-Cannot match union pattern of type 'Option_int' against condition of type 'Option_string'
+Option[int]

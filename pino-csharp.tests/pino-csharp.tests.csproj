@@ -21,6 +21,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\pino-csharp\pino-csharp.csproj" />
+    <ProjectReference Include="..\pino-csharp-re\Pino.Compiler\Pino.Compiler.csproj">
+      <Aliases>PinoRe</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\pino-csharp-re\Pino.Vm\Pino.Vm.csproj" />
   </ItemGroup>
 
 </Project>
