@@ -21,22 +21,22 @@ val numbers = []int { len: 6, init: it + 1 }
 println(numbers:filter(fn (it int) -> it % 2 == 0)) # [2, 4, 6]
 ```
 
-- [Guide](./docs/guide/): [values and mutation](./docs/guide/values-and-mutation.md) and [things that may surprise you](./docs/guide/surprises.md).
+- [Guide](./docs/guide/): [values and mutation](./docs/guide/values-and-mutation.md), [things that may surprise you](./docs/guide/surprises.md), and [testing](./docs/guide/testing.md).
 - [Specification](./spec/SPEC.md): every rule of the language, numbered, each one backed by tests in [`conformance/`](./conformance/).
 - [Language Reference](./LANGUAGE_REFERENCE.md): the older long-form reference. Where it disagrees with the spec, the spec wins.
-- [Architecture](./ARCHITECTURE.md): how the compiler is put together.
+- [Architecture](./ARCHITECTURE.md): how the older compiler was put together.
 - [Proposals](./proposals/): design notes and RFCs.
 
 ## What makes Pino different
 
 - **Your data never changes behind your back.** In Python, JavaScript, Java or C#, giving a list to another variable or function hands over the *same* list, so a change on one side shows up on the other, often by surprise. In Python, `b = a` followed by `b.append(4)` changes `a` too. In Pino, each side gets its own copy: after `var b = a` and `b:push(4)`, `a` is exactly as it was. That makes code easy to follow: to know what a function can do to your data, you only need to read that function. It stays fast, too, because Pino only really copies when one side changes something ([copy-on-write](#memory-without-a-garbage-collector)).
 - **Change is always visible.** `val` freezes a value all the way down. A function can change your data only if its parameter says `mut`, and the call says `mut` too: `heal(mut hero)`.
-- **No garbage collector.** Memory is freed the moment it's no longer used, so there are no pauses and memory use stays low. (Being built in the new compiler; see [Memory](#memory-without-a-garbage-collector).)
+- **No garbage collector.** Memory is freed the moment it's no longer used, so there are no pauses and memory use stays low. (Pino 0.4 frees memory with reference counting; see [Memory](#memory-without-a-garbage-collector).)
 - **No `null`.** A value that may be missing is an `Option[T]`, and the checker makes you handle both cases.
 - **Errors are values.** Functions that can fail return a `Result`; `?` passes the failure up and `or { ... }` handles it in place.
 - **Errors that read like sentences.** The compiler tells you what's wrong and how to fix it, without compiler jargon.
 - **One obvious way.** One loop keyword, one error mechanism, one way to share data between parts of a program. Fewer choices means less to decide.
-- **Light on your computer.** Not everyone has a powerful machine. Pino should run well on a 4 GB laptop: no gigabytes of SDKs to install, quick builds, and small native programs (a hello world is about 25 KB).
+- **Light on your computer.** Not everyone has a powerful machine. Pino should run well on a 4 GB laptop: no gigabytes of SDKs to install, quick builds, and small native programs (a hello world is about 124 KB on Windows).
 - **Forgiving about small things, strict about real ones.** There are no semicolons to forget. Nobody should fail a class over a missing semicolon. The checker saves its strictness for real mistakes, like changing data you said wouldn't change.
 
 ## Made for people and for AI
@@ -121,13 +121,13 @@ None of these ideas are new on their own, and I'm glad to borrow them:
 
 What's new is the combination: Go-like simplicity with no garbage collector, no `null`, no lifetimes, and memory bugs ruled out by design. As far as I know, no mainstream language offers that mix.
 
-**Where this stands:** values, `mut` and `Pool` are fully specified and checked by the new compiler ([`pino-csharp-re`](./pino-csharp-re/)). Its VM and its reference-counted C backend are being built now. The `pino` you install today runs on the older engine, which uses a garbage collector and doesn't know all of these rules yet.
+**Where this stands:** values, `mut` and `Pool` are fully specified and checked. In 0.4, both the VM and the C backend run the whole language with reference counting and no garbage collector. The optimizations (Perceus-style reuse, fewer count updates) and arenas are the work planned for 0.5.
 
 ## What Pino is good for
 
 | Kind of program | Fit | What's still missing |
 | :--- | :--- | :--- |
-| Scripts and command-line tools | Good today | A REPL on the new compiler, a wider standard library |
+| Scripts and command-line tools | Good today | A wider standard library |
 | Compilers and language tools | Good today; the self-hosted compiler proves it | — |
 | Games | A strong fit: no GC pauses, `Pool` for entities | Calling C libraries, graphics bindings |
 | Servers and microservices | Good, once concurrency lands | Concurrency design, an HTTP library |
@@ -150,25 +150,39 @@ What's new is the combination: Go-like simplicity with no garbage collector, no 
 - Small standard library and no package ecosystem yet.
 - No concurrency yet.
 - Structures that point at each other need `Pool` and handles instead of pointers, which takes some getting used to.
-- Two compilers are mid-transition: the one you install and the new one.
 - AI models know very little Pino yet.
 
-## How fast will it be?
+## Performance
 
-Nothing is measured yet, so these are targets, not claims.
+Ten benchmarks plus `hello`, using the same algorithm in Pino, Go, Rust, C#, Bun and Python with checked output, measured as the median of 5 runs on an Intel Core i3-N305 running Windows 11 (x64) on 2026-11-24 at Pino commit `5ac8b13` (see [`benchmarks/README.md`](./benchmarks/README.md) for the method and [`benchmarks/results/2026-11-24-windows-x64.md`](./benchmarks/results/2026-11-24-windows-x64.md) for the full results).
 
-- **Where Pino should beat Go:**
-  - The new C backend hands its output to GCC or Clang, which optimize harder than Go's compiler.
-  - Generics compile to a separate copy for each type, with no hidden lookups.
-  - There are no GC pauses.
-  - Memory is freed right away, where Go lets the heap grow to about twice the live data.
-  - Structs are stored inline, which is friendly to the CPU cache.
-- **Where Go may still win:**
-  - Programs that create huge numbers of short-lived shared objects, unless the compiler removes the counting.
-  - Highly concurrent servers: Go's scheduler is 15 years mature, and Pino's concurrency design is still open. The plan is to move values between tasks instead of sharing them, so counts never need expensive atomic updates.
-  - Build speed and tooling.
+- `pino run` runs on the VM, with no C compiler needed.
+- `pino build` compiles native code through TinyCC, which compiles instantly with no optimizer.
+- `pino build --release` compiles native code through GCC or Clang with `-O2`, which is the speed number.
 
-Realistic target: faster than Go on single-threaded work like computation, compilers and games, with less memory and no pauses, and on par with Go for servers. Benchmarks against Go and C will come once the new backend runs.
+Median execution time in ms (lower is faster):
+
+| Benchmark | Pino VM | Pino (TinyCC) | Pino (gcc) | Go | Rust | C# | Bun | Python |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| hello (startup) | 495 | 10 | 11 | 16 | 17 | 104 | 31 | 50 |
+| fib | 950 | 25 | 15 | 22 | 18 | 105 | 50 | 136 |
+| binary trees | 1,255 | 60 | 49 | 37 | 69 | 128 | 80 | 217 |
+| mandelbrot | 1,666 | 66 | 22 | 27 | 24 | 113 | 70 | 599 |
+| sort | 1,133 | 27 | 17 | 18 | 16 | 111 | 64 | 98 |
+| string building | 766 | 1,002 | 231 | 70 | 26 | 140 | 39 | 52 |
+| lexer | 3,177 | 38 | 21 | 25 | 17 | 144 | 60 | 91 |
+
+Compiled with `--release`, Pino runs in the same range as Go and Rust, and faster than C#, Bun and Python on every benchmark except string building. The sizes are small on purpose so the suite runs in a few minutes on any machine, which puts Go, Rust and Pino with gcc close to their startup time: the table shows they're in the same league, not which one wins.
+
+**Known weak spots:** building a string with `s = s + x` is slow in native Pino today, because the runtime copies on every append; a fix is next. The VM takes about half a second to start and is slower than Python today.
+
+**Goals, not measurements:**
+
+- String building with gcc in the Go/Rust range after the fix.
+- VM startup under 0.1 s, and the VM within 1.5–3× of Python's time.
+- In 0.5, native Pino within about 1–2× of Rust on every benchmark.
+
+Reference counting has a cost, so Pino isn't expected to beat hand-tuned C or Rust in general.
 
 ## Why "Pino"?
 
@@ -181,14 +195,14 @@ Pino is named after the AutoReiv android from *Ergo Proxy*. In the show she catc
 
 ## Status
 
-Pino is a one-person project and parts of it are still moving. There are two compilers right now: the original one, which is what `pino` installs, and a rewrite that implements the current language rules and will replace it.
+Pino is a one-person project. 0.4 ships the new compiler as `pino`; the older compiler is retired.
 
 | Part | State |
 | :--- | :--- |
-| Tree-walk interpreter | The installed default. Runs the whole language as it was before the value rules. |
-| C backend (`--c`) | Experimental. Transpiles to C and compiles with a bundled TCC and Boehm GC. Most programs work; some closure patterns still fail to compile. |
-| Bytecode VM (`--vm`) | Partial. Handles arithmetic, control flow and functions, but not structs or unions yet. |
-| New compiler ([`pino-csharp-re`](./pino-csharp-re/)) | Where new work happens. Lexer, parser and type checker are done, with plain-sentence errors and error recovery for an editor. A new intermediate representation is in progress; it will drive both a VM and a C backend that uses reference counting instead of a GC. |
+| VM | The default for `pino run`, the REPL and the browser playground. Runs the whole language. |
+| C backend | `pino build`, `pino run --c`: C99 with its own reference-counting runtime. TinyCC is bundled on Windows only; Linux and macOS use the system C compiler. `--release` uses GCC or Clang. |
+| Tests | `pino test`, with `test` blocks and asserts that show values. |
+| Conformance | Every rule in the spec has tests; both engines pass all 657 cases with the same output. |
 | Self-hosted compiler ([`projects/pino-compiler`](./projects/pino-compiler/)) | In progress, written by hand in Pino. |
 | Editor support | Syntax highlighting for [VS Code](./vscode-pino/) and [Zed](./zed-pino/). |
 
@@ -201,11 +215,10 @@ The details are in [`spec/decisions/`](./spec/decisions/).
 
 ### Roadmap
 
-1. The new compiler's VM and C backend, so Pino programs run on it.
-2. The reference-counting optimizations (Perceus) and arenas.
-3. A REPL and a WebAssembly build on the new compiler.
-4. Benchmarks against Go and C.
-5. Concurrency, calling C libraries, and a "Pino for LLMs" page.
+1. Faster native string building (next).
+2. A faster VM: startup under 0.1 s, closer to Python's speed.
+3. The reference-counting optimizations (Perceus-style reuse) and arenas, for 0.5.
+4. Concurrency, calling C libraries, and a "Pino for LLMs" page.
 
 ## Install
 
@@ -219,12 +232,22 @@ macOS and Linux:
 curl -fsSL https://raw.githubusercontent.com/OGShawnLee/pino-lang/main/install.sh | bash
 ```
 
+The installer puts everything in `~/.pino/` and checks each download against `SHA256SUMS`.
+
+### Upgrading from 0.3
+
+Pino 0.4 moves the binary from `~/.pino/bin/pino` to `~/.pino/pino`. Run the installer again and it removes the old `PATH` entry. From 0.4 on, `pino update` updates in place.
+
+### Requirements
+
+`pino run`, `pino test`, `pino repl` and `pino play` need nothing else on any OS. For `--c` and `pino build`, TinyCC is bundled on Windows only; Linux and macOS use the system C compiler (`sudo apt install build-essential` on Debian and Ubuntu; `xcode-select --install` on macOS). `pino build --release` needs GCC or Clang.
+
 ## Getting started
 
 ```bash
-pino init my-app   # creates main.pino, modules/ and test/
+pino init my-app
 cd my-app
-pino run
+pino        # runs main.pino
 pino test
 ```
 
@@ -244,16 +267,22 @@ my-app/
 
 | Command | What it does |
 | :--- | :--- |
-| `pino init [name]` | Create a new project. |
-| `pino run [file]` | Run a file with the interpreter (defaults to `main.pino`). |
-| `pino run [file] --vm` | Run it on the bytecode VM. |
-| `pino run [file] --c` | Transpile to C, compile with TCC, run it, then delete the binary. |
-| `pino watch [file]` | Re-run the file every time you save it. |
-| `pino test [file]` | Run every `test` block in the project or file. |
-| `pino compile [file] [out.c]` | Transpile to C and write the result. |
-| `pino repl` | Start the REPL. |
-| `pino play` | Open the games menu (downloads the games if needed). |
-| `pino version` / `pino update` | Show the version, or update from GitHub. |
+| `pino` | Run `main.pino` in the current directory, or show help. |
+| `pino init [name]` | Create a new Pino project (`main.pino`, `modules/`, `test/`, `.gitignore`). |
+| `pino run [opts] [file]` | Run a `.pino` file (defaults to `main.pino`). Use `--vm` (default) or `--c` to compile to a native program and run it. |
+| `pino build [opts] [file]` | Compile a `.pino` file to a native program (defaults to `main.pino`). Supports `-o <out>`, `--release` (GCC or Clang), and `--emit-c <path>`. |
+| `pino compile [file] [out]` | Write the generated C code for a file (alias: `c`). |
+| `pino watch [opts] [file]` | Run a `.pino` file and rerun on save (defaults to `main.pino`). Supports `--vm` (default) and `--c`. |
+| `pino check <path>...` | Check `.pino` files or folders for errors (`--color`, `--voice`). |
+| `pino repl` | Start an interactive Pino session. |
+| `pino play [game]` | Play a game from `./games/` or the installed games folder. |
+| `pino play update` | Download the official Pino games for this version. |
+| `pino test [opts] [path]` | Run test blocks in a file or folder (defaults to the current folder). Supports `--vm` (default), `--c`, `--strict`, and `--filter <text>`. |
+| `pino tree <file>` | Print the syntax tree of one file, then its errors. |
+| `pino explain <code>` | Explain an error or hint code, for example `pino explain PN1018`. |
+| `pino version` | Print the Pino version (aliases: `v`, `--version`). |
+| `pino update` | Check for and install the latest Pino release. |
+| `pino help` | Show help (aliases: `h`, `--help`, `-h`). |
 
 ## A tour of the language
 
@@ -470,21 +499,42 @@ val result = divide(10, 0) or {
 }
 ```
 
+### Tests
+
+Pino has built-in `test` blocks and a test runner, `pino test`.
+
+```pino
+fn add(a int, b int) int {
+  return a + b
+}
+
+test "adds two numbers" {
+  assert(add(2, 3) == 5)
+}
+```
+
+When an `assert` fails, Pino prints the expression and the values it evaluated to:
+
+```text
+test/more_test.pino
+  [FAIL] first changes count  (test/more_test.pino:6)
+         math is broken
+         `add(1, 1) == 3` was false.
+         add(1, 1) is 2
+
+1 failed (0.76 s)
+```
+
 ## How it runs
 
-Both compilers are written in C# (.NET 10). The installed `pino` ships as a single self-contained executable, so you don't need .NET installed to use it.
+The compiler is written in C# (.NET 10) and ships as one self-contained executable, so you don't need .NET installed.
 
-**Today's compiler** has two ways to run code:
+It checks the program and lowers it once to an intermediate representation, which two engines read:
 
-- **Interpreter (and the experimental VM)** for development: no build step, so you can just run the file or `pino watch` it.
-- **C backend** for native binaries: Pino becomes plain C, which the bundled [TCC](https://bellard.org/tcc/) compiles and links with [Boehm GC](https://www.hboehm.info/gc/). A hello world comes out at roughly 25 KB, and the program needs nothing else to run. The reasoning is in [RFC 008b](./proposals/008b-tcc-c-backend.md).
+- **A VM** for edit-and-run, `pino watch`, the REPL and the browser playground.
+- **A C backend** with its own small runtime ([`runtime-re/`](./runtime-re/)) that uses reference counting instead of a garbage collector, compiled with TinyCC for quick builds or GCC/Clang for optimized ones.
 
-**The new compiler** turns a checked program into one intermediate representation with two consumers:
-
-- **A VM** for fast edit-and-run, the REPL and the browser (WebAssembly).
-- **A C backend** with its own small runtime ([`runtime-re/`](./runtime-re/)) that uses reference counting instead of a GC. It can be compiled with TCC for quick builds, or with GCC or Clang for optimized ones.
-
-Both are checked against the same conformance tests, so they must print exactly the same output.
+Both engines are checked against the same conformance tests, so they print exactly the same output.
 
 The long-term plan is to replace the C# compiler entirely with the self-hosted one in [`projects/pino-compiler`](./projects/pino-compiler/), bootstrapped through C. Its design follows Nora Sandler's *Writing a C Compiler*.
 
@@ -493,32 +543,20 @@ The long-term plan is to replace the C# compiler entirely with the self-hosted o
 You'll need the .NET 10 SDK.
 
 ```bash
-cd pino-csharp
-dotnet build
-dotnet run run main.pino        # interpreter
-dotnet run run main.pino --vm   # VM
-dotnet run repl
-```
-
-The new compiler:
-
-```bash
 dotnet build pino-csharp-re/Pino.sln
-dotnet run --project pino-csharp-re/Pino.Cli -- check main.pino   # type-check a file
+dotnet run --project pino-csharp-re/Pino.Cli -- run main.pino
 dotnet test pino-csharp-re/Pino.sln
 ```
 
 ## Games
 
-Writing games is how I find out what the language is missing. There are three in [`pino.games/`](./pino.games/). You can play them with `pino play`, `pino play star_pino`, or `pino run pino.games/jade_temple.pino`.
+Writing games is how I find out what the language is missing. There are three in [`games/`](./games/). You can play them with `pino play`, `pino play star_pino`, or `pino run games/jade_temple.pino`.
 
-- **[StarPino Odyssey](./pino.games/star_pino.pino)**: space trading and mining. You jump between systems, mine asteroids, fight pirates, upgrade your hull and save up for the Sol Station warp core.
-- **[Jade Temple: Path of the Spirit Fist](./pino.games/jade_temple.pino)**: a martial arts RPG. You investigate Master Radiant's murder using Reason, Intimidate and Charm checks, choose Open Palm or Closed Fist, and fight turn-based battles.
-- **[SABLE: Semillas de Obsidiana](./pino.games/sable.pino)**: a resource management game set during Halo's Fall of Reach. You play the AI SABLE and split CPU and RAM between evacuation, archiving and defense while your own logic slowly breaks down. DeepSeek came up with the concept and the writing; Antigravity helped program it, and working on it uncovered several interpreter bugs that got fixed along the way.
+- **[StarPino Odyssey](./games/star_pino.pino)**: space trading and mining. You jump between systems, mine asteroids, fight pirates, upgrade your hull and save up for the Sol Station warp core.
+- **[Jade Temple: Path of the Spirit Fist](./games/jade_temple.pino)**: a martial arts RPG. You investigate Master Radiant's murder using Reason, Intimidate and Charm checks, choose Open Palm or Closed Fist, and fight turn-based battles.
+- **[Sable: Protocolo Semilla](./games/sable.pino)**: a resource management game set during Halo's Fall of Reach. You play the AI SABLE and split CPU and RAM between evacuation, archiving and defense while your own logic slowly breaks down. DeepSeek came up with the concept and the writing; Antigravity helped program it, and working on it uncovered several interpreter bugs that got fixed along the way.
 
   > *"Este juego es un homenaje a todas las IAs de Halo que murieron antes de tiempo. A Cortana, a Deep Winter, a Juliana, a Black Box. Y especialmente a SABLE, la IA que nunca existió, pero que bien podría haber existido. Gracias por jugar. Y recuerda: salvar un cuerpo es heroico. Salvar un recuerdo es eterno."*
-
-There's also **[PinoQuest: The Compiler Core](./pino-csharp/main.pino)**, a small dungeon crawler where the enemies are syntax errors and memory leaks.
 
 ## The story
 
