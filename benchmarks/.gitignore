@@ -1,0 +1,20 @@
+# Built binaries and artifacts
+*.exe
+*.pdb
+*.o
+*.out
+*.c
+*.pyc
+__pycache__/
+build/
+data/
+target/
+bin/
+obj/
+rust/Cargo.lock
+
+# Override root .gitignore so benchmark Python entrypoints, go.mod, and Rust bin sources are tracked
+!main.py
+!go.mod
+!rust/src/bin/
+!rust/src/bin/*.rs

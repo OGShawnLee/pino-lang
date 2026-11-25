@@ -1,0 +1,83 @@
+fn my_sqrt(x float) float {
+  var g = x * 0.5 + 1.0
+  for 16 {
+    g = 0.5 * (g + x / g)
+  }
+  return g
+}
+
+fn round_int(v float) int {
+  if v >= 0.0 {
+    return int(v + 0.5)
+  }
+  return int(v - 0.5)
+}
+
+fn eval_a(i int, j int) float {
+  val ij = i + j
+  return 1.0 / (ij * (ij + 1) // 2 + i + 1)
+}
+
+fn eval_a_times_u(u []float, mut au []float, n int) {
+  var i = 0
+  for i < n {
+    var sum = 0.0
+    var j = 0
+    for j < n {
+      sum += eval_a(i, j) * u[j]
+      j += 1
+    }
+    au[i] = sum
+    i += 1
+  }
+}
+
+fn eval_at_times_u(u []float, mut au []float, n int) {
+  var i = 0
+  for i < n {
+    var sum = 0.0
+    var j = 0
+    for j < n {
+      sum += eval_a(j, i) * u[j]
+      j += 1
+    }
+    au[i] = sum
+    i += 1
+  }
+}
+
+fn eval_ata_times_u(u []float, mut out []float, mut tmp []float, n int) {
+  eval_a_times_u(u, mut tmp, n)
+  eval_at_times_u(tmp, mut out, n)
+}
+
+fn main {
+  val quick = file_exists("benchmarks/data/quick")
+  val n = if quick then 80 else 300
+
+  var u = []float
+  var v = []float
+  var tmp = []float
+  for n {
+    u:push(1.0)
+    v:push(0.0)
+    tmp:push(0.0)
+  }
+
+  for 10 {
+    eval_ata_times_u(u, mut v, mut tmp, n)
+    eval_ata_times_u(v, mut u, mut tmp, n)
+  }
+
+  var vbv = 0.0
+  var vv = 0.0
+  var i = 0
+  for i < n {
+    vbv += u[i] * v[i]
+    vv += v[i] * v[i]
+    i += 1
+  }
+
+  val ans = my_sqrt(vbv / vv)
+  println(round_int(ans * 1000000000.0))
+}

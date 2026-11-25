@@ -1,0 +1,37 @@
+fn main {
+  val quick = file_exists("benchmarks/data/quick")
+  val size = if quick then 150 else 500
+  val max_iter = 50
+  val inv_size = 1.0 / size
+
+  var inside = 0
+  var y = 0
+  for y < size {
+    val ci = 2.0 * y * inv_size - 1.0
+    var x = 0
+    for x < size {
+      val cr = 2.0 * x * inv_size - 1.5
+      var zr = 0.0
+      var zi = 0.0
+      var escaped = false
+      var iter = 0
+      for iter < max_iter {
+        val tr = zr * zr - zi * zi + cr
+        val ti = 2.0 * zr * zi + ci
+        zr = tr
+        zi = ti
+        if zr * zr + zi * zi > 4.0 {
+          escaped = true
+          break
+        }
+        iter += 1
+      }
+      if not escaped {
+        inside += 1
+      }
+      x += 1
+    }
+    y += 1
+  }
+  println(inside)
+}

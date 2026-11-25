@@ -1,0 +1,189 @@
+union Atom {
+  Keyword(string)
+  Identifier(string)
+  LiteralInt(int)
+  LiteralBool(bool)
+  Marker(string)
+  EOF
+}
+
+struct Particle {
+  line int
+  column int
+  len int
+  atom Atom
+}
+
+fn is_ident_char(c rune) bool {
+  return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or c == '_'
+}
+
+fn is_num_char(c rune) bool {
+  return c >= '0' and c <= '9'
+}
+
+fn push_identifier(
+  mut atom_list []Particle,
+  program string,
+  keywords set[string],
+  i int,
+  length int,
+  line_num int,
+  column int
+) {
+  val begin = i - length
+  val sub = program:substring(begin, length)
+  var atom = Atom::Identifier(sub)
+  if sub:len <= 10 and (sub in keywords) {
+    atom = Atom::Keyword(sub)
+  } else if sub == "true" {
+    atom = Atom::LiteralBool(true)
+  } else if sub == "false" {
+    atom = Atom::LiteralBool(false)
+  }
+  atom_list:push(Particle {
+    line: line_num,
+    column: column - length,
+    len: length,
+    atom: atom
+  })
+}
+
+fn push_numerical(
+  mut atom_list []Particle,
+  program string,
+  i int,
+  length int,
+  line_num int,
+  column int
+) {
+  val begin = i - length
+  val sub = program:substring(begin, length)
+  val n = int(sub) or { yield 0 }
+  atom_list:push(Particle {
+    line: line_num,
+    column: column - length,
+    len: length,
+    atom: Atom::LiteralInt(n)
+  })
+}
+
+fn lex_program(program string) []Particle {
+  val keywords = set[string] {
+    "val", "var", "fn", "return", "if", "then", "else", "match", "when",
+    "yield", "for", "in", "break", "continue", "struct", "enum", "union",
+    "interface", "pub", "is", "static", "module", "from", "import"
+  }
+  val marker_map = map[rune, string] {
+    '(' -> "LPAREN"
+    ')' -> "RPAREN"
+    '[' -> "LBRACKET"
+    ']' -> "RBRACKET"
+    '{' -> "LBRACE"
+    '}' -> "RBRACE"
+    ':' -> "COLON"
+    ',' -> "COMMA"
+  }
+
+  var atom_list = []Particle
+  var line_num = 1
+  var column = 1
+  var identifier_len = 0
+  var numerical_len = 0
+
+  for i, c in program {
+    if is_ident_char(c) {
+      identifier_len += 1
+      column += 1
+      continue
+    } else if identifier_len > 0 {
+      push_identifier(mut atom_list, program, keywords, i, identifier_len, line_num, column)
+      identifier_len = 0
+    }
+
+    if is_num_char(c) {
+      numerical_len += 1
+      column += 1
+      continue
+    } else if numerical_len > 0 {
+      push_numerical(mut atom_list, program, i, numerical_len, line_num, column)
+      numerical_len = 0
+    }
+
+    if c == '\n' {
+      line_num += 1
+      column = 1
+      continue
+    }
+
+    if c == ' ' or c == '\t' {
+      column += 1
+      continue
+    }
+
+    if c in marker_map {
+      atom_list:push(Particle {
+        line: line_num,
+        column: column,
+        len: 1,
+        atom: Atom::Marker(marker_map[c])
+      })
+      column += 1
+      continue
+    }
+
+    column += 1
+  }
+
+  val total_len = program:len
+  if identifier_len > 0 {
+    push_identifier(mut atom_list, program, keywords, total_len, identifier_len, line_num, column)
+  } else if numerical_len > 0 {
+    push_numerical(mut atom_list, program, total_len, numerical_len, line_num, column)
+  }
+
+  atom_list:push(Particle {
+    line: line_num,
+    column: column,
+    len: 1,
+    atom: Atom::EOF
+  })
+
+  return atom_list
+}
+
+fn main {
+  val content = read_file("benchmarks/data/lexer.txt") or {
+    panic("failed to read benchmarks/data/lexer.txt")
+  }
+
+  val particles = lex_program(content)
+
+  var keywords = 0
+  var idents = 0
+  var int_sum = 0
+  var bool_true = 0
+  var markers = 0
+
+  for p in particles {
+    match p:atom {
+      when Atom::Keyword(_) { keywords += 1 }
+      when Atom::Identifier(_) { idents += 1 }
+      when Atom::LiteralInt(n) { int_sum = (int_sum + n) % 1000000007 }
+      when Atom::LiteralBool(b) {
+        if b {
+          bool_true += 1
+        }
+      }
+      when Atom::Marker(_) { markers += 1 }
+      when Atom::EOF {}
+    }
+  }
+
+  println(particles:len)
+  println(keywords)
+  println(idents)
+  println(int_sum)
+  println(bool_true)
+  println(markers)
+}

@@ -1,0 +1,55 @@
+union Tree {
+  Leaf
+  Node(Tree, Tree)
+}
+
+fn make_tree(depth int) Tree {
+  if depth <= 0 {
+    return Tree::Leaf
+  }
+  return Tree::Node(make_tree(depth - 1), make_tree(depth - 1))
+}
+
+fn check_tree(t Tree) int {
+  return match t {
+    when Tree::Leaf { yield 1 }
+    when Tree::Node(left, right) { yield 1 + check_tree(left) + check_tree(right) }
+  }
+}
+
+fn pow2(exp int) int {
+  var r = 1
+  for exp {
+    r = r * 2
+  }
+  return r
+}
+
+fn main {
+  val quick = file_exists("benchmarks/data/quick")
+  val min_depth = 4
+  val max_depth = if quick then 9 else 14
+  val stretch_depth = max_depth + 1
+
+  val stretch_check = check_tree(make_tree(stretch_depth))
+  val long_lived = make_tree(max_depth)
+
+  var total_check = stretch_check
+  var d = min_depth
+  for d <= max_depth {
+    val iterations = pow2(max_depth - d + min_depth)
+    var check = 0
+    for iterations {
+      check += check_tree(make_tree(d))
+    }
+    total_check += check
+    d += 2
+  }
+
+  val long_check = check_tree(long_lived)
+  total_check += long_check
+
+  println(stretch_check)
+  println(total_check)
+  println(long_check)
+}

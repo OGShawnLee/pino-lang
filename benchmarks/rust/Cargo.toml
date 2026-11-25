@@ -1,0 +1,53 @@
+[workspace]
+
+[package]
+name = "pino-benchmarks"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+regex = "1"
+
+[[bin]]
+name = "hello"
+path = "src/bin/hello.rs"
+
+[[bin]]
+name = "fib"
+path = "src/bin/fib.rs"
+
+[[bin]]
+name = "binary-trees"
+path = "src/bin/binary_trees.rs"
+
+[[bin]]
+name = "nbody"
+path = "src/bin/nbody.rs"
+
+[[bin]]
+name = "spectral-norm"
+path = "src/bin/spectral_norm.rs"
+
+[[bin]]
+name = "mandelbrot"
+path = "src/bin/mandelbrot.rs"
+
+[[bin]]
+name = "sort"
+path = "src/bin/sort.rs"
+
+[[bin]]
+name = "word-count"
+path = "src/bin/word_count.rs"
+
+[[bin]]
+name = "string-build"
+path = "src/bin/string_build.rs"
+
+[[bin]]
+name = "regex"
+path = "src/bin/regex.rs"
+
+[[bin]]
+name = "lexer"
+path = "src/bin/lexer.rs"

@@ -1,0 +1,48 @@
+fn main {
+  val text = read_file("benchmarks/data/word-count.txt") or {
+    panic("failed to read benchmarks/data/word-count.txt")
+  }
+
+  var counts = map[string, int]
+  var total = 0
+
+  val lines = text:split("\n")
+  for line in lines {
+    val words = line:split(" ")
+    for w in words {
+      if w:len == 0 {
+        continue
+      }
+      total += 1
+      if w in counts {
+        counts[w] += 1
+      } else {
+        counts[w] = 1
+      }
+    }
+  }
+
+  println(total)
+  println(counts:len)
+
+  var used = set[string]
+  val keys = counts:keys()
+  val limit = if keys:len < 10 then keys:len else 10
+
+  for limit {
+    var best_word = ""
+    var best_count = -1
+    for k in keys {
+      if k in used {
+        continue
+      }
+      val c = counts[k]
+      if c > best_count or (c == best_count and k < best_word) {
+        best_count = c
+        best_word = k
+      }
+    }
+    used:add(best_word)
+    println("$best_word $best_count")
+  }
+}

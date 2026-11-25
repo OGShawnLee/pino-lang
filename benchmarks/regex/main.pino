@@ -1,0 +1,14 @@
+fn main {
+  val text = read_file("benchmarks/data/regex.txt") or {
+    panic("failed to read benchmarks/data/regex.txt")
+  }
+
+  val email_re = regex("\\w+@\\w+\\.com")
+  val ident_re = regex("[A-Za-z_][A-Za-z0-9_]*")
+
+  val emails = email_re:find_all(text)
+  val idents = ident_re:find_all(text)
+
+  println(emails:len)
+  println(idents:len)
+}

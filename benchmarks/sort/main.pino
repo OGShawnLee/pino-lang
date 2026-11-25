@@ -1,0 +1,53 @@
+fn quicksort(mut arr []int, lo int, hi int) {
+  if lo >= hi {
+    return
+  }
+  val pivot = arr[lo + (hi - lo) // 2]
+  var i = lo
+  var j = hi
+  for i <= j {
+    for arr[i] < pivot {
+      i += 1
+    }
+    for arr[j] > pivot {
+      j -= 1
+    }
+    if i <= j {
+      arr:swap(i, j)
+      i += 1
+      j -= 1
+    }
+  }
+  if lo < j {
+    quicksort(mut arr, lo, j)
+  }
+  if i < hi {
+    quicksort(mut arr, i, hi)
+  }
+}
+
+fn main {
+  val quick = file_exists("benchmarks/data/quick")
+  val n = if quick then 5000 else 100000
+
+  var state = 123456789
+  var arr = []int
+  for n {
+    state = (state * 1664525 + 1013904223) % 2147483648
+    arr:push(state)
+  }
+
+  quicksort(mut arr, 0, n - 1)
+
+  var checksum = 0
+  var i = 0
+  for i < n {
+    checksum = (checksum + ((i + 1) * (arr[i] % 1000003))) % 1000000007
+    i += 1
+  }
+
+  println(arr[0])
+  println(arr[n // 2])
+  println(arr[n - 1])
+  println(checksum)
+}
