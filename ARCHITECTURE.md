@@ -1,3 +1,5 @@
+> **Note:** This document describes the 0.3 design and is out of date. See [spec/](spec/) and [docs/guide/](docs/guide/) for current documentation.
+
 # Pino Lang Architecture
 
 This document gives a concise overview of the Pino Lang compiler implementations, runtime, specification, and conformance suite.
