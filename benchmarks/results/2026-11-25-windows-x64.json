@@ -1,0 +1,1274 @@
+{
+  "date": "2026-11-25",
+  "mode": "full",
+  "runs": 5,
+  "timeout_s": 60.0,
+  "pino_commit": "8ae7d7a",
+  "machine": {
+    "cpu": "Intel(R) Core(TM) i3-N305",
+    "cores": 8,
+    "ram_gb": 7.6,
+    "os": "Windows 11",
+    "arch": "x64"
+  },
+  "tool_versions": {
+    "pino": "pino 0.4.0",
+    "go": "go version go1.27.1 windows/amd64",
+    "rust": "rustc 1.92.0 (ded5c06cf 2025-12-08)",
+    "csharp": "10.0.301",
+    "bun": "1.4.4",
+    "python": "Python 3.14.5",
+    "c_compiler": "gcc (Rev5, Built by MSYS2 project) 16.1.0"
+  },
+  "languages": [
+    "pino-vm",
+    "pino-c",
+    "pino-gcc",
+    "go",
+    "rust",
+    "csharp",
+    "bun",
+    "python"
+  ],
+  "skipped_languages": {},
+  "benchmarks": [
+    "hello",
+    "fib",
+    "binary-trees",
+    "nbody",
+    "spectral-norm",
+    "mandelbrot",
+    "sort",
+    "word-count",
+    "string-build",
+    "regex",
+    "lexer"
+  ],
+  "builds": {
+    "pino-cli": {
+      "project_ms": 62070.56,
+      "error": null
+    },
+    "csharp": {
+      "project_ms": 8370.99,
+      "error": null
+    },
+    "rust": {
+      "project_ms": 40367.19,
+      "error": null
+    },
+    "go": {
+      "per_benchmark_ms": {
+        "hello": 12701.82,
+        "fib": 1380.61,
+        "binary-trees": 1505.95,
+        "nbody": 1497.31,
+        "spectral-norm": 1529.98,
+        "mandelbrot": 1599.49,
+        "sort": 1391.4,
+        "word-count": 1600.95,
+        "string-build": 1553.16,
+        "regex": 2169.37,
+        "lexer": 1407.52
+      }
+    },
+    "pino-c": {
+      "per_benchmark_ms": {
+        "hello": 2382.01,
+        "fib": 853.11,
+        "binary-trees": 934.2,
+        "nbody": 920.28,
+        "spectral-norm": 887.6,
+        "mandelbrot": 741.19,
+        "sort": 898.47,
+        "word-count": 917.22,
+        "string-build": 830.58,
+        "regex": 805.9,
+        "lexer": 1043.03
+      }
+    },
+    "pino-gcc": {
+      "per_benchmark_ms": {
+        "hello": 11568.82,
+        "fib": 6119.14,
+        "binary-trees": 5712.02,
+        "nbody": 5794.72,
+        "spectral-norm": 5852.61,
+        "mandelbrot": 5464.97,
+        "sort": 5593.64,
+        "word-count": 6052.62,
+        "string-build": 5405.98,
+        "regex": 5521.52,
+        "lexer": 6691.17
+      }
+    }
+  },
+  "results": {
+    "hello": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 558.87,
+        "min_ms": 528.58,
+        "max_ms": 576.026,
+        "samples_ms": [
+          576.026,
+          558.87,
+          529.028,
+          528.58,
+          560.268
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 12.881,
+        "min_ms": 11.903,
+        "max_ms": 19.786,
+        "samples_ms": [
+          18.196,
+          19.786,
+          12.881,
+          11.903,
+          12.639
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 16.102,
+        "min_ms": 14.199,
+        "max_ms": 19.017,
+        "samples_ms": [
+          17.405,
+          16.102,
+          19.017,
+          14.199,
+          14.914
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 17.962,
+        "min_ms": 16.283,
+        "max_ms": 21.033,
+        "samples_ms": [
+          16.283,
+          17.047,
+          17.962,
+          21.033,
+          20.69
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 19.156,
+        "min_ms": 15.735,
+        "max_ms": 21.513,
+        "samples_ms": [
+          21.513,
+          20.699,
+          19.156,
+          18.544,
+          15.735
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 112.811,
+        "min_ms": 103.348,
+        "max_ms": 135.542,
+        "samples_ms": [
+          103.348,
+          107.729,
+          112.811,
+          121.466,
+          135.542
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 35.357,
+        "min_ms": 32.12,
+        "max_ms": 42.606,
+        "samples_ms": [
+          41.487,
+          35.357,
+          32.12,
+          33.324,
+          42.606
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 63.792,
+        "min_ms": 47.077,
+        "max_ms": 67.463,
+        "samples_ms": [
+          63.792,
+          63.976,
+          67.463,
+          49.756,
+          47.077
+        ]
+      }
+    },
+    "fib": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 991.405,
+        "min_ms": 968.669,
+        "max_ms": 1006.231,
+        "samples_ms": [
+          991.405,
+          968.669,
+          994.79,
+          974.256,
+          1006.231
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 23.354,
+        "min_ms": 21.133,
+        "max_ms": 24.621,
+        "samples_ms": [
+          24.151,
+          21.133,
+          22.073,
+          23.354,
+          24.621
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 14.935,
+        "min_ms": 12.751,
+        "max_ms": 15.75,
+        "samples_ms": [
+          15.75,
+          15.114,
+          14.935,
+          12.751,
+          13.941
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 18.634,
+        "min_ms": 18.164,
+        "max_ms": 22.887,
+        "samples_ms": [
+          18.634,
+          18.164,
+          19.026,
+          22.887,
+          18.336
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 15.386,
+        "min_ms": 14.815,
+        "max_ms": 15.965,
+        "samples_ms": [
+          15.965,
+          15.831,
+          14.815,
+          14.915,
+          15.386
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 136.144,
+        "min_ms": 127.875,
+        "max_ms": 155.517,
+        "samples_ms": [
+          127.875,
+          140.502,
+          128.129,
+          136.144,
+          155.517
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 54.611,
+        "min_ms": 48.618,
+        "max_ms": 64.684,
+        "samples_ms": [
+          54.277,
+          54.611,
+          64.684,
+          58.714,
+          48.618
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 152.71,
+        "min_ms": 140.916,
+        "max_ms": 157.207,
+        "samples_ms": [
+          140.916,
+          141.471,
+          152.71,
+          153.225,
+          157.207
+        ]
+      }
+    },
+    "binary-trees": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 1389.799,
+        "min_ms": 1337.475,
+        "max_ms": 1491.827,
+        "samples_ms": [
+          1383.788,
+          1337.475,
+          1389.799,
+          1491.827,
+          1445.475
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 69.217,
+        "min_ms": 60.036,
+        "max_ms": 72.353,
+        "samples_ms": [
+          69.217,
+          60.036,
+          60.896,
+          70.609,
+          72.353
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 62.28,
+        "min_ms": 49.649,
+        "max_ms": 64.144,
+        "samples_ms": [
+          64.144,
+          49.649,
+          55.084,
+          62.28,
+          64.115
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 40.942,
+        "min_ms": 35.421,
+        "max_ms": 53.386,
+        "samples_ms": [
+          53.386,
+          39.839,
+          35.421,
+          40.942,
+          44.117
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 73.397,
+        "min_ms": 66.953,
+        "max_ms": 84.974,
+        "samples_ms": [
+          66.953,
+          68.358,
+          84.974,
+          73.397,
+          79.895
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 144.183,
+        "min_ms": 123.923,
+        "max_ms": 151.146,
+        "samples_ms": [
+          144.183,
+          147.9,
+          131.031,
+          123.923,
+          151.146
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 70.618,
+        "min_ms": 67.064,
+        "max_ms": 99.42,
+        "samples_ms": [
+          69.834,
+          70.618,
+          99.42,
+          86.913,
+          67.064
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 321.522,
+        "min_ms": 234.789,
+        "max_ms": 383.84,
+        "samples_ms": [
+          321.522,
+          373.218,
+          383.84,
+          298.432,
+          234.789
+        ]
+      }
+    },
+    "nbody": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 2898.745,
+        "min_ms": 2149.414,
+        "max_ms": 3218.17,
+        "samples_ms": [
+          2671.07,
+          3218.17,
+          3040.091,
+          2898.745,
+          2149.414
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 137.871,
+        "min_ms": 136.98,
+        "max_ms": 146.56,
+        "samples_ms": [
+          137.871,
+          146.56,
+          136.98,
+          137.014,
+          138.109
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 47.486,
+        "min_ms": 38.905,
+        "max_ms": 51.47,
+        "samples_ms": [
+          47.486,
+          47.626,
+          40.303,
+          51.47,
+          38.905
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 35.133,
+        "min_ms": 28.987,
+        "max_ms": 41.985,
+        "samples_ms": [
+          35.837,
+          41.985,
+          35.133,
+          29.712,
+          28.987
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 26.064,
+        "min_ms": 24.463,
+        "max_ms": 27.197,
+        "samples_ms": [
+          27.197,
+          24.463,
+          25.544,
+          26.339,
+          26.064
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 155.672,
+        "min_ms": 144.697,
+        "max_ms": 185.726,
+        "samples_ms": [
+          155.672,
+          185.726,
+          144.697,
+          154.049,
+          177.345
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 69.858,
+        "min_ms": 65.223,
+        "max_ms": 97.571,
+        "samples_ms": [
+          97.571,
+          71.488,
+          65.223,
+          68.257,
+          69.858
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 360.29,
+        "min_ms": 349.515,
+        "max_ms": 436.833,
+        "samples_ms": [
+          436.833,
+          360.29,
+          349.515,
+          396.43,
+          352.639
+        ]
+      }
+    },
+    "spectral-norm": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 1680.027,
+        "min_ms": 1560.378,
+        "max_ms": 1734.895,
+        "samples_ms": [
+          1562.324,
+          1560.378,
+          1680.027,
+          1734.895,
+          1708.572
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 104.285,
+        "min_ms": 85.673,
+        "max_ms": 125.763,
+        "samples_ms": [
+          85.673,
+          125.763,
+          122.295,
+          101.204,
+          104.285
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 18.495,
+        "min_ms": 17.877,
+        "max_ms": 21.56,
+        "samples_ms": [
+          21.56,
+          18.819,
+          17.877,
+          18.353,
+          18.495
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 23.13,
+        "min_ms": 18.514,
+        "max_ms": 24.718,
+        "samples_ms": [
+          18.514,
+          21.322,
+          23.13,
+          24.718,
+          24.015
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 26.981,
+        "min_ms": 25.634,
+        "max_ms": 29.563,
+        "samples_ms": [
+          29.563,
+          26.981,
+          26.008,
+          27.883,
+          25.634
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 138.396,
+        "min_ms": 128.529,
+        "max_ms": 155.943,
+        "samples_ms": [
+          138.396,
+          128.529,
+          134.511,
+          155.943,
+          140.172
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 70.467,
+        "min_ms": 65.323,
+        "max_ms": 80.591,
+        "samples_ms": [
+          70.467,
+          65.323,
+          70.563,
+          65.611,
+          80.591
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 317.32,
+        "min_ms": 303.569,
+        "max_ms": 358.865,
+        "samples_ms": [
+          358.865,
+          317.32,
+          305.415,
+          318.369,
+          303.569
+        ]
+      }
+    },
+    "mandelbrot": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 1731.427,
+        "min_ms": 1570.921,
+        "max_ms": 1783.555,
+        "samples_ms": [
+          1720.714,
+          1759.655,
+          1731.427,
+          1783.555,
+          1570.921
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 65.659,
+        "min_ms": 64.983,
+        "max_ms": 66.105,
+        "samples_ms": [
+          65.547,
+          66.105,
+          65.699,
+          64.983,
+          65.659
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 35.041,
+        "min_ms": 26.76,
+        "max_ms": 38.217,
+        "samples_ms": [
+          36.925,
+          31.306,
+          38.217,
+          35.041,
+          26.76
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 28.299,
+        "min_ms": 26.204,
+        "max_ms": 32.827,
+        "samples_ms": [
+          26.204,
+          27.248,
+          29.063,
+          28.299,
+          32.827
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 27.405,
+        "min_ms": 23.662,
+        "max_ms": 37.852,
+        "samples_ms": [
+          31.812,
+          37.852,
+          23.662,
+          27.405,
+          25.555
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 137.257,
+        "min_ms": 114.038,
+        "max_ms": 178.047,
+        "samples_ms": [
+          134.46,
+          161.588,
+          137.257,
+          114.038,
+          178.047
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 60.046,
+        "min_ms": 54.963,
+        "max_ms": 80.443,
+        "samples_ms": [
+          80.443,
+          62.181,
+          54.963,
+          60.046,
+          58.696
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 653.883,
+        "min_ms": 580.07,
+        "max_ms": 735.335,
+        "samples_ms": [
+          607.49,
+          653.883,
+          580.07,
+          735.335,
+          722.04
+        ]
+      }
+    },
+    "sort": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 1327.896,
+        "min_ms": 1195.445,
+        "max_ms": 1422.791,
+        "samples_ms": [
+          1195.445,
+          1327.896,
+          1422.791,
+          1213.386,
+          1370.802
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 28.331,
+        "min_ms": 26.688,
+        "max_ms": 28.903,
+        "samples_ms": [
+          26.688,
+          26.809,
+          28.331,
+          28.739,
+          28.903
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 19.046,
+        "min_ms": 16.268,
+        "max_ms": 26.098,
+        "samples_ms": [
+          26.098,
+          19.948,
+          16.268,
+          16.891,
+          19.046
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 23.753,
+        "min_ms": 19.771,
+        "max_ms": 32.055,
+        "samples_ms": [
+          22.95,
+          19.771,
+          23.753,
+          32.055,
+          24.626
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 21.106,
+        "min_ms": 17.707,
+        "max_ms": 30.773,
+        "samples_ms": [
+          30.773,
+          26.456,
+          17.707,
+          18.716,
+          21.106
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 132.484,
+        "min_ms": 108.313,
+        "max_ms": 148.124,
+        "samples_ms": [
+          108.313,
+          128.7,
+          132.484,
+          142.948,
+          148.124
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 66.164,
+        "min_ms": 58.855,
+        "max_ms": 72.537,
+        "samples_ms": [
+          70.769,
+          66.164,
+          58.855,
+          62.202,
+          72.537
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 96.024,
+        "min_ms": 95.195,
+        "max_ms": 126.524,
+        "samples_ms": [
+          96.024,
+          95.195,
+          96.011,
+          108.657,
+          126.524
+        ]
+      }
+    },
+    "word-count": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 892.419,
+        "min_ms": 882.713,
+        "max_ms": 942.161,
+        "samples_ms": [
+          904.29,
+          882.713,
+          892.419,
+          942.161,
+          890.324
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 37.118,
+        "min_ms": 34.432,
+        "max_ms": 52.68,
+        "samples_ms": [
+          35.629,
+          34.432,
+          37.118,
+          52.68,
+          43.803
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 18.739,
+        "min_ms": 18.189,
+        "max_ms": 25.911,
+        "samples_ms": [
+          25.911,
+          24.02,
+          18.739,
+          18.189,
+          18.646
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 24.186,
+        "min_ms": 20.109,
+        "max_ms": 30.814,
+        "samples_ms": [
+          22.252,
+          20.109,
+          24.557,
+          24.186,
+          30.814
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 19.14,
+        "min_ms": 17.681,
+        "max_ms": 19.947,
+        "samples_ms": [
+          19.947,
+          19.162,
+          19.14,
+          18.985,
+          17.681
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 167.627,
+        "min_ms": 137.479,
+        "max_ms": 181.116,
+        "samples_ms": [
+          144.362,
+          169.494,
+          137.479,
+          181.116,
+          167.627
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 61.176,
+        "min_ms": 47.275,
+        "max_ms": 64.597,
+        "samples_ms": [
+          63.266,
+          64.597,
+          47.275,
+          50.626,
+          61.176
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 65.693,
+        "min_ms": 60.484,
+        "max_ms": 87.795,
+        "samples_ms": [
+          60.563,
+          60.484,
+          82.173,
+          65.693,
+          87.795
+        ]
+      }
+    },
+    "string-build": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 753.74,
+        "min_ms": 678.59,
+        "max_ms": 805.906,
+        "samples_ms": [
+          753.74,
+          678.59,
+          763.052,
+          805.906,
+          700.076
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 18.964,
+        "min_ms": 17.732,
+        "max_ms": 23.706,
+        "samples_ms": [
+          18.25,
+          17.732,
+          18.964,
+          20.642,
+          23.706
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 18.841,
+        "min_ms": 17.516,
+        "max_ms": 23.217,
+        "samples_ms": [
+          17.71,
+          18.841,
+          17.516,
+          23.217,
+          22.2
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 77.998,
+        "min_ms": 71.982,
+        "max_ms": 104.2,
+        "samples_ms": [
+          74.646,
+          104.2,
+          77.998,
+          87.825,
+          71.982
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 23.725,
+        "min_ms": 17.789,
+        "max_ms": 29.83,
+        "samples_ms": [
+          19.749,
+          17.789,
+          23.725,
+          29.83,
+          27.71
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 158.919,
+        "min_ms": 143.539,
+        "max_ms": 190.181,
+        "samples_ms": [
+          190.181,
+          159.219,
+          144.034,
+          158.919,
+          143.539
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 48.918,
+        "min_ms": 42.105,
+        "max_ms": 61.544,
+        "samples_ms": [
+          49.31,
+          42.105,
+          46.598,
+          48.918,
+          61.544
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 53.554,
+        "min_ms": 52.551,
+        "max_ms": 77.312,
+        "samples_ms": [
+          52.865,
+          52.551,
+          53.554,
+          62.428,
+          77.312
+        ]
+      }
+    },
+    "regex": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 730.338,
+        "min_ms": 702.892,
+        "max_ms": 763.815,
+        "samples_ms": [
+          730.338,
+          706.103,
+          702.892,
+          763.815,
+          751.449
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 50.922,
+        "min_ms": 31.65,
+        "max_ms": 64.616,
+        "samples_ms": [
+          64.616,
+          51.538,
+          31.65,
+          50.922,
+          39.279
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 37.605,
+        "min_ms": 25.344,
+        "max_ms": 38.312,
+        "samples_ms": [
+          38.032,
+          36.47,
+          37.605,
+          38.312,
+          25.344
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 84.125,
+        "min_ms": 63.176,
+        "max_ms": 106.599,
+        "samples_ms": [
+          106.599,
+          98.049,
+          84.125,
+          63.176,
+          70.887
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 36.174,
+        "min_ms": 29.78,
+        "max_ms": 38.242,
+        "samples_ms": [
+          36.592,
+          34.386,
+          29.78,
+          36.174,
+          38.242
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 177.128,
+        "min_ms": 141.785,
+        "max_ms": 222.409,
+        "samples_ms": [
+          205.532,
+          141.785,
+          142.434,
+          177.128,
+          222.409
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 45.217,
+        "min_ms": 42.042,
+        "max_ms": 72.075,
+        "samples_ms": [
+          72.075,
+          55.135,
+          42.042,
+          44.484,
+          45.217
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 166.726,
+        "min_ms": 125.407,
+        "max_ms": 192.603,
+        "samples_ms": [
+          192.603,
+          142.655,
+          125.407,
+          173.951,
+          166.726
+        ]
+      }
+    },
+    "lexer": {
+      "pino-vm": {
+        "status": "ok",
+        "median_ms": 3585.152,
+        "min_ms": 3474.93,
+        "max_ms": 3834.475,
+        "samples_ms": [
+          3474.93,
+          3585.152,
+          3826.212,
+          3568.898,
+          3834.475
+        ]
+      },
+      "pino-c": {
+        "status": "ok",
+        "median_ms": 39.108,
+        "min_ms": 34.007,
+        "max_ms": 50.798,
+        "samples_ms": [
+          34.254,
+          34.007,
+          39.108,
+          50.798,
+          49.746
+        ]
+      },
+      "pino-gcc": {
+        "status": "ok",
+        "median_ms": 19.784,
+        "min_ms": 19.296,
+        "max_ms": 30.489,
+        "samples_ms": [
+          20.538,
+          19.784,
+          19.296,
+          19.577,
+          30.489
+        ]
+      },
+      "go": {
+        "status": "ok",
+        "median_ms": 24.269,
+        "min_ms": 20.662,
+        "max_ms": 44.257,
+        "samples_ms": [
+          23.969,
+          20.662,
+          29.845,
+          44.257,
+          24.269
+        ]
+      },
+      "rust": {
+        "status": "ok",
+        "median_ms": 24.862,
+        "min_ms": 22.795,
+        "max_ms": 38.399,
+        "samples_ms": [
+          22.795,
+          25.158,
+          24.862,
+          23.403,
+          38.399
+        ]
+      },
+      "csharp": {
+        "status": "ok",
+        "median_ms": 202.158,
+        "min_ms": 151.346,
+        "max_ms": 218.458,
+        "samples_ms": [
+          202.158,
+          205.854,
+          218.458,
+          151.346,
+          168.043
+        ]
+      },
+      "bun": {
+        "status": "ok",
+        "median_ms": 62.262,
+        "min_ms": 61.544,
+        "max_ms": 76.344,
+        "samples_ms": [
+          62.036,
+          73.343,
+          61.544,
+          62.262,
+          76.344
+        ]
+      },
+      "python": {
+        "status": "ok",
+        "median_ms": 106.568,
+        "min_ms": 97.144,
+        "max_ms": 137.691,
+        "samples_ms": [
+          106.568,
+          97.144,
+          113.9,
+          101.645,
+          137.691
+        ]
+      }
+    }
+  }
+}
