@@ -1,5 +1,65 @@
 ---
-import Placeholder from "../../components/Placeholder.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Hero from "../../components/Hero.astro";
+import Section from "../../components/Section.astro";
+import { guideIntro, guidePages } from "../../lib/guide";
+
+const intro = await guideIntro();
+const pages = await guidePages();
+const first = pages[0];
 ---
 
-<Placeholder title="Learn Pino" />
+<BaseLayout title="Learn" description={intro}>
+  <Hero>
+    <Fragment slot="title">Learn Pino</Fragment>
+    <p slot="lead">{intro}</p>
+    <Fragment slot="links">
+      {first && <a href={`/learn/${first.slug}/`}>Start with {first.title}</a>}
+    </Fragment>
+  </Hero>
+
+  <Section label="The guide" id="pages">
+    <Fragment slot="title">Pages</Fragment>
+    <ol class="pages">
+      {
+        pages.map((page) => (
+          <li>
+            <a class="page-title" href={`/learn/${page.slug}/`}>
+              {page.title}
+            </a>
+            <p class="desc">{page.description}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+</BaseLayout>
+
+<style>
+  .pages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+  }
+  .pages li {
+    padding-block: 1.4rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .page-title {
+    display: inline-block;
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: 1.25;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    margin-bottom: 0.4rem;
+  }
+  .page-title:hover {
+    color: var(--pine);
+  }
+  .desc {
+    color: var(--soft);
+    max-width: 42rem;
+  }
+</style>

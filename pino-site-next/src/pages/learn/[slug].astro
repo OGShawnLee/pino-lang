@@ -1,0 +1,155 @@
+---
+import { render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Hero from "../../components/Hero.astro";
+import Prose from "../../components/Prose.astro";
+import GuideNav from "../../components/GuideNav.astro";
+import { guidePages, type GuidePage } from "../../lib/guide";
+
+export async function getStaticPaths() {
+  const pages = await guidePages();
+  return pages.map((page, index) => ({
+    params: { slug: page.slug },
+    props: {
+      page,
+      prev: index > 0 ? { slug: pages[index - 1].slug, title: pages[index - 1].title } : undefined,
+      next: index + 1 < pages.length ? { slug: pages[index + 1].slug, title: pages[index + 1].title } : undefined,
+    },
+  }));
+}
+
+interface Props {
+  page: GuidePage;
+  prev?: { slug: string; title: string };
+  next?: { slug: string; title: string };
+}
+
+const { page, prev, next } = Astro.props;
+const { Content, headings } = await render(page.entry);
+const toc = headings.filter((h) => h.depth === 2);
+const sourceUrl = `https://github.com/OGShawnLee/pino-lang/blob/main/docs/guide/${page.slug}.md`;
+---
+
+<BaseLayout title={page.title} description={page.description}>
+  <Hero>
+    <Fragment slot="title">{page.title}</Fragment>
+    <!-- No lead: the page opens with this paragraph itself. -->
+  </Hero>
+
+  <div class="wrap guide-layout">
+    <div class="guide-content">
+      {
+        toc.length > 0 && (
+          <details class="toc-mobile">
+            <summary class="label">On this page</summary>
+            <ul class="toc-list">
+              {toc.map((h) => (
+                <li>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )
+      }
+
+      <Prose>
+        <Content />
+      </Prose>
+
+      <GuideNav prev={prev} next={next} />
+
+      <p class="note">
+        This page is written in the repository: <a href={sourceUrl}><code>docs/guide/{page.slug}.md</code></a>.
+      </p>
+    </div>
+
+    {
+      toc.length > 0 && (
+        <aside class="toc-desktop" aria-label="On this page">
+          <p class="label">On this page</p>
+          <ul class="toc-list">
+            {toc.map((h) => (
+              <li>
+                <a href={`#${h.slug}`}>{h.text}</a>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )
+    }
+  </div>
+</BaseLayout>
+
+<style>
+  .guide-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+    padding-top: 1rem;
+  }
+  .guide-content {
+    min-width: 0;
+  }
+  .toc-mobile {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding-block: 0.9rem;
+    margin-bottom: 2rem;
+  }
+  .toc-mobile summary {
+    cursor: pointer;
+  }
+  .toc-mobile .toc-list {
+    margin-top: 0.8rem;
+  }
+  .toc-desktop {
+    display: none;
+  }
+  .toc-list {
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  .toc-list a {
+    color: var(--soft);
+    text-decoration: none;
+  }
+  .toc-list a:hover {
+    color: var(--pine);
+  }
+  .note {
+    max-width: 36rem;
+    font-size: 0.92rem;
+    color: var(--soft);
+    margin-top: 2rem;
+  }
+  .note a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .note a:hover {
+    color: var(--pine);
+  }
+  @media (min-width: 64rem) {
+    .guide-layout {
+      grid-template-columns: minmax(0, 1fr) 14rem;
+      gap: 3rem;
+      align-items: start;
+    }
+    .toc-mobile {
+      display: none;
+    }
+    .toc-desktop {
+      display: block;
+      position: sticky;
+      top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--line);
+    }
+  }
+</style>
