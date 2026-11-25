@@ -1,0 +1,9 @@
+error[PN3220]: Cannot mutate immutable variable 'party' of type '[]string'.
+ --> main.pino:2:1
+  |
+1 | val party = ["Ann", "Bob"]
+  |     ----- 'party' is declared immutable here
+2 | party:push("Cy")
+  | ^^^^^^^^^^^^^^^^
+  = help: declare 'party' with 'val mut' to change its contents, or with 'var' to also reassign it
+checked 1 file(s): 1 error(s), 0 warning(s)

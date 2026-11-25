@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Satoshi's license forbids redistribution; the files stay local (see .routing/SITE.md)
+public/fonts/Satoshi-*.woff2

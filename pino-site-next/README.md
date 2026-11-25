@@ -1,43 +1,23 @@
-# Astro Starter Kit: Minimal
+# Pino site
 
-```sh
-pnpm create astro@latest -- --template minimal
-```
+The website for the Pino programming language, built with [Astro](https://astro.build).
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Commands
 
-## 🚀 Project Structure
+Run these from `pino-site-next/`:
 
-Inside of your Astro project, you'll see the following folders and files:
+| Command | What it does |
+| :--- | :--- |
+| `pnpm install` | Install the dependencies. |
+| `pnpm dev` | Start the local server at `localhost:4321`. |
+| `pnpm build` | Build the site into `dist/`. |
+| `pnpm check:pino` | Check every Pino snippet on the site with the compiler in `../pino-csharp-re/`. |
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+## Content
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+- Pino snippets live in `src/snippets/`. A `name.pino` file must pass the checker; a `name.out.txt` next to it holds its exact output. A `name.fail.pino` file must fail, with the exact message in `name.fail.txt`. `pnpm check:pino --update` rewrites those files from the compiler.
+- The language guide is rendered from `../docs/guide/` at build time; the site never keeps a copy.
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+## Fonts
 
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Satoshi's license forbids redistributing the font files, so `public/fonts/Satoshi-*.woff2` is ignored by git. Download Satoshi from [Fontshare](https://www.fontshare.com/fonts/satoshi) (Light, Regular, Medium, Italic) and put the `.woff2` files in `public/fonts/`.

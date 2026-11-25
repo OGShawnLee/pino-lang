@@ -1,0 +1,2 @@
+val name = "Pino"
+println("Hello from $name!")
