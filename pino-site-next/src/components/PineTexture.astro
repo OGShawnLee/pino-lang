@@ -1,0 +1,55 @@
+---
+// The faint watercolor pine branches. Decorative only (alt="").
+import { Image } from "astro:assets";
+import texture from "../assets/images/pine_branches_texture.jpg";
+
+interface Props {
+  /** "hero": top right of the first screen; "section": behind a section's heading. */
+  place?: "hero" | "section";
+  eager?: boolean;
+}
+
+const { place = "hero", eager = false } = Astro.props;
+---
+
+<Image
+  class:list={["texture", place]}
+  src={texture}
+  alt=""
+  widths={[700, 1376]}
+  sizes="(max-width: 40rem) 100vw, 60vw"
+  format="webp"
+  quality={55}
+  loading={eager ? "eager" : "lazy"}
+  aria-hidden="true"
+/>
+
+<style>
+  .texture {
+    position: absolute;
+    pointer-events: none;
+    user-select: none;
+    opacity: var(--texture-opacity);
+    filter: var(--texture-filter);
+    mix-blend-mode: var(--texture-blend);
+    -webkit-mask-image: linear-gradient(to left, #000 45%, transparent 95%);
+    mask-image: linear-gradient(to left, #000 45%, transparent 95%);
+  }
+  .hero {
+    right: -4rem;
+    top: -2rem;
+    width: min(78%, 60rem);
+  }
+  .section {
+    right: -8rem;
+    top: -4rem;
+    width: min(95%, 64rem);
+  }
+  @media (max-width: 40rem) {
+    .hero,
+    .section {
+      width: 140%;
+      right: -40%;
+    }
+  }
+</style>

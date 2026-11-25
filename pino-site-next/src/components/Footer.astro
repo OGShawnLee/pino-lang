@@ -1,0 +1,72 @@
+---
+const repo = "https://github.com/OGShawnLee/pino-lang";
+const links = [
+  { href: "/learn/", label: "Guide" },
+  { href: `${repo}/blob/main/spec/SPEC.md`, label: "Specification" },
+  { href: "/performance/", label: "Benchmarks" },
+  { href: repo, label: "GitHub" },
+];
+---
+
+<footer class="wrap">
+  <div class="grid">
+    <div>
+      <p class="wordmark">Pino</p>
+      <p class="soft">
+        Free and open source under the <a href={`${repo}/blob/main/LICENSE`}>MIT License</a>.
+      </p>
+      <p class="soft">Made by Edgar Vázquez García (OGShawnLee) · Universidad Veracruzana.</p>
+    </div>
+    <nav aria-label="Footer">
+      <ul>
+        {
+          links.map((l) => (
+            <li>
+              <a class="label" href={l.href}>
+                {l.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  footer {
+    margin-top: 6rem;
+  }
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2rem;
+    padding-block: 2rem 3rem;
+    border-top: 1px solid var(--line);
+  }
+  .wordmark {
+    font-family: var(--font-poem);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .soft {
+    color: var(--soft);
+    font-size: 0.9rem;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+  nav a {
+    text-decoration: none;
+  }
+  nav a:hover {
+    color: var(--ink);
+  }
+</style>

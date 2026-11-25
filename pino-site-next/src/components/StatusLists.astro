@@ -1,0 +1,51 @@
+---
+// Two honest lists side by side: what works and what doesn't yet.
+interface Props {
+  works: string[];
+  notYet: string[];
+  worksLabel?: string;
+  notYetLabel?: string;
+}
+
+const { works, notYet, worksLabel = "Works today", notYetLabel = "Not yet" } = Astro.props;
+---
+
+<div class="lists">
+  <div>
+    <h3 class="label">{worksLabel}</h3>
+    <ul>{works.map((w) => <li set:html={w} />)}</ul>
+  </div>
+  <div>
+    <h3 class="label">{notYetLabel}</h3>
+    <ul>{notYet.map((w) => <li set:html={w} />)}</ul>
+  </div>
+</div>
+
+<style>
+  .lists {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1.5rem 2.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+  }
+  h3 {
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.14em;
+    line-height: 1.4;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.95rem;
+  }
+  li {
+    padding: 0.2rem 0 0.2rem 1.4rem;
+    text-indent: -1.4rem;
+  }
+  li::before {
+    content: "— ";
+    color: var(--pine);
+  }
+</style>

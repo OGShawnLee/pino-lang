@@ -1,0 +1,103 @@
+---
+// A benchmark table read from ../benchmarks/results at build time (newest file).
+import { latestRun, ms } from "../lib/benchmarks";
+
+interface Props {
+  /** Benchmark names, as in the results file. */
+  rows: string[];
+  /** Result columns, as in the results file, with their headings. */
+  columns: { key: string; label: string; pino?: boolean }[];
+  caption: string;
+}
+
+const { rows, columns, caption } = Astro.props;
+const run = latestRun();
+const names: Record<string, string> = {
+  hello: "hello (startup)",
+  "binary-trees": "binary trees",
+  "string-build": "string building",
+  "spectral-norm": "spectral norm",
+  "word-count": "word count",
+};
+const repo = "https://github.com/OGShawnLee/pino-lang";
+---
+
+<figure class="bench">
+  <div class="scroll" tabindex="0" role="region" aria-label={caption}>
+    <table>
+      <caption class="visually-hidden">{caption}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Benchmark</th>
+          {columns.map((c) => <th scope="col" class:list={{ pino: c.pino }}>{c.label}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {
+          rows.map((r) => (
+            <tr>
+              <th scope="row">{names[r] ?? r}</th>
+              {columns.map((c) => (
+                <td class:list={{ pino: c.pino }}>{ms(run.results[r]?.[c.key])}</td>
+              ))}
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+  <figcaption>
+    Median of 5 runs in milliseconds; lower is faster. Measured on {run.machine}, {run.date}, Pino
+    <code>{run.pinoCommit}</code>. <a href={`${repo}/blob/main/benchmarks/README.md`}>How it was measured</a>.
+  </figcaption>
+</figure>
+
+<style>
+  .bench {
+    margin: 0;
+  }
+  .scroll {
+    overflow-x: auto;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--line);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+  }
+  th,
+  td {
+    padding: 0.55rem 0.9rem;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+  }
+  th:first-child {
+    text-align: left;
+    padding-left: 0;
+  }
+  thead th {
+    font-weight: 400;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--soft);
+  }
+  tbody th {
+    font-weight: 400;
+  }
+  .pino {
+    color: var(--pine);
+    font-weight: 500;
+  }
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+  figcaption {
+    margin-top: 0.8rem;
+    font-size: 0.85rem;
+    color: var(--soft);
+  }
+</style>

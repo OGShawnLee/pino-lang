@@ -1,0 +1,79 @@
+---
+// A checked Pino snippet from src/snippets/, with its real output beside it (or below it on phones).
+import { highlight } from "../lib/highlight";
+import { snippet } from "../lib/snippets";
+
+interface Props {
+  /** File name in src/snippets/ without `.pino`. */
+  name: string;
+  /** Show the output next to the code (default: when a `.out.txt` exists). */
+  showOutput?: boolean;
+}
+
+const { name, showOutput = true } = Astro.props;
+const s = snippet(name);
+const html = await highlight(s.code);
+const output = showOutput ? s.output?.trimEnd() : undefined;
+---
+
+<figure class:list={["code", { "with-output": output }]}>
+  <div class="source">
+    <span class="visually-hidden">Pino code</span>
+    <Fragment set:html={html} />
+  </div>
+  {
+    output && (
+      <div class="output">
+        <p class="label" aria-hidden="true">Output</p>
+        <span class="visually-hidden">Output</span>
+        <pre>{output}</pre>
+      </div>
+    )
+  }
+</figure>
+
+<style>
+  .code {
+    margin: 0;
+    border: 1px solid var(--line);
+    display: grid;
+  }
+  .with-output {
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, 14rem);
+  }
+  .source {
+    background: var(--code-bg);
+    min-width: 0;
+  }
+  .source :global(pre),
+  .output pre {
+    margin: 0;
+    padding: 1.1rem 1.2rem;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    overflow-x: auto;
+    tab-size: 2;
+  }
+  .output {
+    border-left: 1px solid var(--line);
+    color: var(--soft);
+    min-width: 0;
+  }
+  .output .label {
+    padding: 1rem 1.2rem 0;
+  }
+  .output pre {
+    padding-top: 0.4rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 40rem) {
+    .with-output {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .output {
+      border-left: 0;
+      border-top: 1px solid var(--line);
+    }
+  }
+</style>

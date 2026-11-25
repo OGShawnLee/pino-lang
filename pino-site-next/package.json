@@ -13,7 +13,9 @@
     "check:pino": "node scripts/check-pino.mjs"
   },
   "dependencies": {
-    "astro": "^7.3.5"
+    "astro": "^7.3.5",
+    "sharp": "0.34.5",
+    "shiki": "4.4.3"
   },
   "allowScripts": {
     "esbuild": true

@@ -1,0 +1,12 @@
+fn divide(a int, b int) Result[int, string] {
+  if b == 0 { return Result::Failure("division by zero") }
+  return Result::Success(a // b)
+}
+
+val result = divide(10, 0) or {
+  println("error: $err")
+  yield -1
+}
+
+val numbers = []int { len: 6, init: it + 1 }
+println(numbers:filter(fn (it int) -> it % 2 == 0))

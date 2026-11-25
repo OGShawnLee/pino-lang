@@ -1,0 +1,2 @@
+error: division by zero
+[2, 4, 6]

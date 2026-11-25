@@ -1,0 +1,42 @@
+---
+// A page section: a small label, a heading (put the one italic line in <span class="poem">), then content.
+interface Props {
+  label: string;
+  id?: string;
+  /** Heading level; sections on a page are h2. */
+  as?: "h2" | "h3";
+}
+
+const { label, id, as: Heading = "h2" } = Astro.props;
+const headingId = id ? `${id}-title` : undefined;
+---
+
+<section class="wrap section" id={id} aria-labelledby={headingId}>
+  <p class="label">{label}</p>
+  <Heading class="title" id={headingId}><slot name="title" /></Heading>
+  <div class="body">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    margin-top: clamp(3.5rem, 8vw, 6rem);
+  }
+  .section > .label {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    margin-bottom: 0.9rem;
+  }
+  .title {
+    font-size: clamp(1.6rem, 3.6vw, 2.1rem);
+    line-height: 1.15;
+    max-width: 44rem;
+    margin-bottom: 1.4rem;
+  }
+  .body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+</style>

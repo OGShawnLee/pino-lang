@@ -1,0 +1,20 @@
+---
+// A page that later tickets fill in. Not linked from search engines until then.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "./Hero.astro";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<BaseLayout title={title}>
+  <meta slot="head" name="robots" content="noindex" />
+  <Hero>
+    <Fragment slot="title">{title}</Fragment>
+    <p slot="lead">This page is being written. Until then, the <a href="https://github.com/OGShawnLee/pino-lang">repository on GitHub</a> has everything.</p>
+    <Fragment slot="links"><a href="/">Back to the home page</a></Fragment>
+  </Hero>
+</BaseLayout>

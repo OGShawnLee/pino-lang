@@ -1,4 +1,8 @@
 ---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
 interface Props {
   title?: string;
   description?: string;
@@ -6,8 +10,10 @@ interface Props {
 
 const {
   title = "Pino",
-  description = "A small, fast programming language for people and AI.",
+  description = "Pino is a small, fast programming language for people and AI: no hidden sharing, no null, no garbage collector, and error messages written as plain sentences.",
 } = Astro.props;
+
+const fullTitle = title === "Pino" ? "Pino: a small, fast language for people and AI" : `${title} · Pino`;
 ---
 
 <!doctype html>
@@ -15,11 +21,40 @@ const {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
+    <title>{fullTitle}</title>
     <meta name="description" content={description} />
+    <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
+    <!-- Satoshi from Fontshare (its license allows this; it forbids redistributing the files). -->
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,401&display=swap" />
+    <slot name="head" />
   </head>
   <body>
-    <slot />
+    <a class="skip" href="#main">Skip to content</a>
+    <Header />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
   </body>
 </html>
+
+<style>
+  .skip {
+    position: absolute;
+    left: 1rem;
+    top: -3rem;
+    z-index: 10;
+    padding: 0.5rem 0.75rem;
+    background: var(--ink);
+    color: var(--bg);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+  .skip:focus {
+    top: 1rem;
+  }
+</style>

@@ -1,10 +1,226 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import { Image } from "astro:assets";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import Section from "../components/Section.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+import ErrorBlock from "../components/ErrorBlock.astro";
+import BenchTable from "../components/BenchTable.astro";
+import StatusLists from "../components/StatusLists.astro";
+import PineTexture from "../components/PineTexture.astro";
+import Commands from "../components/Commands.astro";
+import doodle from "../assets/images/pino_manga_doodle.png";
+
+const raw = "https://raw.githubusercontent.com/OGShawnLee/pino-lang/main";
 ---
 
 <BaseLayout>
-  <main>
-    <h1>Pino</h1>
-    <p>The new site is being built.</p>
-  </main>
+  <Hero needles>
+    <Fragment slot="title">A small, fast language for people <span class="poem">and for AI.</span></Fragment>
+    <p slot="lead">
+      No hidden sharing, no <code>null</code>, no garbage collector, and error messages written as plain sentences.
+      Light enough to feel at home on a modest laptop.
+    </p>
+    <Fragment slot="links">
+      <a href="/play/">Try it in your browser</a>
+      <a class="quiet" href="/learn/">Read the guide</a>
+    </Fragment>
+  </Hero>
+
+  <Section label="01 — Errors are values" id="errors">
+    <Fragment slot="title">Handle the failure <span class="poem">right where it happens.</span></Fragment>
+    <p class="text">
+      A function that can fail returns a <code>Result</code>. <code>?</code> passes the failure up, and
+      <code>or {"{ … }"}</code> handles it in place, with the error in <code>err</code> and <code>yield</code> giving
+      the fallback value.
+    </p>
+    <CodeBlock name="divide" />
+  </Section>
+
+  <Section label="02 — Errors that read like sentences" id="messages">
+    <Fragment slot="title">Errors that <span class="poem">help instead of scold.</span></Fragment>
+    <ErrorBlock name="immutable" />
+    <p class="note">
+      There are no semicolons to forget. Nobody should fail a class over a missing semicolon. The checker saves its
+      strictness for real mistakes, like changing data you said wouldn't change.
+    </p>
+  </Section>
+
+  <Section label="03 — Values" id="values">
+    <Fragment slot="title">Your data never changes <span class="poem">behind your back.</span></Fragment>
+    <p class="text">
+      In Python, JavaScript, Java or C#, giving a list to another variable or function hands over the
+      <em>same</em> list, so a change on one side shows up on the other. In Pino, each side gets its own value. A function
+      can change yours only if its parameter says <code>mut</code> and the call says <code>mut</code> too. It stays fast,
+      because Pino only really copies when one side changes something.
+    </p>
+    <CodeBlock name="values" />
+  </Section>
+
+  <Section label="04 — Performance" id="performance">
+    <Fragment slot="title">Compiled with <code>--release</code>, Pino runs in the same range as Go and Rust.</Fragment>
+    <p class="text">
+      The same algorithm in six languages, with checked output. <code>pino build --release</code> compiles through GCC
+      or Clang; <code>pino run</code> uses the VM and needs no C compiler. The programs are small on purpose, so the
+      fastest ones finish close to their startup time: the table shows they're in the same league, not which one wins.
+      Building a string with <code>+</code> is still slow in native Pino; the fix is next.
+    </p>
+    <BenchTable
+      caption="Benchmark times in milliseconds"
+      rows={["fib", "binary-trees", "mandelbrot", "sort", "lexer", "string-build"]}
+      columns={[
+        { key: "pino-gcc", label: "Pino", pino: true },
+        { key: "go", label: "Go" },
+        { key: "rust", label: "Rust" },
+        { key: "csharp", label: "C#" },
+        { key: "bun", label: "Bun" },
+        { key: "python", label: "Python" },
+      ]}
+    />
+    <p class="more"><a href="/performance/">All results, with the VM and TinyCC builds</a></p>
+  </Section>
+
+  <section class="status" aria-labelledby="status-title">
+    <PineTexture place="section" />
+    <div class="wrap inner">
+      <p class="label">Status</p>
+      <h2 id="status-title">Growing slowly,<br /><span class="poem">as a pine tree does.</span></h2>
+      <StatusLists
+        works={[
+          "Pino 0.4 runs the whole language on a VM and as native C, with every conformance test passing on both.",
+          "A complete written spec; every rule has tests.",
+          "Plain-sentence errors, <code>pino test</code>, a REPL and a browser playground.",
+        ]}
+        notYet={[
+          "Young, and a one-person project.",
+          "A small standard library and no package ecosystem yet.",
+          "No concurrency yet, and AI models know very little Pino.",
+        ]}
+      />
+      <p class="more"><a href="/status/">Status and roadmap</a></p>
+    </div>
+  </section>
+
+  <Section label="Why it exists" id="why">
+    <Fragment slot="title"><span class="visually-hidden">Why Pino exists</span></Fragment>
+    <div class="why">
+      <div>
+        <blockquote>
+          “A language can be imperfect and still be kind, and I think that's what makes it beautiful.”
+        </blockquote>
+        <p class="note">
+          Pino didn't start as a serious project. It started with a girl, a humble laptop and a C++ course.
+        </p>
+        <p class="more"><a href="/about/">Read the story</a></p>
+      </div>
+      <figure>
+        <Image src={doodle} alt="Vincent, Re-l and Pino, drawn as small chibi figures." width={380} format="webp" quality={70} />
+        <figcaption>Vincent, Re-l and Pino.</figcaption>
+      </figure>
+    </div>
+  </Section>
+
+  <Section label="Install" id="install">
+    <Fragment slot="title">Install Pino 0.4</Fragment>
+    <Commands
+      items={[
+        { label: "Windows (PowerShell)", lang: "powershell", code: `irm ${raw}/install.ps1 | iex` },
+        { label: "macOS and Linux", lang: "bash", code: `curl -fsSL ${raw}/install.sh | bash` },
+      ]}
+    />
+    <p class="note">Then <code>pino init my-app</code> creates a project. <a href="/install/">Requirements and upgrading from 0.3</a></p>
+  </Section>
 </BaseLayout>
+
+<style>
+  .text {
+    max-width: 40rem;
+    color: var(--soft);
+  }
+  .note {
+    max-width: 36rem;
+    font-size: 0.92rem;
+    color: var(--soft);
+  }
+  .more a {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 0.15rem;
+  }
+  .more a::after {
+    content: " →";
+  }
+  .more a:hover {
+    color: var(--pine);
+  }
+  code {
+    font-size: 0.9em;
+  }
+
+  .status {
+    position: relative;
+    overflow: hidden;
+    margin-top: clamp(4rem, 9vw, 7rem);
+    border-top: 1px solid var(--line);
+  }
+  .status .inner {
+    position: relative;
+    padding-block: 1.25rem 3rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .status h2 {
+    font-size: clamp(2.2rem, 5.5vw, 3.2rem);
+    line-height: 1.05;
+    margin: 0.4rem 0 1.4rem;
+  }
+
+  .why {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 15rem);
+    gap: 2rem 3rem;
+    align-items: end;
+  }
+  blockquote {
+    margin: 0 0 1rem;
+    font-size: clamp(1.4rem, 3.4vw, 1.9rem);
+    line-height: 1.3;
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    max-width: 34rem;
+  }
+  .why .note {
+    margin-bottom: 1rem;
+  }
+  figure {
+    margin: 0;
+  }
+  figure img {
+    display: block;
+    border-radius: 4px;
+  }
+  @media (prefers-color-scheme: dark) {
+    figure img {
+      filter: brightness(0.9);
+    }
+  }
+  figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--soft);
+  }
+  @media (max-width: 40rem) {
+    .why {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .why figure {
+      max-width: 15rem;
+    }
+  }
+</style>

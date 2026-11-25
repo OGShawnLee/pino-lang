@@ -1,0 +1,84 @@
+---
+const links = [
+  { href: "/learn/", label: "Learn" },
+  { href: "/play/", label: "Playground" },
+  { href: "/install/", label: "Install" },
+  { href: "/status/", label: "Status" },
+  { href: "/about/", label: "About" },
+];
+
+const current = Astro.url.pathname;
+---
+
+<header class="wrap">
+  <div class="bar">
+    <a class="wordmark" href="/" aria-label="Pino, home">Pino</a>
+    <nav aria-label="Main">
+      <ul>
+        {
+          links.map((l) => (
+            <li>
+              <a class="label" href={l.href} aria-current={current.startsWith(l.href) ? "page" : undefined}>
+                {l.label}
+              </a>
+            </li>
+          ))
+        }
+        <li>
+          <a class="label" href="https://github.com/OGShawnLee/pino-lang">GitHub</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  header {
+    position: relative;
+    z-index: 2;
+  }
+  .bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    flex-wrap: wrap;
+    padding-block: 1.5rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .wordmark {
+    font-family: var(--font-poem);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.75rem;
+    line-height: 1;
+    text-decoration: none;
+  }
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  nav a {
+    text-decoration: none;
+    padding-block: 0.25rem;
+    border-bottom: 1px solid transparent;
+  }
+  nav a:hover,
+  nav a[aria-current="page"] {
+    color: var(--ink);
+    border-bottom-color: currentColor;
+  }
+  @media (max-width: 40rem) {
+    .bar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    ul {
+      gap: 0.5rem 1.1rem;
+    }
+  }
+</style>

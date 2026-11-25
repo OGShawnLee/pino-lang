@@ -20,4 +20,5 @@ Run these from `pino-site-next/`:
 
 ## Fonts
 
-Satoshi's license forbids redistributing the font files, so `public/fonts/Satoshi-*.woff2` is ignored by git. Download Satoshi from [Fontshare](https://www.fontshare.com/fonts/satoshi) (Light, Regular, Medium, Italic) and put the `.woff2` files in `public/fonts/`.
+- Satoshi (text) loads from [Fontshare](https://www.fontshare.com/fonts/satoshi). Its license forbids redistributing the font files, so they are never committed (`public/fonts/Satoshi-*.woff2` is ignored).
+- Nordwand Mono (code) and Cormorant Garamond italic (one line per section) are self-hosted from `public/fonts/` under the SIL Open Font License.

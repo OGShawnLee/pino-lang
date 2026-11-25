@@ -1,0 +1,44 @@
+---
+// The checker's real message for a src/snippets/<name>.fail.pino file.
+import { failingSnippet } from "../lib/snippets";
+
+interface Props {
+  name: string;
+}
+
+const { name } = Astro.props;
+const { message } = failingSnippet(name);
+
+const escape = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Color only the error code and the word "help"; everything else stays plain text.
+const html = escape(message)
+  .replace(/^(error|warning)(\[[A-Z]+\d+\])/m, '<span class="sev">$1$2</span>')
+  .replace(/^(\s*= )(help)(:)/m, '$1<span class="help">$2</span>$3');
+---
+
+<figure class="error">
+  <span class="visually-hidden">Compiler message</span>
+  <pre set:html={html} />
+</figure>
+
+<style>
+  .error {
+    margin: 0;
+    background: var(--code-bg);
+    border-left: 2px solid var(--accent);
+  }
+  pre {
+    margin: 0;
+    padding: 1.1rem 1.2rem;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    overflow-x: auto;
+  }
+  pre :global(.sev) {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  pre :global(.help) {
+    color: var(--pine);
+  }
+</style>

@@ -1,0 +1,68 @@
+---
+// The first screen: pine texture, falling needles, a heading, a lead paragraph and links.
+import PineTexture from "./PineTexture.astro";
+import PineNeedles from "./PineNeedles.astro";
+
+interface Props {
+  /** Add the falling needles (home page only). */
+  needles?: boolean;
+}
+
+const { needles = false } = Astro.props;
+---
+
+<div class="hero">
+  <PineTexture place="hero" eager />
+  {needles && <PineNeedles />}
+  <div class="wrap inner">
+    <h1><slot name="title" /></h1>
+    <div class="lead"><slot name="lead" /></div>
+    <div class="links"><slot name="links" /></div>
+  </div>
+</div>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    margin-top: -5rem;
+    padding-top: 5rem;
+  }
+  .inner {
+    position: relative;
+    padding-block: clamp(3rem, 9vw, 6rem) clamp(3rem, 7vw, 5rem);
+  }
+  h1 {
+    font-size: clamp(2.4rem, 6.4vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    max-width: 38rem;
+    margin-bottom: 1.4rem;
+  }
+  .lead {
+    color: var(--soft);
+    font-size: clamp(1rem, 2.2vw, 1.125rem);
+    max-width: 32rem;
+    margin-bottom: 1.8rem;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.8rem;
+  }
+  .links :global(a) {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid currentColor;
+  }
+  .links :global(a.quiet) {
+    color: var(--soft);
+    border-bottom-color: var(--line);
+  }
+  .links :global(a:hover) {
+    color: var(--pine);
+  }
+</style>

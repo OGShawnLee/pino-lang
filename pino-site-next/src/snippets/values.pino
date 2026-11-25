@@ -1,0 +1,12 @@
+fn add_bonus(mut scores []int) {
+  scores:push(100)
+}
+
+var a = [1, 2, 3]
+var b = a          # b is its own value
+b:push(4)
+println(a)         # [1, 2, 3]
+println(b)         # [1, 2, 3, 4]
+
+add_bonus(mut b)   # the call says 'mut', so you can see what may change
+println(b)         # [1, 2, 3, 4, 100]

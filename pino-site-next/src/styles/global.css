@@ -1,0 +1,193 @@
+/*
+ * Pino site: design tokens and base styles.
+ * The look is defined in .routing/SITE.md ("Direction: editorial minimal with pines").
+ * Pages use these tokens and the components in src/components only.
+ */
+
+/* ---------- Fonts ---------- */
+
+/* Satoshi is loaded from Fontshare in BaseLayout (its license forbids redistributing the files). */
+
+@font-face {
+  font-family: "Nordwand Mono";
+  src: url("/fonts/NordwandMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Nordwand Mono";
+  src: url("/fonts/NordwandMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("/fonts/CormorantGaramond-MediumItalic.woff2") format("woff2");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+
+:root {
+  color-scheme: light dark;
+
+  --font-text: "Satoshi", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: "Nordwand Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-poem: "Cormorant Garamond", Georgia, serif;
+
+  /* light */
+  --bg: #fbfaf7;
+  --ink: #141414;
+  --soft: #55554f;
+  --line: #e4e2dc;
+  --pine: #2d5a43;
+  --accent: #b23f54;
+  --code-bg: #f3f2ee;
+  --needle: 45 90 67;
+  --texture-opacity: 0.16;
+  --texture-filter: none;
+  --texture-blend: multiply;
+
+  /* code colors (Shiki css-variables theme) */
+  --shiki-foreground: var(--ink);
+  --shiki-background: transparent;
+  --shiki-token-keyword: #b23f54;
+  --shiki-token-string: #8a5524;
+  --shiki-token-string-expression: #8a5524;
+  --shiki-token-comment: #77756d;
+  --shiki-token-constant: #2d5a43;
+  --shiki-token-function: #1f3f70;
+  --shiki-token-parameter: var(--ink);
+  --shiki-token-punctuation: var(--soft);
+  --shiki-token-link: var(--pine);
+
+  /* sizes */
+  --page: 72rem;
+  --text: 1.0625rem;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0f0e;
+    --ink: #eeece6;
+    --soft: #a5a39c;
+    --line: #2a2926;
+    --pine: #8cc4a4;
+    --accent: #f0899b;
+    --code-bg: #171715;
+    --needle: 140 196 164;
+    --texture-opacity: 0.1;
+    --texture-filter: invert(1);
+    --texture-blend: screen;
+
+    --shiki-token-keyword: #f0899b;
+    --shiki-token-string: #e3b27a;
+    --shiki-token-string-expression: #e3b27a;
+    --shiki-token-comment: #8e8c85;
+    --shiki-token-constant: #8cc4a4;
+    --shiki-token-function: #9fbde8;
+  }
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--text);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+code,
+pre,
+kbd {
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+  font-feature-settings: "calt" 0, "liga" 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--pine);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--pine);
+  color: var(--bg);
+}
+
+/* The one green italic line per section. */
+.poem {
+  font-family: var(--font-poem);
+  font-style: italic;
+  font-weight: 500;
+  color: var(--pine);
+  letter-spacing: -0.01em;
+  font-size: 1.12em;
+}
+
+/* A small uppercase label: navigation, buttons and section names only. */
+.label {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
+  font-weight: 400;
+}
+
+.wrap {
+  max-width: var(--page);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -1,0 +1,45 @@
+---
+// Shell commands, one block per platform. Long lines wrap instead of being cut off.
+import { highlight } from "../lib/highlight";
+
+interface Props {
+  items: { label: string; lang: "bash" | "powershell"; code: string }[];
+}
+
+const { items } = Astro.props;
+const blocks = await Promise.all(items.map(async (i) => ({ ...i, html: await highlight(i.code, i.lang) })));
+---
+
+<div class="commands">
+  {
+    blocks.map((b) => (
+      <figure>
+        <figcaption class="label">{b.label}</figcaption>
+        <Fragment set:html={b.html} />
+      </figure>
+    ))
+  }
+</div>
+
+<style>
+  .commands {
+    display: grid;
+    gap: 1rem;
+  }
+  figure {
+    margin: 0;
+  }
+  figcaption {
+    margin-bottom: 0.4rem;
+  }
+  figure :global(pre) {
+    margin: 0;
+    padding: 0.9rem 1.1rem;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+</style>
