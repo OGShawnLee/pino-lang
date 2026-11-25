@@ -1,13 +1,9 @@
 // @ts-check
-import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
 import { defineConfig } from "astro/config";
+// Astro 7 renders Markdown with Sätteri; its plugins are mdast visitors.
+import { satteri } from "@astrojs/markdown-satteri";
 import { loadPinoGrammar, pinoTheme } from "./src/lib/shiki-theme.mjs";
 import { remarkGuideLinks } from "./src/lib/remark-guide-links.mjs";
-
-// Astro 7 uses Sätteri as the default Markdown processor; resolve @astrojs/markdown-satteri via astro.
-const astroRequire = createRequire(import.meta.resolve("astro/package.json"));
-const { satteri } = await import(pathToFileURL(astroRequire.resolve("@astrojs/markdown-satteri")).href);
 
 // https://astro.build/config
 export default defineConfig({

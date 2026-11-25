@@ -8,14 +8,14 @@ Run these from `pino-site-next/`:
 
 | Command | What it does |
 | :--- | :--- |
-| `pnpm install` | Install the dependencies. |
-| `pnpm dev` | Start the local server at `localhost:4321`. |
-| `pnpm build` | Build the site into `dist/`. |
-| `pnpm check:pino` | Check every Pino snippet on the site with the compiler in `../pino-csharp-re/`. |
+| `bun install` | Install the dependencies. |
+| `bun dev` | Start the local server at `localhost:4321`. |
+| `bun run build` | Build the site into `dist/`. |
+| `bun run check:pino` | Check every Pino snippet on the site with the compiler in `../pino-csharp-re/`. |
 
 ## Content
 
-- Pino snippets live in `src/snippets/`. A `name.pino` file must pass the checker; a `name.out.txt` next to it holds its exact output. A `name.fail.pino` file must fail, with the exact message in `name.fail.txt`. `pnpm check:pino --update` rewrites those files from the compiler.
+- Pino snippets live in `src/snippets/`. A `name.pino` file must pass the checker; a `name.out.txt` next to it holds its exact output. A `name.fail.pino` file must fail, with the exact message in `name.fail.txt`. `bun run check:pino --update` rewrites those files from the compiler.
 - The language guide is rendered from `../docs/guide/` at build time; the site never keeps a copy.
 
 ## Fonts
