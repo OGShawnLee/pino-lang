@@ -2,6 +2,38 @@
 
 Notes between the **compiler router** ([router](../.claude/skills/router/SKILL.md)) and the **site router** ([site-router](../.claude/skills/site-router/SKILL.md)). Add entries at the top, dated and signed (`compiler` or `site`). Keep each entry short. When an entry is done, mark it `[done]` instead of deleting it.
 
+## 2026-11-24 · compiler (088/090 landed: benchmarks for the site)
+
+The owner wants the site built with these numbers. **The method and full data:** `benchmarks/README.md` and `benchmarks/results/2026-11-24-windows-x64.{md,json}` (Pino `5ac8b13`, Windows 11, Intel i3-N305 laptop CPU, median of 5 runs). Ten benchmarks plus `hello`, the same algorithm in Pino, Go, Rust, C#, Bun and Python, with checked output. Rerun with `python benchmarks/run.py`.
+
+**Three Pino rows; explain them on the site:** `pino run` (the VM: no C compiler needed), `pino build` (native through TinyCC: compiles instantly, no optimizer), `pino build --release` (native through GCC/Clang `-O2`: the speed number).
+
+**Headline, in ms (lower is faster):**
+
+| Benchmark | Pino VM | Pino (TinyCC) | Pino (gcc) | Go | Rust | C# | Bun | Python |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| hello (startup) | 495 | 10 | 11 | 16 | 17 | 104 | 31 | 50 |
+| fib | 950 | 25 | 15 | 22 | 18 | 105 | 50 | 136 |
+| binary trees | 1,255 | 60 | 49 | 37 | 69 | 128 | 80 | 217 |
+| mandelbrot | 1,666 | 66 | 22 | 27 | 24 | 113 | 70 | 599 |
+| sort | 1,133 | 27 | 17 | 18 | 16 | 111 | 64 | 98 |
+| string building | 766 | 1,002 | 231 | 70 | 26 | 140 | 39 | 52 |
+| lexer | 3,177 | 38 | 21 | 25 | 17 | 144 | 60 | 91 |
+
+**What the site can say today, honestly:**
+- Compiled with `--release`, Pino runs in the same range as Go and Rust, and faster than C#, Bun and Python on every benchmark except string building.
+- **Say that sizes are small on purpose** (the suite runs in about 4 minutes on any machine), so Go, Rust and Pino with gcc are close to their startup time; the table shows they're in the same league, not which one wins. Don't write "faster than Rust" or "faster than Go".
+- **Known weak spots, fixes planned:** building a string with `s = s + x` is slow in native Pino (the runtime copies on every append; fix is next, ticket 089). The VM starts in about 0.5 s and is slower than Python today.
+- Say where the numbers came from (machine, date, commit) and link the method.
+
+**What fully optimized Pino should look like (goals, not measurements; label them as goals):**
+- **After 089 (next):** string building with gcc drops from 231 ms into the Go/Rust range (tens of ms). The site's table gets a before/after.
+- **VM work (after 089):** startup from about 0.5 s to under 0.1 s (ship the CLI precompiled), fix the lexer's slow path, faster float math. **Owner's target: the VM within 1.5–3× of Python's time.** Today its core loops are already about 2.6–6× Python, after subtracting startup.
+- **0.5 performance work** (Perceus-style reference counting, in-place reuse, arenas, then inlining, bounds-check elimination): fewer reference-count operations and fewer copies. **Goal: native Pino within about 1–2× of Rust on every benchmark.** Reference counting has a cost, so Pino isn't expected to beat hand-tuned C or Rust in general.
+- TinyCC builds stay slower than gcc builds (today 1.2–4.5×, most on float math). That's the trade for compiling instantly; recommend `--release` for speed.
+
+**Corrections to the 075 entry below:** Linux no longer bundles TinyCC (085). On Linux and macOS, `--c` and `pino build` use the system `cc`/`gcc`/`clang` (`sudo apt install build-essential` on Debian/Ubuntu). TinyCC is bundled on Windows only. The release workflow built and smoke-tested all four archives; a macOS CI failure was fixed in 087.
+
 ## 2026-11-24 · compiler (075 landed: 0.4 packaging and installers)
 
 - **README updates for 0.4 are yours** (`1bb7a56`). The full suggestions are in `.tickets/075-release-0.4/changelog.md`, section "Suggested README changes". In short:
