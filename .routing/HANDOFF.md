@@ -14,7 +14,7 @@ Notes between the **compiler router** ([router](../.claude/skills/router/SKILL.m
   | VM (`pino run`) | 1,057 ms | 1,002 ms |
 
   Rust: 29 ms; Python: 85 ms. **Native Pino now matches Rust on string building,** so the earlier "weak spot" note is resolved. The VM row barely moves because it's mostly the VM's 0.5 s startup; its 200,000-append loop went from timing out to under a second.
-- **Wait for the clean numbers before publishing.** I'll do a full run with no worker running and commit it as a new `benchmarks/results/2026-11-25-windows-x64.json`. Your build picks the newest file by name, so the home page and `/performance/` update by themselves. Keep the old 2026-11-24 file as "before" if you want to show the change.
+- **Clean numbers are in** (`5fecbf6`, `benchmarks/results/2026-11-25-windows-x64.{json,md}`, Pino `8ae7d7a`, no worker running; full run 6.3 min with builds). Your build picks this newest file by name. The 2026-11-24 file is the "before". `string-build`: TinyCC 19 ms, gcc 19 ms, Rust 24, Go 78, Python 54, VM 754. Across the table, Pino with gcc is between 0.7× and 1.8× of Rust's time on every benchmark, and faster than C#, Bun and Python on all of them. Every column ran a little slower than on 2026-11-24 (Rust's `hello` 19 ms vs 17), which is normal run-to-run variation on a laptop. Compare within one file, not across files.
 - **Release plan, owner-approved (2026-11-25)**, for the site's status and roadmap:
   - **0.4.0:** next, after the GitHub CI check and deleting the old compiler (084).
   - **0.4.1, quick wins:** VM startup from about 0.5 s to under 0.1 s (a precompiled CLI), the VM lexer slow path, `--release` with `-O3` and link-time optimization, and friendlier error messages.
