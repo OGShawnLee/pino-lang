@@ -1,5 +1,166 @@
 ---
-import Placeholder from "../components/Placeholder.astro";
+import { Image } from "astro:assets";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import Section from "../components/Section.astro";
+import doodle from "../assets/images/pino_manga_doodle.png";
+import trio from "../assets/images/trio_watercolor_pure.jpg";
+
+const repo = "https://github.com/OGShawnLee/pino-lang";
+const tree = `${repo}/tree/main`;
+const blob = `${repo}/blob/main`;
 ---
 
-<Placeholder title="About Pino" />
+<BaseLayout
+  title="About"
+  description="Pino is a statically typed programming language that I've been building since 2024."
+>
+  <Hero>
+    <Fragment slot="title">About Pino</Fragment>
+    <p slot="lead">Pino is a statically typed programming language that I've been building since 2024.</p>
+  </Hero>
+
+  <Section label="The name" id="name">
+    <Fragment slot="title">Why "Pino"?</Fragment>
+    <p class="text">
+      Pino is named after the AutoReiv android from <em>Ergo Proxy</em>. In the show she catches the Cogito virus,
+      which gives machines self-awareness and feelings, and she spends most of it wearing a pink rabbit suit. I liked
+      the idea of a language with a bit of that in it: something precise that still has some play and personality.
+      She's the mascot.
+    </p>
+    <figure>
+      <Image
+        src={doodle}
+        alt="Vincent, Re-l and Pino, drawn as small chibi figures."
+        width={380}
+        format="webp"
+        quality={70}
+      />
+      <figcaption>Vincent, Re-l and Pino.</figcaption>
+    </figure>
+  </Section>
+
+  <Section label="How it started" id="story">
+    <Fragment slot="title">The story</Fragment>
+    <p class="text">Pino didn't start as a serious project. It started with a girl, a humble laptop and a C++ course.</p>
+    <p class="text">In 2024, my first semester, there was a girl I liked a lot. She was struggling with C++ on a modest laptop that worked hard just to run its tools, and a single missing semicolon could make a whole program fail.</p>
+    <p class="text">My first plan was naive. I'd write a small, friendly language and a transpiler that turned it into C++, so she could write her homework the easy way and hand in the C++. It didn't take me long to see that it made no sense. What I wanted to give her wasn't a shortcut through one course. It was a language of her own: simple, forgiving about the small things, and light enough for a laptop like hers.</p>
+    <p class="text">I didn't finish it in time, and it didn't end the way I hoped. But the language kept growing, and that semester became its rules: no semicolons, errors that help instead of scold, and a compiler that runs well on a modest computer. A language can be imperfect and still be kind, and I think that's what makes it beautiful.</p>
+    <p class="text">In 2026 I ran into a Data Science student at the faculty whom I'd admired from a distance since 2024. I wanted a way to connect and to share what I love, and Pino came back with a new goal: to be a clean, fast alternative to Python for people like her.</p>
+    <p class="text">So Pino was built with the heart as much as with logic.</p>
+    <blockquote>“Love is in the things we build for those we cherish, even if they may never be seen. And when they are, we have found home.”</blockquote>
+    <figure>
+      <Image
+        src={trio}
+        alt="Re-l Mayer, Vincent Law and Pino."
+        width={720}
+        format="webp"
+        quality={70}
+        loading="lazy"
+      />
+      <figcaption>Vincent, Re-l and Pino.</figcaption>
+    </figure>
+  </Section>
+
+  <Section label="AI and people" id="how">
+    <Fragment slot="title">How Pino is made</Fragment>
+    <p class="text">I want to be open about how this language is built, because AI is part of it.</p>
+    <ul>
+      <li><strong>2024: by hand.</strong> The first versions of Pino were written by hand in C++.</li>
+      <li>
+        <strong>The move to C#.</strong> The compiler was later migrated to C#, with Gemini Flash doing most of the
+        migration.
+      </li>
+      <li>
+        <strong>Today: AI with a human in charge.</strong> The new compiler (<a href={`${tree}/pino-csharp-re/`}
+          ><code>pino-csharp-re</code></a
+        >), the <a href={`${blob}/spec/SPEC.md`}>specification</a> and the conformance tests are written and heavily
+        improved by Claude and Gemini. They work from small tickets, and every design decision is mine, recorded in
+        <a href={`${tree}/spec/decisions/`}><code>spec/decisions/</code></a>. Nothing is merged until the full test
+        suite passes. Commits written with an AI name the model in a <code>Co-Authored-By</code> line, so the history
+        shows who wrote what.
+      </li>
+      <li>
+        <strong>The self-hosted compiler: by hand.</strong>
+        <a href={`${tree}/projects/pino-compiler/`}><code>projects/pino-compiler</code></a> is written by hand, one
+        piece at a time, while I read the literature, starting with Nora Sandler's <em>Writing a C Compiler</em>. This
+        is where I learn how compilers really work.
+      </li>
+      <li>
+        <strong>The games.</strong> SABLE's concept and writing came from DeepSeek, and Antigravity helped program it,
+        as noted <a href={`${repo}#games`}>above</a>.
+      </li>
+    </ul>
+    <p class="text">The tools have changed over the years. The reason hasn't.</p>
+  </Section>
+</BaseLayout>
+
+<style>
+  .text {
+    max-width: 40rem;
+    color: var(--soft);
+  }
+  .note {
+    max-width: 36rem;
+    font-size: 0.92rem;
+    color: var(--soft);
+  }
+  .more a {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 0.15rem;
+  }
+  .more a::after {
+    content: " →";
+  }
+  .more a:hover {
+    color: var(--pine);
+  }
+  code {
+    font-size: 0.9em;
+  }
+  blockquote {
+    margin: 0 0 1rem;
+    font-size: clamp(1.4rem, 3.4vw, 1.9rem);
+    line-height: 1.3;
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    max-width: 34rem;
+  }
+  figure {
+    margin: 0;
+  }
+  figure img {
+    display: block;
+    border-radius: 4px;
+  }
+  @media (prefers-color-scheme: dark) {
+    figure img {
+      filter: brightness(0.9);
+    }
+  }
+  figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--soft);
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.95rem;
+  }
+  li {
+    padding: 0.2rem 0 0.2rem 1.4rem;
+    text-indent: -1.4rem;
+  }
+  li::before {
+    content: "— ";
+    color: var(--pine);
+  }
+</style>

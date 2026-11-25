@@ -1,5 +1,130 @@
 ---
-import Placeholder from "../components/Placeholder.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import Section from "../components/Section.astro";
+import BenchTable from "../components/BenchTable.astro";
+
+const repo = "https://github.com/OGShawnLee/pino-lang";
 ---
 
-<Placeholder title="Performance" />
+<BaseLayout
+  title="Performance"
+  description="Compiled with --release, Pino runs in the same range as Go and Rust, and faster than C#, Bun and Python on every benchmark except string building."
+>
+  <Hero>
+    <Fragment slot="title">Performance</Fragment>
+    <p slot="lead">
+      Ten benchmarks plus <code>hello</code>, using the same algorithm in Pino, Go, Rust, C#, Bun and Python, with
+      checked output.
+    </p>
+  </Hero>
+
+  <Section label="Three ways to run" id="modes">
+    <Fragment slot="title">How Pino runs your code</Fragment>
+    <ul>
+      <li><code>pino run</code> runs on the VM, with no C compiler needed.</li>
+      <li><code>pino build</code> compiles native code through TinyCC, which compiles instantly with no optimizer.</li>
+      <li>
+        <code>pino build --release</code> compiles native code through GCC or Clang with <code>-O2</code>, which is the
+        speed number.
+      </li>
+    </ul>
+  </Section>
+
+  <Section label="Benchmarks" id="results">
+    <Fragment slot="title">Results</Fragment>
+    <BenchTable
+      caption="Benchmark times in milliseconds"
+      rows={[
+        "hello",
+        "fib",
+        "binary-trees",
+        "nbody",
+        "spectral-norm",
+        "mandelbrot",
+        "sort",
+        "word-count",
+        "string-build",
+        "regex",
+        "lexer",
+      ]}
+      columns={[
+        { key: "pino-vm", label: "Pino VM", pino: true },
+        { key: "pino-c", label: "Pino (TinyCC)", pino: true },
+        { key: "pino-gcc", label: "Pino (gcc)", pino: true },
+        { key: "go", label: "Go" },
+        { key: "rust", label: "Rust" },
+        { key: "csharp", label: "C#" },
+        { key: "bun", label: "Bun" },
+        { key: "python", label: "Python" },
+      ]}
+    />
+    <p class="text">
+      Compiled with <code>--release</code>, Pino runs in the same range as Go and Rust, and faster than C#, Bun and
+      Python on every benchmark except string building. The sizes are small on purpose so the suite runs in a few
+      minutes on any machine, which puts Go, Rust and Pino with gcc close to their startup time: the table shows
+      they're in the same league, not which one wins.
+    </p>
+    <p class="text">
+      <strong>Known weak spots:</strong> building a string with <code>s = s + x</code> is slow in native Pino today,
+      because the runtime copies on every append; a fix is next. The VM takes about half a second to start and is
+      slower than Python today.
+    </p>
+  </Section>
+
+  <Section label="Goals, not measurements" id="goals">
+    <Fragment slot="title">Goals</Fragment>
+    <ul>
+      <li>String building with gcc in the Go/Rust range after the fix.</li>
+      <li>VM startup under 0.1 s, and the VM within 1.5–3× of Python's time.</li>
+      <li>In 0.5, native Pino within about 1–2× of Rust on every benchmark.</li>
+    </ul>
+    <p class="text">
+      Reference counting has a cost, so Pino isn't expected to beat hand-tuned C or Rust in general.
+    </p>
+    <p class="more"><a href={`${repo}/blob/main/benchmarks/README.md`}>How it was measured</a></p>
+  </Section>
+</BaseLayout>
+
+<style>
+  .text {
+    max-width: 40rem;
+    color: var(--soft);
+  }
+  .note {
+    max-width: 36rem;
+    font-size: 0.92rem;
+    color: var(--soft);
+  }
+  .more a {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 0.15rem;
+  }
+  .more a::after {
+    content: " →";
+  }
+  .more a:hover {
+    color: var(--pine);
+  }
+  code {
+    font-size: 0.9em;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.95rem;
+  }
+  li {
+    padding: 0.2rem 0 0.2rem 1.4rem;
+    text-indent: -1.4rem;
+  }
+  li::before {
+    content: "— ";
+    color: var(--pine);
+  }
+</style>

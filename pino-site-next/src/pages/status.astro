@@ -1,5 +1,180 @@
 ---
-import Placeholder from "../components/Placeholder.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import Section from "../components/Section.astro";
+import StatusLists from "../components/StatusLists.astro";
+import PineTexture from "../components/PineTexture.astro";
+import FactTable from "../components/FactTable.astro";
+
+const tree = "https://github.com/OGShawnLee/pino-lang/tree/main";
 ---
 
-<Placeholder title="Status and roadmap" />
+<BaseLayout
+  title="Status"
+  description="0.4 ships the new compiler as pino; the older compiler is retired."
+>
+  <Hero>
+    <Fragment slot="title">Status and roadmap</Fragment>
+    <p slot="lead">
+      Pino is a one-person project. 0.4 ships the new compiler as <code>pino</code>; the older compiler is retired.
+    </p>
+  </Hero>
+
+  <section class="status" id="pine" aria-labelledby="pine-title">
+    <PineTexture place="section" />
+    <div class="wrap inner">
+      <p class="label">Status</p>
+      <h2 id="pine-title">Growing slowly,<br /><span class="poem">as a pine tree does.</span></h2>
+      <StatusLists
+        worksLabel="Strengths"
+        notYetLabel="Weaknesses"
+        works={[
+          "Small, readable syntax, with one obvious way to do most things.",
+          "Data can't change behind your back, which makes code easy to reason about and review.",
+          "No <code>null</code>; failures are values the checker makes you handle.",
+          "Error messages written for people.",
+          "Planned performance close to C: native code through C compilers, no GC, no pauses, low memory use.",
+          "A complete written spec with a conformance test for every rule.",
+        ]}
+        notYet={[
+          "Young, and a one-person project.",
+          "Small standard library and no package ecosystem yet.",
+          "No concurrency yet.",
+          "Structures that point at each other need <code>Pool</code> and handles instead of pointers, which takes some getting used to.",
+          "AI models know very little Pino yet.",
+        ]}
+      />
+    </div>
+  </section>
+
+  <Section label="Parts" id="parts">
+    <Fragment slot="title">Where each part stands</Fragment>
+    <FactTable
+      caption="Where each part of Pino stands"
+      head={["Part", "State"]}
+      rows={[
+        [
+          "VM",
+          "The default for <code>pino run</code>, the REPL and the browser playground. Runs the whole language.",
+        ],
+        [
+          "C backend",
+          "<code>pino build</code>, <code>pino run --c</code>: C99 with its own reference-counting runtime. TinyCC is bundled on Windows only; Linux and macOS use the system C compiler. <code>--release</code> uses GCC or Clang.",
+        ],
+        [
+          "Tests",
+          "<code>pino test</code>, with <code>test</code> blocks and asserts that show values.",
+        ],
+        [
+          "Conformance",
+          "Every rule in the spec has tests; both engines pass all 657 cases with the same output.",
+        ],
+        [
+          `Self-hosted compiler (<a href="${tree}/projects/pino-compiler/"><code>projects/pino-compiler</code></a>)`,
+          "In progress, written by hand in Pino.",
+        ],
+        [
+          "Editor support",
+          `Syntax highlighting for <a href="${tree}/vscode-pino/">VS Code</a> and <a href="${tree}/zed-pino/">Zed</a>.`,
+        ],
+      ]}
+    />
+  </Section>
+
+  <Section label="Next" id="roadmap">
+    <Fragment slot="title">Roadmap</Fragment>
+    <ol>
+      <li>Faster native string building (next).</li>
+      <li>A faster VM: startup under 0.1 s, closer to Python's speed.</li>
+      <li>The reference-counting optimizations (Perceus-style reuse) and arenas, for 0.5.</li>
+      <li>Concurrency, calling C libraries, and a "Pino for LLMs" page.</li>
+    </ol>
+  </Section>
+
+  <Section label="Decisions" id="decisions">
+    <Fragment slot="title">Recently decided</Fragment>
+    <ul>
+      <li>
+        Structs and collections are values, copied on write, with <code>mut</code> parameters to change the caller's
+        value.
+      </li>
+      <li><code>Option[T]</code> replaces <code>null</code>.</li>
+      <li>Type annotations go after the name: <code>val n int = 12</code>.</li>
+    </ul>
+    <p class="note">
+      The details are in <a href={`${tree}/spec/decisions/`}><code>spec/decisions/</code></a>.
+    </p>
+    <p class="more"><a href="/performance/">How fast it is</a></p>
+  </Section>
+</BaseLayout>
+
+<style>
+  .text {
+    max-width: 40rem;
+    color: var(--soft);
+  }
+  .note {
+    max-width: 36rem;
+    font-size: 0.92rem;
+    color: var(--soft);
+  }
+  .more a {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 0.15rem;
+  }
+  .more a::after {
+    content: " →";
+  }
+  .more a:hover {
+    color: var(--pine);
+  }
+  code {
+    font-size: 0.9em;
+  }
+
+  .status {
+    position: relative;
+    overflow: hidden;
+    margin-top: clamp(4rem, 9vw, 7rem);
+    border-top: 1px solid var(--line);
+  }
+  .status .inner {
+    position: relative;
+    padding-block: 1.25rem 3rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .status h2 {
+    font-size: clamp(2.2rem, 5.5vw, 3.2rem);
+    line-height: 1.05;
+    margin: 0.4rem 0 1.4rem;
+  }
+
+  ol {
+    margin: 0;
+    padding: 0 0 0 1.4rem;
+    font-size: 0.95rem;
+  }
+  ol li {
+    padding: 0.2rem 0;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.95rem;
+  }
+  ul li {
+    padding: 0.2rem 0 0.2rem 1.4rem;
+    text-indent: -1.4rem;
+  }
+  ul li::before {
+    content: "— ";
+    color: var(--pine);
+  }
+</style>

@@ -1,0 +1,99 @@
+---
+// A plain two-or-more-column table for facts. Cells may contain inline HTML such as <code>.
+interface Props {
+  caption: string;
+  head: string[];
+  rows: string[][];
+}
+
+const { caption, head, rows } = Astro.props;
+---
+
+<div class="scroll" tabindex="0" role="region" aria-label={caption}>
+  <table>
+    <caption class="visually-hidden">{caption}</caption>
+    <thead>
+      <tr>
+        {head.map((h) => <th scope="col" set:html={h} />)}
+      </tr>
+    </thead>
+    <tbody>
+      {
+        rows.map((row) => (
+          <tr>
+            {row.map((cell, i) =>
+              i === 0 ? <th scope="row" set:html={cell} /> : <td set:html={cell} />
+            )}
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .scroll {
+    overflow-x: auto;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--line);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+  }
+  th,
+  td {
+    padding: 0.55rem 0.9rem;
+    text-align: left;
+    white-space: normal;
+    border-bottom: 1px solid var(--line);
+  }
+  th:first-child {
+    text-align: left;
+    white-space: nowrap;
+    padding-left: 0;
+  }
+  thead th {
+    font-weight: 400;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--soft);
+  }
+  tbody th {
+    font-weight: 400;
+  }
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+  /* Phones: one row per block, so the description gets the full width. */
+  @media (max-width: 40rem) {
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+    tr {
+      display: block;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+    tbody tr:last-child {
+      border-bottom: 0;
+    }
+    th,
+    td {
+      display: block;
+      padding: 0;
+      border-bottom: 0;
+    }
+    th:first-child {
+      white-space: normal;
+      margin-bottom: 0.25rem;
+    }
+  }
+</style>

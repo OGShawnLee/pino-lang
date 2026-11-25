@@ -1,5 +1,181 @@
 ---
-import Placeholder from "../components/Placeholder.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import Section from "../components/Section.astro";
+import Commands from "../components/Commands.astro";
+import FactTable from "../components/FactTable.astro";
+
+const raw = "https://raw.githubusercontent.com/OGShawnLee/pino-lang/main";
+
+const gettingStarted = `pino init my-app
+cd my-app
+pino        # runs main.pino
+pino test`;
+
+const projectTree = `my-app/
+├── main.pino
+├── modules/
+│   └── utils.pino
+├── test/
+│   └── main_test.pino
+└── .gitignore`;
 ---
 
-<Placeholder title="Install" />
+<BaseLayout
+  title="Install"
+  description="The installer puts everything in ~/.pino/ and checks each download against SHA256SUMS."
+>
+  <Hero>
+    <Fragment slot="title">Install Pino 0.4</Fragment>
+    <p slot="lead">
+      The installer puts everything in <code>~/.pino/</code> and checks each download against <code>SHA256SUMS</code>.
+    </p>
+  </Hero>
+
+  <Section label="One line" id="install">
+    <Fragment slot="title">Install</Fragment>
+    <Commands
+      items={[
+        { label: "Windows (PowerShell)", lang: "powershell", code: `irm ${raw}/install.ps1 | iex` },
+        { label: "macOS and Linux", lang: "bash", code: `curl -fsSL ${raw}/install.sh | bash` },
+      ]}
+    />
+  </Section>
+
+  <Section label="What else you need" id="requirements">
+    <Fragment slot="title">Requirements</Fragment>
+    <p class="text">
+      <code>pino run</code>, <code>pino test</code>, <code>pino repl</code> and <code>pino play</code> need nothing
+      else on any OS.
+    </p>
+    <ul>
+      <li><strong>Windows:</strong> for <code>--c</code> and <code>pino build</code>, TinyCC is bundled.</li>
+      <li>
+        <strong>Linux:</strong> for <code>--c</code> and <code>pino build</code>, Pino uses the system C compiler (<code
+          >sudo apt install build-essential</code
+        > on Debian and Ubuntu).
+      </li>
+      <li>
+        <strong>macOS:</strong> for <code>--c</code> and <code>pino build</code>, Pino uses the system C compiler (<code
+          >xcode-select --install</code
+        >).
+      </li>
+      <li><strong>Release builds:</strong> <code>pino build --release</code> needs GCC or Clang.</li>
+    </ul>
+  </Section>
+
+  <Section label="Upgrading" id="upgrading">
+    <Fragment slot="title">Upgrading from 0.3</Fragment>
+    <p class="text">
+      Pino 0.4 moves the binary from <code>~/.pino/bin/pino</code> to <code>~/.pino/pino</code>. Run the installer
+      again and it removes the old <code>PATH</code> entry. From 0.4 on, <code>pino update</code> updates in place.
+    </p>
+  </Section>
+
+  <Section label="Getting started" id="first-project">
+    <Fragment slot="title">Your first project</Fragment>
+    <Commands items={[{ label: "Terminal", lang: "bash", code: gettingStarted }]} />
+    <p class="text">A new project looks like this:</p>
+    <pre>{projectTree}</pre>
+  </Section>
+
+  <Section label="Reference" id="commands">
+    <Fragment slot="title">Commands</Fragment>
+    <FactTable
+      caption="Pino CLI commands"
+      head={["Command", "What it does"]}
+      rows={[
+        ["<code>pino</code>", "Run <code>main.pino</code> in the current directory, or show help."],
+        [
+          "<code>pino init [name]</code>",
+          "Create a new Pino project (<code>main.pino</code>, <code>modules/</code>, <code>test/</code>, <code>.gitignore</code>).",
+        ],
+        [
+          "<code>pino run [opts] [file]</code>",
+          "Run a <code>.pino</code> file (defaults to <code>main.pino</code>). Use <code>--vm</code> (default) or <code>--c</code> to compile to a native program and run it.",
+        ],
+        [
+          "<code>pino build [opts] [file]</code>",
+          "Compile a <code>.pino</code> file to a native program (defaults to <code>main.pino</code>). Supports <code>-o &lt;out&gt;</code>, <code>--release</code> (GCC or Clang), and <code>--emit-c &lt;path&gt;</code>.",
+        ],
+        ["<code>pino compile [file] [out]</code>", "Write the generated C code for a file (alias: <code>c</code>)."],
+        [
+          "<code>pino watch [opts] [file]</code>",
+          "Run a <code>.pino</code> file and rerun on save (defaults to <code>main.pino</code>). Supports <code>--vm</code> (default) and <code>--c</code>.",
+        ],
+        [
+          "<code>pino check &lt;path&gt;...</code>",
+          "Check <code>.pino</code> files or folders for errors (<code>--color</code>, <code>--voice</code>).",
+        ],
+        ["<code>pino repl</code>", "Start an interactive Pino session."],
+        ["<code>pino play [game]</code>", "Play a game from <code>./games/</code> or the installed games folder."],
+        ["<code>pino play update</code>", "Download the official Pino games for this version."],
+        [
+          "<code>pino test [opts] [path]</code>",
+          "Run test blocks in a file or folder (defaults to the current folder). Supports <code>--vm</code> (default), <code>--c</code>, <code>--strict</code>, and <code>--filter &lt;text&gt;</code>.",
+        ],
+        ["<code>pino tree &lt;file&gt;</code>", "Print the syntax tree of one file, then its errors."],
+        [
+          "<code>pino explain &lt;code&gt;</code>",
+          "Explain an error or hint code, for example <code>pino explain PN1018</code>.",
+        ],
+        ["<code>pino version</code>", "Print the Pino version (aliases: <code>v</code>, <code>--version</code>)."],
+        ["<code>pino update</code>", "Check for and install the latest Pino release."],
+        ["<code>pino help</code>", "Show help (aliases: <code>h</code>, <code>--help</code>, <code>-h</code>)."],
+      ]}
+    />
+  </Section>
+</BaseLayout>
+
+<style>
+  .text {
+    max-width: 40rem;
+    color: var(--soft);
+  }
+  .note {
+    max-width: 36rem;
+    font-size: 0.92rem;
+    color: var(--soft);
+  }
+  .more a {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 0.15rem;
+  }
+  .more a::after {
+    content: " →";
+  }
+  .more a:hover {
+    color: var(--pine);
+  }
+  code {
+    font-size: 0.9em;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.95rem;
+  }
+  li {
+    padding: 0.2rem 0 0.2rem 1.4rem;
+    text-indent: -1.4rem;
+  }
+  li::before {
+    content: "— ";
+    color: var(--pine);
+  }
+  pre {
+    margin: 0;
+    padding: 0.9rem 1.1rem;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+</style>
