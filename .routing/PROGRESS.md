@@ -120,6 +120,8 @@ The full history up to 2026-11-23 (every ticket's verification notes, owner answ
   - Router verification: 5830/5830; by hand on both engines: `(?i)ñandú`, empty-match replace, `find_all`, `match_prefix`, `(a*)*b` on 60,000 characters, and the exact backreference panic.
   - Follow-up: a UTF-8 byte-level DFA for non-ASCII text (the Pike VM handles it today, still in linear time).
 - **Performance bug found in the 086 review:** `s = s + "a"` 60,000 times takes about 5.8 s natively (`--c`, TCC) against about 1.4 s on the VM. The C runtime seems to copy the string on every append instead of extending a unique one in place. Ticket it with the first performance batch (related to 068 reuse).
+- **Second GitHub run (owner, 2026-11-24):** the release workflow (manual `workflow_dispatch`) built and smoke-tested all four archives. CI passed on Windows and Linux; macOS failed 3 regex tests because Clang rejects the duplicate `PinoReProg` typedef (`pino_regex.h` and `pino_rt.h`) under `-std=c99 -Werror`.
+- **087 macOS typedef fix** (`f8c09dc`, Neon High on the 086 thread at the owner's request; one pass). `pino_rt.h` now uses `struct PinoReProg*`; the C runtime tests pass `-Wpedantic` so gcc on Windows and Linux catches C99 violations Clang rejects. `runtime-re/*.c` is clean under `gcc -std=c99 -pedantic-errors`. Router verification: 5830/5830. Needs the owner's macOS CI rerun.
 - **Owner, 2026-11-24: Pino's licence is MIT** (`Copyright (c) 2026 OGShawnLee`; the owner may change the name line). 075 adds `LICENSE`. macOS x64 builds on `macos-15-intel` (`macos-13` was retired).
 
 - **075 release 0.4** (Neon High, fresh thread, in parallel with 082; no shared files):
