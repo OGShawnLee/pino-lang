@@ -36,7 +36,7 @@ def eval_ata_times_u(u, out, tmp, n: int) -> None:
 
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
-    n = 80 if quick else 300
+    n = 80 if quick else 180
 
     u = [1.0] * n
     v = [0.0] * n

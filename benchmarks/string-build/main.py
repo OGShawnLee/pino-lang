@@ -3,7 +3,7 @@ import sys
 
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
-    n = 1500 if quick else 25000
+    n = 1500 if quick else 7500
 
     s = ""
     for i in range(n):

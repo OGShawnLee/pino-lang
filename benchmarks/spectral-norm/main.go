@@ -59,7 +59,7 @@ func isQuick() bool {
 }
 
 func main() {
-	n := 300
+	n := 180
 	if isQuick() {
 		n = 80
 	}

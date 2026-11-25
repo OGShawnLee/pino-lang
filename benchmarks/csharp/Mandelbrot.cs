@@ -4,7 +4,7 @@ namespace PinoBenchmarks;
 
 public static class Mandelbrot {
   public static void Run(bool quick) {
-    int size = quick ? 150 : 500;
+    int size = quick ? 150 : 335;
     const int maxIter = 50;
     double invSize = 1.0 / size;
 

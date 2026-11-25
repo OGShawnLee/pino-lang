@@ -43,7 +43,7 @@ function evalAtATimesU(u: number[], out: number[], tmp: number[], n: number): vo
 }
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
-const n = quick ? 80 : 300;
+const n = quick ? 80 : 180;
 
 const u: number[] = new Array(n).fill(1.0);
 const v: number[] = new Array(n).fill(0.0);

@@ -70,7 +70,7 @@ public static class NBody {
   }
 
   public static void Run(bool quick) {
-    int steps = quick ? 3000 : 50000;
+    int steps = quick ? 3000 : 15000;
 
     const double pi = 3.141592653589793;
     const double solarMass = 4.0 * pi * pi;

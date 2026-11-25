@@ -70,7 +70,7 @@ def energy(bodies) -> float:
 
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
-    steps = 3000 if quick else 50000
+    steps = 3000 if quick else 15000
 
     pi = 3.141592653589793
     solar_mass = 4.0 * pi * pi

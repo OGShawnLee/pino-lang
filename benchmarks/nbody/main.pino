@@ -85,7 +85,7 @@ fn energy(bodies []Body) float {
 
 fn main {
   val quick = file_exists("benchmarks/data/quick")
-  val steps = if quick then 3000 else 50000
+  val steps = if quick then 3000 else 15000
 
   val pi = 3.141592653589793
   val solar_mass = 4.0 * pi * pi

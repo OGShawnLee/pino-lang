@@ -83,7 +83,7 @@ func isQuick() bool {
 }
 
 func main() {
-	steps := 50000
+	steps := 15000
 	if isQuick() {
 		steps = 3000
 	}

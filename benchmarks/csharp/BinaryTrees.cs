@@ -37,7 +37,7 @@ public static class BinaryTrees {
 
   public static void Run(bool quick) {
     int minDepth = 4;
-    int maxDepth = quick ? 9 : 14;
+    int maxDepth = quick ? 9 : 12;
     int stretchDepth = maxDepth + 1;
 
     long stretchCheck = CheckTree(MakeTree(stretchDepth));

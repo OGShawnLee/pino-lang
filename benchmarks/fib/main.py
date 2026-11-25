@@ -8,7 +8,7 @@ def fib(n: int) -> int:
 
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
-    n = 25 if quick else 33
+    n = 25 if quick else 29
     print(fib(n))
 
 if __name__ == "__main__":

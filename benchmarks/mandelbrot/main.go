@@ -14,7 +14,7 @@ func isQuick() bool {
 }
 
 func main() {
-	size := 500
+	size := 335
 	if isQuick() {
 		size = 150
 	}

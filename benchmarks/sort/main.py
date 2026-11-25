@@ -23,7 +23,7 @@ def quicksort(arr, lo: int, hi: int) -> None:
 
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
-    n = 5000 if quick else 100000
+    n = 5000 if quick else 25000
 
     state = 123456789
     arr = []

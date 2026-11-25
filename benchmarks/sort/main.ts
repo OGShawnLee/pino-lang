@@ -31,7 +31,7 @@ function quicksort(arr: number[], lo: number, hi: number): void {
 }
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
-const n = quick ? 5000 : 100000;
+const n = quick ? 5000 : 25000;
 
 let state = 123456789;
 const arr: number[] = [];

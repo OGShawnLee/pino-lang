@@ -46,7 +46,7 @@ public static class SpectralNorm {
   }
 
   public static void Run(bool quick) {
-    int n = quick ? 80 : 300;
+    int n = quick ? 80 : 180;
     double[] u = new double[n];
     double[] v = new double[n];
     double[] tmp = new double[n];

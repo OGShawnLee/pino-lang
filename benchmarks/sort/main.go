@@ -42,7 +42,7 @@ func isQuick() bool {
 }
 
 func main() {
-	n := 100000
+	n := 25000
 	if isQuick() {
 		n = 5000
 	}

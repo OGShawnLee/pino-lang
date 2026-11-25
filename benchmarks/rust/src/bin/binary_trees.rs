@@ -33,7 +33,7 @@ fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
         || Path::new("benchmarks/data/quick").exists();
     let min_depth = 4;
-    let max_depth = if quick { 9 } else { 14 };
+    let max_depth = if quick { 9 } else { 12 };
     let stretch_depth = max_depth + 1;
 
     let stretch_check = check_tree(&make_tree(stretch_depth));

@@ -26,7 +26,7 @@ def pow2(exp: int) -> int:
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
     min_depth = 4
-    max_depth = 9 if quick else 14
+    max_depth = 9 if quick else 12
     stretch_depth = max_depth + 1
 
     stretch_check = check_tree(make_tree(stretch_depth))

@@ -1,7 +1,7 @@
 import { existsSync } from "fs";
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
-const size = quick ? 150 : 500;
+const size = quick ? 150 : 335;
 const maxIter = 50;
 const invSize = 1.0 / size;
 

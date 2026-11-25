@@ -21,7 +21,7 @@ func isQuick() bool {
 }
 
 func main() {
-	var n int64 = 33
+	var n int64 = 29
 	if isQuick() {
 		n = 25
 	}

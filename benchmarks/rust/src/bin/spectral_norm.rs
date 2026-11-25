@@ -50,7 +50,7 @@ fn eval_ata_times_u(u: &[f64], out: &mut [f64], tmp: &mut [f64], n: usize) {
 fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
         || Path::new("benchmarks/data/quick").exists();
-    let n = if quick { 80 } else { 300 };
+    let n = if quick { 80 } else { 180 };
 
     let mut u = vec![1.0_f64; n];
     let mut v = vec![0.0_f64; n];

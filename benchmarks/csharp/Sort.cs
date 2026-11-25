@@ -34,7 +34,7 @@ public static class Sort {
   }
 
   public static void Run(bool quick) {
-    int n = quick ? 5000 : 100000;
+    int n = quick ? 5000 : 25000;
     long state = 123456789;
     long[] arr = new long[n];
     for (int i = 0; i < n; i++) {

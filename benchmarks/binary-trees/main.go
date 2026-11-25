@@ -45,7 +45,7 @@ func isQuick() bool {
 
 func main() {
 	minDepth := 4
-	maxDepth := 14
+	maxDepth := 12
 	if isQuick() {
 		maxDepth = 9
 	}

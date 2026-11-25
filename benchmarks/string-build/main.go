@@ -16,7 +16,7 @@ func isQuick() bool {
 }
 
 func main() {
-	n := 25000
+	n := 7500
 	if isQuick() {
 		n = 1500
 	}

@@ -1,6 +1,6 @@
 fn main {
   val quick = file_exists("benchmarks/data/quick")
-  val size = if quick then 150 else 500
+  val size = if quick then 150 else 335
   val max_iter = 50
   val inv_size = 1.0 / size
 

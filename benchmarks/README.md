@@ -6,21 +6,21 @@ Every benchmark uses the same algorithm, the same deterministic input data, and 
 
 ## Benchmarks and Sizes
 
-Sizes are chosen so the fastest compiled language takes at least ~30 ms on each full benchmark (except `hello`, which measures process startup cost) while every row—including Python and `pino-vm`—finishes under ~20 s per run and the full default suite completes in under ~10 minutes. `--quick` runs smaller inputs (< ~2 s per row, < ~2 minutes total) for fast verification.
+Each benchmark's full size is about **5× the work** of its `--quick` size so the full suite runs quickly on any machine. `--quick` runs smaller inputs for fast verification.
 
 | Benchmark | Measures | Full size | `--quick` size |
 | :--- | :--- | :--- | :--- |
 | `hello` | process startup cost | 1 line | 1 line |
-| `fib` | recursive function calls | `fib(33)` | `fib(25)` |
-| `binary-trees` | allocation & freeing (RC/GC/heap) | depth `14` | depth `9` |
-| `nbody` | float math & structs | 5 bodies, `50,000` steps | `3,000` steps |
-| `spectral-norm` | tight float loops | `n = 300` | `n = 80` |
-| `mandelbrot` | float loops, integer output | `500 × 500`, 50 iters | `150 × 150`, 50 iters |
-| `sort` | arrays, indexing, custom quicksort | `100,000` ints | `5,000` ints |
-| `word-count` | hashing, strings, maps | ~1 MB text (`benchmarks/data/word-count.txt`) | ~50 KB text |
-| `string-build` | string `+` append, split, join | `25,000` pieces | `1,500` pieces |
-| `regex` | regex engine `find_all` (2 patterns) | ~2 MB text (`benchmarks/data/regex.txt`) | ~50 KB text |
-| `lexer` | realistic mixed workload (Pino-like lexer) | ~400 KB source (`benchmarks/data/lexer.txt`) | ~20 KB source |
+| `fib` | recursive function calls | `fib(29)` | `fib(25)` |
+| `binary-trees` | allocation & freeing (RC/GC/heap) | depth `12` | depth `9` |
+| `nbody` | float math & structs | 5 bodies, `15,000` steps | `3,000` steps |
+| `spectral-norm` | tight float loops | `n = 180` | `n = 80` |
+| `mandelbrot` | float loops, integer output | `335 × 335`, 50 iters | `150 × 150`, 50 iters |
+| `sort` | arrays, indexing, custom quicksort | `25,000` ints | `5,000` ints |
+| `word-count` | hashing, strings, maps | ~250 KB text (`benchmarks/data/word-count.txt`) | ~50 KB text |
+| `string-build` | string `+` append, split, join | `7,500` pieces | `1,500` pieces |
+| `regex` | regex engine `find_all` (2 patterns) | ~250 KB text (`benchmarks/data/regex.txt`) | ~50 KB text |
+| `lexer` | realistic mixed workload (Pino-like lexer) | ~100 KB source (`benchmarks/data/lexer.txt`) | ~20 KB source |
 
 ## Deterministic Data (LCG)
 
@@ -80,11 +80,11 @@ Build and compile time is measured separately from execution time:
 - **`bun`**: `bun <file>.ts`
 - **`python`**: `python -I <file>.py`
 
-## Reading the Results
+## How to Read the Results
 
 Each run writes two files to `benchmarks/results/`:
 
 - `<YYYY-MM-DD>-<os>-<arch>.json`: machine details (CPU model, logical cores, RAM, OS), toolchain versions, Pino git commit, and raw timings (`median_ms`, `min_ms`, `max_ms`, `build_ms`, status).
 - `<YYYY-MM-DD>-<os>-<arch>.md`: summary tables with median execution time in **ms**, a ratio column **relative to Rust** (`1.00x` = same speed as Rust; higher = slower), and a separate build/compile time table.
 
-Check the `hello` row first to see each runtime's baseline process startup cost (especially for `pino-vm`, `bun`, `python`, and `csharp`).
+**Compare against the `hello` row:** because full sizes are kept compact (~5× the `--quick` sizes) so the suite runs well on any machine, the fastest compiled languages (`rust`, `go`, `pino-gcc`, `pino-c`) will land near their process startup time (the `hello` row) on some benchmarks, and runtimes with higher startup cost (`pino-vm`, `csharp`, `python`, `bun`) include that baseline in every row. Always subtract or compare against `hello` when judging steady-state throughput.

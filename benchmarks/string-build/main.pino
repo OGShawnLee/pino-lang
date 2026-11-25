@@ -1,6 +1,6 @@
 fn main {
   val quick = file_exists("benchmarks/data/quick")
-  val n = if quick then 1500 else 25000
+  val n = if quick then 1500 else 7500
 
   var s = ""
   var i = 0

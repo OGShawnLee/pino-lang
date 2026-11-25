@@ -32,7 +32,7 @@ fn quicksort(arr: &mut [i64], lo: isize, hi: isize) {
 fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
         || Path::new("benchmarks/data/quick").exists();
-    let n: usize = if quick { 5000 } else { 100000 };
+    let n: usize = if quick { 5000 } else { 25000 };
 
     let mut state: i64 = 123456789;
     let mut arr = Vec::with_capacity(n);

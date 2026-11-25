@@ -7,6 +7,6 @@ fn fib(n int) int {
 
 fn main {
   val quick = file_exists("benchmarks/data/quick")
-  val n = if quick then 25 else 33
+  val n = if quick then 25 else 29
   println(fib(n))
 }

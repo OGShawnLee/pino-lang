@@ -8,5 +8,5 @@ function fib(n: number): number {
 }
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
-const n = quick ? 25 : 33;
+const n = quick ? 25 : 29;
 console.log(fib(n));

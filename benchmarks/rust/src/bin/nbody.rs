@@ -78,7 +78,7 @@ fn energy(bodies: &[Body]) -> f64 {
 fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
         || Path::new("benchmarks/data/quick").exists();
-    let steps = if quick { 3000 } else { 50000 };
+    let steps = if quick { 3000 } else { 15000 };
 
     let pi = 3.141592653589793_f64;
     let solar_mass = 4.0 * pi * pi;

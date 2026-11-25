@@ -71,7 +71,7 @@ function energy(bodies: Body[]): number {
 }
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
-const steps = quick ? 3000 : 50000;
+const steps = quick ? 3000 : 15000;
 
 const pi = 3.141592653589793;
 const solarMass = 4.0 * pi * pi;

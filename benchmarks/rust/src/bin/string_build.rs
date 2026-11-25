@@ -4,7 +4,7 @@ use std::path::Path;
 fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
         || Path::new("benchmarks/data/quick").exists();
-    let n = if quick { 1500 } else { 25000 };
+    let n = if quick { 1500 } else { 7500 };
 
     let mut s = String::new();
     for i in 0..n {

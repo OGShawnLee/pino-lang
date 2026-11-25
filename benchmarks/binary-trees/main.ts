@@ -32,7 +32,7 @@ function pow2(exp: number): number {
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
 const minDepth = 4;
-const maxDepth = quick ? 9 : 14;
+const maxDepth = quick ? 9 : 12;
 const stretchDepth = maxDepth + 1;
 
 const stretchCheck = checkTree(makeTree(stretchDepth));

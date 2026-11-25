@@ -53,7 +53,7 @@ fn eval_ata_times_u(u []float, mut out []float, mut tmp []float, n int) {
 
 fn main {
   val quick = file_exists("benchmarks/data/quick")
-  val n = if quick then 80 else 300
+  val n = if quick then 80 else 180
 
   var u = []float
   var v = []float

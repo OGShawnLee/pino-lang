@@ -1,7 +1,7 @@
 import { existsSync } from "fs";
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
-const n = quick ? 1500 : 25000;
+const n = quick ? 1500 : 7500;
 
 let s = "";
 for (let i = 0; i < n; i++) {

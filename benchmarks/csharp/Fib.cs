@@ -11,7 +11,7 @@ public static class Fib {
   }
 
   public static void Run(bool quick) {
-    long n = quick ? 25 : 33;
+    long n = quick ? 25 : 29;
     Console.WriteLine(Calc(n));
   }
 }

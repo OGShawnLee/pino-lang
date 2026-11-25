@@ -28,7 +28,7 @@ fn quicksort(mut arr []int, lo int, hi int) {
 
 fn main {
   val quick = file_exists("benchmarks/data/quick")
-  val n = if quick then 5000 else 100000
+  val n = if quick then 5000 else 25000
 
   var state = 123456789
   var arr = []int

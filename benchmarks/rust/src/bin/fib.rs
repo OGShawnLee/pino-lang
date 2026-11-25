@@ -11,6 +11,6 @@ fn fib(n: i64) -> i64 {
 fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
         || Path::new("benchmarks/data/quick").exists();
-    let n = if quick { 25 } else { 33 };
+    let n = if quick { 25 } else { 29 };
     println!("{}", fib(n));
 }

@@ -194,10 +194,10 @@ def generate_data(quick: bool) -> None:
 
     print(f"Generating deterministic input data ({mode})...")
 
-    # 1. word-count.txt (~50 KB quick, ~1 MB full)
+    # 1. word-count.txt (~50 KB quick, ~250 KB full)
     rng = LCG(LCG_SEED)
     vocab = [f"word{i:04d}" for i in range(2000)]
-    target_bytes = 50_000 if quick else 1_000_000
+    target_bytes = 50_000 if quick else 250_000
     lines: list[str] = []
     size = 0
     while size < target_bytes:
@@ -214,9 +214,9 @@ def generate_data(quick: bool) -> None:
         size += len(line) + 1
     wc_path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
-    # 2. regex.txt (~50 KB quick, ~2 MB full)
+    # 2. regex.txt (~50 KB quick, ~250 KB full)
     rng = LCG(LCG_SEED + 1)
-    target_bytes = 50_000 if quick else 2_000_000
+    target_bytes = 50_000 if quick else 250_000
     lines = []
     size = 0
     domains = ["alpha", "beta", "gamma", "delta", "pino", "bench", "cloud", "systems"]
@@ -241,9 +241,9 @@ def generate_data(quick: bool) -> None:
         size += len(line) + 1
     rx_path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
-    # 3. lexer.txt (~20 KB quick, ~400 KB full)
+    # 3. lexer.txt (~20 KB quick, ~100 KB full)
     rng = LCG(LCG_SEED + 2)
-    target_bytes = 20_000 if quick else 400_000
+    target_bytes = 20_000 if quick else 100_000
     lines = []
     size = 0
     idents = ["alpha", "beta", "count", "total", "node", "value", "score", "index", "result", "state", "items", "limit"]

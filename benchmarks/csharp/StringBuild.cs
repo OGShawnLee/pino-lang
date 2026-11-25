@@ -4,7 +4,7 @@ namespace PinoBenchmarks;
 
 public static class StringBuild {
   public static void Run(bool quick) {
-    int n = quick ? 1500 : 25000;
+    int n = quick ? 1500 : 7500;
 
     string s = "";
     for (int i = 0; i < n; i++) {

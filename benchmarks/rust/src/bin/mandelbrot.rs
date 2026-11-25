@@ -4,7 +4,7 @@ use std::path::Path;
 fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
         || Path::new("benchmarks/data/quick").exists();
-    let size = if quick { 150 } else { 500 };
+    let size = if quick { 150 } else { 335 };
     let max_iter = 50;
     let inv_size = 1.0 / (size as f64);
 

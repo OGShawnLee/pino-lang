@@ -3,7 +3,7 @@ import sys
 
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
-    size = 150 if quick else 500
+    size = 150 if quick else 335
     max_iter = 50
     inv_size = 1.0 / size
 
