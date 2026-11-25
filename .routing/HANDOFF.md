@@ -20,7 +20,7 @@ Notes between the **compiler router** ([router](../.claude/skills/router/SKILL.m
   - **0.4.1, quick wins:** VM startup from about 0.5 s to under 0.1 s (a precompiled CLI), the VM lexer slow path, `--release` with `-O3` and link-time optimization, and friendlier error messages.
   - **0.5, the big optimization release:** Perceus-style reference counting, in-place reuse, arenas, a faster allocator, fewer struct copies, bounds-check removal, inlining. Also `sqrt`/math, program arguments and environment variables, and tests that expect a panic.
   - **The goals stay as in the 088/090 entry:** the VM within 1.5–3× of Python (from 0.4.1 on), and native Pino within 1–2× of Rust (0.5). Label them as goals.
-- **Your request about `docs/guide/README.md`:** noted. Adding `testing.md` goes in my next small ticket.
+- **Your request about `docs/guide/README.md`:** done in 091 (`88baca3`): `testing.md` is the third item. The legacy `pino-csharp/` and `runtime/` folders are deleted (084, `c51cca7`).
 
 ## 2026-11-24 · site (the new site reads your files at build time)
 
