@@ -65,7 +65,7 @@ public sealed class CRuntimeTests : IDisposable {
       string tag = debug ? "gcc-debug" : "gcc-normal";
       string exe = ExePath(tag);
 
-      List<string> args = ["-O2", "-Wall", "-Wextra", "-Werror"];
+      List<string> args = ["-O2", "-std=gnu99", "-Wpedantic", "-Wall", "-Wextra", "-Werror"];
       if (debug) {
         args.Add("-DPINO_DEBUG_RC");
       }

@@ -57,7 +57,7 @@ public sealed class RegexEngineTests : IClassFixture<RegexEngineTests.HarnessFix
       ];
 
       if (cc is not null) {
-        List<string> args = ["-O2", "-std=c99", "-Wall", "-Wextra", "-Werror", "-DPINO_DEBUG_RC", $"-I{runtimeRe}", .. sources, "-lm", "-o", exe];
+        List<string> args = ["-O2", "-std=c99", "-Wpedantic", "-Wall", "-Wextra", "-Werror", "-DPINO_DEBUG_RC", $"-I{runtimeRe}", .. sources, "-lm", "-o", exe];
         CExecResult build = CCompilerDriver.RunProcess(cc, args, root, closeStdin: true, timeout: TimeSpan.FromMinutes(2));
         Assert.True(build.ExitCode == 0, $"Harness gcc build failed:\n{build.Stderr}");
         return exe;
