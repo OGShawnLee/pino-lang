@@ -206,7 +206,8 @@ extern PinoFrame* pino_frame_top;
 typedef struct PinoStrBuf {
   PinoRcHeader hdr;
   int64_t cap;  /* capacity in bytes, not counting the trailing NUL */
-  char data[]; /* UTF-8 bytes, always followed by a NUL byte after the used part */
+  int64_t used; /* used bytes currently sealed in data[0..used) */
+  char data[];  /* UTF-8 bytes, always followed by a NUL byte after the used part */
 } PinoStrBuf;
 
 typedef struct PinoString {
@@ -378,6 +379,7 @@ PinoString pino_str_clone(PinoString s);      /* STRLIB-9 */
 PinoString pino_str_to_cstring(PinoString s); /* STRLIB-10: ptr[byte_len] == '\0' guaranteed */
 
 PinoString pino_str_concat(PinoString a, PinoString b);
+PinoString pino_str_append_owned(PinoString a, PinoString b); /* consumes a, borrows b */
 PinoString pino_str_concat_n(const PinoString* parts, int64_t n);
 PinoString pino_str_concat_rune(PinoString s, int32_t rune);   /* STR-11 */
 PinoString pino_rune_concat_str(int32_t rune, PinoString s);   /* STR-12 */

@@ -20,6 +20,8 @@ A string literal is text between double quotes. Inside it, `$name` inserts the v
 - STR-11: Concatenating a `string` and a `rune` with `+` (`s + ch`) appends the `rune` and gives a `string`, and `s += ch` updates `s` through VAR-4. [src: spec/decisions/D-025-string-with-other-types.md]
 - STR-12: Concatenating a `rune` and a `string` with `+` (`ch + s`) prepends the `rune` and gives a `string`. [src: spec/decisions/D-025-string-with-other-types.md]
 
+Note (non-normative): Repeatedly appending to an unshared local `var` string (`s = s + x` or `s += x`) is amortized linear in total bytes appended on both engines; strings remain values (D-184), so any other holder keeps its previous value.
+
 ## Errors
 - STR-E1: Assigning to an element of a string (`s[0] = 'x'`) is rejected because strings are immutable. [src: LANGUAGE_REFERENCE.md §3 "Strings and Interpolation"]
 - STR-E2: Any escape sequence in a string literal other than `\n`, `\t`, `\r`, `\"`, `\\` and `\$` is a compile error. [src: spec/decisions/D-020]

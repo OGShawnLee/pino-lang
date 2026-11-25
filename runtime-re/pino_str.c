@@ -29,22 +29,28 @@ PinoStrBuf* pino_strbuf_alloc(int64_t cap) {
   }
   PinoStrBuf* b = (PinoStrBuf*)PINO_RC_ALLOC(pino_cur_alloc, strbuf_total_size(cap), 0, 0, "string buffer");
   b->cap = cap;
+  b->used = 0;
   b->data[0] = '\0';
   return b;
 }
 
-PinoString pino_strbuf_seal(PinoStrBuf* buf, int64_t len) {
-  buf->data[len] = '\0';
-  bool ascii = true;
-  const unsigned char* p = (const unsigned char*)buf->data;
+static bool bytes_are_ascii(const char* bytes, int64_t len) {
+  const unsigned char* p = (const unsigned char*)bytes;
   for (int64_t i = 0; i < len; i++) {
     if (p[i] >= 0x80) {
-      ascii = false;
-      break;
+      return false;
     }
   }
-  if (ascii) {
+  return true;
+}
+
+PinoString pino_strbuf_seal(PinoStrBuf* buf, int64_t len) {
+  buf->used = len;
+  buf->data[len] = '\0';
+  if (bytes_are_ascii(buf->data, len)) {
     buf->hdr.flags |= PINO_FLAG_ASCII;
+  } else {
+    buf->hdr.flags &= (uint16_t)~PINO_FLAG_ASCII;
   }
   PinoString s = {buf, buf->data, len};
   return s;
@@ -257,6 +263,60 @@ PinoString pino_str_concat(PinoString a, PinoString b) {
   parts[0] = a;
   parts[1] = b;
   return pino_str_concat_n(parts, 2);
+}
+
+PinoString pino_str_append_owned(PinoString a, PinoString b) {
+  if (a.owner != NULL) {
+    PINO_DEBUG_CHECK(&a.owner->hdr, "pino_str_append_owned");
+  }
+  if (b.owner != NULL) {
+    PINO_DEBUG_CHECK(&b.owner->hdr, "pino_str_append_owned");
+  }
+  if (b.byte_len <= 0) {
+    return a;
+  }
+  if (a.byte_len <= 0) {
+    pino_str_release(a);
+    return pino_str_retain(b);
+  }
+  if (a.owner != NULL && a.owner != b.owner && a.owner->hdr.rc == 1) {
+    PinoStrBuf* buf = a.owner;
+    int64_t prefix = a.ptr - buf->data;
+    if (prefix >= 0 && prefix + a.byte_len == buf->used) {
+      int64_t needed = buf->used + b.byte_len;
+      if (needed > buf->cap) {
+        int64_t old_cap = buf->cap;
+        int64_t new_cap = old_cap < 8 ? 16 : (old_cap > INT64_MAX / 2 ? needed : old_cap * 2);
+        while (new_cap < needed) {
+          if (new_cap > INT64_MAX / 2) {
+            new_cap = needed;
+            break;
+          }
+          new_cap *= 2;
+        }
+        buf = (PinoStrBuf*)PINO_REALLOC(pino_cur_alloc, buf, strbuf_total_size(old_cap),
+                                        strbuf_total_size(new_cap), "string buffer");
+        buf->cap = new_cap;
+      }
+      memcpy(buf->data + buf->used, b.ptr, (size_t)b.byte_len);
+      buf->used = needed;
+      buf->data[needed] = '\0';
+      if ((buf->hdr.flags & PINO_FLAG_ASCII) != 0 && !is_known_ascii(b) &&
+          !bytes_are_ascii(b.ptr, b.byte_len)) {
+        buf->hdr.flags &= (uint16_t)~PINO_FLAG_ASCII;
+      }
+      PinoString res = {buf, buf->data + prefix, a.byte_len + b.byte_len};
+      return res;
+    }
+  }
+  int64_t total = a.byte_len + b.byte_len;
+  int64_t cap = total < 16 ? 16 : total;
+  PinoStrBuf* nb = pino_strbuf_alloc(cap);
+  memcpy(nb->data, a.ptr, (size_t)a.byte_len);
+  memcpy(nb->data + a.byte_len, b.ptr, (size_t)b.byte_len);
+  PinoString res = pino_strbuf_seal(nb, total);
+  pino_str_release(a);
+  return res;
 }
 
 PinoString pino_str_concat_rune(PinoString s, int32_t rune) {

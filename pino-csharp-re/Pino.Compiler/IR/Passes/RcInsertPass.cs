@@ -368,6 +368,8 @@ public static class RcInsertPass {
     }
 
     IrTypeTable types = module.Types;
+    RewriteLocalStringAppendTriples(fn, types);
+
     int origBlockCount = fn.Blocks.Count;
     int origTempCount = fn.Temps.Count;
     int origSlotCount = fn.Slots.Count;
@@ -691,6 +693,11 @@ public static class RcInsertPass {
               break;
             }
 
+          case StrAppendSlot strAppend:
+            curBlock.Instructions.Add(strAppend);
+            curSlotInit[strAppend.Slot.Index] = SlotInitLattice.Init;
+            break;
+
           default: {
               curBlock.Instructions.Add(instr);
               if (instr.DefinedTemp is { } defId && isRcTemp[defId.Index]) {
@@ -999,6 +1006,10 @@ public static class RcInsertPass {
         }
 
         if (instr is AddrLocal al && dropSlotSet.Contains(al.Slot.Index)) {
+          return false;
+        }
+
+        if (instr is StrAppendSlot sas && dropSlotSet.Contains(sas.Slot.Index)) {
           return false;
         }
       }
@@ -1676,6 +1687,10 @@ public static class RcInsertPass {
           if (!def[b].Contains(al.Slot.Index)) {
             use[b].Add(al.Slot.Index);
           }
+        } else if (instr is StrAppendSlot sas && (uint) sas.Slot.Index < (uint) origSlotCount && isRcSlot[sas.Slot.Index]) {
+          if (!def[b].Contains(sas.Slot.Index)) {
+            use[b].Add(sas.Slot.Index);
+          }
         }
 
         ops.Clear();
@@ -1692,6 +1707,8 @@ public static class RcInsertPass {
 
         if (instr is StoreSlot ss && (uint) ss.Slot.Index < (uint) origSlotCount && isRcSlot[ss.Slot.Index]) {
           def[b].Add(ss.Slot.Index);
+        } else if (instr is StrAppendSlot sasDef && (uint) sasDef.Slot.Index < (uint) origSlotCount && isRcSlot[sasDef.Slot.Index]) {
+          def[b].Add(sasDef.Slot.Index);
         }
       }
     }
@@ -1755,6 +1772,8 @@ public static class RcInsertPass {
       foreach (IrInstruction instr in fn.Blocks[b].Instructions) {
         if (instr is StoreSlot ss && (uint) ss.Slot.Index < (uint) origSlotCount && isRcSlot[ss.Slot.Index]) {
           storesSlot[b][ss.Slot.Index] = true;
+        } else if (instr is StrAppendSlot sas && (uint) sas.Slot.Index < (uint) origSlotCount && isRcSlot[sas.Slot.Index]) {
+          storesSlot[b][sas.Slot.Index] = true;
         }
       }
     }
@@ -2020,5 +2039,63 @@ public static class RcInsertPass {
     }
 
     return lastUse;
+  }
+
+  /// <summary>
+  /// Promotes adjacent local-slot <c>%old = load $s; %res = str.concat %old, %rhs; store $s, %res</c>
+  /// triples (where <c>%old</c> and <c>%res</c> have no other uses) to <see cref="StrAppendSlot"/> so
+  /// compiler-generated local string-append loops also run in amortized linear time.
+  /// </summary>
+  private static void RewriteLocalStringAppendTriples(IrFunction fn, IrTypeTable types) {
+    if (fn.Temps.Count == 0 || fn.Slots.Count == 0) {
+      return;
+    }
+
+    var tempUseCount = new int[fn.Temps.Count];
+    var ops = new List<IrOperand>();
+    foreach (IrBasicBlock block in fn.Blocks) {
+      foreach (IrInstruction instr in block.Instructions) {
+        ops.Clear();
+        instr.CollectReadOperands(ops);
+        foreach (IrOperand op in ops) {
+          if (op.IsTemp && (uint) op.Index < (uint) tempUseCount.Length) {
+            tempUseCount[op.Index]++;
+          }
+        }
+      }
+
+      if (block.Terminator is { } term) {
+        ops.Clear();
+        term.CollectReadOperands(ops);
+        foreach (IrOperand op in ops) {
+          if (op.IsTemp && (uint) op.Index < (uint) tempUseCount.Length) {
+            tempUseCount[op.Index]++;
+          }
+        }
+      }
+    }
+
+    foreach (IrBasicBlock block in fn.Blocks) {
+      List<IrInstruction> instrs = block.Instructions;
+      int i = 0;
+      while (i + 2 < instrs.Count) {
+        if (instrs[i] is LoadSlot load
+            && (uint) load.Slot.Index < (uint) fn.Slots.Count
+            && fn.Slots[load.Slot.Index].Type == types.String
+            && instrs[i + 1] is StrConcat concat
+            && concat.Left.IsTemp && concat.Left.Index == load.Dest.Index
+            && !(concat.Right.IsTemp && concat.Right.Index == load.Dest.Index)
+            && instrs[i + 2] is StoreSlot store
+            && store.Slot == load.Slot
+            && store.Value.IsTemp && store.Value.Index == concat.Dest.Index
+            && tempUseCount[load.Dest.Index] == 1
+            && tempUseCount[concat.Dest.Index] == 1) {
+          instrs[i] = new StrAppendSlot(load.Slot, concat.Right, concat.Region, concat.Span);
+          instrs.RemoveRange(i + 1, 2);
+        }
+
+        i++;
+      }
+    }
   }
 }

@@ -1219,6 +1219,13 @@ public sealed partial class CEmitter {
             .Append(OperandExpr(fn, sc.Left)).Append(", ").Append(OperandExpr(fn, sc.Right)).Append(");\n");
         break;
 
+      case StrAppendSlot sas: {
+          string slotExpr = SlotCName(fn, sas.Slot);
+          _sb.Append("  ").Append(slotExpr).Append(" = pino_str_append_owned(")
+              .Append(slotExpr).Append(", ").Append(OperandExpr(fn, sas.Right)).Append(");\n");
+          break;
+        }
+
       case StrConcatN scn:
         if (scn.Parts.IsEmpty) {
           _sb.Append("  ").Append(TempCName(scn.Dest)).Append(" = PINO_STR_EMPTY;\n");

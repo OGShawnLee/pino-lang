@@ -1,0 +1,23 @@
+# covers: STR-6
+fn extend_once(x string) string {
+  var s = x
+  s = s + "!"
+  return s
+}
+
+fn extend_loop(x string, n int) string {
+  var s = x
+  var i = 0
+  for i < n {
+    s += "+"
+    i += 1
+  }
+  return s
+}
+
+val orig = "base" + "_val"
+val once = extend_once(orig)
+val many = extend_loop(orig, 5)
+println(orig)
+println(once)
+println(many)

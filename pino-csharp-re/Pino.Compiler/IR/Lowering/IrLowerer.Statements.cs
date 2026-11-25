@@ -33,7 +33,12 @@ public sealed partial class IrLowerer {
         break;
 
       case ExpressionStatementSyntax exprStmt:
-        _ = LowerExpression(fb, exprStmt.Expression);
+        if (UnwrapParens(exprStmt.Expression) is AssignmentExpressionSyntax assignStmt
+            && fb.Model.GetConversion(exprStmt.Expression) is null or { Kind: ConversionKind.None }) {
+          _ = LowerAssignment(fb, assignStmt, resultUsed: false);
+        } else {
+          _ = LowerExpression(fb, exprStmt.Expression);
+        }
         break;
 
       case BlockStatementSyntax block:
@@ -421,7 +426,7 @@ public sealed partial class IrLowerer {
     return combined;
   }
 
-  private IrOperand? LowerAssignment(FunctionBuilder fb, AssignmentExpressionSyntax assign) {
+  private IrOperand? LowerAssignment(FunctionBuilder fb, AssignmentExpressionSyntax assign, bool resultUsed = true) {
     TokenKind op = assign.OperatorToken.Kind;
     ExpressionSyntax target = UnwrapParens(assign.Target);
 
@@ -458,6 +463,22 @@ public sealed partial class IrLowerer {
         && !IsSelfLocal(localSym)
         && !_globalIds.ContainsKey(localSym)
         && fb.LocalSlots.TryGetValue(localSym, out IrSlotId localSlot)) {
+      if (TryExtractLocalStringAppendRhs(fb, assign, localSym, localSlot, out ExpressionSyntax? appendRhsExpr)) {
+        IrOperand? rhsOpt = LowerExpression(fb, appendRhsExpr!);
+        if (fb.IsTerminated || rhsOpt is not { } rhs) {
+          return null;
+        }
+
+        fb.Emit(new StrAppendSlot(localSlot, rhs, AllocRegion.Heap, assign.Span));
+        if (!resultUsed) {
+          return null;
+        }
+
+        IrTempId appended = fb.AddTemp(_types.String);
+        fb.Emit(new LoadSlot(appended, localSlot, assign.Span));
+        return appended;
+      }
+
       if (op == TokenKind.Assign) {
         IrOperand? rhsOpt = LowerExpression(fb, assign.Value);
         if (fb.IsTerminated || rhsOpt is not { } rhs) {
@@ -533,5 +554,89 @@ public sealed partial class IrLowerer {
     IrOperand newVal = EmitArithmeticOp(fb, op, curVal, compRhs, assign.Span);
     fb.Emit(new StorePtr(placePtr, newVal, assign.Span));
     return newVal;
+  }
+
+  private bool TryExtractLocalStringAppendRhs(
+      FunctionBuilder fb,
+      AssignmentExpressionSyntax assign,
+      LocalSymbol localSym,
+      IrSlotId localSlot,
+      out ExpressionSyntax? rhsExpr) {
+    rhsExpr = null;
+    if (fb.Function.Slots[localSlot.Index].Type != _types.String) {
+      return false;
+    }
+
+    TokenKind op = assign.OperatorToken.Kind;
+    ExpressionSyntax candidate;
+    if (op == TokenKind.PlusAssign) {
+      candidate = assign.Value;
+    } else if (op == TokenKind.Assign
+        && fb.Model.GetConversion(assign.Value) is null or { Kind: ConversionKind.None }
+        && UnwrapParens(assign.Value) is BinaryExpressionSyntax { OperatorToken.Kind: TokenKind.Plus } bin
+        && fb.Model.GetConversion(bin.Left) is null or { Kind: ConversionKind.None }
+        && UnwrapParens(bin.Left) is IdentifierExpressionSyntax leftId
+        && ReferenceEquals(fb.Model.GetReferencedSymbol(leftId), localSym)) {
+      candidate = bin.Right;
+    } else {
+      return false;
+    }
+
+    if (fb.Model.GetType(candidate) is not { } rawRhsType
+        || !ReferenceEquals(fb.ResolveType(rawRhsType), _compilation.Types.String)) {
+      return false;
+    }
+
+    if (ExpressionMayMutateLocal(fb.Model, candidate, localSym)) {
+      return false;
+    }
+
+    rhsExpr = candidate;
+    return true;
+  }
+
+  private static bool ExpressionMayMutateLocal(SemanticModel model, SyntaxNode root, LocalSymbol target) {
+    var stack = new Stack<SyntaxNode>();
+    stack.Push(root);
+    while (stack.Count > 0) {
+      SyntaxNode node = stack.Pop();
+      if (node is AssignmentExpressionSyntax innerAssign
+          && TryGetPlaceRootIdentifier(innerAssign.Target) is { } assignRoot
+          && ReferenceEquals(model.GetReferencedSymbol(assignRoot), target)) {
+        return true;
+      }
+
+      if (node is ArgumentSyntax { MutKeyword: not null } mutArg
+          && TryGetPlaceRootIdentifier(mutArg.Expression) is { } mutRoot
+          && ReferenceEquals(model.GetReferencedSymbol(mutRoot), target)) {
+        return true;
+      }
+
+      foreach (SyntaxElement child in node.GetChildren()) {
+        if (child.IsNode) {
+          stack.Push(child.AsNode());
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private static IdentifierExpressionSyntax? TryGetPlaceRootIdentifier(ExpressionSyntax expr) {
+    ExpressionSyntax cur = UnwrapParens(expr);
+    while (true) {
+      switch (cur) {
+        case IdentifierExpressionSyntax id:
+          return id;
+        case MemberAccessExpressionSyntax mem:
+          cur = UnwrapParens(mem.Target);
+          break;
+        case IndexExpressionSyntax idx:
+          cur = UnwrapParens(idx.Target);
+          break;
+        default:
+          return null;
+      }
+    }
   }
 }

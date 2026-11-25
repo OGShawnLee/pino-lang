@@ -55,30 +55,39 @@ public abstract class PinoVmHeapObject {
 
 /// <summary>A UTF-8 string slice (<c>STRLIB-18</c>): <see cref="Bytes"/> may be shared with other slices.</summary>
 public sealed class PinoVmString : PinoVmHeapObject {
+  private byte[] _bytes;
+  private int _byteLength;
+  private bool _bufferShared;
   private int _runeCount = -1;
 
-  public PinoVmString(byte[] bytes, int offset, int length) {
-    Bytes = bytes;
+  public PinoVmString(byte[] bytes, int offset, int length)
+      : this(bytes, offset, length, bufferShared: false) { }
+
+  private PinoVmString(byte[] bytes, int offset, int length, bool bufferShared) {
+    _bytes = bytes;
     Offset = offset;
-    ByteLength = length;
+    _byteLength = length;
+    _bufferShared = bufferShared;
   }
 
-  public byte[] Bytes { get; }
+  public byte[] Bytes => _bytes;
 
   public int Offset { get; }
 
-  public int ByteLength { get; }
+  public int ByteLength => _byteLength;
+
+  public bool IsBufferShared => _bufferShared;
 
   public override string KindName => "string";
 
-  public ReadOnlySpan<byte> Span => new(Bytes, Offset, ByteLength);
+  public ReadOnlySpan<byte> Span => new(_bytes, Offset, _byteLength);
 
   public int RuneCount {
     get {
       if (_runeCount < 0) {
         int count = 0;
-        for (int i = 0; i < ByteLength; i++) {
-          if ((Bytes[Offset + i] & 0xC0) != 0x80) {
+        for (int i = 0; i < _byteLength; i++) {
+          if ((_bytes[Offset + i] & 0xC0) != 0x80) {
             count++;
           }
         }
@@ -96,7 +105,34 @@ public sealed class PinoVmString : PinoVmHeapObject {
   }
 
   /// <summary>Returns a new string object that shares this string's bytes (zero copy).</summary>
-  public PinoVmString Slice(int byteStart, int byteLength) => new(Bytes, Offset + byteStart, byteLength);
+  public PinoVmString Slice(int byteStart, int byteLength) {
+    _bufferShared = true;
+    return new(_bytes, Offset + byteStart, byteLength, bufferShared: true);
+  }
+
+  /// <summary>Appends <paramref name="right"/> in place; caller must ensure <c>ShadowRc == 1</c> and <c>!IsBufferShared</c>.</summary>
+  internal void AppendInPlace(ReadOnlySpan<byte> right) {
+    int needed = _byteLength + right.Length;
+    if (needed > _bytes.Length) {
+      int newCap = _bytes.Length < 8
+          ? 16
+          : (_bytes.Length > int.MaxValue / 2 ? needed : _bytes.Length * 2);
+      while (newCap < needed) {
+        if (newCap > int.MaxValue / 2) {
+          newCap = needed;
+          break;
+        }
+
+        newCap *= 2;
+      }
+
+      Array.Resize(ref _bytes, newCap);
+    }
+
+    right.CopyTo(_bytes.AsSpan(_byteLength));
+    _byteLength = needed;
+    _runeCount = -1;
+  }
 
   /// <summary>Byte offset (relative to this slice) of the rune at <paramref name="runeIndex"/>; <see cref="ByteLength"/> when equal to the rune count.</summary>
   public int ByteOffsetOfRune(int runeIndex) {

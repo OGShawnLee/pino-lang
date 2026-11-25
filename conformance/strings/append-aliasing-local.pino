@@ -1,0 +1,10 @@
+# covers: STR-6
+var s = "a" + "b"
+val t = s
+s = s + "x"
+s += "y"
+val u = s
+s = s + "z"
+println(t)
+println(u)
+println(s)

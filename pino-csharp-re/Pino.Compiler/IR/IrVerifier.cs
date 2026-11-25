@@ -1143,6 +1143,14 @@ public static class IrVerifier {
         ExpectTempType(fn, types, bb, idx, s.Dest, types.String, "str.concat", errors);
         break;
 
+      case StrAppendSlot s:
+        if (TryGetSlot(fn, bb, idx, s.Slot, "str.append_slot", errors, out IrLocalSlot? appendSlot)
+            && appendSlot!.Type != types.String) {
+          errors.Add(new IrVerificationError("IR-TYPE-03", fnName, bb, idx, $"str.append_slot requires string slot, got '{FormatTypeName(types, appendSlot.Type)}'."));
+        }
+        ExpectOperandType(fn, types, bb, idx, s.Right, types.String, "str.append_slot right", errors);
+        break;
+
       case StrConcatN s:
         foreach (IrOperand part in s.Parts) {
           ExpectOperandType(fn, types, bb, idx, part, types.String, "str.concat_n part", errors);
@@ -2392,6 +2400,11 @@ public static class IrVerifier {
           int sIdx = al.Slot.Index;
           if (state.SlotStates[sIdx] != VerifierSlotState.Init) {
             ReportOnce(b, i, "IR-RC-03", $"Cannot take address of potentially uninitialized slot '${fn.Slots[sIdx].Name}' (state: {state.SlotStates[sIdx]}).");
+          }
+        } else if (instr is StrAppendSlot sas) {
+          int sIdx = sas.Slot.Index;
+          if (state.SlotStates[sIdx] != VerifierSlotState.Init) {
+            ReportOnce(b, i, "IR-RC-03", $"Cannot append to potentially uninitialized slot '${fn.Slots[sIdx].Name}' (state: {state.SlotStates[sIdx]}).");
           }
         }
 

@@ -718,6 +718,11 @@ public static class IrPrinter {
         sb.Append(" [region=").Append(s.Region).Append(']');
         break;
 
+      case StrAppendSlot s:
+        sb.Append("str.append_slot ").Append(FormatSlot(fn, s.Slot)).Append(", ").Append(FormatOperand(fn, s.Right));
+        sb.Append(" [region=").Append(s.Region).Append(']');
+        break;
+
       case StrConcatN s:
         AppendDest(sb, fn, s.Dest);
         sb.Append("str.concat_n");

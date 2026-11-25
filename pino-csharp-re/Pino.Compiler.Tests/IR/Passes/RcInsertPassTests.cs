@@ -1021,6 +1021,79 @@ public sealed class RcInsertPassTests {
         + string.Join("\n", verification.Errors));
   }
 
+  [Fact]
+  public void StringAppendLocalVar_MovesOldSlotWithoutExtraRetainOrRelease() {
+    const string Source = """
+      fn build_assign(n int) string {
+        var s = ""
+        var i = 0
+        for i < n {
+          s = s + "a"
+          i += 1
+        }
+        return s
+      }
+
+      fn build_plus_assign(n int) string {
+        var s = ""
+        var i = 0
+        for i < n {
+          s += "a"
+          i += 1
+        }
+        return s
+      }
+
+      fn self_concat(seed string) string {
+        var s = seed
+        s = s + s
+        return s
+      }
+
+      fn mutate_in_rhs(mut x string) string {
+        x = "mut"
+        return "!"
+      }
+
+      fn eval_order_preserved() string {
+        var s = "old"
+        s = s + mutate_in_rhs(mut s)
+        return s
+      }
+
+      fn append_rune() string {
+        var s = "a"
+        s = s + 'b'
+        s += 'c'
+        return s
+      }
+      """;
+
+    IrModule module = LowerRunRcAndVerify(Source);
+
+    IrFunction assignFn = Assert.Single(module.Functions, static f => f.Name == "build_assign");
+    Assert.Equal(1, CountInstructions<StrAppendSlot>(assignFn));
+    Assert.Equal(0, CountInstructions<StrConcat>(assignFn));
+
+    IrFunction plusAssignFn = Assert.Single(module.Functions, static f => f.Name == "build_plus_assign");
+    Assert.Equal(1, CountInstructions<StrAppendSlot>(plusAssignFn));
+    Assert.Equal(0, CountInstructions<StrConcat>(plusAssignFn));
+
+    IrFunction selfFn = Assert.Single(module.Functions, static f => f.Name == "self_concat");
+    Assert.Equal(1, CountInstructions<StrAppendSlot>(selfFn));
+    Assert.Equal(0, CountInstructions<StrConcat>(selfFn));
+
+    // When the RHS mutates the target local via `mut s`, lowering must NOT reorder evaluation.
+    IrFunction evalOrderFn = Assert.Single(module.Functions, static f => f.Name == "eval_order_preserved");
+    Assert.Equal(0, CountInstructions<StrAppendSlot>(evalOrderFn));
+    Assert.Equal(1, CountInstructions<StrConcat>(evalOrderFn));
+
+    // Rune appends (`string + rune`, `string += rune`) stay on StrConcatRune.
+    IrFunction runeFn = Assert.Single(module.Functions, static f => f.Name == "append_rune");
+    Assert.Equal(0, CountInstructions<StrAppendSlot>(runeFn));
+    Assert.Equal(2, CountInstructions<StrConcatRune>(runeFn));
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------

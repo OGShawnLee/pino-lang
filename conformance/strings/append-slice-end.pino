@@ -1,0 +1,31 @@
+# covers: STR-6, STRLIB-18
+fn make_tail() string {
+  val full = "hello " + "world"
+  return full:substring(6, 5)
+}
+
+fn make_head() string {
+  val full = "hello " + "world"
+  return full:substring(0, 5)
+}
+
+val parent = "alpha " + "beta"
+var shared_tail = parent:substring(6, 4)
+shared_tail = shared_tail + "!"
+println(parent)
+println(shared_tail)
+
+var owned_tail = make_tail()
+owned_tail = owned_tail + "!"
+owned_tail += "12345678901234567890"
+println(owned_tail)
+
+val parent2 = "prefix" + "_suffix"
+var mid = parent2:substring(0, 6)
+mid = mid + "_new"
+println(parent2)
+println(mid)
+
+var owned_head = make_head()
+owned_head = owned_head + "_end"
+println(owned_head)

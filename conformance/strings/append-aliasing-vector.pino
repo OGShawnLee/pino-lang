@@ -1,0 +1,9 @@
+# covers: STR-6
+var s = "hello" + " "
+var items = [s]
+s = s + "world"
+items:push(s)
+s += "!"
+println(items[0])
+println(items[1])
+println(s)

@@ -1,0 +1,29 @@
+# covers: STR-6, STRLIB-18
+fn echo(x string) string {
+  return x
+}
+
+fn head2(x string) string {
+  return x:substring(0, 2)
+}
+
+fn mutate_and_return(mut x string) string {
+  x = "MUT"
+  return "!"
+}
+
+var s = "ab"
+s = s + s
+println(s)
+s += s
+println(s)
+
+var u = "xy" + "z"
+u = u + echo(u)
+println(u)
+u = u + head2(u)
+println(u)
+
+var m = "old"
+m = m + mutate_and_return(mut m)
+println(m)

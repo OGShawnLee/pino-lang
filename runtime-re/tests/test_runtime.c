@@ -431,6 +431,87 @@ static void test_strings(void) {
   pino_str_release(hw);
 }
 
+static void test_string_append_owned(void) {
+  /* 1. Empty left / empty right */
+  PinoString e1 = pino_str_append_owned(PINO_STR_EMPTY, LIT("abc"));
+  CHECK(str_is(e1, "abc") && e1.owner == NULL);
+  PinoString e2 = pino_str_append_owned(e1, PINO_STR_EMPTY);
+  CHECK(str_is(e2, "abc") && e2.owner == NULL);
+
+  /* 2. Literal (owner == NULL) copies into a fresh buffer with headroom, then extends in place */
+  PinoString s = pino_str_append_owned(LIT("hi"), LIT("!"));
+  CHECK(str_is(s, "hi!") && s.owner != NULL && s.owner->hdr.rc == 1);
+  CHECK(s.owner->used == 3 && s.ptr[s.byte_len] == '\0');
+  CHECK((s.owner->hdr.flags & PINO_FLAG_ASCII) != 0);
+
+  PinoStrBuf* orig_owner = s.owner;
+  uint64_t allocs_before = pino_stat_alloc_count;
+  s = pino_str_append_owned(s, LIT(" world"));
+  CHECK(str_is(s, "hi! world"));
+  CHECK(s.owner == orig_owner);
+  CHECK(pino_stat_alloc_count == allocs_before);
+  CHECK(s.owner->used == 9 && s.ptr[s.byte_len] == '\0');
+  CHECK((s.owner->hdr.flags & PINO_FLAG_ASCII) != 0);
+
+  /* 3. Geometric growth >= 2x when capacity is exceeded */
+  int64_t cap_before = s.owner->cap;
+  s = pino_str_append_owned(s, LIT("0123456789abcdef"));
+  CHECK(str_is(s, "hi! world0123456789abcdef"));
+  CHECK(s.owner->hdr.rc == 1 && s.owner->cap >= cap_before * 2);
+  CHECK(s.owner->used == s.byte_len && s.ptr[s.byte_len] == '\0');
+
+  /* 4. Shared buffer (rc == 2) copies and leaves the other holder unchanged */
+  PinoString saved = pino_str_retain(s);
+  CHECK(s.owner->hdr.rc == 2);
+  PinoStrBuf* shared_owner = s.owner;
+  s = pino_str_append_owned(s, LIT("_next"));
+  CHECK(s.owner != shared_owner);
+  CHECK(shared_owner->hdr.rc == 1 && saved.owner == shared_owner);
+  CHECK(str_is(saved, "hi! world0123456789abcdef"));
+  CHECK(str_is(s, "hi! world0123456789abcdef_next"));
+  pino_str_release(saved);
+
+  /* 5. Self-append (a and b share owner, rc == 2) copies cleanly */
+  PinoString dup_b = pino_str_retain(s);
+  s = pino_str_append_owned(s, dup_b);
+  pino_str_release(dup_b);
+  CHECK(str_is(s, "hi! world0123456789abcdef_nexthi! world0123456789abcdef_next"));
+  CHECK(s.owner->hdr.rc == 1);
+
+  /* 6. Non-ASCII append clears PINO_FLAG_ASCII so rune_len and indexing stay exact */
+  CHECK((s.owner->hdr.flags & PINO_FLAG_ASCII) != 0);
+  s = pino_str_append_owned(s, LIT("\xF0\x9F\x8C\xB2"));
+  CHECK((s.owner->hdr.flags & PINO_FLAG_ASCII) == 0);
+  CHECK(pino_str_rune_len(s) == 61);
+  CHECK(pino_str_get_rune(s, 60, PINO_HERE) == 0x1F332);
+  pino_str_release(s);
+
+  /* 7. Slice ending BEFORE used copies even when rc == 1 */
+  PinoString full = pino_str_concat(LIT("hello"), LIT(" world"));
+  PinoString head = pino_str_substring(full, 0, 5, PINO_HERE);
+  pino_str_release(full);
+  CHECK(head.owner->hdr.rc == 1 && head.owner->used == 11);
+  PinoStrBuf* head_owner = head.owner;
+  head = pino_str_append_owned(head, LIT("!"));
+  CHECK(head.owner != head_owner);
+  CHECK(str_is(head, "hello!"));
+  pino_str_release(head);
+
+  /* 8. Slice ending AT used with rc == 1 extends in place (including across realloc) */
+  PinoString full2 = pino_str_append_owned(LIT("hello "), LIT("world"));
+  PinoString tail = pino_str_substring(full2, 6, 5, PINO_HERE);
+  pino_str_release(full2);
+  CHECK(tail.owner->hdr.rc == 1 && tail.owner->used == 11);
+  PinoStrBuf* tail_owner = tail.owner;
+  tail = pino_str_append_owned(tail, LIT("!"));
+  CHECK(tail.owner == tail_owner);
+  CHECK(str_is(tail, "world!") && tail.ptr[tail.byte_len] == '\0');
+  tail = pino_str_append_owned(tail, LIT("_012345678901234567890123456789"));
+  CHECK(str_is(tail, "world!_012345678901234567890123456789"));
+  CHECK(tail.ptr[tail.byte_len] == '\0' && tail.owner->hdr.rc == 1);
+  pino_str_release(tail);
+}
+
 static void test_formatting(void) {
   PinoString s;
   s = pino_i64_to_str(0);
@@ -774,6 +855,7 @@ int main(int argc, char** argv) {
   test_layout();
   test_rc_and_allocator();
   test_strings();
+  test_string_append_owned();
   test_formatting();
   test_regex();
   test_math();
