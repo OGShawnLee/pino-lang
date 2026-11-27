@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::time::Instant;
 
 enum Tree {
     Leaf,
@@ -36,6 +37,7 @@ fn main() {
     let max_depth = if quick { 9 } else { 12 };
     let stretch_depth = max_depth + 1;
 
+    let t0 = Instant::now();
     let stretch_check = check_tree(&make_tree(stretch_depth));
     let long_lived = make_tree(max_depth);
 
@@ -53,8 +55,10 @@ fn main() {
 
     let long_check = check_tree(&long_lived);
     total_check += long_check;
+    let bench_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
     println!("{}", stretch_check);
     println!("{}", total_check);
     println!("{}", long_check);
+    println!("PINO_BENCH_MS={:.3}", bench_ms);
 }

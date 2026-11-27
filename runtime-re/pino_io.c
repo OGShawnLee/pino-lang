@@ -316,10 +316,30 @@ bool pino_file_exists(PinoString path) {
 /* Time, random numbers, sleep                                                */
 /* ------------------------------------------------------------------------- */
 
+#ifdef _WIN32
+typedef void(WINAPI* PinoGetPreciseTimeFn)(LPFILETIME);
+static PinoGetPreciseTimeFn g_get_precise_time = NULL;
+static bool g_precise_time_init = false;
+#endif
+
 double pino_time(void) {
 #ifdef _WIN32
+  if (!g_precise_time_init) {
+    HMODULE k32 = GetModuleHandleA("kernel32.dll");
+    if (k32 != NULL) {
+      FARPROC proc = GetProcAddress(k32, "GetSystemTimePreciseAsFileTime");
+      if (proc != NULL) {
+        g_get_precise_time = (PinoGetPreciseTimeFn)(void (*)(void))proc;
+      }
+    }
+    g_precise_time_init = true;
+  }
   FILETIME ft;
-  GetSystemTimeAsFileTime(&ft);
+  if (g_get_precise_time != NULL) {
+    g_get_precise_time(&ft);
+  } else {
+    GetSystemTimeAsFileTime(&ft);
+  }
   unsigned long long ticks = ((unsigned long long)ft.dwHighDateTime << 32) | (unsigned long long)ft.dwLowDateTime;
   /* ticks are 100 ns units since 1601-01-01; shift to the Unix epoch and convert to milliseconds. */
   return (double)(ticks - 116444736000000000ull) / 10000.0;

@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace PinoBenchmarks;
 
@@ -8,6 +10,7 @@ public static class Mandelbrot {
     const int maxIter = 50;
     double invSize = 1.0 / size;
 
+    var sw = Stopwatch.StartNew();
     long inside = 0;
     for (int y = 0; y < size; y++) {
       double ci = 2.0 * y * invSize - 1.0;
@@ -31,6 +34,8 @@ public static class Mandelbrot {
         }
       }
     }
+    sw.Stop();
     Console.WriteLine(inside);
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }

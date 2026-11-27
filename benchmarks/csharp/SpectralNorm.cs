@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace PinoBenchmarks;
 
@@ -47,6 +49,7 @@ public static class SpectralNorm {
 
   public static void Run(bool quick) {
     int n = quick ? 80 : 180;
+    var sw = Stopwatch.StartNew();
     double[] u = new double[n];
     double[] v = new double[n];
     double[] tmp = new double[n];
@@ -67,6 +70,9 @@ public static class SpectralNorm {
     }
 
     double ans = MySqrt(vbv / vv);
-    Console.WriteLine(RoundInt(ans * 1000000000.0));
+    long outVal = RoundInt(ans * 1000000000.0);
+    sw.Stop();
+    Console.WriteLine(outVal);
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }

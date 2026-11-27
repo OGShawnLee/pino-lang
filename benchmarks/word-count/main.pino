@@ -3,6 +3,7 @@ fn main {
     panic("failed to read benchmarks/data/word-count.txt")
   }
 
+  val t0 = time()
   var counts = map[string, int]
   var total = 0
 
@@ -22,12 +23,10 @@ fn main {
     }
   }
 
-  println(total)
-  println(counts:len)
-
   var used = set[string]
   val keys = counts:keys()
   val limit = if keys:len < 10 then keys:len else 10
+  var top_lines = []string
 
   for limit {
     var best_word = ""
@@ -43,6 +42,14 @@ fn main {
       }
     }
     used:add(best_word)
-    println("$best_word $best_count")
+    top_lines:push("$best_word $best_count")
   }
+  val bench_ms = time() - t0
+
+  println(total)
+  println(counts:len)
+  for line in top_lines {
+    println(line)
+  }
+  println("PINO_BENCH_MS=$bench_ms")
 }

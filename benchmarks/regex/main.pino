@@ -3,12 +3,17 @@ fn main {
     panic("failed to read benchmarks/data/regex.txt")
   }
 
+  val t0 = time()
   val email_re = regex("\\w+@\\w+\\.com")
   val ident_re = regex("[A-Za-z_][A-Za-z0-9_]*")
 
   val emails = email_re:find_all(text)
   val idents = ident_re:find_all(text)
+  val email_count = emails:len
+  val ident_count = idents:len
+  val bench_ms = time() - t0
 
-  println(emails:len)
-  println(idents:len)
+  println(email_count)
+  println(ident_count)
+  println("PINO_BENCH_MS=$bench_ms")
 }

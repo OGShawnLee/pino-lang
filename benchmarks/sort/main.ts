@@ -33,6 +33,7 @@ function quicksort(arr: number[], lo: number, hi: number): void {
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
 const n = quick ? 5000 : 25000;
 
+const t0 = performance.now();
 let state = 123456789;
 const arr: number[] = [];
 for (let i = 0; i < n; i++) {
@@ -46,8 +47,10 @@ let checksum = 0;
 for (let i = 0; i < n; i++) {
   checksum = (checksum + (i + 1) * (arr[i] % 1000003)) % 1000000007;
 }
+const benchMs = performance.now() - t0;
 
 console.log(arr[0]);
 console.log(arr[Math.floor(n / 2)]);
 console.log(arr[n - 1]);
 console.log(checksum);
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

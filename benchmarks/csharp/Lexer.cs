@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 
 namespace PinoBenchmarks;
@@ -145,6 +147,7 @@ public static class Lexer {
 
   public static void Run(bool quick) {
     string content = File.ReadAllText("benchmarks/data/lexer.txt");
+    var sw = Stopwatch.StartNew();
     List<Particle> particles = LexProgram(content);
 
     long kwCount = 0;
@@ -174,12 +177,15 @@ public static class Lexer {
           break;
       }
     }
+    int totalParticles = particles.Count;
+    sw.Stop();
 
-    Console.WriteLine(particles.Count);
+    Console.WriteLine(totalParticles);
     Console.WriteLine(kwCount);
     Console.WriteLine(identCount);
     Console.WriteLine(intSum);
     Console.WriteLine(boolTrue);
     Console.WriteLine(markerCount);
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }

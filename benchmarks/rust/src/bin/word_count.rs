@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::time::Instant;
 
 fn main() {
     let text = fs::read_to_string("benchmarks/data/word-count.txt")
         .expect("failed to read benchmarks/data/word-count.txt");
 
+    let t0 = Instant::now();
     let mut counts: HashMap<&str, i64> = HashMap::new();
     let mut total: i64 = 0;
 
@@ -18,12 +20,10 @@ fn main() {
         }
     }
 
-    println!("{}", total);
-    println!("{}", counts.len());
-
     let mut used: HashSet<&str> = HashSet::new();
     let keys: Vec<&str> = counts.keys().copied().collect();
     let limit = keys.len().min(10);
+    let mut top_lines: Vec<String> = Vec::with_capacity(limit);
 
     for _ in 0..limit {
         let mut best_word = "";
@@ -39,6 +39,14 @@ fn main() {
             }
         }
         used.insert(best_word);
-        println!("{} {}", best_word, best_count);
+        top_lines.push(format!("{} {}", best_word, best_count));
     }
+    let bench_ms = t0.elapsed().as_secs_f64() * 1000.0;
+
+    println!("{}", total);
+    println!("{}", counts.len());
+    for line in &top_lines {
+        println!("{}", line);
+    }
+    println!("PINO_BENCH_MS={:.3}", bench_ms);
 }

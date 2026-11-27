@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func fib(n int64) int64 {
@@ -25,5 +26,9 @@ func main() {
 	if isQuick() {
 		n = 25
 	}
-	fmt.Println(fib(n))
+	t0 := time.Now()
+	ans := fib(n)
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
+	fmt.Println(ans)
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

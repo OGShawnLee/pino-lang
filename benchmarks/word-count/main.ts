@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 
 const text = readFileSync("benchmarks/data/word-count.txt", "utf-8");
 
+const t0 = performance.now();
 const counts = new Map<string, number>();
 let total = 0;
 
@@ -17,12 +18,10 @@ for (const line of lines) {
   }
 }
 
-console.log(total);
-console.log(counts.size);
-
 const used = new Set<string>();
 const keys = Array.from(counts.keys());
 const limit = Math.min(10, keys.length);
+const topLines: string[] = [];
 
 for (let iter = 0; iter < limit; iter++) {
   let bestWord = "";
@@ -38,5 +37,13 @@ for (let iter = 0; iter < limit; iter++) {
     }
   }
   used.add(bestWord);
-  console.log(`${bestWord} ${bestCount}`);
+  topLines.push(`${bestWord} ${bestCount}`);
 }
+const benchMs = performance.now() - t0;
+
+console.log(total);
+console.log(counts.size);
+for (const line of topLines) {
+  console.log(line);
+}
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

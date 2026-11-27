@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 def quicksort(arr, lo: int, hi: int) -> None:
     if lo >= hi:
@@ -25,6 +26,7 @@ def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
     n = 5000 if quick else 25000
 
+    t0 = time.perf_counter()
     state = 123456789
     arr = []
     for _ in range(n):
@@ -36,11 +38,13 @@ def main() -> None:
     checksum = 0
     for i in range(n):
         checksum = (checksum + (i + 1) * (arr[i] % 1000003)) % 1000000007
+    bench_ms = (time.perf_counter() - t0) * 1000.0
 
     print(arr[0])
     print(arr[n // 2])
     print(arr[n - 1])
     print(checksum)
+    print(f"PINO_BENCH_MS={bench_ms:.3f}")
 
 if __name__ == "__main__":
     main()

@@ -373,8 +373,17 @@ def detect_available_langs(requested: list[str]) -> tuple[list[str], dict[str, s
     return available, skipped
 
 
-def build_pino_cli() -> tuple[Path | None, float, str | None]:
-    proj = REPO_ROOT / "pino-csharp-re" / "Pino.Cli" / "Pino.Cli.csproj"
+def detect_rid() -> str:
+    os_name = norm_os()
+    arch = norm_arch()
+    if os_name == "windows":
+        return "win-arm64" if arch == "arm64" else "win-x64"
+    if os_name == "macos":
+        return "osx-arm64" if arch == "arm64" else "osx-x64"
+    return "linux-arm64" if arch == "arm64" else "linux-x64"
+
+
+def _build_pino_cli_jit(proj: Path) -> tuple[Path | None, float, str | None]:
     t0 = time.perf_counter()
     p = subprocess.run(
         ["dotnet", "build", str(proj), "-c", "Release", "--nologo", "-v", "q"],
@@ -390,6 +399,58 @@ def build_pino_cli() -> tuple[Path | None, float, str | None]:
     if not exe.exists():
         return None, elapsed_ms, f"expected built Pino CLI at {exe}"
     return exe, elapsed_ms, None
+
+
+def build_pino_cli(no_aot: bool = False) -> tuple[Path | None, float, str | None]:
+    proj = REPO_ROOT / "pino-csharp-re" / "Pino.Cli" / "Pino.Cli.csproj"
+    if no_aot:
+        return _build_pino_cli_jit(proj)
+
+    rid = detect_rid()
+    aot_dir = BUILD_DIR / "pino-aot"
+    aot_dir.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    if is_windows():
+        pf86 = env.get("ProgramFiles(x86)") or r"C:\Program Files (x86)"
+        vs_installer = Path(pf86) / "Microsoft Visual Studio" / "Installer"
+        if (vs_installer / "vswhere.exe").exists():
+            cur_path = env.get("PATH", "")
+            if str(vs_installer).lower() not in cur_path.lower():
+                env["PATH"] = f"{vs_installer}{os.pathsep}{cur_path}"
+
+    cmd = [
+        "dotnet", "publish", str(proj),
+        "-c", "Release",
+        "-r", rid,
+        "-p:PublishAot=true",
+        "-p:StripSymbols=true",
+        "-p:OptimizationPreference=Speed",
+        "-p:DebugType=none",
+        "-p:DebugSymbols=false",
+        "-p:WarningsNotAsErrors=NU1903",
+        "-o", str(aot_dir),
+        "--nologo", "-v", "q",
+    ]
+    t0 = time.perf_counter()
+    p = subprocess.run(
+        cmd,
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+    )
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    aot_exe = aot_dir / f"pino{exe_suffix()}"
+    if p.returncode == 0 and aot_exe.exists():
+        return aot_exe, elapsed_ms, None
+
+    err_msg = (p.stderr or p.stdout or "unknown error").strip()
+    first_line = err_msg.splitlines()[0] if err_msg else "unknown error"
+    print(f"  WARNING: NativeAOT publish failed ({first_line}); falling back to Release JIT build.")
+    jit_exe, jit_ms, jit_err = _build_pino_cli_jit(proj)
+    return jit_exe, elapsed_ms + jit_ms, jit_err
 
 
 def build_csharp() -> tuple[Path | None, float, str | None]:
@@ -475,6 +536,23 @@ def build_pino_native_one(pino_exe: Path, bench: str, release: bool) -> tuple[Pa
     return out_bin, elapsed_ms, None
 
 
+def parse_bench_output(stdout: str) -> tuple[str, float | None]:
+    text = stdout.replace("\r\n", "\n").strip()
+    if not text:
+        return "", None
+    lines = text.splitlines()
+    last = lines[-1].strip()
+    if last.startswith("PINO_BENCH_MS="):
+        raw_val = last[len("PINO_BENCH_MS="):].strip()
+        try:
+            work_ms = float(raw_val)
+        except ValueError:
+            return text, None
+        stripped = "\n".join(lines[:-1]).strip()
+        return stripped, work_ms
+    return text, None
+
+
 def run_timed(
     cmd: list[str],
     expected: str | None,
@@ -498,7 +576,7 @@ def run_timed(
         err = (p.stderr or p.stdout or "").strip()
         return {"status": "CRASH", "returncode": p.returncode, "error": err[:300]}
 
-    actual = p.stdout.replace("\r\n", "\n").strip()
+    actual, _ = parse_bench_output(p.stdout)
     if expected is not None and actual != expected:
         return {
             "status": "WRONG",
@@ -507,6 +585,7 @@ def run_timed(
         }
 
     samples: list[float] = []
+    work_samples: list[float] = []
     for _ in range(runs):
         t0 = time.perf_counter()
         try:
@@ -523,18 +602,26 @@ def run_timed(
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         if p.returncode != 0:
             return {"status": "CRASH", "returncode": p.returncode, "error": (p.stderr or p.stdout).strip()[:300]}
-        actual = p.stdout.replace("\r\n", "\n").strip()
+        actual, work_ms = parse_bench_output(p.stdout)
         if expected is not None and actual != expected:
             return {"status": "WRONG", "expected": expected[:200], "actual": actual[:200]}
         samples.append(round(elapsed_ms, 3))
+        if work_ms is not None:
+            work_samples.append(round(work_ms, 3))
 
-    return {
+    entry: dict[str, Any] = {
         "status": "ok",
         "median_ms": round(statistics.median(samples), 3),
         "min_ms": round(min(samples), 3),
         "max_ms": round(max(samples), 3),
         "samples_ms": samples,
     }
+    if len(work_samples) == len(samples) and len(work_samples) > 0:
+        entry["work_median_ms"] = round(statistics.median(work_samples), 3)
+        entry["work_min_ms"] = round(min(work_samples), 3)
+        entry["work_max_ms"] = round(max(work_samples), 3)
+        entry["work_samples_ms"] = work_samples
+    return entry
 
 
 def fmt_ms(v: float | None) -> str:
@@ -545,6 +632,18 @@ def fmt_ms(v: float | None) -> str:
     return f"{v:.1f}"
 
 
+def fmt_work_ms(v: float | None) -> str:
+    if v is None:
+        return "-"
+    if v >= 1000:
+        return f"{v:,.1f}"
+    if v >= 100:
+        return f"{v:.1f}"
+    if v >= 10:
+        return f"{v:.2f}"
+    return f"{v:.3f}"
+
+
 def fmt_cell(entry: dict[str, Any] | None, rust_ms: float | None, show_ratio: bool) -> str:
     if entry is None:
         return "-"
@@ -553,6 +652,22 @@ def fmt_cell(entry: dict[str, Any] | None, rust_ms: float | None, show_ratio: bo
         return str(st)
     med = entry["median_ms"]
     s = fmt_ms(med)
+    if show_ratio and rust_ms and rust_ms > 0:
+        ratio = med / rust_ms
+        return f"{s} ({ratio:.2f}x)"
+    return s
+
+
+def fmt_work_cell(entry: dict[str, Any] | None, rust_ms: float | None, show_ratio: bool) -> str:
+    if entry is None:
+        return "-"
+    st = entry.get("status")
+    if st != "ok":
+        return str(st)
+    med = entry.get("work_median_ms")
+    if med is None:
+        return "-"
+    s = fmt_work_ms(med)
     if show_ratio and rust_ms and rust_ms > 0:
         ratio = med / rust_ms
         return f"{s} ({ratio:.2f}x)"
@@ -598,6 +713,29 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append("| " + " | ".join(row) + " |")
     lines.append("")
 
+    # In-process work time table
+    work_note = (
+        "Median in-process computation time in **ms** (`PINO_BENCH_MS`, excluding startup and file I/O; "
+        "parentheses: ratio **relative to Rust**, `1.00x` = Rust; lower is faster)."
+        if has_rust
+        else "Median in-process computation time in **ms** (`PINO_BENCH_MS`, excluding startup and file I/O; lower is faster)."
+    )
+    lines.append("## In-Process Work Time (ms)")
+    lines.append("")
+    lines.append(work_note)
+    lines.append("")
+    lines.append("| " + " | ".join(cols) + " |")
+    lines.append("| " + " | ".join([":---"] + ["---:"] * len(langs)) + " |")
+    for b in benches:
+        rust_entry = results.get(b, {}).get("rust")
+        rust_work_ms = rust_entry.get("work_median_ms") if (rust_entry and rust_entry.get("status") == "ok") else None
+        row = [f"`{b}`"]
+        for lang in langs:
+            entry = results.get(b, {}).get(lang)
+            row.append(fmt_work_cell(entry, rust_work_ms, show_ratio=has_rust and lang != "rust"))
+        lines.append("| " + " | ".join(row) + " |")
+    lines.append("")
+
     # Build time table
     lines.append("## Build / Compile Time (ms)")
     lines.append("")
@@ -635,6 +773,7 @@ def main() -> int:
     parser.add_argument("--quick", action="store_true", help="Use smaller input sizes for a fast smoke test.")
     parser.add_argument("--timeout", type=float, default=60.0, help="Timeout per run in seconds (default: 60).")
     parser.add_argument("--save", action="store_true", help="Force writing JSON/Markdown results even with --quick or filters.")
+    parser.add_argument("--no-aot", action="store_true", help="Build Pino.Cli as regular Release JIT instead of NativeAOT.")
     args = parser.parse_args()
     if args.runs is None:
         args.runs = 1 if args.quick else 5
@@ -677,8 +816,9 @@ def main() -> int:
     build_errors: dict[tuple[str, str], str] = {}
 
     if any(l in langs for l in ("pino-vm", "pino-c", "pino-gcc")):
-        print("Building Pino.Cli (Release)...")
-        pino_exe, ms, err = build_pino_cli()
+        mode_label = "Release" if args.no_aot else "NativeAOT"
+        print(f"Building Pino.Cli ({mode_label})...")
+        pino_exe, ms, err = build_pino_cli(no_aot=args.no_aot)
         builds["pino-cli"] = {"project_ms": round(ms, 2), "error": err}
         if err:
             print(f"  ERROR building Pino.Cli: {err}", file=sys.stderr)
@@ -800,10 +940,12 @@ def main() -> int:
             results[b][lang] = entry
             st = entry["status"]
             if st == "ok":
+                work_str = f"  work={entry['work_median_ms']:7.3f} ms" if "work_median_ms" in entry else ""
                 print(
                     f"  {b:14s}  {lang:10s}  ok       "
                     f"median={entry['median_ms']:8.1f} ms  "
                     f"(min={entry['min_ms']:.1f}, max={entry['max_ms']:.1f})"
+                    f"{work_str}"
                 )
             elif st == "TIMEOUT":
                 print(f"  {b:14s}  {lang:10s}  TIMEOUT  (>{args.timeout:.0f}s)")

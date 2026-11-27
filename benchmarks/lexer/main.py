@@ -1,3 +1,5 @@
+import time
+
 MARKER_MAP = {
     '(': "LPAREN", ')': "RPAREN",
     '[': "LBRACKET", ']': "RBRACKET",
@@ -94,6 +96,7 @@ def main() -> None:
     with open("benchmarks/data/lexer.txt", "r", encoding="utf-8") as f:
         content = f.read()
 
+    t0 = time.perf_counter()
     particles = lex_program(content)
 
     kw_count = 0
@@ -115,13 +118,16 @@ def main() -> None:
                 bool_true += 1
         elif kind == "Marker":
             marker_count += 1
+    total_particles = len(particles)
+    bench_ms = (time.perf_counter() - t0) * 1000.0
 
-    print(len(particles))
+    print(total_particles)
     print(kw_count)
     print(ident_count)
     print(int_sum)
     print(bool_true)
     print(marker_count)
+    print(f"PINO_BENCH_MS={bench_ms:.3f}")
 
 if __name__ == "__main__":
     main()

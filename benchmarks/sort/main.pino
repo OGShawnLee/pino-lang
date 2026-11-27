@@ -30,6 +30,7 @@ fn main {
   val quick = file_exists("benchmarks/data/quick")
   val n = if quick then 5000 else 25000
 
+  val t0 = time()
   var state = 123456789
   var arr = []int
   for n {
@@ -45,9 +46,11 @@ fn main {
     checksum = (checksum + ((i + 1) * (arr[i] % 1000003))) % 1000000007
     i += 1
   }
+  val bench_ms = time() - t0
 
   println(arr[0])
   println(arr[n // 2])
   println(arr[n - 1])
   println(checksum)
+  println("PINO_BENCH_MS=$bench_ms")
 }

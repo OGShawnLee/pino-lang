@@ -142,6 +142,8 @@ function lexProgram(program: string): Particle[] {
 }
 
 const content = readFileSync("benchmarks/data/lexer.txt", "utf-8");
+
+const t0 = performance.now();
 const particles = lexProgram(content);
 
 let kwCount = 0;
@@ -171,10 +173,13 @@ for (const p of particles) {
       break;
   }
 }
+const totalParticles = particles.length;
+const benchMs = performance.now() - t0;
 
-console.log(particles.length);
+console.log(totalParticles);
 console.log(kwCount);
 console.log(identCount);
 console.log(intSum);
 console.log(boolTrue);
 console.log(markerCount);
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

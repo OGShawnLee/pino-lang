@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace PinoBenchmarks;
 
@@ -35,6 +37,7 @@ public static class Sort {
 
   public static void Run(bool quick) {
     int n = quick ? 5000 : 25000;
+    var sw = Stopwatch.StartNew();
     long state = 123456789;
     long[] arr = new long[n];
     for (int i = 0; i < n; i++) {
@@ -48,10 +51,12 @@ public static class Sort {
     for (int i = 0; i < n; i++) {
       checksum = (checksum + ((long)(i + 1) * (arr[i] % 1000003))) % 1000000007;
     }
+    sw.Stop();
 
     Console.WriteLine(arr[0]);
     Console.WriteLine(arr[n / 2]);
     Console.WriteLine(arr[n - 1]);
     Console.WriteLine(checksum);
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }

@@ -5,6 +5,7 @@ const size = quick ? 150 : 335;
 const maxIter = 50;
 const invSize = 1.0 / size;
 
+const t0 = performance.now();
 let inside = 0;
 for (let y = 0; y < size; y++) {
   const ci = 2.0 * y * invSize - 1.0;
@@ -28,4 +29,6 @@ for (let y = 0; y < size; y++) {
     }
   }
 }
+const benchMs = performance.now() - t0;
 console.log(inside);
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

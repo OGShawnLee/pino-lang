@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace PinoBenchmarks;
 
@@ -12,6 +14,10 @@ public static class Fib {
 
   public static void Run(bool quick) {
     long n = quick ? 25 : 29;
-    Console.WriteLine(Calc(n));
+    var sw = Stopwatch.StartNew();
+    long ans = Calc(n);
+    sw.Stop();
+    Console.WriteLine(ans);
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }

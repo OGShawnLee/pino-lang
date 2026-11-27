@@ -111,11 +111,14 @@ bodies[0].vx = -px / solarMass;
 bodies[0].vy = -py / solarMass;
 bodies[0].vz = -pz / solarMass;
 
+const t0 = performance.now();
 const e0 = energy(bodies);
 for (let i = 0; i < steps; i++) {
   advance(bodies, 0.01);
 }
 const e1 = energy(bodies);
+const benchMs = performance.now() - t0;
 
 console.log(roundInt(e0 * 1000000000.0));
 console.log(roundInt(e1 * 1000000000.0));
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

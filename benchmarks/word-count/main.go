@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -14,6 +15,7 @@ func main() {
 	}
 	text := string(data)
 
+	t0 := time.Now()
 	counts := make(map[string]int)
 	total := 0
 
@@ -29,9 +31,6 @@ func main() {
 		}
 	}
 
-	fmt.Println(total)
-	fmt.Println(len(counts))
-
 	used := make(map[string]bool)
 	keys := make([]string, 0, len(counts))
 	for k := range counts {
@@ -41,6 +40,7 @@ func main() {
 	if len(keys) < limit {
 		limit = len(keys)
 	}
+	topLines := make([]string, 0, limit)
 
 	for iter := 0; iter < limit; iter++ {
 		bestWord := ""
@@ -56,6 +56,14 @@ func main() {
 			}
 		}
 		used[bestWord] = true
-		fmt.Printf("%s %d\n", bestWord, bestCount)
+		topLines = append(topLines, fmt.Sprintf("%s %d", bestWord, bestCount))
 	}
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
+
+	fmt.Println(total)
+	fmt.Println(len(counts))
+	for _, line := range topLines {
+		fmt.Println(line)
+	}
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

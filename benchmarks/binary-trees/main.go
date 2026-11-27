@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 type Tree struct {
@@ -51,6 +52,7 @@ func main() {
 	}
 	stretchDepth := maxDepth + 1
 
+	t0 := time.Now()
 	stretchCheck := checkTree(makeTree(stretchDepth))
 	longLived := makeTree(maxDepth)
 
@@ -66,8 +68,10 @@ func main() {
 
 	longCheck := checkTree(longLived)
 	totalCheck += longCheck
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
 
 	fmt.Println(stretchCheck)
 	fmt.Println(totalCheck)
 	fmt.Println(longCheck)
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

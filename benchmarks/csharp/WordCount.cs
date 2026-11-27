@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 
 namespace PinoBenchmarks;
@@ -8,6 +10,7 @@ public static class WordCount {
   public static void Run(bool quick) {
     string text = File.ReadAllText("benchmarks/data/word-count.txt");
 
+    var sw = Stopwatch.StartNew();
     var counts = new Dictionary<string, int>();
     int total = 0;
 
@@ -27,12 +30,10 @@ public static class WordCount {
       }
     }
 
-    Console.WriteLine(total);
-    Console.WriteLine(counts.Count);
-
     var used = new HashSet<string>();
     var keys = new List<string>(counts.Keys);
     int limit = Math.Min(10, keys.Count);
+    var topLines = new List<string>(limit);
 
     for (int iter = 0; iter < limit; iter++) {
       string bestWord = "";
@@ -48,7 +49,15 @@ public static class WordCount {
         }
       }
       used.Add(bestWord);
-      Console.WriteLine($"{bestWord} {bestCount}");
+      topLines.Add($"{bestWord} {bestCount}");
     }
+    sw.Stop();
+
+    Console.WriteLine(total);
+    Console.WriteLine(counts.Count);
+    foreach (string line in topLines) {
+      Console.WriteLine(line);
+    }
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }

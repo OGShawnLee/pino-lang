@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func mySqrt(x float64) float64 {
@@ -64,6 +65,7 @@ func main() {
 		n = 80
 	}
 
+	t0 := time.Now()
 	u := make([]float64, n)
 	v := make([]float64, n)
 	tmp := make([]float64, n)
@@ -84,5 +86,8 @@ func main() {
 	}
 
 	ans := mySqrt(vbv / vv)
-	fmt.Println(roundInt(ans * 1000000000.0))
+	outVal := roundInt(ans * 1000000000.0)
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
+	fmt.Println(outVal)
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

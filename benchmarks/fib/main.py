@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 def fib(n: int) -> int:
     if n < 2:
@@ -9,7 +10,11 @@ def fib(n: int) -> int:
 def main() -> None:
     quick = ("--quick" in sys.argv[1:]) or os.path.exists("benchmarks/data/quick")
     n = 25 if quick else 29
-    print(fib(n))
+    t0 = time.perf_counter()
+    ans = fib(n)
+    bench_ms = (time.perf_counter() - t0) * 1000.0
+    print(ans)
+    print(f"PINO_BENCH_MS={bench_ms:.3f}")
 
 if __name__ == "__main__":
     main()

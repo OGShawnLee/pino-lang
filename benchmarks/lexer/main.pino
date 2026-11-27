@@ -157,6 +157,7 @@ fn main {
     panic("failed to read benchmarks/data/lexer.txt")
   }
 
+  val t0 = time()
   val particles = lex_program(content)
 
   var keywords = 0
@@ -179,11 +180,14 @@ fn main {
       when Atom::EOF {}
     }
   }
+  val total_particles = particles:len
+  val bench_ms = time() - t0
 
-  println(particles:len)
+  println(total_particles)
   println(keywords)
   println(idents)
   println(int_sum)
   println(bool_true)
   println(markers)
+  println("PINO_BENCH_MS=$bench_ms")
 }

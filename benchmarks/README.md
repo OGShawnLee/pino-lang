@@ -1,6 +1,6 @@
 # Pino Benchmarks
 
-Cross-language benchmark suite comparing **Pino** (`pino-vm`, `pino-c` with TinyCC, and `pino-gcc` with `gcc`/`clang -O2`) against **Go**, **Rust**, **C# (.NET)**, **TypeScript (Bun)**, and **Python**.
+Cross-language benchmark suite comparing **Pino** (`pino-vm`, `pino-c` with TinyCC, and `pino-gcc` with `gcc`/`clang -O3 -flto`) against **Go**, **Rust**, **C# (.NET)**, **TypeScript (Bun)**, and **Python**.
 
 Every benchmark uses the same algorithm, the same deterministic input data, and produces bit-for-bit identical output across all six languages.
 
@@ -71,9 +71,9 @@ python benchmarks/run.py --timeout 60
 
 Build and compile time is measured separately from execution time:
 
-- **`pino-vm`**: `pino run <file>` (Pino IR VM, after building `Pino.Cli` once in Release)
+- **`pino-vm`**: `pino run <file>` (Pino IR VM, after publishing `Pino.Cli` with NativeAOT by default, or `dotnet build -c Release` with `--no-aot`)
 - **`pino-c`**: `pino build -o <out> <file>` (native C99 via bundled TinyCC on Windows)
-- **`pino-gcc`**: `pino build --release -o <out> <file>` (native C99 via `gcc`/`clang -O2`)
+- **`pino-gcc`**: `pino build --release -o <out> <file>` (native C99 via `gcc`/`clang -O3 -flto`)
 - **`go`**: `go build -o <out> <file>`
 - **`rust`**: `cargo build --release` (single Cargo workspace in `benchmarks/rust/`)
 - **`csharp`**: `dotnet build -c Release` (single .NET project in `benchmarks/csharp/`, invoked as the built executable)
@@ -84,7 +84,7 @@ Build and compile time is measured separately from execution time:
 
 Each run writes two files to `benchmarks/results/`:
 
-- `<YYYY-MM-DD>-<os>-<arch>.json`: machine details (CPU model, logical cores, RAM, OS), toolchain versions, Pino git commit, and raw timings (`median_ms`, `min_ms`, `max_ms`, `build_ms`, status).
-- `<YYYY-MM-DD>-<os>-<arch>.md`: summary tables with median execution time in **ms**, a ratio column **relative to Rust** (`1.00x` = same speed as Rust; higher = slower), and a separate build/compile time table.
+- `<YYYY-MM-DD>-<os>-<arch>.json`: machine details (CPU model, logical cores, RAM, OS), toolchain versions, Pino git commit, and raw timings (`median_ms`, `min_ms`, `max_ms`, `samples_ms`, plus `work_median_ms`, `work_min_ms`, `work_max_ms`, `work_samples_ms` for compute benchmarks, `build_ms`, status).
+- `<YYYY-MM-DD>-<os>-<arch>.md`: summary tables with wall-clock `## Execution Time (ms)`, in-process `## In-Process Work Time (ms)` (parsed from the `PINO_BENCH_MS=<ms>` line printed by the 10 compute benchmarks after setup/file-I/O and stripped before comparing against `expected.txt`), ratios **relative to Rust** (`1.00x` = same speed as Rust; higher = slower), and a separate build/compile time table.
 
-**Compare against the `hello` row:** because full sizes are kept compact (~5× the `--quick` sizes) so the suite runs well on any machine, the fastest compiled languages (`rust`, `go`, `pino-gcc`, `pino-c`) will land near their process startup time (the `hello` row) on some benchmarks, and runtimes with higher startup cost (`pino-vm`, `csharp`, `python`, `bun`) include that baseline in every row. Always subtract or compare against `hello` when judging steady-state throughput.
+**Compare against the `hello` row:** because full sizes are kept compact (~5× the `--quick` sizes) so the suite runs well on any machine, the fastest compiled languages (`rust`, `go`, `pino-gcc`, `pino-c`) will land near their process startup time (the `hello` row) on some wall-clock rows, and runtimes with higher startup cost (`pino-vm`, `csharp`, `python`, `bun`) include that baseline in `## Execution Time (ms)`. The `## In-Process Work Time (ms)` table isolates steady-state compute throughput directly.

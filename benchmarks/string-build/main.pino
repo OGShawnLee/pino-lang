@@ -2,6 +2,7 @@ fn main {
   val quick = file_exists("benchmarks/data/quick")
   val n = if quick then 1500 else 7500
 
+  val t0 = time()
   var s = ""
   var i = 0
   for i < n {
@@ -12,8 +13,10 @@ fn main {
 
   val parts = s:split(",")
   val joined = parts:join(":")
+  val bench_ms = time() - t0
 
   println(s:len)
   println(parts:len)
   println(joined:len)
+  println("PINO_BENCH_MS=$bench_ms")
 }

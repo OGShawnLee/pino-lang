@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 type Body struct {
@@ -126,12 +127,15 @@ func main() {
 	bodies[0].vy = -py / solarMass
 	bodies[0].vz = -pz / solarMass
 
+	t0 := time.Now()
 	e0 := energy(bodies)
 	for i := 0; i < steps; i++ {
 		advance(bodies, 0.01)
 	}
 	e1 := energy(bodies)
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
 
 	fmt.Println(roundInt(e0 * 1000000000.0))
 	fmt.Println(roundInt(e1 * 1000000000.0))
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

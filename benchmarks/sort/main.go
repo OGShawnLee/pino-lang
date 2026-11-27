@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func quicksort(arr []int64, lo, hi int) {
@@ -47,6 +48,7 @@ func main() {
 		n = 5000
 	}
 
+	t0 := time.Now()
 	var state int64 = 123456789
 	arr := make([]int64, 0, n)
 	for i := 0; i < n; i++ {
@@ -60,9 +62,11 @@ func main() {
 	for i := 0; i < n; i++ {
 		checksum = (checksum + (int64(i+1) * (arr[i] % 1000003))) % 1000000007
 	}
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
 
 	fmt.Println(arr[0])
 	fmt.Println(arr[n/2])
 	fmt.Println(arr[n-1])
 	fmt.Println(checksum)
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace PinoBenchmarks;
 
@@ -40,6 +42,7 @@ public static class BinaryTrees {
     int maxDepth = quick ? 9 : 12;
     int stretchDepth = maxDepth + 1;
 
+    var sw = Stopwatch.StartNew();
     long stretchCheck = CheckTree(MakeTree(stretchDepth));
     Tree longLived = MakeTree(maxDepth);
 
@@ -55,9 +58,11 @@ public static class BinaryTrees {
 
     long longCheck = CheckTree(longLived);
     totalCheck += longCheck;
+    sw.Stop();
 
     Console.WriteLine(stretchCheck);
     Console.WriteLine(totalCheck);
     Console.WriteLine(longCheck);
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }

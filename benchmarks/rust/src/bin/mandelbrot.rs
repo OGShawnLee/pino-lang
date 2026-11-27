@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::time::Instant;
 
 fn main() {
     let quick = env::args().skip(1).any(|a| a == "--quick")
@@ -8,6 +9,7 @@ fn main() {
     let max_iter = 50;
     let inv_size = 1.0 / (size as f64);
 
+    let t0 = Instant::now();
     let mut inside: i64 = 0;
     for y in 0..size {
         let ci = 2.0 * (y as f64) * inv_size - 1.0;
@@ -31,5 +33,7 @@ fn main() {
             }
         }
     }
+    let bench_ms = t0.elapsed().as_secs_f64() * 1000.0;
     println!("{}", inside);
+    println!("PINO_BENCH_MS={:.3}", bench_ms);
 }

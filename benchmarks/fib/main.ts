@@ -9,4 +9,8 @@ function fib(n: number): number {
 
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
 const n = quick ? 25 : 29;
-console.log(fib(n));
+const t0 = performance.now();
+const ans = fib(n);
+const benchMs = performance.now() - t0;
+console.log(ans);
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

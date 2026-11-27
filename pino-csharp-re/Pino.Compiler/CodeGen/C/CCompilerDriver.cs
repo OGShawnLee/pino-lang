@@ -297,7 +297,7 @@ public static class CCompilerDriver {
     }
   }
 
-  private static List<string> BuildSystemCompilerArgs(
+  internal static List<string> BuildSystemCompilerArgs(
       string cFilePath,
       string runtimeReDir,
       string outExe,
@@ -305,7 +305,8 @@ public static class CCompilerDriver {
       bool debugRc) {
     List<string> args = [];
     if (optimize) {
-      args.Add("-O2");
+      args.Add("-O3");
+      args.Add("-flto");
     }
 
     args.Add("-std=c99");

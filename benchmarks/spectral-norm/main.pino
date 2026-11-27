@@ -55,6 +55,7 @@ fn main {
   val quick = file_exists("benchmarks/data/quick")
   val n = if quick then 80 else 180
 
+  val t0 = time()
   var u = []float
   var v = []float
   var tmp = []float
@@ -79,5 +80,8 @@ fn main {
   }
 
   val ans = my_sqrt(vbv / vv)
-  println(round_int(ans * 1000000000.0))
+  val out_val = round_int(ans * 1000000000.0)
+  val bench_ms = time() - t0
+  println(out_val)
+  println("PINO_BENCH_MS=$bench_ms")
 }

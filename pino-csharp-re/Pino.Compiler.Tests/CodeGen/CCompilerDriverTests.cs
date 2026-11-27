@@ -211,6 +211,64 @@ public sealed class CCompilerDriverTests : IDisposable {
     Assert.Equal(string.Empty, stderr.ToString());
   }
 
+  [Fact]
+  public void BuildSystemCompilerArgs_Release_UsesO3AndFlto() {
+    List<string> releaseArgs = CCompilerDriver.BuildSystemCompilerArgs(
+        "prog.c",
+        "runtime-re",
+        "prog.exe",
+        optimize: true,
+        debugRc: false);
+
+    Assert.Contains("-O3", releaseArgs);
+    Assert.Contains("-flto", releaseArgs);
+    Assert.DoesNotContain("-O2", releaseArgs);
+
+    List<string> devArgs = CCompilerDriver.BuildSystemCompilerArgs(
+        "prog.c",
+        "runtime-re",
+        "prog.exe",
+        optimize: false,
+        debugRc: false);
+
+    Assert.DoesNotContain("-O3", devArgs);
+    Assert.DoesNotContain("-flto", devArgs);
+  }
+
+  [Fact]
+  public void Build_Release_UsesO3AndFlto_AndProducesWorkingExecutable() {
+    string? releaseCc = CCompilerDriver.FindReleaseCompiler();
+    if (releaseCc is null) {
+      return; // Release compilation requires gcc, clang, or cc on PATH.
+    }
+
+    string realRepo = CCompilerDriver.FindRepositoryRoot();
+    const string MinimalC = """
+        #include "pino_rt.h"
+        int main(void) {
+          PinoString s = PINO_STR_LIT("release-ok");
+          pino_println_n(&s, 1);
+          return 0;
+        }
+        """;
+
+    string outExe = Path.Combine(_root, OperatingSystem.IsWindows() ? "release_ok.exe" : "release_ok");
+    CBuildResult build = CCompilerDriver.Build(new CBuildOptions(
+        CSource: MinimalC,
+        OutputExecutablePath: outExe,
+        Release: true,
+        DebugRc: true,
+        RepoRoot: realRepo,
+        WorkingDirectory: _root));
+
+    Assert.True(build.Succeeded, $"Release build failed ({build.CompilerUsed}):\n{build.Stderr}\n{build.Stdout}");
+    Assert.Equal(releaseCc, build.CompilerUsed);
+
+    CExecResult exec = CCompilerDriver.RunExecutable(outExe, _root, failOnLeak: true, closeStdin: true);
+    Assert.Equal(0, exec.ExitCode);
+    Assert.Equal("release-ok", exec.Stdout.Replace("\r\n", "\n", StringComparison.Ordinal).Trim());
+  }
+
   [Theory]
   [InlineData("tcc: error: file 'crt1.o' not found", true)]
   [InlineData("pino_rt.h:20: error: include file 'stdio.h' not found", true)]

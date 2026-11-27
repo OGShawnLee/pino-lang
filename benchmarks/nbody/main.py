@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 class Body:
     __slots__ = ("x", "y", "z", "vx", "vy", "vz", "mass")
@@ -111,13 +112,16 @@ def main() -> None:
     bodies[0].vy = -py / solar_mass
     bodies[0].vz = -pz / solar_mass
 
+    t0 = time.perf_counter()
     e0 = energy(bodies)
     for _ in range(steps):
         advance(bodies, 0.01)
     e1 = energy(bodies)
+    bench_ms = (time.perf_counter() - t0) * 1000.0
 
     print(round_int(e0 * 1000000000.0))
     print(round_int(e1 * 1000000000.0))
+    print(f"PINO_BENCH_MS={bench_ms:.3f}")
 
 if __name__ == "__main__":
     main()

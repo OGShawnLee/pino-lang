@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::time::Instant;
 
 struct Body {
     x: f64,
@@ -118,12 +119,15 @@ fn main() {
     bodies[0].vy = -py / solar_mass;
     bodies[0].vz = -pz / solar_mass;
 
+    let t0 = Instant::now();
     let e0 = energy(&bodies);
     for _ in 0..steps {
         advance(&mut bodies, 0.01);
     }
     let e1 = energy(&bodies);
+    let bench_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
     println!("{}", round_int(e0 * 1000000000.0));
     println!("{}", round_int(e1 * 1000000000.0));
+    println!("PINO_BENCH_MS={:.3}", bench_ms);
 }

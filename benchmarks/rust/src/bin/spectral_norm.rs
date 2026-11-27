@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::time::Instant;
 
 fn my_sqrt(x: f64) -> f64 {
     let mut g = x * 0.5 + 1.0;
@@ -52,6 +53,7 @@ fn main() {
         || Path::new("benchmarks/data/quick").exists();
     let n = if quick { 80 } else { 180 };
 
+    let t0 = Instant::now();
     let mut u = vec![1.0_f64; n];
     let mut v = vec![0.0_f64; n];
     let mut tmp = vec![0.0_f64; n];
@@ -69,5 +71,8 @@ fn main() {
     }
 
     let ans = my_sqrt(vbv / vv);
-    println!("{}", round_int(ans * 1000000000.0));
+    let out_val = round_int(ans * 1000000000.0);
+    let bench_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    println!("{}", out_val);
+    println!("PINO_BENCH_MS={:.3}", bench_ms);
 }

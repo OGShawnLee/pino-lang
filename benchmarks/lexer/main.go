@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 type AtomType int
@@ -163,6 +164,7 @@ func main() {
 	}
 	content := string(bytes)
 
+	t0 := time.Now()
 	particles := lexProgram(content)
 
 	kwCount := 0
@@ -187,11 +189,14 @@ func main() {
 			markerCount++
 		}
 	}
+	totalParticles := len(particles)
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
 
-	fmt.Println(len(particles))
+	fmt.Println(totalParticles)
 	fmt.Println(kwCount)
 	fmt.Println(identCount)
 	fmt.Println(intSum)
 	fmt.Println(boolTrue)
 	fmt.Println(markerCount)
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

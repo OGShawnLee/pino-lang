@@ -31,6 +31,7 @@ fn main {
   val max_depth = if quick then 9 else 12
   val stretch_depth = max_depth + 1
 
+  val t0 = time()
   val stretch_check = check_tree(make_tree(stretch_depth))
   val long_lived = make_tree(max_depth)
 
@@ -48,8 +49,10 @@ fn main {
 
   val long_check = check_tree(long_lived)
   total_check += long_check
+  val bench_ms = time() - t0
 
   println(stretch_check)
   println(total_check)
   println(long_check)
+  println("PINO_BENCH_MS=$bench_ms")
 }

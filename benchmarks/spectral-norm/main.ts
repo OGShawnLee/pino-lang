@@ -45,6 +45,7 @@ function evalAtATimesU(u: number[], out: number[], tmp: number[], n: number): vo
 const quick = process.argv.includes("--quick") || existsSync("benchmarks/data/quick");
 const n = quick ? 80 : 180;
 
+const t0 = performance.now();
 const u: number[] = new Array(n).fill(1.0);
 const v: number[] = new Array(n).fill(0.0);
 const tmp: number[] = new Array(n).fill(0.0);
@@ -62,4 +63,7 @@ for (let i = 0; i < n; i++) {
 }
 
 const ans = mySqrt(vbv / vv);
-console.log(roundInt(ans * 1000000000.0));
+const outVal = roundInt(ans * 1000000000.0);
+const benchMs = performance.now() - t0;
+console.log(outVal);
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

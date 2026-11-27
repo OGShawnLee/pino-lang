@@ -35,6 +35,7 @@ const minDepth = 4;
 const maxDepth = quick ? 9 : 12;
 const stretchDepth = maxDepth + 1;
 
+const t0 = performance.now();
 const stretchCheck = checkTree(makeTree(stretchDepth));
 const longLived = makeTree(maxDepth);
 
@@ -50,7 +51,9 @@ for (let d = minDepth; d <= maxDepth; d += 2) {
 
 const longCheck = checkTree(longLived);
 totalCheck += longCheck;
+const benchMs = performance.now() - t0;
 
 console.log(stretchCheck);
 console.log(totalCheck);
 console.log(longCheck);
+console.log(`PINO_BENCH_MS=${benchMs.toFixed(3)}`);

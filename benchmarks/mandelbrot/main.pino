@@ -4,6 +4,7 @@ fn main {
   val max_iter = 50
   val inv_size = 1.0 / size
 
+  val t0 = time()
   var inside = 0
   var y = 0
   for y < size {
@@ -33,5 +34,7 @@ fn main {
     }
     y += 1
   }
+  val bench_ms = time() - t0
   println(inside)
+  println("PINO_BENCH_MS=$bench_ms")
 }

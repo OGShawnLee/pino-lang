@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 class Tree:
     __slots__ = ("left", "right")
@@ -29,6 +30,7 @@ def main() -> None:
     max_depth = 9 if quick else 12
     stretch_depth = max_depth + 1
 
+    t0 = time.perf_counter()
     stretch_check = check_tree(make_tree(stretch_depth))
     long_lived = make_tree(max_depth)
 
@@ -44,10 +46,12 @@ def main() -> None:
 
     long_check = check_tree(long_lived)
     total_check += long_check
+    bench_ms = (time.perf_counter() - t0) * 1000.0
 
     print(stretch_check)
     print(total_check)
     print(long_check)
+    print(f"PINO_BENCH_MS={bench_ms:.3f}")
 
 if __name__ == "__main__":
     main()

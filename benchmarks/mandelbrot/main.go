@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func isQuick() bool {
@@ -21,6 +22,7 @@ func main() {
 	const maxIter = 50
 	invSize := 1.0 / float64(size)
 
+	t0 := time.Now()
 	inside := 0
 	for y := 0; y < size; y++ {
 		ci := 2.0*float64(y)*invSize - 1.0
@@ -44,5 +46,7 @@ func main() {
 			}
 		}
 	}
+	benchMs := float64(time.Since(t0).Nanoseconds()) / 1e6
 	fmt.Println(inside)
+	fmt.Printf("PINO_BENCH_MS=%.3f\n", benchMs)
 }

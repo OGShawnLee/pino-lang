@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::time::Instant;
 
 fn quicksort(arr: &mut [i64], lo: isize, hi: isize) {
     if lo >= hi {
@@ -34,6 +35,7 @@ fn main() {
         || Path::new("benchmarks/data/quick").exists();
     let n: usize = if quick { 5000 } else { 25000 };
 
+    let t0 = Instant::now();
     let mut state: i64 = 123456789;
     let mut arr = Vec::with_capacity(n);
     for _ in 0..n {
@@ -47,9 +49,11 @@ fn main() {
     for (i, &v) in arr.iter().enumerate() {
         checksum = (checksum + ((i as i64 + 1) * (v % 1000003))) % 1000000007;
     }
+    let bench_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
     println!("{}", arr[0]);
     println!("{}", arr[n / 2]);
     println!("{}", arr[n - 1]);
     println!("{}", checksum);
+    println!("PINO_BENCH_MS={:.3}", bench_ms);
 }

@@ -1,4 +1,5 @@
 use std::fs;
+use std::time::Instant;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -184,6 +185,7 @@ fn main() {
     let content = fs::read_to_string("benchmarks/data/lexer.txt")
         .expect("failed to read benchmarks/data/lexer.txt");
 
+    let t0 = Instant::now();
     let particles = lex_program(&content);
 
     let mut kw_count: i64 = 0;
@@ -206,11 +208,14 @@ fn main() {
             Atom::EOF => {}
         }
     }
+    let total_particles = particles.len();
+    let bench_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
-    println!("{}", particles.len());
+    println!("{}", total_particles);
     println!("{}", kw_count);
     println!("{}", ident_count);
     println!("{}", int_sum);
     println!("{}", bool_true);
     println!("{}", marker_count);
+    println!("PINO_BENCH_MS={:.3}", bench_ms);
 }

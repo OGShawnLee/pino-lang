@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace PinoBenchmarks;
 
@@ -110,13 +112,16 @@ public static class NBody {
     bodies[0].Vy = -py / solarMass;
     bodies[0].Vz = -pz / solarMass;
 
+    var sw = Stopwatch.StartNew();
     double e0 = Energy(bodies);
     for (int i = 0; i < steps; i++) {
       Advance(bodies, 0.01);
     }
     double e1 = Energy(bodies);
+    sw.Stop();
 
     Console.WriteLine(RoundInt(e0 * 1000000000.0));
     Console.WriteLine(RoundInt(e1 * 1000000000.0));
+    Console.WriteLine($"PINO_BENCH_MS={sw.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
   }
 }
