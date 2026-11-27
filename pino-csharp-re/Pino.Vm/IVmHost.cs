@@ -37,6 +37,10 @@ public interface IVmHost {
   /// <summary>Milliseconds since the Unix epoch on every platform (<c>BUILTIN-7</c>).</summary>
   double ClockMs();
 
+  /// <summary>Returns current UTC time as fractional milliseconds since the Unix epoch (<c>BUILTIN-7</c>).</summary>
+  public static double UtcNowMs() =>
+      (DateTimeOffset.UtcNow.Ticks - DateTimeOffset.UnixEpoch.Ticks) / (double) TimeSpan.TicksPerMillisecond;
+
   Random Random { get; }
 
   void Sleep(int milliseconds);

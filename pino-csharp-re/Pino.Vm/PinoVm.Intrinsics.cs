@@ -102,7 +102,7 @@ public sealed partial class PinoVm {
             throw new PinoVmPanic(ex.Message);
           }
 
-          PinoVmString ownedPattern = Alloc(new PinoVmString(patternStr.Span.ToArray(), 0, patternStr.ByteLength), _types.String);
+          PinoVmString ownedPattern = Alloc(new PinoVmString(patternStr.Span.ToArray(), 0, patternStr.ByteLength, isAscii: patternStr.IsAscii), _types.String);
           var rx = new PinoVmRegex(ownedPattern, regex);
           Alloc(rx, destType);
           return PinoValue.FromObject(rx);
@@ -135,7 +135,7 @@ public sealed partial class PinoVm {
       case IrRuntimeOp.StrClone:
       case IrRuntimeOp.StrToCString: {
           PinoVmString s = StrArg(0);
-          return PinoValue.FromObject(Alloc(new PinoVmString(s.Span.ToArray(), 0, s.ByteLength), _types.String));
+          return PinoValue.FromObject(Alloc(new PinoVmString(s.Span.ToArray(), 0, s.ByteLength, isAscii: s.IsAscii), _types.String));
         }
 
       case IrRuntimeOp.StrContains:
@@ -185,8 +185,12 @@ public sealed partial class PinoVm {
                 $"Substring starting at {start} with length {length} is out of range for a string of length {runes}."));
           }
 
+          if (s.IsAscii) {
+            return PinoValue.FromObject(Alloc(s.Slice((int) start, (int) length), _types.String));
+          }
+
           int byteStart = s.ByteOffsetOfRune((int) start);
-          int byteEnd = s.ByteOffsetOfRune((int) (start + length));
+          int byteEnd = start + length == runes ? s.ByteLength : s.ByteOffsetOfRune((int) (start + length));
           return PinoValue.FromObject(Alloc(s.Slice(byteStart, byteEnd - byteStart), _types.String));
         }
 
@@ -242,6 +246,10 @@ public sealed partial class PinoVm {
   private PinoVmRegex RegexArg(PinoValue value) => UseObject((PinoVmRegex) value.Obj!, "regex access");
 
   private static int RunesBefore(PinoVmString s, int bytePos) {
+    if (s.IsAscii) {
+      return bytePos;
+    }
+
     int count = 0;
     for (int i = 0; i < bytePos; i++) {
       if ((s.Bytes[s.Offset + i] & 0xC0) != 0x80) {

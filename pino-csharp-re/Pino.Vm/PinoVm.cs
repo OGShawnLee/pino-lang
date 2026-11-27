@@ -140,15 +140,13 @@ internal sealed class CompiledFunc {
   public int RegOf(IrOperand op) => op.IsParam ? op.Index : ParamCount + op.Index;
 }
 
-internal sealed class Frame(CompiledFunc func, PinoValue[] regs, int retReg) {
-  public CompiledFunc Func { get; } = func;
-
-  public PinoValue[] Regs { get; } = regs;
-
-  public int Pc { get; set; }
+internal struct Frame {
+  public CompiledFunc Func;
+  public PinoValue[] Regs;
+  public int Pc;
 
   /// <summary>Register of the caller that receives the return value, or <c>-1</c>.</summary>
-  public int RetReg { get; } = retReg;
+  public int RetReg;
 }
 
 /// <summary>
@@ -168,7 +166,9 @@ public sealed partial class PinoVm {
   private PinoValue[] _globals;
   private PinoVmString?[] _stringLiterals;
   private SourceText? _activeRootSource;
-  private readonly List<Frame> _frames = [];
+  private Frame[] _frames = new Frame[32];
+  private PinoValue[]?[] _frameRegs = new PinoValue[]?[32];
+  private int _frameCount;
   private readonly Stack<PinoVmHeapObject> _dropStack = new();
   private bool _dropping;
   private long _steps;
@@ -212,11 +212,13 @@ public sealed partial class PinoVm {
 
       return Finish(0, PinoVmStopReason.Completed);
     } catch (PinoVmExit exit) {
+      ClearFrames();
       return Finish(exit.Code, PinoVmStopReason.Exited);
     } catch (PinoVmPanic panic) {
-      (string? file, int line) panicLoc = _frames.Count > 0 ? LocationFileLine(_frames[^1]) : (null, 0);
+      (string? file, int line) panicLoc = _frameCount > 0 ? LocationFileLine(_frameCount - 1) : (null, 0);
       _host.Err.Write(FormatPanicReport(panic.Message));
       _host.Err.Flush();
+      ClearFrames();
       return new PinoVmResult {
         ExitCode = 101,
         Reason = PinoVmStopReason.Panicked,
@@ -227,6 +229,7 @@ public sealed partial class PinoVm {
         Steps = _steps,
       };
     } catch (PinoVmRcException rcError) {
+      ClearFrames();
       return new PinoVmResult {
         ExitCode = 1,
         Reason = PinoVmStopReason.RcViolation,
@@ -235,9 +238,13 @@ public sealed partial class PinoVm {
         Steps = _steps,
       };
     } catch (PinoVmStepLimitException limit) {
+      ClearFrames();
       _host.Err.Write(limit.Message + "\n");
       _host.Err.Flush();
       return new PinoVmResult { ExitCode = 1, Reason = PinoVmStopReason.StepLimit, Steps = _steps };
+    } catch {
+      ClearFrames();
+      throw;
     }
   }
 
@@ -301,13 +308,13 @@ public sealed partial class PinoVm {
       _host.Out.Flush();
       return new PinoVmResult { ExitCode = 0, Reason = PinoVmStopReason.Completed, Steps = _steps };
     } catch (PinoVmExit exit) {
-      _frames.Clear();
+      ClearFrames();
       _host.Out.Flush();
       return new PinoVmResult { ExitCode = exit.Code, Reason = PinoVmStopReason.Exited, Steps = _steps };
     } catch (PinoVmPanic panic) {
-      (string? file, int line) panicLoc = _frames.Count > 0 ? LocationFileLine(_frames[^1]) : (null, 0);
+      (string? file, int line) panicLoc = _frameCount > 0 ? LocationFileLine(_frameCount - 1) : (null, 0);
       string report = FormatPanicReport(panic.Message);
-      _frames.Clear();
+      ClearFrames();
       _host.Err.Write(report);
       _host.Err.Flush();
       return new PinoVmResult {
@@ -320,7 +327,7 @@ public sealed partial class PinoVm {
         Steps = _steps,
       };
     } catch (PinoVmRcException rcError) {
-      _frames.Clear();
+      ClearFrames();
       return new PinoVmResult {
         ExitCode = 1,
         Reason = PinoVmStopReason.RcViolation,
@@ -329,11 +336,12 @@ public sealed partial class PinoVm {
         Steps = _steps,
       };
     } catch (PinoVmStepLimitException limit) {
-      _frames.Clear();
+      ClearFrames();
       _host.Err.Write(limit.Message + "\n");
       _host.Err.Flush();
       return new PinoVmResult { ExitCode = 1, Reason = PinoVmStopReason.StepLimit, Steps = _steps };
     } finally {
+      ClearFrames();
       _activeRootSource = previousSource;
     }
   }
@@ -362,7 +370,7 @@ public sealed partial class PinoVm {
       Array.Clear(_globals);
       return Finish(0, PinoVmStopReason.Completed);
     } catch (PinoVmExit exit) {
-      _frames.Clear();
+      ClearFrames();
       if (exit.Code == 0 && _module.ShutdownFuncId is { } shutdownId && (uint) shutdownId.Index < (uint) _module.Functions.Count) {
         CallFunction(shutdownId, []);
         Array.Clear(_globals);
@@ -370,8 +378,8 @@ public sealed partial class PinoVm {
 
       return Finish(exit.Code, PinoVmStopReason.Exited);
     } catch (PinoVmPanic panic) {
-      (string? file, int line) panicLoc = _frames.Count > 0 ? LocationFileLine(_frames[^1]) : (null, 0);
-      _frames.Clear();
+      (string? file, int line) panicLoc = _frameCount > 0 ? LocationFileLine(_frameCount - 1) : (null, 0);
+      ClearFrames();
       _host.Out.Flush();
       return new PinoVmResult {
         ExitCode = 101,
@@ -383,7 +391,7 @@ public sealed partial class PinoVm {
         Steps = _steps,
       };
     } catch (PinoVmRcException rcError) {
-      _frames.Clear();
+      ClearFrames();
       return new PinoVmResult {
         ExitCode = 1,
         Reason = PinoVmStopReason.RcViolation,
@@ -392,10 +400,13 @@ public sealed partial class PinoVm {
         Steps = _steps,
       };
     } catch (PinoVmStepLimitException limit) {
-      _frames.Clear();
+      ClearFrames();
       _host.Err.Write(limit.Message + "\n");
       _host.Err.Flush();
       return new PinoVmResult { ExitCode = 1, Reason = PinoVmStopReason.StepLimit, Steps = _steps };
+    } catch {
+      ClearFrames();
+      throw;
     }
   }
 
@@ -412,7 +423,7 @@ public sealed partial class PinoVm {
       Array.Clear(_globals);
       return Finish(0, PinoVmStopReason.Completed);
     } catch (PinoVmRcException rcError) {
-      _frames.Clear();
+      ClearFrames();
       return new PinoVmResult {
         ExitCode = 1,
         Reason = PinoVmStopReason.RcViolation,
@@ -645,23 +656,24 @@ public sealed partial class PinoVm {
   /// <summary>Runs <paramref name="callee"/> to completion (re-entrant) and returns its result.</summary>
   private PinoValue CallFunction(IrFuncId callee, ReadOnlySpan<PinoValue> args) {
     CompiledFunc func = Func(callee);
-    var regs = new PinoValue[func.FrameSize];
+    int depth = _frameCount;
+    PinoValue[] regs = RentRegs(depth, func.FrameSize);
     args.CopyTo(regs);
-    int depth = _frames.Count;
-    _frames.Add(new Frame(func, regs, -1));
+    _frames[depth] = new Frame { Func = func, Regs = regs, Pc = 0, RetReg = -1 };
+    _frameCount = depth + 1;
     return RunLoop(depth);
   }
 
   private PinoValue RunLoop(int baseDepth) {
-    Frame frame = _frames[^1];
-    CompiledFunc func = frame.Func;
-    PinoValue[] regs = frame.Regs;
+    int top = _frameCount - 1;
+    CompiledFunc func = _frames[top].Func;
+    PinoValue[] regs = _frames[top].Regs;
     VmOp[] ops = func.Ops;
-    int pc = frame.Pc;
+    int pc = _frames[top].Pc;
 
     while (true) {
       VmOp op = ops[pc];
-      frame.Pc = pc;
+      _frames[top].Pc = pc;
       switch (op.Kind) {
         // ----- constants & moves
         case OpKind.ConstInt: {
@@ -1020,14 +1032,22 @@ public sealed partial class PinoVm {
         // ----- calls
         case OpKind.CallDirect: {
             var i = (CallDirect) op.Instr!;
-            frame.Pc = pc + 1;
+            _frames[top].Pc = pc + 1;
             CompiledFunc callee = Func(i.Callee);
-            var calleeRegs = new PinoValue[callee.FrameSize];
+            int calleeDepth = _frameCount;
+            PinoValue[] calleeRegs = RentRegs(calleeDepth, callee.FrameSize);
             for (int a = 0; a < i.Arguments.Length; a++) {
               calleeRegs[a] = Val(func, regs, i.Arguments[a]);
             }
 
-            frame = PushFrame(callee, calleeRegs, i.Dest is { } d ? Dest(func, d) : -1);
+            _frames[calleeDepth] = new Frame {
+              Func = callee,
+              Regs = calleeRegs,
+              Pc = 0,
+              RetReg = i.Dest is { } d ? Dest(func, d) : -1,
+            };
+            _frameCount = calleeDepth + 1;
+            top = calleeDepth;
             func = callee;
             regs = calleeRegs;
             ops = func.Ops;
@@ -1042,13 +1062,18 @@ public sealed partial class PinoVm {
               throw new PinoVmInternalException("A closure value with no function was called.");
             }
 
-            frame.Pc = pc + 1;
-            CompiledFunc callee = Func(new IrFuncId((int) closure.Raw - 1));
-            var calleeRegs = new PinoValue[callee.FrameSize];
-            int slot = 0;
-            if (closure.Obj is PinoVmEnv env) {
+            PinoVmEnv? env = closure.Obj as PinoVmEnv;
+            if (env is not null) {
               UseObject(env, "closure call");
               _rc.Inc(env);
+            }
+
+            _frames[top].Pc = pc + 1;
+            CompiledFunc callee = Func(new IrFuncId((int) closure.Raw - 1));
+            int calleeDepth = _frameCount;
+            PinoValue[] calleeRegs = RentRegs(calleeDepth, callee.FrameSize);
+            int slot = 0;
+            if (env is not null) {
               calleeRegs[slot++] = PinoValue.FromObject(env);
             }
 
@@ -1056,7 +1081,14 @@ public sealed partial class PinoVm {
               calleeRegs[slot++] = Val(func, regs, i.Arguments[a]);
             }
 
-            frame = PushFrame(callee, calleeRegs, i.Dest is { } d ? Dest(func, d) : -1);
+            _frames[calleeDepth] = new Frame {
+              Func = callee,
+              Regs = calleeRegs,
+              Pc = 0,
+              RetReg = i.Dest is { } d ? Dest(func, d) : -1,
+            };
+            _frameCount = calleeDepth + 1;
+            top = calleeDepth;
             func = callee;
             regs = calleeRegs;
             ops = func.Ops;
@@ -1080,15 +1112,23 @@ public sealed partial class PinoVm {
             }
 
             IrVTable vtable = _module.VTables[box.VTableId];
-            frame.Pc = pc + 1;
+            _frames[top].Pc = pc + 1;
             CompiledFunc callee = Func(vtable.MethodFuncIds[i.MethodIndex]);
-            var calleeRegs = new PinoValue[callee.FrameSize];
+            int calleeDepth = _frameCount;
+            PinoValue[] calleeRegs = RentRegs(calleeDepth, callee.FrameSize);
             calleeRegs[0] = self;
             for (int a = 0; a < i.Arguments.Length; a++) {
               calleeRegs[a + 1] = Val(func, regs, i.Arguments[a]);
             }
 
-            frame = PushFrame(callee, calleeRegs, i.Dest is { } d ? Dest(func, d) : -1);
+            _frames[calleeDepth] = new Frame {
+              Func = callee,
+              Regs = calleeRegs,
+              Pc = 0,
+              RetReg = i.Dest is { } d ? Dest(func, d) : -1,
+            };
+            _frameCount = calleeDepth + 1;
+            top = calleeDepth;
             func = callee;
             regs = calleeRegs;
             ops = func.Ops;
@@ -1182,17 +1222,20 @@ public sealed partial class PinoVm {
         case OpKind.Ret:
         case OpKind.RetVoid: {
             PinoValue result = op.Kind == OpKind.Ret ? Val(func, regs, ((Ret) op.Term!).Value) : default;
-            int retReg = frame.RetReg;
-            _frames.RemoveAt(_frames.Count - 1);
-            if (_frames.Count == baseDepth) {
+            int retReg = _frames[top].RetReg;
+            Array.Clear(regs, 0, func.FrameSize);
+            _frames[top] = default;
+            _frameCount = top;
+            if (_frameCount == baseDepth) {
               return result;
             }
 
-            frame = _frames[^1];
-            func = frame.Func;
-            regs = frame.Regs;
+            top = _frameCount - 1;
+            ref Frame caller = ref _frames[top];
+            func = caller.Func;
+            regs = caller.Regs;
             ops = func.Ops;
-            pc = frame.Pc;
+            pc = caller.Pc;
             if (retReg >= 0) {
               regs[retReg] = result;
             }
@@ -1220,10 +1263,29 @@ public sealed partial class PinoVm {
     }
   }
 
-  private Frame PushFrame(CompiledFunc callee, PinoValue[] regs, int retReg) {
-    var frame = new Frame(callee, regs, retReg);
-    _frames.Add(frame);
-    return frame;
+  private PinoValue[] RentRegs(int depth, int frameSize) {
+    if (depth >= _frames.Length) {
+      int newLength = _frames.Length * 2;
+      Array.Resize(ref _frames, newLength);
+      Array.Resize(ref _frameRegs, newLength);
+    }
+
+    PinoValue[]? regs = _frameRegs[depth];
+    if (regs is null || regs.Length < frameSize) {
+      regs = new PinoValue[Math.Max(frameSize, 32)];
+      _frameRegs[depth] = regs;
+    }
+
+    return regs;
+  }
+
+  private void ClearFrames() {
+    for (int i = 0; i < _frameCount; i++) {
+      Array.Clear(_frames[i].Regs, 0, _frames[i].Func.FrameSize);
+      _frames[i] = default;
+    }
+
+    _frameCount = 0;
   }
 
   private void BackwardBranch() {
@@ -1328,9 +1390,13 @@ public sealed partial class PinoVm {
   // ---------------------------------------------------------------------------
 
   private T Alloc<T>(T obj, IrTypeId typeId, AllocRegion region) where T : PinoVmHeapObject {
-    Frame? top = _frames.Count > 0 ? _frames[^1] : null;
-    SourceSpan span = top is null ? default : top.Func.Spans[Math.Min(top.Pc, top.Func.Spans.Length - 1)];
-    return _rc.Register(obj, typeId, span, top?.Func.Fn.Name, region.Kind);
+    if (_frameCount > 0) {
+      ref Frame top = ref _frames[_frameCount - 1];
+      SourceSpan span = top.Func.Spans[Math.Min(top.Pc, top.Func.Spans.Length - 1)];
+      return _rc.Register(obj, typeId, span, top.Func.Fn.Name, region.Kind);
+    }
+
+    return _rc.Register(obj, typeId, default, function: null, region.Kind);
   }
 
   private T Alloc<T>(T obj, IrTypeId typeId) where T : PinoVmHeapObject => Alloc(obj, typeId, AllocRegion.Heap);
@@ -1811,24 +1877,25 @@ public sealed partial class PinoVm {
   private string FormatPanicReport(string message) {
     var sb = new StringBuilder();
     sb.Append("thread 'main' panicked at '").Append(message).Append("'\n");
-    if (_frames.Count > 0) {
-      sb.Append("  at ").Append(Location(_frames[^1])).Append('\n');
+    if (_frameCount > 0) {
+      sb.Append("  at ").Append(Location(_frameCount - 1)).Append('\n');
       sb.Append("stack backtrace:\n");
       int n = 0;
-      for (int i = _frames.Count - 1; i >= 0; i--) {
-        sb.Append(CultureInfo.InvariantCulture, $"  {n++}: {_frames[i].Func.Fn.Name} at {Location(_frames[i])}\n");
+      for (int i = _frameCount - 1; i >= 0; i--) {
+        sb.Append(CultureInfo.InvariantCulture, $"  {n++}: {_frames[i].Func.Fn.Name} at {Location(i)}\n");
       }
     }
 
     return sb.ToString();
   }
 
-  private (string? File, int Line) LocationFileLine(Frame frame) {
+  private (string? File, int Line) LocationFileLine(int frameIndex) {
+    ref Frame frame = ref _frames[frameIndex];
     SourceText? source = _options.SourceResolver?.Invoke(frame.Func.Fn)
         ?? frame.Func.Fn.Source
         ?? _activeRootSource
         ?? _options.RootSource;
-    int pc = Math.Min(frame.Pc - (ReferenceEquals(frame, _frames[^1]) ? 0 : 1), frame.Func.Spans.Length - 1);
+    int pc = Math.Min(frame.Pc - (frameIndex == _frameCount - 1 ? 0 : 1), frame.Func.Spans.Length - 1);
     SourceSpan span = pc >= 0 ? frame.Func.Spans[pc] : default;
     if (source is null) {
       return (null, 0);
@@ -1840,12 +1907,13 @@ public sealed partial class PinoVm {
     return (file, position.Line);
   }
 
-  private string Location(Frame frame) {
+  private string Location(int frameIndex) {
+    ref Frame frame = ref _frames[frameIndex];
     SourceText? source = _options.SourceResolver?.Invoke(frame.Func.Fn)
         ?? frame.Func.Fn.Source
         ?? _activeRootSource
         ?? _options.RootSource;
-    int pc = Math.Min(frame.Pc - (ReferenceEquals(frame, _frames[^1]) ? 0 : 1), frame.Func.Spans.Length - 1);
+    int pc = Math.Min(frame.Pc - (frameIndex == _frameCount - 1 ? 0 : 1), frame.Func.Spans.Length - 1);
     SourceSpan span = pc >= 0 ? frame.Func.Spans[pc] : default;
     if (source is null) {
       return "<unknown>";

@@ -475,7 +475,10 @@ public sealed partial class PinoVm {
             throw new PinoVmPanic(IndexPanic(index, s.RuneCount, "string"));
           }
 
-          regs[Dest(func, i.Dest)] = PinoValue.FromRune(s.DecodeRuneAt(s.ByteOffsetOfRune((int) index), out _));
+          int cp = s.IsAscii
+              ? s.Bytes[s.Offset + (int) index]
+              : s.DecodeRuneAt(s.ByteOffsetOfRune((int) index), out _);
+          regs[Dest(func, i.Dest)] = PinoValue.FromRune(cp);
           return true;
         }
 
@@ -496,6 +499,11 @@ public sealed partial class PinoVm {
           var i = (StrNextBytePos) op.Instr!;
           PinoVmString s = StrFrom(func, regs, i.Str);
           int pos = (int) Val(func, regs, i.BytePos).Raw;
+          if (s.IsAscii) {
+            regs[Dest(func, i.Dest)] = PinoValue.FromInt(pos < s.ByteLength ? pos + 1 : pos);
+            return true;
+          }
+
           s.DecodeRuneAt(pos, out int width);
           regs[Dest(func, i.Dest)] = PinoValue.FromInt(pos + width);
           return true;
@@ -517,7 +525,7 @@ public sealed partial class PinoVm {
           var i = (StrConcat) op.Instr!;
           PinoVmString a = StrFrom(func, regs, i.Left);
           PinoVmString b = StrFrom(func, regs, i.Right);
-          regs[Dest(func, i.Dest)] = PinoValue.FromObject(ConcatBytes(i.Region, a.Span, b.Span));
+          regs[Dest(func, i.Dest)] = PinoValue.FromObject(ConcatBytes(i.Region, a.Span, b.Span, a.IsAscii && b.IsAscii));
           return true;
         }
 
@@ -538,7 +546,7 @@ public sealed partial class PinoVm {
           }
 
           if (a.ShadowRc == 1 && !a.IsBufferShared && !ReferenceEquals(a, b)) {
-            a.AppendInPlace(b.Span);
+            a.AppendInPlace(b);
             return true;
           }
 
@@ -547,7 +555,7 @@ public sealed partial class PinoVm {
           var bytes = new byte[cap];
           a.Span.CopyTo(bytes);
           b.Span.CopyTo(bytes.AsSpan(a.ByteLength));
-          PinoVmString next = Alloc(new PinoVmString(bytes, 0, needed), _types.String, i.Region);
+          PinoVmString next = Alloc(new PinoVmString(bytes, 0, needed, isAscii: a.IsAscii && b.IsAscii), _types.String, i.Region);
           DecObject(a);
           regs[slotReg] = PinoValue.FromObject(next);
           return true;
@@ -570,7 +578,7 @@ public sealed partial class PinoVm {
           }
 
           if (a.ShadowRc == 1 && !a.IsBufferShared && !ReferenceEquals(a, b)) {
-            a.AppendInPlace(b.Span);
+            a.AppendInPlace(b);
             return true;
           }
 
@@ -579,7 +587,7 @@ public sealed partial class PinoVm {
           var bytes = new byte[cap];
           a.Span.CopyTo(bytes);
           b.Span.CopyTo(bytes.AsSpan(a.ByteLength));
-          PinoVmString next = Alloc(new PinoVmString(bytes, 0, needed), _types.String, i.Region);
+          PinoVmString next = Alloc(new PinoVmString(bytes, 0, needed, isAscii: a.IsAscii && b.IsAscii), _types.String, i.Region);
           DecObject(a);
           StorePlace(place, PinoValue.FromObject(next));
           return true;
@@ -588,10 +596,12 @@ public sealed partial class PinoVm {
       case OpKind.StrConcatN: {
           var i = (StrConcatN) op.Instr!;
           int total = 0;
+          bool allAscii = true;
           var parts = new PinoVmString[i.Parts.Length];
           for (int k = 0; k < parts.Length; k++) {
             parts[k] = StrFrom(func, regs, i.Parts[k]);
             total += parts[k].ByteLength;
+            allAscii &= parts[k].IsAscii;
           }
 
           var bytes = new byte[total];
@@ -601,21 +611,23 @@ public sealed partial class PinoVm {
             at += part.ByteLength;
           }
 
-          regs[Dest(func, i.Dest)] = PinoValue.FromObject(Alloc(new PinoVmString(bytes, 0, bytes.Length), _types.String, i.Region));
+          regs[Dest(func, i.Dest)] = PinoValue.FromObject(Alloc(new PinoVmString(bytes, 0, bytes.Length, isAscii: allAscii), _types.String, i.Region));
           return true;
         }
 
       case OpKind.StrConcatRune: {
           var i = (StrConcatRune) op.Instr!;
           PinoVmString s = StrFrom(func, regs, i.Str);
-          regs[Dest(func, i.Dest)] = PinoValue.FromObject(ConcatBytes(i.Region, s.Span, EncodeRune((int) Val(func, regs, i.RuneValue).Raw)));
+          int cp = (int) Val(func, regs, i.RuneValue).Raw;
+          regs[Dest(func, i.Dest)] = PinoValue.FromObject(ConcatBytes(i.Region, s.Span, EncodeRune(cp), s.IsAscii && (uint) cp < 0x80u));
           return true;
         }
 
       case OpKind.RuneConcatStr: {
           var i = (RuneConcatStr) op.Instr!;
           PinoVmString s = StrFrom(func, regs, i.Str);
-          regs[Dest(func, i.Dest)] = PinoValue.FromObject(ConcatBytes(i.Region, EncodeRune((int) Val(func, regs, i.RuneValue).Raw), s.Span));
+          int cp = (int) Val(func, regs, i.RuneValue).Raw;
+          regs[Dest(func, i.Dest)] = PinoValue.FromObject(ConcatBytes(i.Region, EncodeRune(cp), s.Span, s.IsAscii && (uint) cp < 0x80u));
           return true;
         }
 
@@ -624,11 +636,11 @@ public sealed partial class PinoVm {
     }
   }
 
-  private PinoVmString ConcatBytes(AllocRegion region, ReadOnlySpan<byte> left, ReadOnlySpan<byte> right) {
+  private PinoVmString ConcatBytes(AllocRegion region, ReadOnlySpan<byte> left, ReadOnlySpan<byte> right, bool isAscii) {
     var bytes = new byte[left.Length + right.Length];
     left.CopyTo(bytes);
     right.CopyTo(bytes.AsSpan(left.Length));
-    return Alloc(new PinoVmString(bytes, 0, bytes.Length), _types.String, region);
+    return Alloc(new PinoVmString(bytes, 0, bytes.Length, isAscii), _types.String, region);
   }
 
   private static byte[] EncodeRune(int codePoint) {

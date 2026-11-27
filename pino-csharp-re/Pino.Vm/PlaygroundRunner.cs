@@ -150,7 +150,7 @@ public static class PlaygroundRunner {
 
     public string StdErr => _err.ToString();
 
-    public double ClockMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    public double ClockMs() => IVmHost.UtcNowMs();
 
     public void Sleep(int milliseconds) {
       // Never block the browser UI thread.

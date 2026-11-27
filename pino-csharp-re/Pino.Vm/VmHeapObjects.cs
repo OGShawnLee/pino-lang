@@ -55,19 +55,33 @@ public abstract class PinoVmHeapObject {
 
 /// <summary>A UTF-8 string slice (<c>STRLIB-18</c>): <see cref="Bytes"/> may be shared with other slices.</summary>
 public sealed class PinoVmString : PinoVmHeapObject {
+  private const byte AsciiUnknown = 0;
+  private const byte AsciiFalse = 1;
+  private const byte AsciiTrue = 2;
+
   private byte[] _bytes;
   private int _byteLength;
   private bool _bufferShared;
+  private byte _asciiState;
   private int _runeCount = -1;
 
   public PinoVmString(byte[] bytes, int offset, int length)
-      : this(bytes, offset, length, bufferShared: false) { }
+      : this(
+          bytes,
+          offset,
+          length,
+          bufferShared: false,
+          asciiState: length == 0 || Ascii.IsValid(new ReadOnlySpan<byte>(bytes, offset, length)) ? AsciiTrue : AsciiFalse) { }
 
-  private PinoVmString(byte[] bytes, int offset, int length, bool bufferShared) {
+  internal PinoVmString(byte[] bytes, int offset, int length, bool isAscii)
+      : this(bytes, offset, length, bufferShared: false, asciiState: isAscii ? AsciiTrue : AsciiFalse) { }
+
+  private PinoVmString(byte[] bytes, int offset, int length, bool bufferShared, byte asciiState) {
     _bytes = bytes;
     Offset = offset;
     _byteLength = length;
     _bufferShared = bufferShared;
+    _asciiState = asciiState;
   }
 
   public byte[] Bytes => _bytes;
@@ -78,16 +92,34 @@ public sealed class PinoVmString : PinoVmHeapObject {
 
   public bool IsBufferShared => _bufferShared;
 
+  /// <summary>True when every byte in this slice is 7-bit ASCII (<c>0x00..0x7F</c>), enabling O(1) rune operations.</summary>
+  public bool IsAscii {
+    get {
+      byte state = _asciiState;
+      if (state == AsciiUnknown) {
+        state = _byteLength == 0 || Ascii.IsValid(Span) ? AsciiTrue : AsciiFalse;
+        _asciiState = state;
+      }
+
+      return state == AsciiTrue;
+    }
+  }
+
   public override string KindName => "string";
 
   public ReadOnlySpan<byte> Span => new(_bytes, Offset, _byteLength);
 
   public int RuneCount {
     get {
+      if (IsAscii) {
+        return _byteLength;
+      }
+
       if (_runeCount < 0) {
         int count = 0;
-        for (int i = 0; i < _byteLength; i++) {
-          if ((_bytes[Offset + i] & 0xC0) != 0x80) {
+        ReadOnlySpan<byte> span = Span;
+        for (int i = 0; i < span.Length; i++) {
+          if ((span[i] & 0xC0) != 0x80) {
             count++;
           }
         }
@@ -101,17 +133,36 @@ public sealed class PinoVmString : PinoVmHeapObject {
 
   public static PinoVmString FromString(string text) {
     byte[] bytes = Encoding.UTF8.GetBytes(text);
-    return new PinoVmString(bytes, 0, bytes.Length);
+    bool isAscii = bytes.Length == text.Length;
+    return new PinoVmString(bytes, 0, bytes.Length, bufferShared: false, isAscii ? AsciiTrue : AsciiFalse);
+  }
+
+  public static PinoVmString FromUtf8(ReadOnlySpan<byte> utf8) {
+    byte[] bytes = utf8.ToArray();
+    byte asciiState = bytes.Length == 0 || Ascii.IsValid(bytes) ? AsciiTrue : AsciiFalse;
+    return new PinoVmString(bytes, 0, bytes.Length, bufferShared: false, asciiState);
   }
 
   /// <summary>Returns a new string object that shares this string's bytes (zero copy).</summary>
   public PinoVmString Slice(int byteStart, int byteLength) {
     _bufferShared = true;
-    return new(_bytes, Offset + byteStart, byteLength, bufferShared: true);
+    byte sliceAscii = _asciiState == AsciiTrue || byteLength == 0 ? AsciiTrue : AsciiUnknown;
+    return new(_bytes, Offset + byteStart, byteLength, bufferShared: true, sliceAscii);
   }
 
   /// <summary>Appends <paramref name="right"/> in place; caller must ensure <c>ShadowRc == 1</c> and <c>!IsBufferShared</c>.</summary>
-  internal void AppendInPlace(ReadOnlySpan<byte> right) {
+  internal void AppendInPlace(ReadOnlySpan<byte> right) =>
+      AppendInPlace(right, rightIsAsciiKnown: false, rightIsAscii: false);
+
+  /// <summary>Appends <paramref name="right"/> in place; caller must ensure <c>ShadowRc == 1</c> and <c>!IsBufferShared</c>.</summary>
+  internal void AppendInPlace(PinoVmString right) =>
+      AppendInPlace(right.Span, rightIsAsciiKnown: right._asciiState != AsciiUnknown, rightIsAscii: right._asciiState == AsciiTrue);
+
+  private void AppendInPlace(ReadOnlySpan<byte> right, bool rightIsAsciiKnown, bool rightIsAscii) {
+    if (right.Length == 0) {
+      return;
+    }
+
     int needed = _byteLength + right.Length;
     if (needed > _bytes.Length) {
       int newCap = _bytes.Length < 8
@@ -131,26 +182,37 @@ public sealed class PinoVmString : PinoVmHeapObject {
 
     right.CopyTo(_bytes.AsSpan(_byteLength));
     _byteLength = needed;
+    if (_asciiState == AsciiTrue) {
+      bool appendedAscii = rightIsAsciiKnown ? rightIsAscii : Ascii.IsValid(right);
+      if (!appendedAscii) {
+        _asciiState = AsciiFalse;
+      }
+    } else if (_asciiState == AsciiUnknown && rightIsAsciiKnown && !rightIsAscii) {
+      _asciiState = AsciiFalse;
+    }
+
     _runeCount = -1;
   }
 
   /// <summary>Byte offset (relative to this slice) of the rune at <paramref name="runeIndex"/>; <see cref="ByteLength"/> when equal to the rune count.</summary>
   public int ByteOffsetOfRune(int runeIndex) {
+    if (IsAscii) {
+      return (uint) runeIndex < (uint) _byteLength ? runeIndex : _byteLength;
+    }
+
     int seen = 0;
-    int i = 0;
-    while (i < ByteLength) {
-      if ((Bytes[Offset + i] & 0xC0) != 0x80) {
+    ReadOnlySpan<byte> span = Span;
+    for (int i = 0; i < span.Length; i++) {
+      if ((span[i] & 0xC0) != 0x80) {
         if (seen == runeIndex) {
           return i;
         }
 
         seen++;
       }
-
-      i++;
     }
 
-    return ByteLength;
+    return _byteLength;
   }
 
   public static int RuneWidthAt(ReadOnlySpan<byte> bytes, int pos) {
@@ -160,10 +222,16 @@ public sealed class PinoVmString : PinoVmHeapObject {
   }
 
   public int DecodeRuneAt(int bytePos, out int width) {
+    if (_asciiState == AsciiTrue) {
+      width = 1;
+      return _bytes[Offset + bytePos];
+    }
+
     ReadOnlySpan<byte> span = Span;
-    width = RuneWidthAt(span, bytePos);
-    if (width == 1) {
-      return span[bytePos];
+    byte b = span[bytePos];
+    if (b < 0x80) {
+      width = 1;
+      return b;
     }
 
     if (Rune.DecodeFromUtf8(span[bytePos..], out Rune rune, out int consumed) == System.Buffers.OperationStatus.Done) {
@@ -171,6 +239,7 @@ public sealed class PinoVmString : PinoVmHeapObject {
       return rune.Value;
     }
 
+    width = RuneWidthAt(span, bytePos);
     return 0xFFFD;
   }
 
