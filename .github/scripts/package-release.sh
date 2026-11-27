@@ -6,6 +6,7 @@ RID=""
 ARTIFACT_NAME=""
 OUTPUT_DIR="."
 TCC_DIR=""
+NO_AOT="0"
 NO_TRIM="0"
 
 while [ "$#" -gt 0 ]; do
@@ -26,6 +27,10 @@ while [ "$#" -gt 0 ]; do
       TCC_DIR="$2"
       shift 2
       ;;
+    --no-aot)
+      NO_AOT="1"
+      shift
+      ;;
     --no-trim)
       NO_TRIM="1"
       shift
@@ -38,7 +43,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -z "$RID" ] || [ -z "$ARTIFACT_NAME" ]; then
-  echo "Usage: $0 --rid <rid> --artifact-name <name> [--output-dir <dir>] [--tcc-dir <dir>] [--no-trim]" >&2
+  echo "Usage: $0 --rid <rid> --artifact-name <name> [--output-dir <dir>] [--tcc-dir <dir>] [--no-aot] [--no-trim]" >&2
   exit 2
 fi
 
@@ -54,23 +59,38 @@ PUBLISH_DIR="$WORK_DIR/publish"
 STAGE_ROOT="$WORK_DIR/$ARTIFACT_NAME"
 mkdir -p "$PUBLISH_DIR" "$STAGE_ROOT"
 
-PUBLISH_ARGS=(
-  publish "$REPO_ROOT/pino-csharp-re/Pino.Cli/Pino.Cli.csproj"
-  -c Release
-  -r "$RID"
-  --self-contained true
-  -p:PublishSingleFile=true
-  -p:IncludeNativeLibrariesForSelfExtract=true
-  -p:DebugType=none
-  -p:DebugSymbols=false
-  -o "$PUBLISH_DIR"
-)
-
-if [ "$NO_TRIM" != "1" ]; then
-  PUBLISH_ARGS+=(-p:PublishTrimmed=true)
+if [ "$NO_AOT" = "1" ]; then
+  PUBLISH_ARGS=(
+    publish "$REPO_ROOT/pino-csharp-re/Pino.Cli/Pino.Cli.csproj"
+    -c Release
+    -r "$RID"
+    --self-contained true
+    -p:PublishSingleFile=true
+    -p:IncludeNativeLibrariesForSelfExtract=true
+    -p:DebugType=none
+    -p:DebugSymbols=false
+    -o "$PUBLISH_DIR"
+  )
+  if [ "$NO_TRIM" != "1" ]; then
+    PUBLISH_ARGS+=(-p:PublishTrimmed=true)
+  fi
+  echo "Publishing Pino.Cli for $RID (single-file)..."
+else
+  PUBLISH_ARGS=(
+    publish "$REPO_ROOT/pino-csharp-re/Pino.Cli/Pino.Cli.csproj"
+    -c Release
+    -r "$RID"
+    -p:PublishAot=true
+    -p:StripSymbols=true
+    -p:OptimizationPreference=Speed
+    -p:DebugType=none
+    -p:DebugSymbols=false
+    -p:WarningsNotAsErrors=NU1903
+    -o "$PUBLISH_DIR"
+  )
+  echo "Publishing Pino.Cli for $RID (NativeAOT)..."
 fi
 
-echo "Publishing Pino.Cli for $RID..."
 dotnet "${PUBLISH_ARGS[@]}"
 
 if [ ! -f "$PUBLISH_DIR/pino" ]; then

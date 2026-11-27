@@ -83,6 +83,14 @@ jobs:
             -OutputDir '.' `
             -TccDir 'tooling/tcc'
 
+      - name: Install NativeAOT toolchain (Linux)
+        if: matrix.rid == 'linux-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
       - name: Package release archive (Unix)
         if: matrix.rid != 'win-x64'
         shell: bash

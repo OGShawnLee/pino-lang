@@ -3,9 +3,9 @@
 Packages the Windows x64 release archive (pino-windows-x64.zip) for Pino Lang.
 
 .DESCRIPTION
-Publishes Pino.Cli as a self-contained trimmed single-file binary, assembles the
-release folder layout (pino.exe, runtime-re/*.c|*.h,
-tooling/tcc/, games/*.pino, LICENSE, THIRD_PARTY_NOTICES.md),
+Publishes Pino.Cli as a NativeAOT binary (or a self-contained single-file binary
+when -NoAot is passed), assembles the release folder layout (pino.exe,
+runtime-re/*.c|*.h, tooling/tcc/, games/*.pino, LICENSE, THIRD_PARTY_NOTICES.md),
 and compresses it into pino-windows-x64.zip.
 #>
 param(
@@ -13,6 +13,7 @@ param(
     [string]$ArtifactName = "pino-windows-x64",
     [string]$OutputDir = ".",
     [string]$TccDir = "tooling/tcc",
+    [switch]$NoAot,
     [switch]$NoTrim
 )
 
@@ -44,22 +45,44 @@ New-Item -ItemType Directory -Force -Path $PublishDir, $StageRoot | Out-Null
 
 try {
     $CliProject = Join-Path $RepoRoot "pino-csharp-re\Pino.Cli\Pino.Cli.csproj"
-    $PublishArgs = @(
-        "publish", $CliProject,
-        "-c", "Release",
-        "-r", $Rid,
-        "--self-contained", "true",
-        "-p:PublishSingleFile=true",
-        "-p:IncludeNativeLibrariesForSelfExtract=true",
-        "-p:DebugType=none",
-        "-p:DebugSymbols=false",
-        "-o", $PublishDir
-    )
-    if (-not $NoTrim) {
-        $PublishArgs += "-p:PublishTrimmed=true"
+    if ($NoAot) {
+        $PublishArgs = @(
+            "publish", $CliProject,
+            "-c", "Release",
+            "-r", $Rid,
+            "--self-contained", "true",
+            "-p:PublishSingleFile=true",
+            "-p:IncludeNativeLibrariesForSelfExtract=true",
+            "-p:DebugType=none",
+            "-p:DebugSymbols=false",
+            "-o", $PublishDir
+        )
+        if (-not $NoTrim) {
+            $PublishArgs += "-p:PublishTrimmed=true"
+        }
+    } else {
+        # Visual Studio BuildTools' vcvarsall.bat may invoke vswhere.exe without a full path,
+        # which can pollute ILCompiler's findvcvarsall.bat stdout/stderr capture when missing from PATH.
+        $VsInstallerDir = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer"
+        if ((Test-Path (Join-Path $VsInstallerDir "vswhere.exe")) -and ($env:PATH -notlike "*$VsInstallerDir*")) {
+            $env:PATH = "$VsInstallerDir;$env:PATH"
+        }
+
+        $PublishArgs = @(
+            "publish", $CliProject,
+            "-c", "Release",
+            "-r", $Rid,
+            "-p:PublishAot=true",
+            "-p:StripSymbols=true",
+            "-p:OptimizationPreference=Speed",
+            "-p:DebugType=none",
+            "-p:DebugSymbols=false",
+            "-p:WarningsNotAsErrors=NU1903",
+            "-o", $PublishDir
+        )
     }
 
-    Write-Host "Publishing Pino.Cli for $Rid..."
+    Write-Host "Publishing Pino.Cli for $Rid ($(if ($NoAot) { 'single-file' } else { 'NativeAOT' }))..."
     & dotnet @PublishArgs
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet publish failed with exit code $LASTEXITCODE."
