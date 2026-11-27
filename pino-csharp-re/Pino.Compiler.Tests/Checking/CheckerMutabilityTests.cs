@@ -140,20 +140,23 @@ public sealed class CheckerMutabilityTests {
       """);
 
     Diagnostic[] errors = CheckerErrors(bad);
-    Assert.Equal(7, errors.Length);
+    Assert.Equal(5, errors.Length);
     Assert.All(errors, static d => {
       Assert.Equal(DiagnosticCodes.CannotMutateReadOnlyField, d.Code);
-      Assert.Single(d.Related);
       Assert.Contains("add 'mut' to field", d.Help);
     });
     Assert.Contains("field 'items' of struct 'Bag'", errors[0].Message);
-    Assert.Contains("field 'items' of struct 'Bag'", errors[1].Message);
-    Assert.Contains("field 'items' of struct 'Bag'", errors[2].Message);
-    Assert.Contains("field 'inner' of struct 'Bag'", errors[3].Message);
-    Assert.Contains("field 'ro_val' of struct 'Inner'", errors[4].Message);
-    Assert.Contains("field 'ro_base' of struct 'Derived'", errors[5].Message);
-    Assert.Contains("in struct 'Base'", errors[5].Help);
-    Assert.Contains("field 'ro_own' of struct 'Derived'", errors[6].Message);
+    Assert.Equal(3, errors[0].Related.Length);
+    Assert.Equal(2, errors[0].Related.Count(static r => r.Message == "also mutated here"));
+    Assert.Single(errors[1].Related);
+    Assert.Contains("field 'inner' of struct 'Bag'", errors[1].Message);
+    Assert.Single(errors[2].Related);
+    Assert.Contains("field 'ro_val' of struct 'Inner'", errors[2].Message);
+    Assert.Single(errors[3].Related);
+    Assert.Contains("field 'ro_base' of struct 'Derived'", errors[3].Message);
+    Assert.Contains("in struct 'Base'", errors[3].Help);
+    Assert.Single(errors[4].Related);
+    Assert.Contains("field 'ro_own' of struct 'Derived'", errors[4].Message);
 
     // Cross-module `pub` vs `pub mut`, `pub val` deep immutability, private module `var`, and `@@Testable var`.
     var source = new InMemoryModuleSource();
@@ -383,8 +386,11 @@ public sealed class CheckerMutabilityTests {
       """);
 
     Diagnostic[] errors = CheckerErrors(bad);
-    Assert.Equal(8, errors.Length);
-    Assert.Equal(3, errors.Count(static d => d.Code == DiagnosticCodes.CannotMutateReadOnlyField));
+    Assert.Equal(7, errors.Length);
+    Diagnostic[] roErrors = errors.Where(static d => d.Code == DiagnosticCodes.CannotMutateReadOnlyField).ToArray();
+    Assert.Equal(2, roErrors.Length);
+    Diagnostic roIdErr = Assert.Single(roErrors, static d => d.Message.Contains("property 'ro_id'", StringComparison.Ordinal));
+    Assert.Contains(roIdErr.Related, static r => r.Message == "also mutated here");
     Assert.Equal(4, errors.Count(static d => d.Code == DiagnosticCodes.CannotMutateImmutableValue));
     Assert.Single(errors, static d => d.Code == DiagnosticCodes.CannotBindMutatingMethod);
   }
@@ -1343,5 +1349,166 @@ public sealed class CheckerMutabilityTests {
     Assert.Contains(badErrors, static d => d.Code == DiagnosticCodes.TypeMismatch);
     Assert.Contains(badErrors, static d => d.Code == DiagnosticCodes.WrongArgumentCount);
     Assert.Equal(5, badErrors.Length);
+  }
+
+  [Fact]
+  public void ReadOnlyFieldDeduplication_PN3221_KeepsSingleSiteExactAndGroupsMultipleSites() {
+    Compilation single = Compile("""
+      struct Point {
+        x int
+      }
+      var p = Point { x: 1 }
+      p:x = 2
+      """);
+    Diagnostic singleErr = Assert.Single(CheckerErrors(single));
+    Assert.Equal(DiagnosticCodes.CannotMutateReadOnlyField, singleErr.Code);
+    RelatedLocation singleRel = Assert.Single(singleErr.Related);
+    Assert.Equal("field 'x' is declared read-only here", singleRel.Message);
+    Assert.Equal("add 'mut' to field 'x' in struct 'Point' to allow mutation", singleErr.Help);
+
+    Compilation fiveSites = Compile("""
+      struct Point {
+        x int
+      }
+      var p = Point { x: 1 }
+      p:x = 2
+      p:x = 3
+      p:x = 4
+      p:x = 5
+      p:x = 6
+      """);
+    Diagnostic deduped = Assert.Single(CheckerErrors(fiveSites));
+    Assert.Equal(DiagnosticCodes.CannotMutateReadOnlyField, deduped.Code);
+    Assert.Equal(3, deduped.Related.Length);
+    Assert.Equal("field 'x' is declared read-only here", deduped.Related[0].Message);
+    Assert.Equal("also mutated here", deduped.Related[1].Message);
+    Assert.Contains("and 2 more places in this file", deduped.Related[2].Message);
+
+    Compilation twoFields = Compile("""
+      struct Pair {
+        a int
+        b int
+      }
+      var pair = Pair { a: 1, b: 2 }
+      pair:a = 10
+      pair:a = 20
+      pair:b = 30
+      pair:b = 40
+      """);
+    Diagnostic[] twoFieldErrs = CheckerErrors(twoFields);
+    Assert.Equal(2, twoFieldErrs.Length);
+    Assert.All(twoFieldErrs, static d => Assert.Equal(DiagnosticCodes.CannotMutateReadOnlyField, d.Code));
+    Assert.Contains(twoFieldErrs, static d => d.Message.Contains("field 'a'"));
+    Assert.Contains(twoFieldErrs, static d => d.Message.Contains("field 'b'"));
+  }
+
+  [Fact]
+  public void LostWriteWarning_PN3552_WarnsOnUnwrittenCopyMutationsAndAvoidsFalsePositives() {
+    static Diagnostic[] LostWriteWarnings(Compilation c) =>
+        [.. c.Diagnostics.Where(static d => d.Code == DiagnosticCodes.LostWrite)];
+
+    Compilation vecElem = Compile("""
+      struct Item {
+        mut hp int
+      }
+      var xs = [Item { hp: 10 }]
+      var item = xs[0]
+      item:hp -= 1
+      """);
+    Assert.Empty(CheckerErrors(vecElem));
+    Diagnostic vecWarn = Assert.Single(LostWriteWarnings(vecElem));
+    Assert.Equal(DiagnosticSeverity.Warning, vecWarn.Severity);
+    Assert.Equal("Changes to 'item' do not update 'xs[0]', because 'item' is a separate copy.", vecWarn.Message);
+    RelatedLocation vecRel = Assert.Single(vecWarn.Related);
+    Assert.Equal("'item' is copied from 'xs[0]' here", vecRel.Message);
+    Assert.Equal("mutate 'xs[0]' directly, assign 'item' back to 'xs[0]', or pass it to a 'mut' function", vecWarn.Help);
+
+    Compilation fieldCopy = Compile("""
+      struct Ship {
+        mut fuel int
+      }
+      struct State {
+        mut ship Ship
+      }
+      fn burn(state State) {
+        var ship = state:ship
+        ship:fuel -= 10
+      }
+      """);
+    Assert.Empty(CheckerErrors(fieldCopy));
+    Diagnostic fieldWarn = Assert.Single(LostWriteWarnings(fieldCopy));
+    Assert.Contains("state:ship", fieldWarn.Message);
+
+    Compilation nestedVec = Compile("""
+      var grid = [[1, 2]]
+      var row = grid[0]
+      row:push(9)
+      """);
+    Assert.Empty(CheckerErrors(nestedVec));
+    Diagnostic rowWarn = Assert.Single(LostWriteWarnings(nestedVec));
+    Assert.Contains("grid[0]", rowWarn.Message);
+
+    Compilation valMutCopy = Compile("""
+      struct Item {
+        mut hp int
+      }
+      var xs = [Item { hp: 10 }]
+      val mut item = xs[0]
+      item:hp -= 1
+      """);
+    Assert.Empty(CheckerErrors(valMutCopy));
+    Assert.Single(LostWriteWarnings(valMutCopy));
+
+    Compilation clean = Compile("""
+      struct Item {
+        mut hp int
+      }
+      fn log_item(it Item) {
+        println(it:hp)
+      }
+      fn write_back(mut xs []Item, i int) {
+        var item = xs[i]
+        item:hp -= 1
+        xs[i] = item
+      }
+      fn return_copy(xs []Item, i int) Item {
+        var item = xs[i]
+        item:hp -= 1
+        return item
+      }
+      fn pass_out(xs []Item, i int) {
+        var item = xs[i]
+        item:hp -= 1
+        log_item(item)
+      }
+      fn read_only(xs []Item, i int) {
+        var item = xs[i]
+        println(item:hp)
+      }
+      fn overwritten(xs []Item, i int, other Item) {
+        var item = xs[i]
+        item = other
+        item:hp -= 1
+      }
+      """);
+    Assert.Empty(CheckerErrors(clean));
+    Assert.Empty(LostWriteWarnings(clean));
+  }
+
+  [Fact]
+  public void LostWriteWarning_PN3552_ProducesZeroWarningsAcrossAllGames() {
+    string repoRoot = Pino.Compiler.Tests.Parsing.ParserTestHelpers.FindRepositoryRoot();
+    string gamesDir = Path.Combine(repoRoot, "games");
+    string[] gameFiles = Directory.GetFiles(gamesDir, "*.pino");
+    Assert.NotEmpty(gameFiles);
+
+    foreach (string gameFile in gameFiles) {
+      string code = File.ReadAllText(gameFile);
+      Compilation compilation = Compile(code, gameFile);
+      Assert.Empty(CheckerErrors(compilation));
+      Assert.DoesNotContain(
+          compilation.Diagnostics,
+          static d => d.Code == DiagnosticCodes.LostWrite);
+    }
   }
 }

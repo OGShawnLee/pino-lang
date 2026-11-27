@@ -279,10 +279,13 @@ internal sealed partial class BodyChecker {
 
       TypeSymbol actual = CheckWithContextualExpectation(yieldStatement.Expression, expected);
       if (!TryConvert(yieldStatement.Expression, actual, expected)) {
+        TryGetFloatFromSlashDetails(yieldStatement.Expression, expected, actual, out System.Collections.Immutable.ImmutableArray<RelatedLocation> related, out string? help);
         Report(
             DiagnosticCodes.YieldTypeMismatch,
             yieldStatement.Expression.Span,
-            $"Yield statement expected type '{expected.DisplayName}', but got '{actual.DisplayName}'.");
+            $"Yield statement expected type '{expected.DisplayName}', but got '{actual.DisplayName}'.",
+            related,
+            help);
       }
 
       _activeYieldContext.Yields.Add((yieldStatement, yieldStatement.Expression, actual));

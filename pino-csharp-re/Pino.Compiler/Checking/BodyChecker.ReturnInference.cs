@@ -895,10 +895,13 @@ internal sealed partial class BodyChecker {
             returnValue.Span,
             $"'{callableName}' should return '{declaredReturnType.DisplayName}', but this returns '{actual.DisplayName}'{detail}.");
       } else {
+        TryGetFloatFromSlashDetails(returnValue, declaredReturnType, actual, out ImmutableArray<RelatedLocation> related, out string? help);
         Report(
             DiagnosticCodes.ReturnTypeMismatch,
             returnValue.Span,
-            $"'{callableName}' should return '{declaredReturnType.DisplayName}', but this returns '{actual.DisplayName}'.");
+            $"'{callableName}' should return '{declaredReturnType.DisplayName}', but this returns '{actual.DisplayName}'.",
+            related,
+            help);
       }
     }
   }

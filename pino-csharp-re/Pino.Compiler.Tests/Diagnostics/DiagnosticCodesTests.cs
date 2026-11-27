@@ -137,9 +137,10 @@ public sealed class DiagnosticCodesTests {
       (nameof(DiagnosticCodes.VectorCapacityBelowLength), "PN3504"),
       (nameof(DiagnosticCodes.ConstantFalseLoop), "PN3550"),
       (nameof(DiagnosticCodes.UnreachableMatchArm), "PN3551"),
+      (nameof(DiagnosticCodes.LostWrite), "PN3552"),
     };
 
-    Assert.Equal(80, expected.Length);
+    Assert.Equal(81, expected.Length);
 
     Type type = typeof(DiagnosticCodes);
     foreach ((string name, string code) in expected) {
@@ -162,5 +163,12 @@ public sealed class DiagnosticCodesTests {
     string[] values = fields.Select(static f => (string) f.GetRawConstantValue()!).ToArray();
     Assert.NotEmpty(values);
     Assert.Equal(values.Length, values.Distinct(StringComparer.Ordinal).Count());
+  }
+
+  [Fact]
+  public void DiagnosticExplanations_PN3552_ExistsWithPlainEnglish() {
+    Assert.True(DiagnosticExplanations.TryGet(DiagnosticCodes.LostWrite, out string explanation));
+    Assert.Contains("PN3552", explanation);
+    Assert.Contains("xs[i]", explanation);
   }
 }

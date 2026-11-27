@@ -716,10 +716,13 @@ internal sealed partial class BodyChecker {
   private void CheckIntegerIndex(IndexExpressionSyntax index, string what) {
     TypeSymbol indexType = Synthesize(index.Index);
     if (!IsSilent(indexType) && indexType is not PendingReturnType && !ReferenceEquals(indexType, _types.Int)) {
+      TryGetFloatFromSlashDetails(index.Index, _types.Int, indexType, out ImmutableArray<RelatedLocation> related, out string? help);
       Report(
           DiagnosticCodes.InvalidIndexOperation,
           index.Index.Span,
-          $"{what} index must have type 'int', but got '{indexType.DisplayName}'.");
+          $"{what} index must have type 'int', but got '{indexType.DisplayName}'.",
+          related,
+          help);
     }
   }
 }

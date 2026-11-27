@@ -17,6 +17,28 @@ public static class DiagnosticExplanations {
       program fails. It was made for someone who once failed a university course
       over one.
       """,
+    [DiagnosticCodes.LostWrite] = """
+      PN3552: Mutating a copied variable doesn't update the original
+
+      In Pino, structs, vectors, maps, and sets are value types. Assigning an
+      element or field into a local variable makes an independent copy:
+
+          var item = xs[i]
+          item:hp -= 1        # modifies only the copy 'item', not 'xs[i]'
+
+      To update the original value, choose one of three fixes:
+
+        1. Mutate the original place directly:
+           xs[i]:hp -= 1
+
+        2. Write the modified copy back:
+           var item = xs[i]
+           item:hp -= 1
+           xs[i] = item
+
+        3. Pass the original place to a 'mut' function:
+           take_damage(mut xs[i])
+      """,
   };
 
   /// <summary>Looks up the explanation for a code, ignoring case.</summary>

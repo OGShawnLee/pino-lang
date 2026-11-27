@@ -159,6 +159,7 @@ public static class DiagnosticCodes {
   public const string VectorCapacityBelowLength = "PN3504";
   public const string ConstantFalseLoop = "PN3550";
   public const string UnreachableMatchArm = "PN3551";
+  public const string LostWrite = "PN3552";
 
   // -------------------------------------------------------------------------
   // PN4xxx — IR / Codegen (reserved)

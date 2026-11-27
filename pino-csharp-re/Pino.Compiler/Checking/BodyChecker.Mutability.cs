@@ -989,24 +989,102 @@ internal sealed partial class BodyChecker {
     ImmutableArray<RelatedLocation> related = field.NameSpan.Length > 0
         ? [new RelatedLocation(field.NameSpan, $"field '{field.Name}' is declared read-only here", field.FilePath)]
         : [];
-    Report(
+    var diagnostic = new Diagnostic(
         DiagnosticCodes.CannotMutateReadOnlyField,
+        DiagnosticSeverity.Error,
         span,
         $"Cannot mutate read-only field '{field.Name}' of struct '{structName}'.",
         related,
-        help: $"add 'mut' to field '{field.Name}' in struct '{declaringStruct.Name}' to allow mutation");
+        Help: $"add 'mut' to field '{field.Name}' in struct '{declaringStruct.Name}' to allow mutation");
+    _state.Diagnostics.AddRange([diagnostic]);
+    _readOnlyFieldKeys[diagnostic] = (declaringStruct, field.Name);
   }
 
   private void ReportReadOnlyInterfaceProperty(SourceSpan span, InterfaceSymbol ifaceSym, InterfaceProperty prop) {
     ImmutableArray<RelatedLocation> related = prop.NameSpan.Length > 0
         ? [new RelatedLocation(prop.NameSpan, $"property '{prop.Name}' is declared read-only here", ifaceSym.FilePath)]
         : [];
-    Report(
+    var diagnostic = new Diagnostic(
         DiagnosticCodes.CannotMutateReadOnlyField,
+        DiagnosticSeverity.Error,
         span,
         $"Cannot mutate read-only property '{prop.Name}' of interface '{ifaceSym.Name}'.",
         related,
-        help: $"add 'mut' to property '{prop.Name}' in interface '{ifaceSym.Name}' to allow mutation");
+        Help: $"add 'mut' to property '{prop.Name}' in interface '{ifaceSym.Name}' to allow mutation");
+    _state.Diagnostics.AddRange([diagnostic]);
+    _readOnlyFieldKeys[diagnostic] = (ifaceSym, prop.Name);
+  }
+
+  private readonly Dictionary<Diagnostic, (Symbol DeclaringType, string MemberName)> _readOnlyFieldKeys =
+      new(ReferenceEqualityComparer.Instance);
+
+  private void DeduplicateReadOnlyFieldDiagnostics() {
+    if (_readOnlyFieldKeys.Count == 0 || _rootDiagnostics.Count == 0) {
+      return;
+    }
+
+    var grouped = new Dictionary<(Symbol DeclaringType, string MemberName), List<Diagnostic>>();
+    foreach (Diagnostic diag in _rootDiagnostics.Items) {
+      if (_readOnlyFieldKeys.TryGetValue(diag, out (Symbol DeclaringType, string MemberName) key)) {
+        if (!grouped.TryGetValue(key, out List<Diagnostic>? list)) {
+          list = [];
+          grouped[key] = list;
+        }
+        list.Add(diag);
+      }
+    }
+
+    if (grouped.Count == 0) {
+      return;
+    }
+
+    var replacements = new Dictionary<Diagnostic, Diagnostic>(ReferenceEqualityComparer.Instance);
+    var suppressed = new HashSet<Diagnostic>(ReferenceEqualityComparer.Instance);
+
+    foreach (List<Diagnostic> group in grouped.Values) {
+      if (group.Count <= 1) {
+        continue;
+      }
+
+      group.Sort(static (a, b) => {
+        int cmp = a.Span.Start.CompareTo(b.Span.Start);
+        return cmp != 0 ? cmp : a.Span.End.CompareTo(b.Span.End);
+      });
+
+      Diagnostic primary = group[0];
+      ImmutableArray<RelatedLocation>.Builder related = ImmutableArray.CreateBuilder<RelatedLocation>(
+          primary.Related.Length + Math.Min(2, group.Count - 1));
+      related.AddRange(primary.Related);
+
+      int extraCount = Math.Min(2, group.Count - 1);
+      int remaining = group.Count - 1 - extraCount;
+      for (int i = 1; i <= extraCount; i++) {
+        string label = i == extraCount && remaining > 0
+            ? $"also mutated here (and {remaining} more {(remaining == 1 ? "place" : "places")} in this file)"
+            : "also mutated here";
+        related.Add(new RelatedLocation(group[i].Span, label, _state.FilePath));
+      }
+
+      replacements[primary] = primary with { Related = related.ToImmutable() };
+      for (int i = 1; i < group.Count; i++) {
+        suppressed.Add(group[i]);
+      }
+    }
+
+    if (suppressed.Count == 0) {
+      return;
+    }
+
+    var updated = new List<Diagnostic>(_rootDiagnostics.Count - suppressed.Count);
+    foreach (Diagnostic diag in _rootDiagnostics.Items) {
+      if (suppressed.Contains(diag)) {
+        continue;
+      }
+
+      updated.Add(replacements.TryGetValue(diag, out Diagnostic? replacement) ? replacement : diag);
+    }
+
+    _rootDiagnostics.ReplaceAll(updated);
   }
 
   private void ReportCannotMutateSelf(SourceSpan span, MethodSymbol? enclosingMethod) {

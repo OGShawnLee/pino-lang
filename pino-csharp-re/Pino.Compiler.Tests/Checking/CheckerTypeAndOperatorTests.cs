@@ -573,4 +573,67 @@ public sealed class CheckerTypeAndOperatorTests {
       Assert.Contains(CheckerErrors(compilation), static d => d.Code == DiagnosticCodes.TypeMismatch);
     }
   }
+
+  [Fact]
+  public void SlashDivisionIntoInt_AttachesSlashRelatedAndHelpAndSkipsNonSlashFloats() {
+    Compilation compilation = Compile("""
+      val a = 10
+      val b = 3
+      val n = 8
+      val x int = a / b
+      val r = rand(n / 2 + 1)
+      val xs = [10, 20, 30]
+      val elem = xs[n / 2]
+      fn half(v int) int {
+        return v / 2
+      }
+      val lit = rand(1.5)
+      val convertedPlusFloat int = int(a / b) + 1.5
+      """);
+
+    Diagnostic[] errors = CheckerErrors(compilation);
+    Assert.Equal(6, errors.Length);
+
+    // 1. val x int = a / b
+    Diagnostic varErr = errors[0];
+    Assert.Equal(DiagnosticCodes.TypeMismatch, varErr.Code);
+    RelatedLocation varRel = Assert.Single(varErr.Related);
+    Assert.Equal("the '/' operator always produces a float", varRel.Message);
+    Assert.Equal("/", compilation.RootTree.Source.AsSpan(varRel.Span).ToString());
+    Assert.Equal("use '//' for whole-number division, or int(...) to convert", varErr.Help);
+
+    // 2. rand(n / 2 + 1)
+    Diagnostic randErr = errors[1];
+    Assert.Equal(DiagnosticCodes.TypeMismatch, randErr.Code);
+    RelatedLocation randRel = Assert.Single(randErr.Related);
+    Assert.Equal("the '/' operator always produces a float", randRel.Message);
+    Assert.Equal("/", compilation.RootTree.Source.AsSpan(randRel.Span).ToString());
+    Assert.Equal("use '//' for whole-number division, or int(...) to convert", randErr.Help);
+
+    // 3. xs[n / 2]
+    Diagnostic idxErr = errors[2];
+    Assert.Equal(DiagnosticCodes.InvalidIndexOperation, idxErr.Code);
+    RelatedLocation idxRel = Assert.Single(idxErr.Related);
+    Assert.Equal("/", compilation.RootTree.Source.AsSpan(idxRel.Span).ToString());
+    Assert.Equal("use '//' for whole-number division, or int(...) to convert", idxErr.Help);
+
+    // 4. return v / 2
+    Diagnostic retErr = errors[3];
+    Assert.Equal(DiagnosticCodes.ReturnTypeMismatch, retErr.Code);
+    RelatedLocation retRel = Assert.Single(retErr.Related);
+    Assert.Equal("/", compilation.RootTree.Source.AsSpan(retRel.Span).ToString());
+    Assert.Equal("use '//' for whole-number division, or int(...) to convert", retErr.Help);
+
+    // 5. rand(1.5) — no '/' hint
+    Diagnostic litErr = errors[4];
+    Assert.Equal(DiagnosticCodes.TypeMismatch, litErr.Code);
+    Assert.Empty(litErr.Related);
+    Assert.Null(litErr.Help);
+
+    // 6. int(a / b) + 1.5 — '/' is inside int(...), float comes from 1.5, so no '/' hint
+    Diagnostic convErr = errors[5];
+    Assert.Equal(DiagnosticCodes.TypeMismatch, convErr.Code);
+    Assert.Empty(convErr.Related);
+    Assert.Null(convErr.Help);
+  }
 }

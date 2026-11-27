@@ -196,11 +196,81 @@ internal sealed partial class BodyChecker {
       TypeSymbol actual,
       TypeSymbol expected,
       string targetDescription,
-      string? targetSuffix = null) =>
-      Report(
-          DiagnosticCodes.TypeMismatch,
-          expression.Span,
-          $"Cannot assign type '{actual.DisplayName}' to {targetDescription} of type '{expected.DisplayName}'{targetSuffix}.");
+      string? targetSuffix = null) {
+    TryGetFloatFromSlashDetails(expression, expected, actual, out ImmutableArray<RelatedLocation> related, out string? help);
+    Report(
+        DiagnosticCodes.TypeMismatch,
+        expression.Span,
+        $"Cannot assign type '{actual.DisplayName}' to {targetDescription} of type '{expected.DisplayName}'{targetSuffix}.",
+        related,
+        help);
+  }
+
+  private bool TryGetFloatFromSlashDetails(
+      SyntaxNode expression,
+      TypeSymbol expected,
+      TypeSymbol actual,
+      out ImmutableArray<RelatedLocation> related,
+      out string? help) {
+    if (expression is ExpressionSyntax expr
+        && ReferenceEquals(expected, _types.Int)
+        && ReferenceEquals(actual, _types.Float)
+        && FindSlashDivisionToken(expr) is { } slashToken) {
+      related = [new RelatedLocation(slashToken.Span, "the '/' operator always produces a float", _state.FilePath)];
+      help = "use '//' for whole-number division, or int(...) to convert";
+      return true;
+    }
+
+    related = default;
+    help = null;
+    return false;
+  }
+
+  private Token? FindSlashDivisionToken(ExpressionSyntax expression) {
+    switch (expression) {
+      case ParenthesizedExpressionSyntax paren:
+        return FindSlashDivisionToken(paren.Expression);
+
+      case UnaryExpressionSyntax { OperatorToken.Kind: TokenKind.Minus } unary:
+        return IsFloatNode(unary.Operand) ? FindSlashDivisionToken(unary.Operand) : null;
+
+      case BinaryExpressionSyntax binary:
+        if (binary.OperatorToken.Kind == TokenKind.Slash) {
+          return binary.OperatorToken;
+        }
+
+        if (binary.OperatorToken.Kind is TokenKind.Plus or TokenKind.Minus or TokenKind.Star
+            or TokenKind.SlashSlash or TokenKind.Percent) {
+          if (IsFloatNode(binary.Left) && FindSlashDivisionToken(binary.Left) is { } leftSlash) {
+            return leftSlash;
+          }
+
+          if (IsFloatNode(binary.Right) && FindSlashDivisionToken(binary.Right) is { } rightSlash) {
+            return rightSlash;
+          }
+        }
+
+        return null;
+
+      case IfExpressionSyntax ifExpr:
+        if (IsFloatNode(ifExpr.ThenBranch) && FindSlashDivisionToken(ifExpr.ThenBranch) is { } thenSlash) {
+          return thenSlash;
+        }
+
+        if (IsFloatNode(ifExpr.ElseBranch) && FindSlashDivisionToken(ifExpr.ElseBranch) is { } elseSlash) {
+          return elseSlash;
+        }
+
+        return null;
+
+      default:
+        return null;
+    }
+  }
+
+  private bool IsFloatNode(SyntaxNode node) =>
+      (uint) node.Id < (uint) _state.NodeTypes.Length
+      && ReferenceEquals(_state.NodeTypes[node.Id], _types.Float);
 
   /// <summary>
   /// Whether a value of <paramref name="actual"/> can be stored where <paramref name="expected"/>

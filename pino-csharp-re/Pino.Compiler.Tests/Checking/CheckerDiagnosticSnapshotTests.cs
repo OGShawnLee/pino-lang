@@ -259,4 +259,53 @@ public sealed class CheckerDiagnosticSnapshotTests {
         "  = help: use 'val' if it never changes, or 'var' to reassign it\n";
     Assert.Equal(ExpectedScalar, RenderPlain(ScalarCode));
   }
+
+  [Fact]
+  public void Snapshot_DedupedReadOnlyFieldMutation_PN3221_ShowsFirstAndAdditionalSites() {
+    const string Code = "struct Point {\n  x int\n}\nvar p = Point { x: 1 }\np:x = 2\np:x = 3\np:x = 4\np:x = 5\np:x = 6\n";
+    const string Expected =
+        "error[PN3221]: Cannot mutate read-only field 'x' of struct 'Point'.\n" +
+        " --> sample.pino:5:1\n" +
+        "  |\n" +
+        "2 |   x int\n" +
+        "  |   - field 'x' is declared read-only here\n" +
+        "...\n" +
+        "5 | p:x = 2\n" +
+        "  | ^^^^^^^\n" +
+        "6 | p:x = 3\n" +
+        "  | ------- also mutated here\n" +
+        "7 | p:x = 4\n" +
+        "  | ------- also mutated here (and 2 more places in this file)\n" +
+        "  = help: add 'mut' to field 'x' in struct 'Point' to allow mutation\n";
+    Assert.Equal(Expected, RenderPlain(Code));
+  }
+
+  [Fact]
+  public void Snapshot_SlashDivisionHint_PN3102_PointsAtSlashAndExplains() {
+    const string Code = "val n = 9\nval r = rand(n / 2 + 1)\n";
+    const string Expected =
+        "error[PN3102]: Argument 1 for function 'rand' expected type 'int', but got 'float'.\n" +
+        " --> sample.pino:2:14\n" +
+        "  |\n" +
+        "2 | val r = rand(n / 2 + 1)\n" +
+        "  |              ^^^^^^^^^\n" +
+        "  |                - the '/' operator always produces a float\n" +
+        "  = help: use '//' for whole-number division, or int(...) to convert\n";
+    Assert.Equal(Expected, RenderPlain(Code));
+  }
+
+  [Fact]
+  public void Snapshot_LostWriteWarning_PN3552_IncludesCopyLocationAndHelp() {
+    const string Code = "struct Item {\n  mut hp int\n}\nvar xs = [Item { hp: 10 }]\nvar item = xs[0]\nitem:hp -= 1\n";
+    const string Expected =
+        "warning[PN3552]: Changes to 'item' do not update 'xs[0]', because 'item' is a separate copy.\n" +
+        " --> sample.pino:6:1\n" +
+        "  |\n" +
+        "5 | var item = xs[0]\n" +
+        "  |     ---- 'item' is copied from 'xs[0]' here\n" +
+        "6 | item:hp -= 1\n" +
+        "  | ^^^^^^^^^^^^\n" +
+        "  = help: mutate 'xs[0]' directly, assign 'item' back to 'xs[0]', or pass it to a 'mut' function\n";
+    Assert.Equal(Expected, RenderPlain(Code));
+  }
 }

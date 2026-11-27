@@ -70,6 +70,8 @@ internal sealed partial class BodyChecker {
     }
 
     RunPhase4DefiniteReturns();
+    DeduplicateReadOnlyFieldDiagnostics();
+    CheckLostWrites();
     FillMissingExpressionTypes(root);
   }
 

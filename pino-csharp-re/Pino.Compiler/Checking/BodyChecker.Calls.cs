@@ -859,10 +859,17 @@ internal sealed partial class BodyChecker {
         string detail = expectedFieldType is InterfaceType iface
             ? FormatInterfaceMismatchDetail(actualType, iface)
             : string.Empty;
+        ImmutableArray<RelatedLocation> related = default;
+        string? help = null;
+        if (expectedFieldType is not InterfaceType) {
+          TryGetFloatFromSlashDetails(arg.Expression, expectedFieldType, actualType, out related, out help);
+        }
         Report(
             code,
             arg.Expression.Span,
-            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{expectedFieldType.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
+            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{expectedFieldType.DisplayName}', but got '{actualType.DisplayName}'{detail}.",
+            related,
+            help);
       }
     }
 
@@ -947,10 +954,17 @@ internal sealed partial class BodyChecker {
         string detail = !expectedInfo.IsMutable && expectedParam is InterfaceType iface
             ? FormatInterfaceMismatchDetail(actualType, iface)
             : string.Empty;
+        ImmutableArray<RelatedLocation> related = default;
+        string? help = null;
+        if (expectedParam is not InterfaceType) {
+          TryGetFloatFromSlashDetails(arg.Expression, expectedParam, actualType, out related, out help);
+        }
         Report(
             code,
             arg.Expression.Span,
-            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
+            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'{detail}.",
+            related,
+            help);
       }
     }
 
@@ -1187,10 +1201,17 @@ internal sealed partial class BodyChecker {
         string detail = expectedParam is InterfaceType iface
             ? FormatInterfaceMismatchDetail(actualType, iface)
             : string.Empty;
+        ImmutableArray<RelatedLocation> related = default;
+        string? help = null;
+        if (expectedParam is not InterfaceType) {
+          TryGetFloatFromSlashDetails(arg.Expression, expectedParam, actualType, out related, out help);
+        }
         Report(
             code,
             arg.Expression.Span,
-            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
+            $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{expectedParam.DisplayName}', but got '{actualType.DisplayName}'{detail}.",
+            related,
+            help);
       }
     }
 

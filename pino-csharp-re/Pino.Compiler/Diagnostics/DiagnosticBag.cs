@@ -11,6 +11,19 @@ public sealed class DiagnosticBag {
 
   public bool HasErrors { get; private set; }
 
+  internal IReadOnlyList<Diagnostic> Items => _diagnostics;
+
+  internal void ReplaceAll(IEnumerable<Diagnostic> updated) {
+    List<Diagnostic> next = [.. updated];
+    _diagnostics.Clear();
+    HasErrors = false;
+    foreach (Diagnostic diagnostic in next) {
+      if (diagnostic is not null) {
+        AddDiagnostic(diagnostic);
+      }
+    }
+  }
+
   public void ReportError(
       string code,
       SourceSpan span,

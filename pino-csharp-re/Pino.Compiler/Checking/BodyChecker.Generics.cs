@@ -392,10 +392,13 @@ internal sealed partial class BodyChecker {
                 targetNode.Span,
                 $"Cannot assign type '{actualType.DisplayName}' to field '{fieldSym.Name}' in struct '{structSym.Name}'; expected type '{concreteFieldType.DisplayName}', but got '{actualType.DisplayName}'{detail}.");
           } else {
+            TryGetFloatFromSlashDetails(targetNode, concreteFieldType, actualType, out ImmutableArray<RelatedLocation> related, out string? help);
             Report(
                 DiagnosticCodes.TypeMismatch,
                 targetNode.Span,
-                $"Cannot assign type '{actualType.DisplayName}' to field '{fieldSym.Name}' of type '{concreteFieldType.DisplayName}' in struct '{structSym.Name}'.");
+                $"Cannot assign type '{actualType.DisplayName}' to field '{fieldSym.Name}' of type '{concreteFieldType.DisplayName}' in struct '{structSym.Name}'.",
+                related,
+                help);
           }
         }
       }
@@ -698,10 +701,17 @@ internal sealed partial class BodyChecker {
           string detail = !parameters[i].IsMutable && concreteParam is InterfaceType iface
               ? FormatInterfaceMismatchDetail(actual, iface)
               : string.Empty;
+          ImmutableArray<RelatedLocation> related = default;
+          string? help = null;
+          if (!parameters[i].IsMutable && concreteParam is not InterfaceType) {
+            TryGetFloatFromSlashDetails(argExpr, concreteParam, actual, out related, out help);
+          }
           Report(
               code,
               argExpr.Span,
-              $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{concreteParam.DisplayName}', but got '{actual.DisplayName}'{detail}.");
+              $"Argument {i + 1} for {calleeKind} '{calleeName}' expected type '{concreteParam.DisplayName}', but got '{actual.DisplayName}'{detail}.",
+              related,
+              help);
         }
       }
     }
@@ -1092,10 +1102,17 @@ internal sealed partial class BodyChecker {
         string detail = concreteFieldType is InterfaceType iface
             ? FormatInterfaceMismatchDetail(actual, iface)
             : string.Empty;
+        ImmutableArray<RelatedLocation> related = default;
+        string? help = null;
+        if (concreteFieldType is not InterfaceType) {
+          TryGetFloatFromSlashDetails(argExpr, concreteFieldType, actual, out related, out help);
+        }
         Report(
             code,
             argExpr.Span,
-            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{concreteFieldType.DisplayName}', but got '{actual.DisplayName}'{detail}.");
+            $"Argument {i + 1} for variant constructor '{variant.Name}' expected type '{concreteFieldType.DisplayName}', but got '{actual.DisplayName}'{detail}.",
+            related,
+            help);
       }
     }
 

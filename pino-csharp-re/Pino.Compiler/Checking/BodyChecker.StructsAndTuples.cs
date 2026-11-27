@@ -942,10 +942,13 @@ internal sealed partial class BodyChecker {
               fieldType = expectedFieldType;
             } else if (!fieldType.IsError) {
               reportedFieldMismatch = true;
+              TryGetFloatFromSlashDetails(valueExpr, expectedFieldType, fieldType, out ImmutableArray<RelatedLocation> related, out string? help);
               Report(
                   DiagnosticCodes.ReturnTypeMismatch,
                   valueExpr.Span,
-                  $"Tuple field '{label}' has type '{fieldType.DisplayName}', which does not match declared return type '{expectedTuple!.DisplayName}'.");
+                  $"Tuple field '{label}' has type '{fieldType.DisplayName}', which does not match declared return type '{expectedTuple!.DisplayName}'.",
+                  related,
+                  help);
             }
           }
         }
