@@ -1151,6 +1151,14 @@ public static class IrVerifier {
         ExpectOperandType(fn, types, bb, idx, s.Right, types.String, "str.append_slot right", errors);
         break;
 
+      case StrAppendPtr s:
+        if (TryGetPtrTarget(fn, types, bb, idx, s.Ptr, "str.append_ptr", errors, out IrType? appendPtrTarget)
+            && appendPtrTarget!.Id != types.String) {
+          errors.Add(new IrVerificationError("IR-TYPE-03", fnName, bb, idx, $"str.append_ptr requires ptr<string>, got 'ptr<{appendPtrTarget.Name}>'."));
+        }
+        ExpectOperandType(fn, types, bb, idx, s.Right, types.String, "str.append_ptr right", errors);
+        break;
+
       case StrConcatN s:
         foreach (IrOperand part in s.Parts) {
           ExpectOperandType(fn, types, bb, idx, part, types.String, "str.concat_n part", errors);

@@ -1,0 +1,57 @@
+# covers: STR-6, FN-5
+struct Box {
+  mut buf string
+}
+
+fn append_mut(mut s string, x string) {
+  s += x
+  s = s + x
+}
+
+fn append_field(mut b Box, x string) {
+  b:buf += x
+  b:buf = b:buf + "!"
+}
+
+fn append_elem(mut xs []string, idx int, x string) {
+  xs[idx] += x
+  xs[idx] = xs[idx] + "!"
+}
+
+fn mutate_str(mut s string) string {
+  s = "MUT"
+  return "?"
+}
+
+fn eval_order_mut(mut s string) {
+  s = s + mutate_str(mut s)
+}
+
+var s = "a" + "b"
+val s_snap = s
+append_mut(mut s, "x")
+
+var self_s = "hi" + "!"
+val self_snap = self_s
+append_mut(mut self_s, self_s)
+
+var b = Box { buf: "k" + "0" }
+val b_snap = b
+append_field(mut b, "_v")
+
+var xs = ["e" + "0", "e1"]
+val xs_snap = xs
+append_elem(mut xs, 0, "_v")
+
+var ev = "old"
+eval_order_mut(mut ev)
+
+println(s_snap)
+println(s)
+println(self_snap)
+println(self_s)
+println(b_snap:buf)
+println(b:buf)
+println(xs_snap[0])
+println(xs[0])
+println(ev)

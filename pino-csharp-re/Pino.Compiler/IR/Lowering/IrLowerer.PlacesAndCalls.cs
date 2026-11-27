@@ -15,7 +15,8 @@ public sealed partial class IrLowerer {
       FunctionBuilder fb,
       ExpressionSyntax place,
       bool ensureUniqueLeaf,
-      Dictionary<IndexExpressionSyntax, IrOperand>? recordedIndexSlots = null) {
+      Dictionary<IndexExpressionSyntax, IrOperand>? recordedIndexSlots = null,
+      Dictionary<IndexExpressionSyntax, IrOperand>? preEvaluatedIndices = null) {
     ExpressionSyntax unwrapped = UnwrapParens(place);
     IrOperand? resolved = null;
 
@@ -30,14 +31,14 @@ public sealed partial class IrLowerer {
       case MemberAccessExpressionSyntax member: {
           TypeSymbol targetType = fb.GetNodeType(member.Target);
           if (targetType is InterfaceType ifaceType) {
-            resolved = LowerInterfacePropertyAddr(fb, member, ifaceType, recordedIndexSlots);
+            resolved = LowerInterfacePropertyAddr(fb, member, ifaceType, recordedIndexSlots, preEvaluatedIndices);
             if (fb.IsTerminated || resolved is null) {
               return null;
             }
             break;
           }
 
-          IrOperand? basePtrOpt = ResolvePlaceAddr(fb, member.Target, ensureUniqueLeaf: false, recordedIndexSlots);
+          IrOperand? basePtrOpt = ResolvePlaceAddr(fb, member.Target, ensureUniqueLeaf: false, recordedIndexSlots, preEvaluatedIndices);
           if (fb.IsTerminated || basePtrOpt is not { } basePtr) {
             return null;
           }
@@ -52,14 +53,21 @@ public sealed partial class IrLowerer {
 
       case IndexExpressionSyntax index: {
           // Top-down CoW uniqueness on the container before taking an element address.
-          IrOperand? containerPtrOpt = ResolvePlaceAddr(fb, index.Target, ensureUniqueLeaf: true, recordedIndexSlots);
+          IrOperand? containerPtrOpt = ResolvePlaceAddr(fb, index.Target, ensureUniqueLeaf: true, recordedIndexSlots, preEvaluatedIndices);
           if (fb.IsTerminated || containerPtrOpt is not { } containerPtr) {
             return null;
           }
 
-          IrOperand? keyOpt = LowerExpression(fb, index.Index);
-          if (fb.IsTerminated || keyOpt is not { } keyVal) {
-            return null;
+          IrOperand keyVal;
+          if (preEvaluatedIndices is not null && preEvaluatedIndices.TryGetValue(index, out IrOperand cachedKey)) {
+            keyVal = cachedKey;
+          } else {
+            IrOperand? keyOpt = LowerExpression(fb, index.Index);
+            if (fb.IsTerminated || keyOpt is not { } loweredKey) {
+              return null;
+            }
+
+            keyVal = loweredKey;
           }
 
           var ptrType = (IrPtrType) _types.GetType(fb.GetOperandType(containerPtr));

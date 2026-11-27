@@ -1,0 +1,65 @@
+# covers: STR-6, VEC-3
+struct Doc {
+  mut lines []string
+
+  mut fn add_line_suffix(i int, suffix string) {
+    self:lines[i] += suffix
+  }
+}
+
+var captured = []string
+
+fn capture_and_return(v []string) string {
+  captured = v
+  return "!"
+}
+
+fn next_idx(mut calls int) int {
+  calls += 1
+  return 0
+}
+
+fn run_cow_capture() string {
+  var cow = ["hi" + "!"]
+  cow[0] += capture_and_return(cow)
+  return cow[0]
+}
+
+var xs = ["a" + "b", "c" + "d"]
+val v_snap = xs
+val e_snap = xs[0]
+
+xs[0] += "x"
+xs[0] = xs[0] + "y"
+
+xs[0] += xs[0]
+xs[1] = xs[1] + xs[1]
+
+var calls = 0
+xs[next_idx(mut calls)] += "z"
+val calls_after_plus_assign = calls
+xs[next_idx(mut calls)] = xs[next_idx(mut calls)] + "w"
+val calls_after_assign = calls
+
+var doc = Doc { lines: ["L0", "L1"] }
+val doc_snap = doc
+doc:add_line_suffix(1, "_ok")
+
+var grid = [["p" + "q", "r"], ["s"]]
+val grid_snap = grid
+grid[0][0] += "_end"
+
+val cow_after = run_cow_capture()
+
+println(v_snap[0])
+println(e_snap)
+println(xs[0])
+println(xs[1])
+println(calls_after_plus_assign)
+println(calls_after_assign)
+println(doc_snap:lines[1])
+println(doc:lines[1])
+println(grid_snap[0][0])
+println(grid[0][0])
+println(captured[0])
+println(cow_after)

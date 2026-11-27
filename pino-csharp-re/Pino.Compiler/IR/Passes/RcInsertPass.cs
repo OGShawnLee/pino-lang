@@ -992,7 +992,7 @@ public static class RcInsertPass {
     var ops = new List<IrOperand>();
 
     foreach (IrInstruction instr in b.Instructions) {
-      if (instr is CallDirect or CallClosure or CallIface or CallRuntime or StorePtr or CellSet) {
+      if (instr is CallDirect or CallClosure or CallIface or CallRuntime or StorePtr or CellSet or StrAppendPtr) {
         return false;
       }
 

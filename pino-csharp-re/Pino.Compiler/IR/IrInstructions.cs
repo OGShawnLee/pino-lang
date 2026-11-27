@@ -927,6 +927,18 @@ public sealed record StrAppendSlot(
   public override void CollectReadOperands(List<IrOperand> operands) => operands.Add(Right);
 }
 
+public sealed record StrAppendPtr(
+    IrOperand Ptr,
+    IrOperand Right,
+    AllocRegion Region,
+    SourceSpan Span = default) : IrInstruction(Span) {
+  public override AllocRegion? AllocationRegion => Region;
+  public override void CollectReadOperands(List<IrOperand> operands) {
+    operands.Add(Ptr);
+    operands.Add(Right);
+  }
+}
+
 public sealed record StrConcatN(
     IrTempId Dest,
     ImmutableArray<IrOperand> Parts,

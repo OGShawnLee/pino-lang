@@ -1094,6 +1094,137 @@ public sealed class RcInsertPassTests {
     Assert.Equal(2, CountInstructions<StrConcatRune>(runeFn));
   }
 
+  [Fact]
+  public void StringAppendPlace_UsesStrAppendPtrWithoutExtraRetainAndPreservesEvalOrder() {
+    const string Source = """
+      struct Inner {
+        mut buf string
+      }
+
+      struct Builder {
+        mut inner Inner
+        mut buf string
+
+        mut fn append_self_plus(piece string) {
+          self:buf += piece
+        }
+
+        mut fn append_self_assign(piece string) {
+          self:buf = self:buf + piece
+        }
+
+        mut fn append_nested(piece string) {
+          self:inner:buf += piece
+        }
+
+        mut fn mutate_self() string {
+          self:buf = "MUT"
+          return "!"
+        }
+
+        mut fn eval_order_method() {
+          self:buf += self:mutate_self()
+        }
+      }
+
+      fn mutate_builder(mut b Builder) string {
+        b:buf = "MUT"
+        return "!"
+      }
+
+      fn eval_order_mut_arg(mut b Builder) {
+        b:buf = b:buf + mutate_builder(mut b)
+      }
+
+      fn append_vec_plus(mut xs []string, i int, piece string) {
+        xs[i] += piece
+      }
+
+      fn append_vec_assign(mut xs []string, i int, piece string) {
+        xs[i] = xs[i] + piece
+      }
+
+      fn append_mut_param(mut s string, piece string) {
+        s += piece
+        s = s + piece
+      }
+
+      fn next_idx(mut n int) int {
+        n += 1
+        return 0
+      }
+
+      fn vec_side_effect_plus_assign(mut xs []string) int {
+        var n = 0
+        xs[next_idx(mut n)] += "z"
+        return n
+      }
+
+      fn vec_side_effect_assign(mut xs []string) int {
+        var n = 0
+        xs[next_idx(mut n)] = xs[next_idx(mut n)] + "z"
+        return n
+      }
+
+      fn vec_mutating_rhs(mut xs []string) {
+        xs[0] += xs:pop() or { yield "" }
+      }
+
+      fn append_place_rune(mut b Builder) {
+        b:buf += '!'
+      }
+      """;
+
+    IrModule module = LowerRunRcAndVerify(Source);
+
+    // Struct fields: StrAppendPtr emitted with zero StrConcat and zero LoadPtr+RcInc on target string.
+    foreach (string name in new[] { "Builder::append_self_plus", "Builder::append_self_assign", "Builder::append_nested" }) {
+      IrFunction fn = Assert.Single(module.Functions, f => f.Name == name);
+      Assert.Equal(1, CountInstructions<StrAppendPtr>(fn));
+      Assert.Equal(0, CountInstructions<StrConcat>(fn));
+      Assert.Equal(0, CountInstructions<LoadPtr>(fn));
+      Assert.Equal(0, CountInstructions<RcInc>(fn));
+    }
+
+    // Vector elements: StrAppendPtr emitted with zero StrConcat and zero LoadPtr on target string.
+    foreach (string name in new[] { "append_vec_plus", "append_vec_assign" }) {
+      IrFunction fn = Assert.Single(module.Functions, f => f.Name == name);
+      Assert.Equal(1, CountInstructions<StrAppendPtr>(fn));
+      Assert.Equal(0, CountInstructions<StrConcat>(fn));
+      Assert.Equal(0, CountInstructions<LoadPtr>(fn));
+      Assert.Equal(0, CountInstructions<RcInc>(fn));
+    }
+
+    // mut string parameter: both += and = s + piece use StrAppendPtr with zero LoadPtr / RcInc.
+    IrFunction mutParamFn = Assert.Single(module.Functions, static f => f.Name == "append_mut_param");
+    Assert.Equal(2, CountInstructions<StrAppendPtr>(mutParamFn));
+    Assert.Equal(0, CountInstructions<StrConcat>(mutParamFn));
+    Assert.Equal(0, CountInstructions<LoadPtr>(mutParamFn));
+    Assert.Equal(0, CountInstructions<RcInc>(mutParamFn));
+
+    // Side-effecting index in `+=` still evaluates index once and uses StrAppendPtr.
+    IrFunction sePlusFn = Assert.Single(module.Functions, static f => f.Name == "vec_side_effect_plus_assign");
+    Assert.Equal(1, CountInstructions<StrAppendPtr>(sePlusFn));
+    Assert.Equal(0, CountInstructions<StrConcat>(sePlusFn));
+
+    // Side-effecting index in `=` must NOT collapse the two index calls into StrAppendPtr.
+    IrFunction seAssignFn = Assert.Single(module.Functions, static f => f.Name == "vec_side_effect_assign");
+    Assert.Equal(0, CountInstructions<StrAppendPtr>(seAssignFn));
+    Assert.Equal(1, CountInstructions<StrConcat>(seAssignFn));
+
+    // Mutating RHS via mutating method, `mut` arg, or container mutating intrinsic preserves evaluation order.
+    foreach (string name in new[] { "Builder::eval_order_method", "eval_order_mut_arg", "vec_mutating_rhs" }) {
+      IrFunction fn = Assert.Single(module.Functions, f => f.Name == name);
+      Assert.Equal(0, CountInstructions<StrAppendPtr>(fn));
+      Assert.Equal(1, CountInstructions<StrConcat>(fn));
+    }
+
+    // Rune append on a place stays on StrConcatRune.
+    IrFunction runePlaceFn = Assert.Single(module.Functions, static f => f.Name == "append_place_rune");
+    Assert.Equal(0, CountInstructions<StrAppendPtr>(runePlaceFn));
+    Assert.Equal(1, CountInstructions<StrConcatRune>(runePlaceFn));
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------

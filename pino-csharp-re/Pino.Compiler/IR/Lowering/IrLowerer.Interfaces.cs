@@ -424,9 +424,10 @@ public sealed partial class IrLowerer {
       FunctionBuilder fb,
       MemberAccessExpressionSyntax member,
       InterfaceType ifaceType,
-      Dictionary<IndexExpressionSyntax, IrOperand>? recordedIndexSlots) {
+      Dictionary<IndexExpressionSyntax, IrOperand>? recordedIndexSlots,
+      Dictionary<IndexExpressionSyntax, IrOperand>? preEvaluatedIndices = null) {
     // CoW EnsureUnique on the interface place before taking property address (IFACE-4 / IQ-5).
-    IrOperand? ifacePtrOpt = ResolvePlaceAddr(fb, member.Target, ensureUniqueLeaf: true, recordedIndexSlots);
+    IrOperand? ifacePtrOpt = ResolvePlaceAddr(fb, member.Target, ensureUniqueLeaf: true, recordedIndexSlots, preEvaluatedIndices);
     if (fb.IsTerminated || ifacePtrOpt is not { } ifacePtr) {
       return null;
     }

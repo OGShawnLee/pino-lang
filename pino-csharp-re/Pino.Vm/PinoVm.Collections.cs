@@ -553,6 +553,38 @@ public sealed partial class PinoVm {
           return true;
         }
 
+      case OpKind.StrAppendPtr: {
+          var i = (StrAppendPtr) op.Instr!;
+          PlaceRef place = PlaceRef.FromValue(Val(func, regs, i.Ptr));
+          PinoVmString a = UseObject((PinoVmString) LoadPlace(place).Obj!, "string access");
+          PinoVmString b = StrFrom(func, regs, i.Right);
+          if (b.ByteLength == 0) {
+            return true;
+          }
+
+          if (a.ByteLength == 0) {
+            _rc.Inc(b);
+            DecObject(a);
+            StorePlace(place, PinoValue.FromObject(b));
+            return true;
+          }
+
+          if (a.ShadowRc == 1 && !a.IsBufferShared && !ReferenceEquals(a, b)) {
+            a.AppendInPlace(b.Span);
+            return true;
+          }
+
+          int needed = a.ByteLength + b.ByteLength;
+          int cap = Math.Max(16, needed);
+          var bytes = new byte[cap];
+          a.Span.CopyTo(bytes);
+          b.Span.CopyTo(bytes.AsSpan(a.ByteLength));
+          PinoVmString next = Alloc(new PinoVmString(bytes, 0, needed), _types.String, i.Region);
+          DecObject(a);
+          StorePlace(place, PinoValue.FromObject(next));
+          return true;
+        }
+
       case OpKind.StrConcatN: {
           var i = (StrConcatN) op.Instr!;
           int total = 0;

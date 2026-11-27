@@ -526,6 +526,10 @@ public sealed partial class IrLowerer {
 
     // General place path (VAR-4, D-182): evaluate path subexpressions ONCE left-to-right,
     // run top-down EnsureUnique, then store or read-modify-write through the resolved ptr<T>.
+    if (TryExtractPlaceStringAppendRhs(fb, assign, target, out ExpressionSyntax? placeAppendRhs)) {
+      return LowerPlaceStringAppend(fb, assign, target, placeAppendRhs!, resultUsed);
+    }
+
     IrOperand? placePtrOpt = ResolvePlaceAddr(fb, target, ensureUniqueLeaf: false);
     if (fb.IsTerminated || placePtrOpt is not { } placePtr) {
       return null;
@@ -554,6 +558,249 @@ public sealed partial class IrLowerer {
     IrOperand newVal = EmitArithmeticOp(fb, op, curVal, compRhs, assign.Span);
     fb.Emit(new StorePtr(placePtr, newVal, assign.Span));
     return newVal;
+  }
+
+  private IrOperand? LowerPlaceStringAppend(
+      FunctionBuilder fb,
+      AssignmentExpressionSyntax assign,
+      ExpressionSyntax target,
+      ExpressionSyntax rhsExpr,
+      bool resultUsed) {
+    Dictionary<IndexExpressionSyntax, IrOperand>? preEvaluatedIndices = null;
+    var indexNodes = new List<IndexExpressionSyntax>();
+    CollectPlaceIndexExpressionsLeftToRight(target, indexNodes);
+    if (indexNodes.Count > 0) {
+      preEvaluatedIndices = new Dictionary<IndexExpressionSyntax, IrOperand>(indexNodes.Count);
+      foreach (IndexExpressionSyntax idxNode in indexNodes) {
+        IrOperand? keyOpt = LowerExpression(fb, idxNode.Index);
+        if (fb.IsTerminated || keyOpt is not { } keyVal) {
+          return null;
+        }
+
+        preEvaluatedIndices[idxNode] = keyVal;
+      }
+    }
+
+    IrOperand? rhsOpt = LowerExpression(fb, rhsExpr);
+    if (fb.IsTerminated || rhsOpt is not { } rhs) {
+      return null;
+    }
+
+    IrOperand? placePtrOpt = ResolvePlaceAddr(
+        fb,
+        target,
+        ensureUniqueLeaf: false,
+        preEvaluatedIndices: preEvaluatedIndices);
+    if (fb.IsTerminated || placePtrOpt is not { } placePtr) {
+      return null;
+    }
+
+    fb.Emit(new StrAppendPtr(placePtr, rhs, AllocRegion.Heap, assign.Span));
+    if (!resultUsed) {
+      return null;
+    }
+
+    IrTempId appended = fb.AddTemp(_types.String);
+    fb.Emit(new LoadPtr(appended, placePtr, assign.Span));
+    return appended;
+  }
+
+  private bool TryExtractPlaceStringAppendRhs(
+      FunctionBuilder fb,
+      AssignmentExpressionSyntax assign,
+      ExpressionSyntax target,
+      out ExpressionSyntax? rhsExpr) {
+    rhsExpr = null;
+    if (!ReferenceEquals(fb.GetNodeType(target), _compilation.Types.String)) {
+      return false;
+    }
+
+    TokenKind op = assign.OperatorToken.Kind;
+    ExpressionSyntax candidate;
+    if (op == TokenKind.PlusAssign) {
+      candidate = assign.Value;
+    } else if (op == TokenKind.Assign
+        && fb.Model.GetConversion(assign.Value) is null or { Kind: ConversionKind.None }
+        && UnwrapParens(assign.Value) is BinaryExpressionSyntax { OperatorToken.Kind: TokenKind.Plus } bin
+        && fb.Model.GetConversion(bin.Left) is null or { Kind: ConversionKind.None }
+        && AreSamePurePlace(fb.Model, target, bin.Left)) {
+      candidate = bin.Right;
+    } else {
+      return false;
+    }
+
+    if (fb.Model.GetType(candidate) is not { } rawRhsType
+        || !ReferenceEquals(fb.ResolveType(rawRhsType), _compilation.Types.String)) {
+      return false;
+    }
+
+    if (ExpressionMayMutatePlace(fb, candidate, target)) {
+      return false;
+    }
+
+    rhsExpr = candidate;
+    return true;
+  }
+
+  private static void CollectPlaceIndexExpressionsLeftToRight(
+      ExpressionSyntax expr,
+      List<IndexExpressionSyntax> indices) {
+    switch (UnwrapParens(expr)) {
+      case MemberAccessExpressionSyntax mem:
+        CollectPlaceIndexExpressionsLeftToRight(mem.Target, indices);
+        break;
+      case IndexExpressionSyntax idx:
+        CollectPlaceIndexExpressionsLeftToRight(idx.Target, indices);
+        indices.Add(idx);
+        break;
+    }
+  }
+
+  private static bool AreSamePurePlace(SemanticModel model, ExpressionSyntax a, ExpressionSyntax b) {
+    ExpressionSyntax ua = UnwrapParens(a);
+    ExpressionSyntax ub = UnwrapParens(b);
+
+    if (ua is IdentifierExpressionSyntax idA && ub is IdentifierExpressionSyntax idB) {
+      return model.GetReferencedSymbol(idA) is { } symA
+          && ReferenceEquals(symA, model.GetReferencedSymbol(idB));
+    }
+
+    if (IsSelfMemberMatchingBareField(model, ua, ub) || IsSelfMemberMatchingBareField(model, ub, ua)) {
+      return true;
+    }
+
+    if (ua is MemberAccessExpressionSyntax memA && ub is MemberAccessExpressionSyntax memB) {
+      return AreSamePurePlace(model, memA.Target, memB.Target)
+          && NameOf(model, memA.MemberToken) == NameOf(model, memB.MemberToken);
+    }
+
+    if (ua is IndexExpressionSyntax idxA && ub is IndexExpressionSyntax idxB) {
+      return AreSamePurePlace(model, idxA.Target, idxB.Target)
+          && AreSamePureIndexExpr(model, idxA.Index, idxB.Index);
+    }
+
+    return false;
+  }
+
+  private static bool IsSelfMemberMatchingBareField(SemanticModel model, ExpressionSyntax memberCandidate, ExpressionSyntax identCandidate) =>
+      memberCandidate is MemberAccessExpressionSyntax mem
+          && UnwrapParens(mem.Target) is IdentifierExpressionSyntax selfId
+          && model.GetReferencedSymbol(selfId) is LocalSymbol selfLoc
+          && IsSelfLocal(selfLoc)
+          && identCandidate is IdentifierExpressionSyntax bareId
+          && model.GetReferencedSymbol(bareId) is FieldSymbol bareField
+          && model.GetReferencedSymbol(mem) is FieldSymbol memField
+          && ReferenceEquals(bareField, memField);
+
+  private static bool AreSamePureIndexExpr(SemanticModel model, ExpressionSyntax a, ExpressionSyntax b) {
+    ExpressionSyntax ua = UnwrapParens(a);
+    ExpressionSyntax ub = UnwrapParens(b);
+
+    if (ua is LiteralExpressionSyntax litA && ub is LiteralExpressionSyntax litB) {
+      return litA.Token.Kind == litB.Token.Kind
+          && NameOf(model, litA.Token) == NameOf(model, litB.Token);
+    }
+
+    if (ua is IdentifierExpressionSyntax idA && ub is IdentifierExpressionSyntax idB) {
+      return model.GetReferencedSymbol(idA) is { } symA
+          && ReferenceEquals(symA, model.GetReferencedSymbol(idB));
+    }
+
+    if (ua is MemberAccessExpressionSyntax memA && ub is MemberAccessExpressionSyntax memB) {
+      return AreSamePureIndexExpr(model, memA.Target, memB.Target)
+          && NameOf(model, memA.MemberToken) == NameOf(model, memB.MemberToken);
+    }
+
+    if (ua is UnaryExpressionSyntax unA && ub is UnaryExpressionSyntax unB) {
+      return unA.OperatorToken.Kind == unB.OperatorToken.Kind
+          && AreSamePureIndexExpr(model, unA.Operand, unB.Operand);
+    }
+
+    if (ua is BinaryExpressionSyntax binA && ub is BinaryExpressionSyntax binB) {
+      return binA.OperatorToken.Kind == binB.OperatorToken.Kind
+          && binA.OperatorToken.Kind is TokenKind.Plus or TokenKind.Minus or TokenKind.Star
+          && AreSamePureIndexExpr(model, binA.Left, binB.Left)
+          && AreSamePureIndexExpr(model, binA.Right, binB.Right);
+    }
+
+    return false;
+  }
+
+  private bool ExpressionMayMutatePlace(FunctionBuilder fb, SyntaxNode root, ExpressionSyntax targetPlace) {
+    if (TryGetPlaceRootIdentifier(targetPlace) is not { } targetRootId
+        || fb.Model.GetReferencedSymbol(targetRootId) is not { } targetRootSym) {
+      return true;
+    }
+
+    bool targetIsSelf = targetRootSym is FieldSymbol
+        || (targetRootSym is LocalSymbol selfLoc && IsSelfLocal(selfLoc));
+    bool targetIsGlobalOrCell = targetRootSym is LocalSymbol localSym
+        && (_globalIds.ContainsKey(localSym) || IsSymbolBoxedCell(fb, localSym));
+
+    var stack = new Stack<SyntaxNode>();
+    stack.Push(root);
+    while (stack.Count > 0) {
+      SyntaxNode node = stack.Pop();
+
+      if (targetIsGlobalOrCell && node is CallExpressionSyntax) {
+        return true;
+      }
+
+      if (node is AssignmentExpressionSyntax innerAssign
+          && TryGetPlaceRootIdentifier(innerAssign.Target) is { } assignRoot
+          && MatchesPlaceRoot(fb.Model.GetReferencedSymbol(assignRoot), targetRootSym, targetIsSelf)) {
+        return true;
+      }
+
+      if (node is ArgumentSyntax { MutKeyword: not null } mutArg
+          && TryGetPlaceRootIdentifier(mutArg.Expression) is { } mutRoot
+          && MatchesPlaceRoot(fb.Model.GetReferencedSymbol(mutRoot), targetRootSym, targetIsSelf)) {
+        return true;
+      }
+
+      if (node is CallExpressionSyntax call) {
+        CallResolution? res = fb.Model.GetCallResolution(call);
+        if (res is { Kind: CallKind.Intrinsic, Intrinsic: { } intr } && IsMutatingReceiverIntrinsic(intr)) {
+          if (UnwrapParens(call.Callee) is MemberAccessExpressionSyntax mem
+              && TryGetPlaceRootIdentifier(mem.Target) is { } recvRoot
+              && MatchesPlaceRoot(fb.Model.GetReferencedSymbol(recvRoot), targetRootSym, targetIsSelf)) {
+            return true;
+          }
+        } else if (res is { Kind: CallKind.InstanceMethod, TargetSymbol: MethodSymbol { IsMutating: true } }) {
+          if (res.HasImplicitSelf && targetIsSelf) {
+            return true;
+          }
+
+          if (!res.HasImplicitSelf
+              && UnwrapParens(call.Callee) is MemberAccessExpressionSyntax mem
+              && TryGetPlaceRootIdentifier(mem.Target) is { } recvRoot
+              && MatchesPlaceRoot(fb.Model.GetReferencedSymbol(recvRoot), targetRootSym, targetIsSelf)) {
+            return true;
+          }
+        }
+      }
+
+      foreach (SyntaxElement child in node.GetChildren()) {
+        if (child.IsNode) {
+          stack.Push(child.AsNode());
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private static bool MatchesPlaceRoot(Symbol? candidateSym, Symbol targetRootSym, bool targetIsSelf) {
+    if (candidateSym is null) {
+      return false;
+    }
+
+    if (ReferenceEquals(candidateSym, targetRootSym)) {
+      return true;
+    }
+
+    return targetIsSelf
+        && (candidateSym is FieldSymbol || (candidateSym is LocalSymbol local && IsSelfLocal(local)));
   }
 
   private bool TryExtractLocalStringAppendRhs(

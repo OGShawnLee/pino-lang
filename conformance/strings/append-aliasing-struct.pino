@@ -1,0 +1,71 @@
+# covers: STR-6, STRUCT-4, STRUCT-6
+struct Inner {
+  mut buf string
+}
+
+struct Outer {
+  mut inner Inner
+  mut buf string
+
+  mut fn push_piece(piece string) {
+    self:buf += piece
+  }
+
+  mut fn push_bare(piece string) {
+    buf = buf + piece
+  }
+
+  mut fn double_self() {
+    self:buf += self:buf
+  }
+
+  mut fn mutate_and_return() string {
+    self:buf = "MUT"
+    return "!"
+  }
+
+  mut fn eval_order_method() {
+    self:buf += self:mutate_and_return()
+  }
+}
+
+fn mutate_outer(mut o Outer) string {
+  o:buf = "CHANGED"
+  return "?"
+}
+
+var o = Outer { inner: Inner { buf: "in" + "0" }, buf: "a" + "b" }
+val o_snap = o
+val f_snap = o:buf
+val i_snap = o:inner
+val if_snap = o:inner:buf
+
+o:buf += "x"
+o:buf = o:buf + "y"
+o:push_piece("!")
+o:push_bare("?")
+
+o:inner:buf += "_1"
+o:inner:buf = o:inner:buf + "_2"
+
+var d = Outer { inner: Inner { buf: "" }, buf: "go" + "!" }
+val d_snap = d
+d:double_self()
+
+var e1 = Outer { inner: Inner { buf: "" }, buf: "old" }
+e1:buf += mutate_outer(mut e1)
+
+var e2 = Outer { inner: Inner { buf: "" }, buf: "orig" }
+e2:eval_order_method()
+
+println(o_snap:buf)
+println(f_snap)
+println(o:buf)
+println(o_snap:inner:buf)
+println(i_snap:buf)
+println(if_snap)
+println(o:inner:buf)
+println(d_snap:buf)
+println(d:buf)
+println(e1:buf)
+println(e2:buf)
