@@ -14,7 +14,8 @@ public sealed record CBuildOptions(
     string? ExecutableDirectory = null,
     string? WorkingDirectory = null,
     string? PathOverride = null,
-    OSPlatform? TargetPlatform = null);
+    OSPlatform? TargetPlatform = null,
+    bool Stats = false);
 
 public sealed record CBuildResult(
     bool Succeeded,
@@ -223,7 +224,8 @@ public static class CCompilerDriver {
             runtimeReDir,
             outExe,
             optimize: true,
-            debugRc: options.DebugRc);
+            debugRc: options.DebugRc,
+            stats: options.Stats);
 
         CExecResult res = RunProcess(cc, args, repoRoot, timeout: TimeSpan.FromMinutes(2));
         sw.Stop();
@@ -238,7 +240,8 @@ public static class CCompilerDriver {
               runtimeReDir,
               outExe,
               options.DebugRc,
-              targetPlatform);
+              targetPlatform,
+              options.Stats);
 
           CExecResult res = RunProcess(bundledTcc, args, repoRoot, timeout: TimeSpan.FromMinutes(1));
           sw.Stop();
@@ -252,7 +255,8 @@ public static class CCompilerDriver {
               runtimeReDir,
               outExe,
               optimize: false,
-              debugRc: options.DebugRc);
+              debugRc: options.DebugRc,
+              stats: options.Stats);
 
           CExecResult res = RunProcess(systemCc, args, repoRoot, timeout: TimeSpan.FromMinutes(2));
           sw.Stop();
@@ -268,7 +272,8 @@ public static class CCompilerDriver {
               runtimeReDir,
               outExe,
               options.DebugRc,
-              targetPlatform);
+              targetPlatform,
+              options.Stats);
 
           CExecResult res = RunProcess(pathTcc, args, repoRoot, timeout: TimeSpan.FromMinutes(1));
           sw.Stop();
@@ -302,7 +307,8 @@ public static class CCompilerDriver {
       string runtimeReDir,
       string outExe,
       bool optimize,
-      bool debugRc) {
+      bool debugRc,
+      bool stats = false) {
     List<string> args = [];
     if (optimize) {
       args.Add("-O3");
@@ -312,6 +318,10 @@ public static class CCompilerDriver {
     args.Add("-std=c99");
     if (debugRc) {
       args.Add("-DPINO_DEBUG_RC");
+    }
+
+    if (stats) {
+      args.Add("-DPINO_STATS");
     }
 
     args.Add($"-I{runtimeReDir}");
@@ -333,7 +343,8 @@ public static class CCompilerDriver {
       string runtimeReDir,
       string outExe,
       bool debugRc,
-      OSPlatform targetPlatform) {
+      OSPlatform targetPlatform,
+      bool stats = false) {
     List<string> args = [];
     if (isBundled && targetPlatform != OSPlatform.Windows) {
       string? tccDir = Path.GetDirectoryName(tccPath);
@@ -344,6 +355,10 @@ public static class CCompilerDriver {
 
     if (debugRc) {
       args.Add("-DPINO_DEBUG_RC");
+    }
+
+    if (stats) {
+      args.Add("-DPINO_STATS");
     }
 
     args.Add($"-I{runtimeReDir}");

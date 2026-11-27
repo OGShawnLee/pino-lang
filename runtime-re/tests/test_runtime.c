@@ -168,6 +168,17 @@ static int child_main(const char* name) {
     pino_dealloc(pino_cur_alloc, p, 16);
     return 0;
 #endif
+#ifdef PINO_STATS
+  } else if (strcmp(name, "stats_smoke") == 0) {
+    void* blk = PINO_ALLOC(pino_cur_alloc, 32, "stats block");
+    blk = PINO_REALLOC(pino_cur_alloc, blk, 32, 64, "stats block");
+    pino_dealloc(pino_cur_alloc, blk, 64);
+    PinoString s = pino_str_from_bytes("hi", 2);
+    PinoString s2 = pino_str_retain(s);
+    pino_str_release(s2);
+    pino_str_release(s);
+    return 0;
+#endif
   }
   return 0; /* reaching this means the expected panic did not happen */
 }
@@ -846,6 +857,20 @@ static void test_debug_mode(void) {
 }
 #endif
 
+#ifdef PINO_STATS
+static void test_stats_mode(void) {
+  char err[4096];
+  int code = run_child("stats_smoke", err, sizeof err);
+  if (code != 0 || !contains(err, "PINO_STATS allocs=")) {
+    printf("stats_smoke exit=%d stderr=<<%s>>\n", code, err);
+  }
+  CHECK(code == 0);
+  CHECK(contains(err, "PINO_STATS allocs="));
+  CHECK(contains(err, "reallocs=1"));
+  CHECK(contains(err, "rc_inc=1 rc_dec=2"));
+}
+#endif
+
 int main(int argc, char** argv) {
   g_argv0 = argv[0];
   if (argc >= 3 && strcmp(argv[1], "--child") == 0) {
@@ -865,6 +890,14 @@ int main(int argc, char** argv) {
 #ifdef PINO_DEBUG_RC
   test_debug_mode();
   CHECK(pino_debug_live_count() == 0);
+#endif
+#ifdef PINO_STATS
+  test_stats_mode();
+  CHECK(pino_stat_live_bytes == 0);
+  CHECK(pino_stat_peak_live_bytes > 0);
+  CHECK(pino_stat_realloc_count > 0);
+  CHECK(pino_stat_rc_inc_count > 0);
+  CHECK(pino_stat_rc_dec_count > 0);
 #endif
   CHECK(pino_stat_alloc_count == pino_stat_dealloc_count); /* nothing leaked in normal mode either */
 

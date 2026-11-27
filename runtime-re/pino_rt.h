@@ -54,6 +54,15 @@ extern uint64_t pino_stat_alloc_count;
 extern uint64_t pino_stat_dealloc_count;
 extern uint64_t pino_stat_alloc_bytes;
 
+#ifdef PINO_STATS
+/* Opt-in deterministic memory & RC telemetry (-DPINO_STATS). */
+extern uint64_t pino_stat_realloc_count;
+extern uint64_t pino_stat_live_bytes;
+extern uint64_t pino_stat_peak_live_bytes;
+extern uint64_t pino_stat_rc_inc_count;
+extern uint64_t pino_stat_rc_dec_count;
+#endif
+
 /* Allocate / reallocate / release through `a`. `type_name`, `file` and `line`
  * feed the -DPINO_DEBUG_RC live list; they are ignored otherwise. Allocation
  * failure prints a plain message and exits with code 101. `size` passed to
@@ -125,13 +134,22 @@ static inline int32_t pino_atomic_add_fetch(volatile int32_t* p, int32_t d) {
 static inline int32_t pino_atomic_inc(volatile int32_t* rc) { return pino_atomic_add_fetch(rc, -1); }
 static inline int32_t pino_atomic_dec(volatile int32_t* rc) { return pino_atomic_add_fetch(rc, 1); }
 
+/* Under -DPINO_STATS, rc_inc / rc_dec count actual reference-count operations
+ * on heap RC objects (local rc > 0 or atomic rc < 0), skipping arena and
+ * immortal singletons. Default builds emit zero extra instructions here. */
 static inline void pino_rc_inc(PinoRcHeader* h) {
   PINO_DEBUG_CHECK(h, "pino_rc_inc");
   if (h->rc > 0) {
+#ifdef PINO_STATS
+    pino_stat_rc_inc_count++;
+#endif
     h->rc++;
     return;
   }
   if (h->rc < 0 && h->rc != PINO_RC_IMMORTAL) {
+#ifdef PINO_STATS
+    pino_stat_rc_inc_count++;
+#endif
     pino_atomic_inc(&h->rc);
   }
 }
@@ -142,9 +160,15 @@ static inline void pino_rc_inc(PinoRcHeader* h) {
 static inline bool pino_rc_dec(PinoRcHeader* h) {
   PINO_DEBUG_CHECK(h, "pino_rc_dec");
   if (h->rc > 0) {
+#ifdef PINO_STATS
+    pino_stat_rc_dec_count++;
+#endif
     return --h->rc == 0;
   }
   if (h->rc < 0 && h->rc != PINO_RC_IMMORTAL) {
+#ifdef PINO_STATS
+    pino_stat_rc_dec_count++;
+#endif
     return pino_atomic_dec(&h->rc) == 0;
   }
   return false;

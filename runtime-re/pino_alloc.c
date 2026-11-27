@@ -31,6 +31,50 @@ uint64_t pino_stat_alloc_count = 0;
 uint64_t pino_stat_dealloc_count = 0;
 uint64_t pino_stat_alloc_bytes = 0;
 
+#ifdef PINO_STATS
+uint64_t pino_stat_realloc_count = 0;
+uint64_t pino_stat_live_bytes = 0;
+uint64_t pino_stat_peak_live_bytes = 0;
+uint64_t pino_stat_rc_inc_count = 0;
+uint64_t pino_stat_rc_dec_count = 0;
+
+static bool g_stats_registered = false;
+
+static void pino_stats_report(void) {
+  fflush(stdout);
+  fprintf(stderr,
+          "PINO_STATS allocs=%llu reallocs=%llu frees=%llu alloc_bytes=%llu peak_live_bytes=%llu rc_inc=%llu rc_dec=%llu\n",
+          (unsigned long long)pino_stat_alloc_count, (unsigned long long)pino_stat_realloc_count,
+          (unsigned long long)pino_stat_dealloc_count, (unsigned long long)pino_stat_alloc_bytes,
+          (unsigned long long)pino_stat_peak_live_bytes, (unsigned long long)pino_stat_rc_inc_count,
+          (unsigned long long)pino_stat_rc_dec_count);
+  fflush(stderr);
+}
+
+static void stats_registered_once(void) {
+  if (!g_stats_registered) {
+    g_stats_registered = true;
+    atexit(pino_stats_report);
+  }
+}
+
+static void stats_on_alloc(size_t size) {
+  stats_registered_once();
+  pino_stat_live_bytes += (uint64_t)size;
+  if (pino_stat_live_bytes > pino_stat_peak_live_bytes) {
+    pino_stat_peak_live_bytes = pino_stat_live_bytes;
+  }
+}
+
+static void stats_on_dealloc(size_t size) {
+  if ((uint64_t)size <= pino_stat_live_bytes) {
+    pino_stat_live_bytes -= (uint64_t)size;
+  } else {
+    pino_stat_live_bytes = 0;
+  }
+}
+#endif
+
 static void pino_out_of_memory(size_t size) {
   fflush(stdout);
   fprintf(stderr, "Out of memory: the program could not allocate %llu bytes.\n", (unsigned long long)size);
@@ -76,6 +120,9 @@ void* pino_alloc_at(PinoAlloc* a, size_t size, const char* type_name, const char
   (void)line;
   pino_stat_alloc_count++;
   pino_stat_alloc_bytes += size;
+#ifdef PINO_STATS
+  stats_on_alloc(size);
+#endif
   return a->alloc(a->ctx, size);
 }
 
@@ -84,9 +131,24 @@ void* pino_realloc_at(PinoAlloc* a, void* p, size_t old_size, size_t new_size, c
   (void)type_name;
   (void)file;
   (void)line;
+  if (p == NULL) {
+    return pino_alloc_at(a, new_size, type_name, file, line);
+  }
   if (new_size > old_size) {
     pino_stat_alloc_bytes += new_size - old_size;
   }
+#ifdef PINO_STATS
+  stats_registered_once();
+  pino_stat_realloc_count++;
+  if (new_size >= old_size) {
+    pino_stat_live_bytes += (uint64_t)(new_size - old_size);
+    if (pino_stat_live_bytes > pino_stat_peak_live_bytes) {
+      pino_stat_peak_live_bytes = pino_stat_live_bytes;
+    }
+  } else {
+    stats_on_dealloc(old_size - new_size);
+  }
+#endif
   return a->realloc(a->ctx, p, old_size, new_size);
 }
 
@@ -95,6 +157,9 @@ void pino_dealloc(PinoAlloc* a, void* p, size_t size) {
     return;
   }
   pino_stat_dealloc_count++;
+#ifdef PINO_STATS
+  stats_on_dealloc(size);
+#endif
   a->dealloc(a->ctx, p, size);
 }
 
@@ -180,6 +245,9 @@ void* pino_alloc_at(PinoAlloc* a, size_t size, const char* type_name, const char
   report_registered_once();
   pino_stat_alloc_count++;
   pino_stat_alloc_bytes += size;
+#ifdef PINO_STATS
+  stats_on_alloc(size);
+#endif
   PinoDebugNode* n = (PinoDebugNode*)a->alloc(a->ctx, PINO_DEBUG_PREFIX + size);
   memset(n, 0, PINO_DEBUG_PREFIX);
   n->magic = PINO_DEBUG_MAGIC;
@@ -230,6 +298,9 @@ void pino_dealloc(PinoAlloc* a, void* p, size_t size) {
     debug_fatal("the size given when freeing does not match the size allocated", p, "pino_dealloc");
   }
   pino_stat_dealloc_count++;
+#ifdef PINO_STATS
+  stats_on_dealloc(size);
+#endif
   unlink_node(n);
   n->magic = PINO_DEBUG_FREED_MAGIC;
   memset(p, PINO_DEBUG_POISON, n->size);
@@ -247,6 +318,9 @@ void* pino_realloc_at(PinoAlloc* a, void* p, size_t old_size, size_t new_size, c
   if (p == NULL) {
     return pino_alloc_at(a, new_size, type_name, file, line);
   }
+#ifdef PINO_STATS
+  pino_stat_realloc_count++;
+#endif
   PinoDebugNode* n = node_of(p);
   void* q = pino_alloc_at(a, new_size, n->type_name, n->file, n->line);
   PinoDebugNode* qn = node_of(q);

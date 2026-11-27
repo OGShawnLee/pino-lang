@@ -64,6 +64,7 @@ python benchmarks/run.py
 # Filter benchmarks, languages, run count, or timeout
 python benchmarks/run.py --only fib,nbody --lang pino-c,pino-gcc,go,rust --runs 3
 python benchmarks/run.py --quick --only fib --lang go,pino-vm --runs 2
+python benchmarks/run.py --quick --stats --lang pino-gcc,rust,go,python
 python benchmarks/run.py --timeout 60
 ```
 
@@ -84,7 +85,7 @@ Build and compile time is measured separately from execution time:
 
 Each run writes two files to `benchmarks/results/`:
 
-- `<YYYY-MM-DD>-<os>-<arch>.json`: machine details (CPU model, logical cores, RAM, OS), toolchain versions, Pino git commit, and raw timings (`median_ms`, `min_ms`, `max_ms`, `samples_ms`, plus `work_median_ms`, `work_min_ms`, `work_max_ms`, `work_samples_ms` for compute benchmarks, `build_ms`, status).
-- `<YYYY-MM-DD>-<os>-<arch>.md`: summary tables with wall-clock `## Execution Time (ms)`, in-process `## In-Process Work Time (ms)` (parsed from the `PINO_BENCH_MS=<ms>` line printed by the 10 compute benchmarks after setup/file-I/O and stripped before comparing against `expected.txt`), ratios **relative to Rust** (`1.00x` = same speed as Rust; higher = slower), and a separate build/compile time table.
+- `<YYYY-MM-DD>-<os>-<arch>.json`: machine details (CPU model, logical cores, RAM, OS), toolchain versions, Pino git commit, raw timings (`median_ms`, `min_ms`, `max_ms`, `samples_ms`, plus `work_median_ms`, `work_min_ms`, `work_max_ms`, `work_samples_ms` for compute benchmarks), `peak_rss_mb`, `builds[lang]["binary_kb"]`, `build_ms`, status, and optional `pino_stats` (`--stats`).
+- `<YYYY-MM-DD>-<os>-<arch>.md`: summary tables with wall-clock `## Execution Time (ms)`, in-process `## In-Process Work Time (ms)` (parsed from `PINO_BENCH_MS=<ms>`), ratios **relative to Rust**, `## Build / Compile Time (ms)`, `## Peak Memory (RSS, MB)`, `## Binary Size (KB)`, and (with `--stats`) `## Runtime Counters (-DPINO_STATS, pino-gcc)` (`allocs`, `reallocs`, `frees`, `peak_live_kb`, `rc_inc`, `rc_dec`).
 
 **Compare against the `hello` row:** because full sizes are kept compact (~5× the `--quick` sizes) so the suite runs well on any machine, the fastest compiled languages (`rust`, `go`, `pino-gcc`, `pino-c`) will land near their process startup time (the `hello` row) on some wall-clock rows, and runtimes with higher startup cost (`pino-vm`, `csharp`, `python`, `bun`) include that baseline in `## Execution Time (ms)`. The `## In-Process Work Time (ms)` table isolates steady-state compute throughput directly.

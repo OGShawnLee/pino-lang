@@ -233,6 +233,50 @@ public sealed class CCompilerDriverTests : IDisposable {
 
     Assert.DoesNotContain("-O3", devArgs);
     Assert.DoesNotContain("-flto", devArgs);
+    Assert.DoesNotContain("-DPINO_STATS", devArgs);
+
+    List<string> statsArgs = CCompilerDriver.BuildSystemCompilerArgs(
+        "prog.c",
+        "runtime-re",
+        "prog.exe",
+        optimize: true,
+        debugRc: false,
+        stats: true);
+
+    Assert.Contains("-DPINO_STATS", statsArgs);
+  }
+
+  [Fact]
+  public void Build_WithStatsTrue_EmitsPinoStatsSummaryOnStderr() {
+    string realRepo = CCompilerDriver.FindRepositoryRoot();
+    const string StatsC = """
+        #include "pino_rt.h"
+        int main(void) {
+          PinoString a = pino_str_from_bytes("hello", 5);
+          PinoString b = pino_str_retain(a);
+          pino_str_release(b);
+          pino_str_release(a);
+          return 0;
+        }
+        """;
+
+    string outExe = Path.Combine(_root, OperatingSystem.IsWindows() ? "stats_ok.exe" : "stats_ok");
+    CBuildResult build = CCompilerDriver.Build(new CBuildOptions(
+        CSource: StatsC,
+        OutputExecutablePath: outExe,
+        Release: false,
+        DebugRc: false,
+        RepoRoot: realRepo,
+        WorkingDirectory: _root,
+        Stats: true));
+
+    Assert.True(build.Succeeded, $"Stats build failed ({build.CompilerUsed}):\n{build.Stderr}\n{build.Stdout}");
+
+    CExecResult exec = CCompilerDriver.RunExecutable(outExe, _root, closeStdin: true);
+    Assert.Equal(0, exec.ExitCode);
+    string stderr = exec.Stderr.Replace("\r\n", "\n", StringComparison.Ordinal);
+    Assert.Contains("PINO_STATS allocs=1 reallocs=0 frees=1 ", stderr, StringComparison.Ordinal);
+    Assert.Contains("rc_inc=1 rc_dec=2", stderr, StringComparison.Ordinal);
   }
 
   [Fact]

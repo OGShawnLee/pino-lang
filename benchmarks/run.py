@@ -13,6 +13,7 @@ import shutil
 import statistics
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -553,6 +554,125 @@ def parse_bench_output(stdout: str) -> tuple[str, float | None]:
     return text, None
 
 
+def _get_windows_peak_rss_mb(handle: int) -> float | None:
+    try:
+        class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+            _fields_ = [
+                ("cb", ctypes.c_ulong),
+                ("PageFaultCount", ctypes.c_ulong),
+                ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t),
+            ]
+
+        fn = getattr(ctypes.windll.kernel32, "K32GetProcessMemoryInfo", None)
+        if fn is None:
+            fn = ctypes.windll.psapi.GetProcessMemoryInfo
+        fn.argtypes = [ctypes.c_void_p, ctypes.POINTER(PROCESS_MEMORY_COUNTERS), ctypes.c_ulong]
+        fn.restype = ctypes.c_int
+
+        pmc = PROCESS_MEMORY_COUNTERS()
+        pmc.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+        if fn(ctypes.c_void_p(handle), ctypes.byref(pmc), pmc.cb):
+            return pmc.PeakWorkingSetSize / (1024.0 * 1024.0)
+    except Exception:
+        return None
+    return None
+
+
+def _run_child_with_rss(cmd: list[str], timeout_s: float) -> tuple[int, str, str, float | None, float, bool]:
+    t0 = time.perf_counter()
+    if is_windows():
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(REPO_ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            return -1, "", "", None, (time.perf_counter() - t0) * 1000.0, True
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        rss_mb = _get_windows_peak_rss_mb(int(proc._handle))
+        return proc.returncode, stdout, stderr, rss_mb, elapsed_ms, False
+
+    if hasattr(os, "wait4"):
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(REPO_ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
+        timed_out = False
+
+        def on_timeout() -> None:
+            nonlocal timed_out
+            timed_out = True
+            try:
+                proc.kill()
+            except OSError:
+                pass
+
+        out_buf: list[str] = []
+        err_buf: list[str] = []
+
+        def drain(stream: Any, target: list[str]) -> None:
+            if stream is not None:
+                try:
+                    target.append(stream.read())
+                finally:
+                    stream.close()
+
+        t_out = threading.Thread(target=drain, args=(proc.stdout, out_buf), daemon=True)
+        t_err = threading.Thread(target=drain, args=(proc.stderr, err_buf), daemon=True)
+        timer = threading.Timer(timeout_s, on_timeout)
+        t_out.start()
+        t_err.start()
+        timer.start()
+        try:
+            _, status, rusage = os.wait4(proc.pid, 0)
+        finally:
+            timer.cancel()
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        t_out.join()
+        t_err.join()
+        proc.returncode = os.waitstatus_to_exitcode(status)
+        if timed_out:
+            return -1, "", "", None, elapsed_ms, True
+        rss_mb = (
+            rusage.ru_maxrss / (1024.0 * 1024.0)
+            if sys.platform == "darwin"
+            else rusage.ru_maxrss / 1024.0
+        )
+        return proc.returncode, "".join(out_buf), "".join(err_buf), rss_mb, elapsed_ms, False
+
+    try:
+        p = subprocess.run(
+            cmd,
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired:
+        return -1, "", "", None, (time.perf_counter() - t0) * 1000.0, True
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    return p.returncode, p.stdout, p.stderr, None, elapsed_ms, False
+
+
 def run_timed(
     cmd: list[str],
     expected: str | None,
@@ -586,28 +706,21 @@ def run_timed(
 
     samples: list[float] = []
     work_samples: list[float] = []
+    rss_samples: list[float] = []
     for _ in range(runs):
-        t0 = time.perf_counter()
-        try:
-            p = subprocess.run(
-                cmd,
-                cwd=str(REPO_ROOT),
-                capture_output=True,
-                text=True,
-                stdin=subprocess.DEVNULL,
-                timeout=timeout_s,
-            )
-        except subprocess.TimeoutExpired:
+        rc, stdout, stderr, rss_mb, elapsed_ms, timed_out = _run_child_with_rss(cmd, timeout_s)
+        if timed_out:
             return {"status": "TIMEOUT", "samples_ms": samples}
-        elapsed_ms = (time.perf_counter() - t0) * 1000.0
-        if p.returncode != 0:
-            return {"status": "CRASH", "returncode": p.returncode, "error": (p.stderr or p.stdout).strip()[:300]}
-        actual, work_ms = parse_bench_output(p.stdout)
+        if rc != 0:
+            return {"status": "CRASH", "returncode": rc, "error": (stderr or stdout).strip()[:300]}
+        actual, work_ms = parse_bench_output(stdout)
         if expected is not None and actual != expected:
             return {"status": "WRONG", "expected": expected[:200], "actual": actual[:200]}
         samples.append(round(elapsed_ms, 3))
         if work_ms is not None:
             work_samples.append(round(work_ms, 3))
+        if rss_mb is not None:
+            rss_samples.append(round(rss_mb, 2))
 
     entry: dict[str, Any] = {
         "status": "ok",
@@ -621,7 +734,131 @@ def run_timed(
         entry["work_min_ms"] = round(min(work_samples), 3)
         entry["work_max_ms"] = round(max(work_samples), 3)
         entry["work_samples_ms"] = work_samples
+    if len(rss_samples) == len(samples) and len(rss_samples) > 0:
+        entry["peak_rss_mb"] = round(statistics.median(rss_samples), 2)
     return entry
+
+
+def parse_pino_stats(stderr: str) -> dict[str, Any] | None:
+    for raw in reversed(stderr.replace("\r\n", "\n").splitlines()):
+        line = raw.strip()
+        if not line.startswith("PINO_STATS "):
+            continue
+        parsed: dict[str, int] = {}
+        for token in line[len("PINO_STATS "):].split():
+            if "=" not in token:
+                continue
+            k, v = token.split("=", 1)
+            try:
+                parsed[k] = int(v)
+            except ValueError:
+                return None
+        required = ("allocs", "reallocs", "frees", "alloc_bytes", "peak_live_bytes", "rc_inc", "rc_dec")
+        if all(k in parsed for k in required):
+            return {
+                "allocs": parsed["allocs"],
+                "reallocs": parsed["reallocs"],
+                "frees": parsed["frees"],
+                "alloc_bytes": parsed["alloc_bytes"],
+                "peak_live_bytes": parsed["peak_live_bytes"],
+                "peak_live_kb": round(parsed["peak_live_bytes"] / 1024.0, 2),
+                "rc_inc": parsed["rc_inc"],
+                "rc_dec": parsed["rc_dec"],
+            }
+    return None
+
+
+def collect_pino_stats(pino_exe: Path, benchmarks: list[str], quick: bool, timeout_s: float) -> dict[str, Any]:
+    cc = find_c_compiler()
+    if cc is None:
+        return {}
+    out_dir = BUILD_DIR / "pino-gcc-stats"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    runtime_re = REPO_ROOT / "runtime-re"
+    runtime_sources = [
+        str(runtime_re / "pino_alloc.c"),
+        str(runtime_re / "pino_str.c"),
+        str(runtime_re / "pino_io.c"),
+        str(runtime_re / "pino_regex.c"),
+    ]
+    stats_by_bench: dict[str, Any] = {}
+    for b in benchmarks:
+        src = BENCH_ROOT / b / "main.pino"
+        c_path = out_dir / f"{b}.c"
+        bin_path = out_dir / f"{b}{exe_suffix()}"
+        p_emit = subprocess.run(
+            [str(pino_exe), "compile", str(src), str(c_path)],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
+        if p_emit.returncode != 0:
+            stats_by_bench[b] = {"status": "BUILD_ERR", "error": (p_emit.stderr or p_emit.stdout).strip()[:300]}
+            continue
+
+        cmd_cc = [
+            cc,
+            "-O3",
+            "-flto",
+            "-std=c99",
+            "-DPINO_STATS",
+            f"-I{runtime_re}",
+            str(c_path),
+            *runtime_sources,
+            "-lm",
+            "-o",
+            str(bin_path),
+        ]
+        p_cc = subprocess.run(
+            cmd_cc,
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+        )
+        if p_cc.returncode != 0:
+            stats_by_bench[b] = {"status": "BUILD_ERR", "error": (p_cc.stderr or p_cc.stdout).strip()[:300]}
+            continue
+
+        try:
+            p_run = subprocess.run(
+                [str(bin_path)],
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                stdin=subprocess.DEVNULL,
+                timeout=timeout_s,
+            )
+        except subprocess.TimeoutExpired:
+            stats_by_bench[b] = {"status": "TIMEOUT"}
+            continue
+
+        if p_run.returncode != 0:
+            stats_by_bench[b] = {"status": "CRASH", "error": (p_run.stderr or p_run.stdout).strip()[:300]}
+            continue
+
+        expected = load_expected(b, quick)
+        actual, _ = parse_bench_output(p_run.stdout)
+        if expected is not None and actual != expected:
+            stats_by_bench[b] = {"status": "WRONG", "expected": expected[:200], "actual": actual[:200]}
+            continue
+
+        parsed = parse_pino_stats(p_run.stderr)
+        if parsed is None:
+            parsed = {
+                "allocs": 0,
+                "reallocs": 0,
+                "frees": 0,
+                "alloc_bytes": 0,
+                "peak_live_bytes": 0,
+                "peak_live_kb": 0.0,
+                "rc_inc": 0,
+                "rc_dec": 0,
+            }
+        parsed["status"] = "ok"
+        stats_by_bench[b] = parsed
+    return stats_by_bench
 
 
 def fmt_ms(v: float | None) -> str:
@@ -762,6 +999,64 @@ def render_markdown(report: dict[str, Any]) -> str:
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
 
+    # Peak memory (RSS, MB) table
+    lines.append("## Peak Memory (RSS, MB)")
+    lines.append("")
+    lines.append("Median peak resident set size in **MB** per timed run (lower is smaller).")
+    lines.append("")
+    lines.append("| " + " | ".join(cols) + " |")
+    lines.append("| " + " | ".join([":---"] + ["---:"] * len(langs)) + " |")
+    for b in benches:
+        row = [f"`{b}`"]
+        for lang in langs:
+            entry = results.get(b, {}).get(lang)
+            if entry and entry.get("status") == "ok" and entry.get("peak_rss_mb") is not None:
+                row.append(f"{entry['peak_rss_mb']:.2f}")
+            elif entry and entry.get("status") != "ok":
+                row.append(str(entry.get("status")))
+            else:
+                row.append("-")
+        lines.append("| " + " | ".join(row) + " |")
+    lines.append("")
+
+    # Binary size (KB) table
+    size_langs = [l for l in langs if l in ("pino-c", "pino-gcc", "go", "rust")]
+    if size_langs:
+        lines.append("## Binary Size (KB)")
+        lines.append("")
+        lines.append("Compiled native executable size on disk in **KB**.")
+        lines.append("")
+        lines.append("| Benchmark | " + " | ".join(size_langs) + " |")
+        lines.append("| :--- | " + " | ".join(["---:"] * len(size_langs)) + " |")
+        for b in benches:
+            row = [f"`{b}`"]
+            for l in size_langs:
+                sz = builds.get(l, {}).get("binary_kb", {}).get(b)
+                row.append(f"{sz:,.1f}" if sz is not None else "-")
+            lines.append("| " + " | ".join(row) + " |")
+        lines.append("")
+
+    # Optional -DPINO_STATS runtime counters table
+    pino_stats = report.get("pino_stats")
+    if pino_stats:
+        lines.append("## Runtime Counters (-DPINO_STATS, pino-gcc)")
+        lines.append("")
+        lines.append("Deterministic runtime allocation and RC counters (`pino-gcc` compiled with `-DPINO_STATS`).")
+        lines.append("")
+        lines.append("| Benchmark | allocs | reallocs | frees | peak_live_kb | rc_inc | rc_dec |")
+        lines.append("| :--- | ---: | ---: | ---: | ---: | ---: | ---: |")
+        for b in benches:
+            st = pino_stats.get(b)
+            if not st or st.get("status") != "ok":
+                err_st = st.get("status") if st else "-"
+                lines.append(f"| `{b}` | {err_st} | - | - | - | - | - |")
+            else:
+                lines.append(
+                    f"| `{b}` | {st['allocs']:,} | {st['reallocs']:,} | {st['frees']:,} | "
+                    f"{st['peak_live_kb']:,.2f} | {st['rc_inc']:,} | {st['rc_dec']:,} |"
+                )
+        lines.append("")
+
     return "\n".join(lines)
 
 
@@ -774,6 +1069,7 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=60.0, help="Timeout per run in seconds (default: 60).")
     parser.add_argument("--save", action="store_true", help="Force writing JSON/Markdown results even with --quick or filters.")
     parser.add_argument("--no-aot", action="store_true", help="Build Pino.Cli as regular Release JIT instead of NativeAOT.")
+    parser.add_argument("--stats", action="store_true", help="Also compile pino-gcc benchmarks with -DPINO_STATS and report RC/allocation counters.")
     args = parser.parse_args()
     if args.runs is None:
         args.runs = 1 if args.quick else 5
@@ -833,34 +1129,41 @@ def main() -> int:
     if "rust" in langs:
         print("Building Rust workspace (--release)...")
         rust_bins, ms, err = build_rust(benchmarks)
-        builds["rust"] = {"project_ms": round(ms, 2), "error": err}
+        rust_sizes = {b: round(p.stat().st_size / 1024.0, 1) for b, p in rust_bins.items() if p.exists()}
+        builds["rust"] = {"project_ms": round(ms, 2), "error": err, "binary_kb": rust_sizes}
         if err:
             print(f"  ERROR building Rust: {err}", file=sys.stderr)
 
     if "go" in langs:
-        builds["go"] = {"per_benchmark_ms": {}}
+        builds["go"] = {"per_benchmark_ms": {}, "binary_kb": {}}
         for b in benchmarks:
             bin_path, ms, err = build_go_one(b)
             builds["go"]["per_benchmark_ms"][b] = round(ms, 2)
             go_bins[b] = bin_path
+            if bin_path is not None and bin_path.exists():
+                builds["go"]["binary_kb"][b] = round(bin_path.stat().st_size / 1024.0, 1)
             if err:
                 build_errors[(b, "go")] = err
 
     if "pino-c" in langs and pino_exe is not None:
-        builds["pino-c"] = {"per_benchmark_ms": {}}
+        builds["pino-c"] = {"per_benchmark_ms": {}, "binary_kb": {}}
         for b in benchmarks:
             bin_path, ms, err = build_pino_native_one(pino_exe, b, release=False)
             builds["pino-c"]["per_benchmark_ms"][b] = round(ms, 2)
             pino_c_bins[b] = bin_path
+            if bin_path is not None and bin_path.exists():
+                builds["pino-c"]["binary_kb"][b] = round(bin_path.stat().st_size / 1024.0, 1)
             if err:
                 build_errors[(b, "pino-c")] = err
 
     if "pino-gcc" in langs and pino_exe is not None:
-        builds["pino-gcc"] = {"per_benchmark_ms": {}}
+        builds["pino-gcc"] = {"per_benchmark_ms": {}, "binary_kb": {}}
         for b in benchmarks:
             bin_path, ms, err = build_pino_native_one(pino_exe, b, release=True)
             builds["pino-gcc"]["per_benchmark_ms"][b] = round(ms, 2)
             pino_gcc_bins[b] = bin_path
+            if bin_path is not None and bin_path.exists():
+                builds["pino-gcc"]["binary_kb"][b] = round(bin_path.stat().st_size / 1024.0, 1)
             if err:
                 build_errors[(b, "pino-gcc")] = err
 
@@ -941,11 +1244,12 @@ def main() -> int:
             st = entry["status"]
             if st == "ok":
                 work_str = f"  work={entry['work_median_ms']:7.3f} ms" if "work_median_ms" in entry else ""
+                rss_str = f"  rss={entry['peak_rss_mb']:.2f} MB" if "peak_rss_mb" in entry else ""
                 print(
                     f"  {b:14s}  {lang:10s}  ok       "
                     f"median={entry['median_ms']:8.1f} ms  "
                     f"(min={entry['min_ms']:.1f}, max={entry['max_ms']:.1f})"
-                    f"{work_str}"
+                    f"{work_str}{rss_str}"
                 )
             elif st == "TIMEOUT":
                 print(f"  {b:14s}  {lang:10s}  TIMEOUT  (>{args.timeout:.0f}s)")
@@ -953,6 +1257,19 @@ def main() -> int:
                 any_failure = True
                 detail = entry.get("error") or f"expected={entry.get('expected')!r} actual={entry.get('actual')!r}"
                 print(f"  {b:14s}  {lang:10s}  {st:8s} {detail}")
+
+    pino_stats: dict[str, Any] = {}
+    if args.stats:
+        if pino_exe is None:
+            print("WARNING: --stats skipped because Pino.Cli was not built.", file=sys.stderr)
+        elif find_c_compiler() is None:
+            print("WARNING: --stats skipped because neither 'gcc' nor 'clang' was found on PATH.", file=sys.stderr)
+        else:
+            print("\nCollecting -DPINO_STATS runtime counters (pino-gcc)...")
+            pino_stats = collect_pino_stats(pino_exe, benchmarks, args.quick, args.timeout)
+            for b, st in pino_stats.items():
+                if st.get("status") != "ok":
+                    any_failure = True
 
     tool_versions = {
         "pino": run_version_cmd([str(pino_exe), "--version"]) if pino_exe else None,
@@ -965,7 +1282,7 @@ def main() -> int:
     }
 
     today = datetime.date.today().isoformat()
-    report = {
+    report: dict[str, Any] = {
         "date": today,
         "mode": "quick" if args.quick else "full",
         "runs": args.runs,
@@ -985,6 +1302,8 @@ def main() -> int:
         "builds": builds,
         "results": results,
     }
+    if pino_stats:
+        report["pino_stats"] = pino_stats
 
     md = render_markdown(report)
     print("\n" + md)

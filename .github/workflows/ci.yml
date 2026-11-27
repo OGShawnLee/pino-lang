@@ -109,6 +109,36 @@ jobs:
           PINO_TEST_TIME_SCALE: '5'
         run: dotnet test pino-csharp-re/Pino.sln --no-build --logger trx --results-directory TestResults/linux < /dev/null
 
+      - name: Sanitizer check (ASan + UBSan)
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcc -std=c99 -O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Wall -Wextra -Werror \
+            -Iruntime-re runtime-re/tests/test_runtime.c runtime-re/pino_alloc.c runtime-re/pino_str.c \
+            runtime-re/pino_io.c runtime-re/pino_regex.c -lm -o /tmp/test_runtime_san
+          ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 /tmp/test_runtime_san
+
+          PINO_CLI="pino-csharp-re/Pino.Cli/bin/Debug/net10.0/pino"
+          mkdir -p /tmp/pino-san benchmarks/data
+          touch benchmarks/data/quick
+
+          compile_and_run_san() {
+            local name="$1"
+            local src="$2"
+            local c_out="/tmp/pino-san/${name}.c"
+            local bin_out="/tmp/pino-san/${name}"
+            "$PINO_CLI" compile "$src" "$c_out"
+            gcc -std=c99 -O3 -flto -g -fsanitize=address,undefined -fno-omit-frame-pointer \
+              -Iruntime-re "$c_out" runtime-re/pino_alloc.c runtime-re/pino_str.c \
+              runtime-re/pino_io.c runtime-re/pino_regex.c -lm -o "$bin_out"
+            ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 "$bin_out" < /dev/null
+          }
+
+          compile_and_run_san "append-aliasing-mut-param" "conformance/strings/append-aliasing-mut-param.pino"
+          compile_and_run_san "append-aliasing-struct" "conformance/strings/append-aliasing-struct.pino"
+          compile_and_run_san "string-build" "benchmarks/string-build/main.pino"
+          rm -rf benchmarks/data /tmp/pino-san /tmp/test_runtime_san
+
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v7
